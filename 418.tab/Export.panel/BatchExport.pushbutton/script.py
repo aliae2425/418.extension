@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 
+import sys
+# Assurer la compatibilité UTF-8
+if sys.version_info[0] >= 3:
+    unicode = str
+
 # ------------------------------- info pyrevit ------------------------------- #
 __title__ = "Exportation"
 __doc__ = """
@@ -28,8 +33,9 @@ from pyrevit.forms import alert
 from pyrevit.framework import List
 from re import sub
 
+import config
+
 # Importer les fonctions de configuration
-from config import select_export_folder, get_export_path, ensure_export_path, EXPORT_PATH
 
 activ_document   = __revit__.ActiveUIDocument.Document
 new_doc = revit.DOCS.doc
@@ -41,22 +47,40 @@ custom_params = ["Exportation", "Carnet", "DWG"]
 
 if __name__ == "__main__":
     print("Hello Batch Export")
-    
-    # === SÉLECTION DU DOSSIER D'EXPORT ===
-    # Ouvrir la fenêtre de sélection de dossier
-    export_folder = select_export_folder()
-    
-    if not export_folder:
-        print("Aucun dossier sélectionné. Arrêt du script.")
-        exit()
-    
-    print(f"Dossier d'export sélectionné: {export_folder}")
-    
+     
     # Récupérer tous les jeux de feuilles du document
     collector = DB.FilteredElementCollector(activ_document)
     sheet_sets = collector.OfClass(DB.SheetCollection).ToElements()
 
-
+    if not sheet_sets:
+        alert("Aucun jeu de feuilles trouvé dans le document.", title="Batch Export")
+        script.exit()
+    
+    if sheet_sets[0].IsValidObject:
+        flag = True
+        for param in custom_params:
+            if sheet_sets[0].LookupParameter(param) == None :
+                flag = False
+        if not flag:
+            # Proposer de créer les paramètres manquants
+            result = alert(
+                "Les paramètres personnalisés requis ne sont pas présents dans les jeux de feuilles.\n\n"
+                "Voulez-vous les créer automatiquement ?",
+                title="Paramètres manquants",
+                yes=True, no=True
+            )
+            
+            if result:
+                print("Création des paramètres de projet...")
+                if config.create_sheet_parameters():
+                    alert("Paramètres créés avec succès ! Relancez le script.", title="Succès")
+                else:
+                    alert("Erreur lors de la création des paramètres.", title="Erreur")
+                script.exit()
+            else:
+                script.exit()
+            
+            
 
     # print(sheet_sets.Count)
     for sheet_set in sheet_sets:
