@@ -45,6 +45,50 @@ app   = __revit__.Application
 custom_params = ["Exportation", "Carnet", "DWG"]
 
 
+def create_custom_parameter(param_name):
+    with DB.Transaction(activ_document, "Créer paramètre") as t:
+        t.Start()
+        try:
+            DB.ExternalDefinitionCreationOptions(param_name, SpecTypeId.Boolean.YesNo)
+        except Exception as e:
+            print("Erreur lors de la création du paramètre '%s': %s" % (param_name, str(e)))
+            return False
+        t.Commit()
+    return True
+
+def check_missing_parameters(sheet_set):
+    missing_params = []
+    for param in custom_params:
+        if sheet_set.LookupParameter(param) is None:
+            missing_params.append(param)
+    return missing_params
+
+def check_base_parameters(sheet_sets):
+    if sheet_sets[0].IsValidObject:
+        missing_params = check_missing_parameters(sheet_sets[0])
+        if len(missing_params)>0:
+            # Proposer de créer les paramètres manquants
+            result = alert(
+                "%s parametres manquants détectés.\n\n" %  len(missing_params) + \
+                "Les paramètres personnalisés requis ne sont pas présents dans les jeux de feuilles.\n\n"
+                "Voulez-vous les créer automatiquement ?",
+                title="Paramètres manquants",
+                yes=True, no=True
+            )
+            
+            if result:
+                print("Création des paramètres de projet...")
+                for param in missing_params:
+                    if create_custom_parameter(param):
+                        alert("Paramètres créés avec succès ! Relancez le script.", title="Succès")
+                    else:
+                        alert("Erreur lors de la création des paramètres.", title="Erreur")
+                    script.exit()
+            else:
+                script.exit()
+    return True
+
+
 if __name__ == "__main__":
     print("Hello Batch Export")
      
@@ -56,38 +100,15 @@ if __name__ == "__main__":
         alert("Aucun jeu de feuilles trouvé dans le document.", title="Batch Export")
         script.exit()
     
-    if sheet_sets[0].IsValidObject:
-        flag = True
-        for param in custom_params:
-            if sheet_sets[0].LookupParameter(param) == None :
-                flag = False
-        if not flag:
-            # Proposer de créer les paramètres manquants
-            result = alert(
-                "Les paramètres personnalisés requis ne sont pas présents dans les jeux de feuilles.\n\n"
-                "Voulez-vous les créer automatiquement ?",
-                title="Paramètres manquants",
-                yes=True, no=True
-            )
+    # Vérifier la présence des paramètres personnalisés
+    if check_base_parameters(sheet_sets):
+        print("Liste des jeux de feuilles et valeurs des paramètres personnalisés:")
+        # print(sheet_sets.Count)
+        for sheet_set in sheet_sets:
+            print("nom : %s" % sheet_set.Name)
+            for param_name in custom_params:
+                param = sheet_set.LookupParameter(param_name)
+                if param:
+                    value = param.AsInteger()  # ou AsString(), AsDouble()
+                    print("    %s : %s" % (param_name, value))
             
-            if result:
-                print("Création des paramètres de projet...")
-                if config.create_sheet_parameters():
-                    alert("Paramètres créés avec succès ! Relancez le script.", title="Succès")
-                else:
-                    alert("Erreur lors de la création des paramètres.", title="Erreur")
-                script.exit()
-            else:
-                script.exit()
-            
-            
-
-    # print(sheet_sets.Count)
-    for sheet_set in sheet_sets:
-        print("nom : %s" % sheet_set.Name)
-        for param_name in custom_params:
-            param = sheet_set.LookupParameter(param_name)
-            if param:
-                value = param.AsInteger()  # ou AsString(), AsDouble()
-                print("    %s : %s" % (param_name, value))
-        
