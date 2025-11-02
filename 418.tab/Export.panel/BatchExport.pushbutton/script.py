@@ -45,11 +45,19 @@ app   = __revit__.Application
 custom_params = ["Exportation", "Carnet", "DWG"]
 
 
-def create_custom_parameter(param_name):
+def create_custom_parameter(param_name, sheet_set):
     with DB.Transaction(activ_document, "Créer paramètre") as t:
         t.Start()
         try:
-            DB.ExternalDefinitionCreationOptions(param_name, SpecTypeId.Boolean.YesNo)
+            external_definition = DB.ExternalDefinitionCreationOptions(param_name, DB.SpecTypeId.Boolean.YesNo)
+            print(type(sheet_set), dir(sheet_set))
+            sheet_set.Document.FamilyManager.AddParameter(external_definition, DB.BuiltInParameterGroup.PG_TEXT, False)
+            """
+            AddParameter(
+                ExternalDefinition familyDefinition,
+                ForgeTypeId groupTypeId,
+                bool isInstance
+            )"""
         except Exception as e:
             print("Erreur lors de la création du paramètre '%s': %s" % (param_name, str(e)))
             return False
@@ -75,15 +83,16 @@ def check_base_parameters(sheet_sets):
                 title="Paramètres manquants",
                 yes=True, no=True
             )
-            
+
             if result:
                 print("Création des paramètres de projet...")
+                print(type(missing_params[0]))
                 for param in missing_params:
-                    if create_custom_parameter(param):
+                    if create_custom_parameter(param, sheet_sets[0]):
                         alert("Paramètres créés avec succès ! Relancez le script.", title="Succès")
                     else:
                         alert("Erreur lors de la création des paramètres.", title="Erreur")
-                    script.exit()
+#                    script.exit()
             else:
                 script.exit()
     return True
