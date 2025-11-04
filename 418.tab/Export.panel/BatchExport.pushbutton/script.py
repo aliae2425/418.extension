@@ -45,19 +45,25 @@ app   = __revit__.Application
 custom_params = ["Exportation", "Carnet", "DWG"]
 
 
-def create_custom_parameter(param_name, sheet_set):
+def create_custom_parameter(param_name):
+    print("Creating parameter: %s" % param_name)
+    group = DB.GroupTypeId.IdentityData
+    SheetCollectionClass = DB.CategorySet()
+    SheetCollectionClass.Insert(activ_document.Settings.Categories.get_Item(DB.BuiltInCategory.OST_SheetCollections))
+
+    pram_option = DB.ExternalDefinitionCreationOptions(param_name, DB.SpecTypeId.Boolean.YesNo)
+    pram_option.Visible = True
+
+
+
+    # print(dir(DB.CategorySet()))
+    
     with DB.Transaction(activ_document, "Créer paramètre") as t:
         t.Start()
         try:
-            external_definition = DB.ExternalDefinitionCreationOptions(param_name, DB.SpecTypeId.Boolean.YesNo)
-            print(type(sheet_set), dir(sheet_set))
-            sheet_set.Document.FamilyManager.AddParameter(external_definition, DB.BuiltInParameterGroup.PG_TEXT, False)
-            """
-            AddParameter(
-                ExternalDefinition familyDefinition,
-                ForgeTypeId groupTypeId,
-                bool isInstance
-            )"""
+            binding = DB.InstanceBinding(SheetCollectionClass)
+            P_map = activ_document.ParameterBindings
+            P_map.Insert(pram_option, binding, group)
         except Exception as e:
             print("Erreur lors de la création du paramètre '%s': %s" % (param_name, str(e)))
             return False
@@ -88,7 +94,7 @@ def check_base_parameters(sheet_sets):
                 print("Création des paramètres de projet...")
                 print(type(missing_params[0]))
                 for param in missing_params:
-                    if create_custom_parameter(param, sheet_sets[0]):
+                    if create_custom_parameter(param):
                         alert("Paramètres créés avec succès ! Relancez le script.", title="Succès")
                     else:
                         alert("Erreur lors de la création des paramètres.", title="Erreur")
