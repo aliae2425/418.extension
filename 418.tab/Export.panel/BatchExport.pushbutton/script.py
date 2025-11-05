@@ -117,13 +117,13 @@ if __name__ == "__main__":
     
     # Vérifier la présence des paramètres personnalisés
     if check_base_parameters(sheet_sets):
-        print("Liste des jeux de feuilles et valeurs des paramètres personnalisés:")
+        # print("Liste des jeux de feuilles et valeurs des paramètres personnalisés:")
         # print(sheet_sets.Count)
-        for sheet_set in sheet_sets:
-            print("nom : %s" % sheet_set.Name)
-            for param_name in custom_params:
-                param = sheet_set.LookupParameter(param_name)
-                if param:
-                    value = param.AsInteger()  # ou AsString(), AsDouble()
-                    print("    %s : %s" % (param_name, value))
+        # for sheet_set in sheet_sets:
+        #     print("nom : %s" % sheet_set.Name)
+        #     for param_name in custom_params:
+        #         param = sheet_set.LookupParameter(param_name)
+        #         if param:
+        #             value = param.AsInteger()  # ou AsString(), AsDouble()
+        #             print("    %s : %s" % (param_name, value))
             
