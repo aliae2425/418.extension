@@ -1,14 +1,9 @@
 # -*- coding: utf-8 -*-
 
-import sys
-# Assurer la compatibilité UTF-8
-if sys.version_info[0] >= 3:
-    unicode = str
-
 # ------------------------------- info pyrevit ------------------------------- #
 __title__ = "Exportation"
 __doc__ = """
-    Version 0.0.1
+    Version 0.1 - Version nettoyée
     Auteur : Aliae
     _____________________________________________
 
@@ -18,95 +13,51 @@ __doc__ = """
     Export par feuilles : exporte les feuilles une par une, par defaut export en carnet compilé avec le nom du jeu
     Export en DWG : Export en DWG en plus du PDF
     _____________________________________________
-
-
 """
 __author__ = 'Aliae'                               
 __min_revit_ver__ = 2026                                       
-# __max_revit_ver__ = 2026
 
-# ------------------------------- info pyrevit ------------------------------- #
-from pyrevit.userconfig import user_config
+# ------------------------------- Imports ------------------------------- #
 from pyrevit import script, forms
-from pyrevit import DB, HOST_APP, UI, revit, script
+from pyrevit import DB, revit
 from pyrevit.forms import alert
-from pyrevit.framework import List
-from re import sub
 
-import config
-
-# Importer les fonctions de configuration
-
-activ_document   = __revit__.ActiveUIDocument.Document
-new_doc = revit.DOCS.doc
-uidoc = __revit__.ActiveUIDocument
-app   = __revit__.Application
-
+# ------------------------------- Variables globales ------------------------------- #
+activ_document = __revit__.ActiveUIDocument.Document
+app = __revit__.Application
 custom_params = ["Exportation", "Carnet", "DWG"]
 
+# ------------------------------- Fonctions ------------------------------- #
 
-def create_custom_parameter(param_name):
-    print("Creating parameter: %s" % param_name)
-    group = DB.GroupTypeId.IdentityData
-    SheetCollectionClass = DB.CategorySet()
-    SheetCollectionClass.Insert(activ_document.Settings.Categories.get_Item(DB.BuiltInCategory.OST_SheetCollections))
-
-    pram_option = DB.ExternalDefinitionCreationOptions(param_name, DB.SpecTypeId.Boolean.YesNo)
-    pram_option.Visible = True
-
-
-
-    # print(dir(DB.CategorySet()))
-    
-    with DB.Transaction(activ_document, "Créer paramètre") as t:
-        t.Start()
-        try:
-            binding = DB.InstanceBinding(SheetCollectionClass)
-            P_map = activ_document.ParameterBindings
-            P_map.Insert(pram_option, binding, group)
-        except Exception as e:
-            print("Erreur lors de la création du paramètre '%s': %s" % (param_name, str(e)))
-            return False
-        t.Commit()
-    return True
-
-def check_missing_parameters(sheet_set):
+def check_parameters_exist(sheet_set):
+    """Vérifie si tous les paramètres requis existent sur un jeu de feuilles"""
     missing_params = []
-    for param in custom_params:
-        if sheet_set.LookupParameter(param) is None:
-            missing_params.append(param)
+    for param_name in custom_params:
+        if sheet_set.LookupParameter(param_name) is None:
+            missing_params.append(param_name)
     return missing_params
 
-def check_base_parameters(sheet_sets):
-    if sheet_sets[0].IsValidObject:
-        missing_params = check_missing_parameters(sheet_sets[0])
-        if len(missing_params)>0:
-            # Proposer de créer les paramètres manquants
-            result = alert(
-                "%s parametres manquants détectés.\n\n" %  len(missing_params) + \
-                "Les paramètres personnalisés requis ne sont pas présents dans les jeux de feuilles.\n\n"
-                "Voulez-vous les créer automatiquement ?",
-                title="Paramètres manquants",
-                yes=True, no=True
-            )
-
-            if result:
-                print("Création des paramètres de projet...")
-                print(type(missing_params[0]))
-                for param in missing_params:
-                    if create_custom_parameter(param):
-                        alert("Paramètres créés avec succès ! Relancez le script.", title="Succès")
-                    else:
-                        alert("Erreur lors de la création des paramètres.", title="Erreur")
-#                    script.exit()
+def display_sheet_sets_info(sheet_sets):
+    """Affiche les informations des jeux de feuilles et leurs paramètres"""
+    print("\n=== {} jeu(x) de feuilles trouvé(s) ===".format(len(sheet_sets)))
+    
+    for sheet_set in sheet_sets:
+        print("\nJeu de feuilles: {}".format(sheet_set.Name))
+        
+        for param_name in custom_params:
+            param = sheet_set.LookupParameter(param_name)
+            if param and param.HasValue:
+                value = param.AsInteger()
+                display_value = "Oui" if value == 1 else "Non"
+                print("    {}: {}".format(param_name, display_value))
             else:
-                script.exit()
-    return True
+                print("    {}: Non défini".format(param_name))
 
+# ------------------------------- Script principal ------------------------------- #
 
 if __name__ == "__main__":
-    print("Hello Batch Export")
-     
+    print("=== Hello Batch Export ===")
+    
     # Récupérer tous les jeux de feuilles du document
     collector = DB.FilteredElementCollector(activ_document)
     sheet_sets = collector.OfClass(DB.SheetCollection).ToElements()
@@ -115,15 +66,21 @@ if __name__ == "__main__":
         alert("Aucun jeu de feuilles trouvé dans le document.", title="Batch Export")
         script.exit()
     
-    # Vérifier la présence des paramètres personnalisés
-    if check_base_parameters(sheet_sets):
-        # print("Liste des jeux de feuilles et valeurs des paramètres personnalisés:")
-        # print(sheet_sets.Count)
-        # for sheet_set in sheet_sets:
-        #     print("nom : %s" % sheet_set.Name)
-        #     for param_name in custom_params:
-        #         param = sheet_set.LookupParameter(param_name)
-        #         if param:
-        #             value = param.AsInteger()  # ou AsString(), AsDouble()
-        #             print("    %s : %s" % (param_name, value))
+    # Vérifier les paramètres sur le premier jeu de feuilles
+    if sheet_sets and sheet_sets[0].IsValidObject:
+        missing_params = check_parameters_exist(sheet_sets[0])
+        
+        if missing_params:
+            message = "Paramètres manquants détectés:\n\n"
+            for param in missing_params:
+                message += "- {}\n".format(param)
+            message += "\nCes paramètres doivent être créés manuellement dans Revit.\n"
+            message += "Allez dans Gérer > Paramètres de projet pour les créer."
             
+            alert(message, title="Paramètres manquants")
+            print("Paramètres manquants: {}".format(", ".join(missing_params)))
+        else:
+            print("Tous les paramètres requis sont présents !")
+            display_sheet_sets_info(sheet_sets)
+    
+    print("\n=== Fin du script ===")
