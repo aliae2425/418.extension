@@ -21,112 +21,71 @@ __min_revit_ver__ = 2026
 from pyrevit import script, forms
 from pyrevit import DB, revit
 from pyrevit.forms import alert
-import unicodedata
-import re
+import config
 
 # ------------------------------- Variables globales ------------------------------- #
 activ_document = __revit__.ActiveUIDocument.Document
 app = __revit__.Application
 
-# Dictionnaire d'alias: clé canonique -> variantes acceptées
-CUSTOM_PARAM_ALIASES = {
-    "Exportation": [
-        "Exportation", "Export", "Exporter",
-        "Export PDF", "Export en PDF", "PDF Export"
-    ],
-    "Carnet": [
-        "Carnet", "Carnets", "Regroupement", "Regrouper","Regroupé"
-    ],
-    "DWG": [
-        "DWG", "Export DWG", "DWGs", "D.W.G.", "Export en DWG"
-    ],
-}
+REQUIRED_KEYS = ["Exportation", "Carnet", "DWG"]
 
 # ------------------------------- Fonctions ------------------------------- #
 
-def _normalize(text):
-    """Normalise une chaîne pour comparaison tolérante (sans accents, insensible à la casse, sans ponctuation)."""
-    if text is None:
-        return ""
-    # Enlever accents
-    text = unicodedata.normalize('NFD', text)
-    text = "".join(ch for ch in text if unicodedata.category(ch) != 'Mn')
-    # Minuscule + enlever tout ce qui n'est pas alphanumérique
-    text = text.strip().lower()
-    return "".join(ch for ch in text if ch.isalnum())
-
-def get_param_by_alias(element, canonical_key):
-    """Retourne (param, alias_trouvé) si un paramètre correspondant aux alias de canonical_key est trouvé sur l'élément."""
-    aliases = CUSTOM_PARAM_ALIASES.get(canonical_key, [canonical_key])
-
-    # 1) Tentative directe via LookupParameter pour chaque alias (rapide)
-    for name in aliases:
-        try:
-            p = element.LookupParameter(name)
-            if p:
-                return p, name
-        except Exception:
-            pass
-
-    # 2) Fallback: balayage de tous les paramètres et comparaison normalisée
-    alias_norm_map = {_normalize(a): a for a in aliases}
+def _param_value_to_str(param):
+    if not param:
+        return "Non défini"
+    if not param.HasValue:
+        return "Non défini"
+    # Oui/Non
     try:
-        for p in element.Parameters:
-            try:
-                defn = p.Definition
-                pname = getattr(defn, 'Name', None)
-                if pname and _normalize(pname) in alias_norm_map:
-                    return p, alias_norm_map[_normalize(pname)]
-            except Exception:
-                continue
+        val = param.AsInteger()
+        if val in (0, 1):
+            return "Oui" if val == 1 else "Non"
     except Exception:
         pass
+    # Chaîne
+    try:
+        s = param.AsString()
+        if s is not None:
+            return s
+    except Exception:
+        pass
+    # Nombre
+    try:
+        d = param.AsDouble()
+        if d is not None:
+            return str(d)
+    except Exception:
+        pass
+    return "(valeur non lisible)"
 
-    return None, None
-
-def check_parameters_exist(sheet_set):
-    """Vérifie si tous les paramètres requis existent (avec alias) sur un jeu de feuilles."""
-    missing_params = []
-    for canonical in CUSTOM_PARAM_ALIASES.keys():
-        p, _found = get_param_by_alias(sheet_set, canonical)
-        if not p:
-            missing_params.append(canonical)
-    return missing_params
-
-def display_sheet_sets_info(sheet_sets):
-    """Affiche les informations des jeux de feuilles et leurs paramètres (avec alias)."""
+def display_sheet_sets_info(sheet_sets, mapping):
+    """Affiche les informations des jeux de feuilles et leurs paramètres (noms exacts du mapping)."""
     print("\n=== {} jeu(x) de feuilles trouvé(s) ===".format(len(sheet_sets)))
-    
     for sheet_set in sheet_sets:
         print("\nJeu de feuilles: {}".format(sheet_set.Name))
-        
-        for canonical in CUSTOM_PARAM_ALIASES.keys():
-            param, found_name = get_param_by_alias(sheet_set, canonical)
-            if param and param.HasValue:
-                # Gestion Oui/Non (int 0/1). On affiche aussi l'alias réellement trouvé.
-                try:
-                    value = param.AsInteger()
-                    display_value = "Oui" if value == 1 else "Non"
-                except Exception:
-                    # Fallback: tenter AsString/AsDouble
-                    v = None
-                    try:
-                        v = param.AsString()
-                    except Exception:
-                        try:
-                            v = param.AsDouble()
-                        except Exception:
-                            v = "(valeur non lisible)"
-                    display_value = v
-                alias_note = " (alias: {} )".format(found_name) if found_name and found_name != canonical else ""
-                print("    {}: {}{}".format(canonical, display_value, alias_note))
-            else:
-                print("    {}: Non défini".format(canonical))
+        for key in REQUIRED_KEYS:
+            pname = mapping.get(key)
+            param = None
+            try:
+                if pname:
+                    param = sheet_set.LookupParameter(pname)
+            except Exception:
+                param = None
+            print("    {}: {}".format(key, _param_value_to_str(param)))
 
 # ------------------------------- Script principal ------------------------------- #
 
 if __name__ == "__main__":
     print("=== Hello Batch Export ===")
+    
+    # Vérifie que les paramètres sont configurés; si non, ouvre le formulaire via config
+    mapping = config.ensure_complete_mapping()
+    # Log interne pour debug persistance
+    print("[debug] Mapping chargé: {}".format(mapping))
+    if not mapping or any(not mapping.get(k) for k in REQUIRED_KEYS):
+        alert("Paramètres non configurés ou incomplets. Re-lancez et choisissez les paramètres.", title="Batch Export")
+        script.exit()
     
     # Récupérer tous les jeux de feuilles du document
     collector = DB.FilteredElementCollector(activ_document)
@@ -138,19 +97,7 @@ if __name__ == "__main__":
     
     # Vérifier les paramètres sur le premier jeu de feuilles
     if sheet_sets and sheet_sets[0].IsValidObject:
-        missing_params = check_parameters_exist(sheet_sets[0])
-        
-        if missing_params:
-            message = "Paramètres manquants détectés:\n\n"
-            for param in missing_params:
-                message += "- {}\n".format(param)
-            message += "\nCes paramètres doivent être créés manuellement dans Revit.\n"
-            message += "Allez dans Gérer > Paramètres de projet pour les créer."
-            
-            alert(message, title="Paramètres manquants")
-            print("Paramètres manquants: {}".format(", ".join(missing_params)))
-        else:
-            print("Tous les paramètres requis sont présents !")
-            display_sheet_sets_info(sheet_sets)
+        print("Paramètres configurés: {}".format(", ".join(["{}=\"{}\"".format(k, mapping.get(k)) for k in REQUIRED_KEYS])))
+        display_sheet_sets_info(sheet_sets, mapping)
     
     print("\n=== Fin du script ===")
