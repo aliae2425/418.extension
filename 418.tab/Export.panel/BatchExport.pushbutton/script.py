@@ -17,14 +17,21 @@ __doc__ = """
 __author__ = 'Aliae'                               
 __min_revit_ver__ = 2026                                       
 
+
 # ------------------------------- Imports ------------------------------- #
 from pyrevit import forms
 import os
+from lib.GUI import GUI
 
+# ------------------------------- Constantes ------------------------------- #
+
+GUI_FILE = 'GUI.xaml'
+xaml_path = os.path.join(os.path.dirname(__file__), GUI_FILE)
+
+# ------------------------------- Classes et fonctions ------------------------------- #
 class ExportMainWindow(forms.WPFWindow):
     """Charge et affiche l'interface WPF 'fenetre_wpf.xaml'."""
     def __init__(self):
-        xaml_path = os.path.join(os.path.dirname(__file__), 'fenetre_wpf.xaml')
         forms.WPFWindow.__init__(self, xaml_path)
         try:
             self.Title = u"418 • Exportation"
@@ -33,7 +40,6 @@ class ExportMainWindow(forms.WPFWindow):
 
 def show_ui():
     """Affiche la fenêtre principale si le XAML existe."""
-    xaml_path = os.path.join(os.path.dirname(__file__), 'fenetre_wpf.xaml')
     if not os.path.exists(xaml_path):
         print('[info] fenetre_wpf.xaml introuvable')
         return False
