@@ -66,16 +66,18 @@ class ExportMainWindow(forms.WPFWindow):
             _apply_saved_selection(self)
         except Exception as e:
             print('[info] Pré-sélection depuis config échouée: {}'.format(e))
-        # Assurer l'unicité initiale entre les trois combos
-        try:
-            _ensure_unique_across_combos(self)
-        except Exception:
-            pass
+        # (Ancienne logique d'unicité supprimée: on autorise des doublons,
+        # mais on exigera l'unicité pour activer l'export)
         # Vérifier si suffisamment de paramètres pour trois sélections uniques
         try:
             _check_and_warn_insufficient(self)
         except Exception:
             pass
+        # Peupler le tableau récapitulatif des jeux de feuilles
+        try:
+            _populate_sheet_sets(self)
+        except Exception as e:
+            print('[info] Récap jeux de feuilles échoué: {}'.format(e))
         # Mettre l'état du bouton Export
         try:
             _update_export_button_state(self)
@@ -106,8 +108,7 @@ class ExportMainWindow(forms.WPFWindow):
             return
         try:
             self._updating = True
-            # Appliquer contrainte d'unicité
-            _enforce_unique_for_sender(self, sender)
+            # Ancienne contrainte d'unicité supprimée: on laisse le choix
             # Mettre à jour l'instantané "avant"
             self._prev_selection = _get_selected_values(self)
             # Persister la valeur du sender après ajustement
@@ -160,82 +161,48 @@ class GUI:
         return _show_ui()
 
 
-# ------------------------------- Paramètres ViewSheet ------------------------------- #
+# ------------------------------- Paramètres & jeux de feuilles (délégués aux modules) ------------------------------- #
 
-def _collect_sheet_parameter_names(doc):
-    """Retourne la liste triée des noms de paramètres modifiables des feuilles.
+from .config import UserConfigStore
+from .sheets import collect_sheet_parameter_names, get_sheet_sets
 
-    On agrège sur toutes les feuilles pour couvrir les partagés/non renseignés.
-    """
-    names = set()
-    any_writable = {}
+# Store de config (namespace par défaut)
+CONFIG = UserConfigStore('batch_export')
+
+
+def _get_sheet_sets(doc):
+    return get_sheet_sets(doc)
+
+
+def _populate_sheet_sets(win):
+    """Remplit le ListView SheetSetsList avec les jeux de feuilles."""
     try:
-        sheets = DB.FilteredElementCollector(doc).OfClass(DB.SheetCollection)
-    except Exception:
-        return []
-    for sheet in sheets:
+        lv = getattr(win, 'SheetSetsList', None)
+        if lv is None:
+            return
+        # Récupération doc
         try:
-            # Parcours des paramètres
-            for p in sheet.Parameters:
-                try:
-                    d = p.Definition
-                    if d is None:
-                        continue
-                    # Ne considérer que les paramètres booléens (Oui/Non)
-                    if not _is_boolean_param_definition(d):
-                        continue
-                    name = d.Name
-                    if name and name.strip():
-                        n = name.strip()
-                        names.add(n)
-                        try:
-                            if hasattr(p, 'IsReadOnly') and not p.IsReadOnly:
-                                any_writable[n] = True
-                            else:
-                                any_writable.setdefault(n, False)
-                        except Exception:
-                            any_writable.setdefault(n, True)
-                except Exception:
-                    continue
+            doc = __revit__.ActiveUIDocument.Document  # type: ignore
         except Exception:
-            continue
-    # Filtrer: garder seulement ceux qui sont modifiables (si connu) puis appliquer filtres noms
-    filtered = [n for n in names if any_writable.get(n, True)]
-    filtered = _apply_name_filters(filtered)
-    return sorted(filtered, key=lambda s: s.lower())
-
-
-def _is_boolean_param_definition(defn):
-    """Retourne True si la définition de paramètre correspond à un Oui/Non.
-
-    Compatibilité API:
-      - Revit <=2021: Definition.ParameterType == DB.ParameterType.YesNo
-      - Revit >=2022: Definition.GetDataType().TypeId contient 'yesno' ou 'boolean'
-    """
-    try:
-        # Ancienne API
-        pt = getattr(defn, 'ParameterType', None)
-        if pt is not None and hasattr(DB, 'ParameterType'):
+            # Placeholder si pas de doc
+            lv.Items.Clear()
+            lv.Items.Add({'Titre': 'Document introuvable', 'Feuilles': 0})
+            return
+        data = _get_sheet_sets(doc)
+        try:
+            lv.Items.Clear()
+        except Exception:
+            pass
+        if not data:
+            lv.Items.Add({'Titre': 'Aucun jeu trouvé', 'Feuilles': 0})
+            return
+        for row in data:
             try:
-                if pt == getattr(DB.ParameterType, 'YesNo', None):
-                    return True
+                lv.Items.Add(row)
             except Exception:
-                pass
+                continue
     except Exception:
         pass
-    try:
-        # Nouvelle API (ForgeTypeId)
-        get_dt = getattr(defn, 'GetDataType', None)
-        if callable(get_dt):
-            dt = get_dt()
-            type_id = getattr(dt, 'TypeId', None)
-            if type_id and isinstance(type_id, str):
-                lid = type_id.lower()
-                if ('yesno' in lid) or ('boolean' in lid) or ('bool' in lid):
-                    return True
-    except Exception:
-        pass
-    return False
 
 
 def _populate_sheet_param_combos(win):
@@ -253,7 +220,7 @@ def _populate_sheet_param_combos(win):
         _fill_combos_with_placeholder(win, "(Document introuvable)")
         return
 
-    param_names = _collect_sheet_parameter_names(doc)
+    param_names = collect_sheet_parameter_names(doc, CONFIG)
     if not param_names:
         _fill_combos_with_placeholder(win, "(Aucun paramètre booléen de feuille)")
         return
@@ -309,7 +276,7 @@ def _fill_combos_with_placeholder(win, text):
         pass
 
 
-# ------------------------------- Unicité des ComboBox ------------------------------- #
+# ------------------------------- État & validations des ComboBox ------------------------------- #
 
 def _get_selected_values(win):
     out = {}
@@ -325,106 +292,22 @@ def _get_selected_values(win):
     return out
 
 
-def _ensure_unique_across_combos(win):
-    """Force une sélection unique pour chaque combo si possible."""
-    names_order = ["ExportationCombo", "CarnetCombo", "DWGCombo"]
-    used = set()
-    for cname in names_order:
-        ctrl = getattr(win, cname, None)
-        if ctrl is None:
-            continue
-        try:
-            current = getattr(ctrl, 'SelectedItem', None)
-            sval = None if current is None else str(current)
-            if sval and sval not in used:
-                used.add(sval)
-                continue
-            # Choisir la première option disponible non utilisée
-            choice = None
-            try:
-                for i in range(ctrl.Items.Count):
-                    cand = str(ctrl.Items[i])
-                    if cand not in used:
-                        choice = cand
-                        break
-            except Exception:
-                pass
-            if choice is not None:
-                try:
-                    ctrl.SelectedItem = choice
-                    used.add(choice)
-                except Exception:
-                    pass
-            else:
-                # Aucune option unique dispo: effacer la sélection
-                try:
-                    ctrl.SelectedIndex = -1
-                except Exception:
-                    pass
-        except Exception:
-            continue
-
-
-def _enforce_unique_for_sender(win, sender):
-    """Si le sender duplique un autre combo, sélectionner une valeur unique.
-
-    Si aucune valeur unique n'est dispo, on restaure l'ancienne valeur si possible
-    sinon on efface la sélection du sender.
-    """
-    try:
-        sname = getattr(sender, 'Name', None) or ''
-        sval_obj = getattr(sender, 'SelectedItem', None)
-        sval = None if sval_obj is None else str(sval_obj)
-    except Exception:
-        return
-
-    # Récupérer les autres valeurs sélectionnées
+def _are_three_unique(win):
+    """Retourne (bool, selected_dict) indiquant si 3 valeurs non vides et toutes différentes."""
     selected = _get_selected_values(win)
-    others = {k: v for k, v in selected.items() if k != sname and v is not None}
-
-    if sval is None or sval not in others.values():
-        # Déjà unique ou rien sélectionné
-        return
-
-    # Conflit détecté -> chercher une alternative disponible
-    used = set([v for v in others.values() if v is not None])
-    alt = None
-    try:
-        for i in range(sender.Items.Count):
-            cand = str(sender.Items[i])
-            if cand not in used:
-                alt = cand
-                break
-    except Exception:
-        pass
-
-    if alt is not None:
-        try:
-            sender.SelectedItem = alt
-            return
-        except Exception:
-            pass
-
-    # Pas d'alternative -> tenter de revenir à l'ancienne valeur si dispo
-    try:
-        prev = getattr(win, '_prev_selection', {}).get(sname)
-        if prev is not None and prev not in used:
-            sender.SelectedItem = prev
-            return
-    except Exception:
-        pass
-
-    # Dernier recours: vider la sélection
-    try:
-        sender.SelectedIndex = -1
-    except Exception:
-        pass
+    vals = [v for v in selected.values() if v]
+    if len(vals) != 3:
+        return False, selected
+    if len(set(vals)) != 3:
+        return False, selected
+    return True, selected
 
 
 def _check_and_warn_insufficient(win):
     """Affiche/masque un avertissement si < 3 paramètres uniques disponibles."""
     try:
         warn = getattr(win, 'ParamWarningText', None)
+        unique_err = getattr(win, 'UniqueErrorText', None)
         expander = getattr(win, 'CollectionExpander', None)
         if warn is None:
             return
@@ -436,6 +319,16 @@ def _check_and_warn_insufficient(win):
             warn.Text = u"Paramètres insuffisants pour assurer des sélections uniques ({} trouvés).".format(count)
         else:
             warn.Visibility = Visibility.Collapsed
+        # Gestion de l'erreur d'unicité (affichée seulement si on a au moins 3 paramètres disponibles)
+        if unique_err is not None:
+            try:
+                are_unique, _ = _are_three_unique(win)
+                if count >= 3 and not are_unique:
+                    unique_err.Visibility = Visibility.Visible
+                else:
+                    unique_err.Visibility = Visibility.Collapsed
+            except Exception:
+                pass
         # Si aucun paramètre booléen n'est disponible, masquer l'expander
         if expander is not None:
             if count == 0:
@@ -450,6 +343,7 @@ def _update_export_button_state(win):
     """Active le bouton Export si 3 sélections valides et uniques sont présentes."""
     try:
         btn = getattr(win, 'ExportButton', None)
+        unique_err = getattr(win, 'UniqueErrorText', None)
         if btn is None:
             return
         avail = getattr(win, '_available_param_names', None)
@@ -457,12 +351,22 @@ def _update_export_button_state(win):
         if count < 3:
             btn.IsEnabled = False
             return
-        selected = _get_selected_values(win)
-        vals = [v for v in selected.values() if v]
-        if len(vals) != 3 or len(set(vals)) != 3:
+        are_unique, selected = _are_three_unique(win)
+        if not are_unique:
             btn.IsEnabled = False
+            # Afficher le message d'erreur d'unicité si pertinent
+            if unique_err is not None:
+                try:
+                    unique_err.Visibility = Visibility.Visible
+                except Exception:
+                    pass
             return
         btn.IsEnabled = True
+        if unique_err is not None:
+            try:
+                unique_err.Visibility = Visibility.Collapsed
+            except Exception:
+                pass
     except Exception:
         pass
 
@@ -474,7 +378,7 @@ def _apply_saved_selection(win):
         if ctrl is None:
             continue
         try:
-            saved = _config_get('sheet_param_{}'.format(cname))
+            saved = CONFIG.get('sheet_param_{}'.format(cname))
             if not saved:
                 continue
             idx = -1
@@ -494,72 +398,8 @@ def _apply_saved_selection(win):
             pass
 
 
-def _apply_name_filters(names):
-    """Applique des filtres simples et liste d'exclusion config.
-
-    - supprime noms vides
-    - supprime noms commençant par '_' (convention technique)
-    - exclut noms présents dans la config (liste noire)
-    """
-    try:
-        exclude_cfg = _config_get('excluded_sheet_params', default=[])
-        if isinstance(exclude_cfg, str):
-            exclude_cfg = [s.strip() for s in exclude_cfg.split(',') if s.strip()]
-    except Exception:
-        exclude_cfg = []
-    exclude_set = set([s.lower() for s in exclude_cfg])
-    out = []
-    for n in names:
-        if not n:
-            continue
-        if n.startswith('_'):
-            continue
-        if n.lower() in exclude_set:
-            continue
-        out.append(n)
-    return out
-
-
-# ------------------------------- Config adapter ------------------------------- #
-
-def _config_get(key, default=None):
-    """Lit une valeur depuis user_Config si disponible.
-
-    Tente plusieurs signatures pour compatibilité. Espace de noms: 'batch_export'.
-    """
-    try:
-        import user_Config as UC  # type: ignore
-        ns = 'batch_export'
-        if hasattr(UC, 'get'):
-            return UC.get(ns, key, default)
-        if hasattr(UC, 'get_config'):
-            return UC.get_config(ns, key, default)
-        if hasattr(UC, 'read'):
-            return UC.read(ns, key, default)
-        if hasattr(UC, 'get_value'):
-            return UC.get_value(key, default)
-    except Exception:
-        pass
-    return default
+# (filtrage des noms de paramètres déplacé dans lib.sheets.filter_param_names)
 
 
 def _config_set(key, value):
-    """Écrit une valeur vers user_Config si disponible; no-op sinon."""
-    try:
-        import user_Config as UC  # type: ignore
-        ns = 'batch_export'
-        if hasattr(UC, 'set'):
-            UC.set(ns, key, value)
-            return True
-        if hasattr(UC, 'set_config'):
-            UC.set_config(ns, key, value)
-            return True
-        if hasattr(UC, 'write'):
-            UC.write(ns, key, value)
-            return True
-        if hasattr(UC, 'set_value'):
-            UC.set_value(key, value)
-            return True
-    except Exception:
-        pass
-    return False
+    CONFIG.set(key, value)

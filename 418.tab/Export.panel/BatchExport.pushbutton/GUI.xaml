@@ -56,6 +56,22 @@
                         ExpandDirection="Down"
                         Margin="0,0,8,0">
                         <StackPanel Orientation="Vertical">
+                            <TextBlock Name="ParamWarningText"
+                                       Foreground="Red"
+                                       FontStyle="Italic"
+                                       Margin="0,6,0,0"
+                                       Visibility="Collapsed"
+                                       Text="Paramètres insuffisants pour assurer des sélections uniques."/>
+                            <!-- Erreur d'unicité des sélections -->
+                            <TextBox Name="UniqueErrorText"
+                                     IsReadOnly="True"
+                                     Foreground="Red"
+                                     BorderBrush="Red"
+                                     Background="{StaticResource LightGrayBrush}"
+                                     Margin="0,6,0,0"
+                                     Visibility="Collapsed"
+                                     Text="Les trois paramètres doivent être uniques pour activer l'export."/>
+                            <!-- Warning insuffisance paramètres -->
                             <!-- Section 1: Exportation -->
                             <TextBlock Text="Paramètre Exportation" Margin="0,0,0,4"/>
                             <ComboBox Name="ExportationCombo" MinWidth="50"/>
@@ -65,13 +81,6 @@
                             <!-- Section 3: DWG -->
                             <TextBlock Text="Paramètre DWG" Margin="0,0,0,4"/>
                             <ComboBox Name="DWGCombo" MinWidth="50"/>
-                            <!-- Warning insuffisance paramètres -->
-                            <TextBlock Name="ParamWarningText"
-                                       Foreground="Red"
-                                       FontStyle="Italic"
-                                       Margin="0,6,0,0"
-                                       Visibility="Collapsed"
-                                       Text="Paramètres insuffisants pour assurer des sélections uniques."/>
                         </StackPanel>
                     </Expander>
                     <!-- PDF -->
@@ -145,6 +154,15 @@
             <ProgressBar Name="ExportProgressBar" 
                 Height="24" Minimum="0" 
                 Maximum="100" Value="0" Margin="0,4,0,8"/>
+            <!-- Tableau récapitulatif des jeux de feuilles -->
+            <ListView Name="SheetSetsList" Height="180" Margin="0,0,0,8">
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Width="280" Header="Titre" DisplayMemberBinding="{Binding Path=Titre}"/>
+                        <GridViewColumn Width="120" Header="Feuilles" DisplayMemberBinding="{Binding Path=Feuilles}"/>
+                    </GridView>
+                </ListView.View>
+            </ListView>
             <DockPanel LastChildFill="False" Margin="0,8,0,0">
                 <Button Name="ExportButton"
                         Content="Exporter"
