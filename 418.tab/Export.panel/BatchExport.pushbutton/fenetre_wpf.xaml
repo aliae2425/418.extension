@@ -38,7 +38,7 @@
     </Grid.ColumnDefinitions>
 
     
-    <TextBlock Text="418 : Exportation des jeux" Grid.Row="0" Grid.ColumnSpan="3" FontSize="23" Margin="20,8,0,8"/>
+    <TextBlock Text="418 : Exportation des jeux" Grid.Row="0" Grid.ColumnSpan="2" FontSize="23" Margin="20,8,0,8"/>
 
     <!-- Zone choix des parametre. a recuperer depuis config -->
     <Border Style="{StaticResource StyledBorder}"
