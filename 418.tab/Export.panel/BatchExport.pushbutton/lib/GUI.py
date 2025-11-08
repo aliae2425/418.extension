@@ -15,6 +15,15 @@ from pyrevit import forms
 from Autodesk.Revit import DB
 import os
 try:
+    # WPF Visibility enum for showing/hiding warnings
+    from System.Windows import Visibility
+except Exception:
+    # Fallback stub (for static analyzers / non-Revit runtime)
+    class _V:  # type: ignore
+        Visible = 0
+        Collapsed = 2
+    Visibility = _V()
+try:
     # Revit API imports (disponibles dans l'environnement pyRevit)
     from Autodesk.Revit.DB import FilteredElementCollector, ViewSheet
     REVIT_API_AVAILABLE = True
@@ -62,6 +71,16 @@ class ExportMainWindow(forms.WPFWindow):
             _ensure_unique_across_combos(self)
         except Exception:
             pass
+        # Vérifier si suffisamment de paramètres pour trois sélections uniques
+        try:
+            _check_and_warn_insufficient(self)
+        except Exception:
+            pass
+        # Mettre l'état du bouton Export
+        try:
+            _update_export_button_state(self)
+        except Exception:
+            pass
         # Abonnements
         for _cname in ["ExportationCombo", "CarnetCombo", "DWGCombo"]:
             try:
@@ -69,6 +88,12 @@ class ExportMainWindow(forms.WPFWindow):
                 ctrl.SelectionChanged += self._on_param_combo_changed
             except Exception:
                 pass
+        # Abonnement du bouton Export
+        try:
+            if hasattr(self, 'ExportButton'):
+                self.ExportButton.Click += self._on_export_clicked
+        except Exception:
+            pass
         # Snapshot des sélections pour pouvoir revenir en arrière si besoin
         try:
             self._prev_selection = _get_selected_values(self)
@@ -90,10 +115,23 @@ class ExportMainWindow(forms.WPFWindow):
             val = getattr(sender, 'SelectedItem', None)
             if val is not None:
                 _config_set('sheet_param_{}'.format(name), str(val))
+            # Mettre à jour l'avertissement si insuffisant
+            _check_and_warn_insufficient(self)
+            # Mettre à jour l'état du bouton Export
+            _update_export_button_state(self)
         except Exception:
             pass
         finally:
             self._updating = False
+
+    # Clic sur Export
+    def _on_export_clicked(self, sender, args):
+        try:
+            selected = _get_selected_values(self)
+            print('[info] Export lancé avec paramètres:', selected)
+            # TODO: Implémenter la logique d'export réelle ici
+        except Exception as e:
+            print('[info] Erreur export:', e)
 
 
 def _show_ui():
@@ -143,6 +181,9 @@ def _collect_sheet_parameter_names(doc):
                     d = p.Definition
                     if d is None:
                         continue
+                    # Ne considérer que les paramètres booléens (Oui/Non)
+                    if not _is_boolean_param_definition(d):
+                        continue
                     name = d.Name
                     if name and name.strip():
                         n = name.strip()
@@ -164,6 +205,39 @@ def _collect_sheet_parameter_names(doc):
     return sorted(filtered, key=lambda s: s.lower())
 
 
+def _is_boolean_param_definition(defn):
+    """Retourne True si la définition de paramètre correspond à un Oui/Non.
+
+    Compatibilité API:
+      - Revit <=2021: Definition.ParameterType == DB.ParameterType.YesNo
+      - Revit >=2022: Definition.GetDataType().TypeId contient 'yesno' ou 'boolean'
+    """
+    try:
+        # Ancienne API
+        pt = getattr(defn, 'ParameterType', None)
+        if pt is not None and hasattr(DB, 'ParameterType'):
+            try:
+                if pt == getattr(DB.ParameterType, 'YesNo', None):
+                    return True
+            except Exception:
+                pass
+    except Exception:
+        pass
+    try:
+        # Nouvelle API (ForgeTypeId)
+        get_dt = getattr(defn, 'GetDataType', None)
+        if callable(get_dt):
+            dt = get_dt()
+            type_id = getattr(dt, 'TypeId', None)
+            if type_id and isinstance(type_id, str):
+                lid = type_id.lower()
+                if ('yesno' in lid) or ('boolean' in lid) or ('bool' in lid):
+                    return True
+    except Exception:
+        pass
+    return False
+
+
 def _populate_sheet_param_combos(win):
     """Remplit ExportationCombo, CarnetCombo, DWGCombo avec les noms de paramètres.
 
@@ -181,7 +255,7 @@ def _populate_sheet_param_combos(win):
 
     param_names = _collect_sheet_parameter_names(doc)
     if not param_names:
-        _fill_combos_with_placeholder(win, "(Aucun paramètre de feuille)")
+        _fill_combos_with_placeholder(win, "(Aucun paramètre booléen de feuille)")
         return
 
     target_combo_names = ["ExportationCombo", "CarnetCombo", "DWGCombo"]
@@ -208,6 +282,11 @@ def _populate_sheet_param_combos(win):
                     pass
         except Exception:
             print('[info] Impossible de remplir {}.'.format(cname))
+    # Stocker pour contrôles ultérieurs
+    try:
+        win._available_param_names = param_names
+    except Exception:
+        pass
 
 
 def _fill_combos_with_placeholder(win, text):
@@ -224,6 +303,10 @@ def _fill_combos_with_placeholder(win, text):
             ctrl.SelectedIndex = 0
         except Exception:
             pass
+    try:
+        win._available_param_names = []
+    except Exception:
+        pass
 
 
 # ------------------------------- Unicité des ComboBox ------------------------------- #
@@ -334,6 +417,52 @@ def _enforce_unique_for_sender(win, sender):
     # Dernier recours: vider la sélection
     try:
         sender.SelectedIndex = -1
+    except Exception:
+        pass
+
+
+def _check_and_warn_insufficient(win):
+    """Affiche/masque un avertissement si < 3 paramètres uniques disponibles."""
+    try:
+        warn = getattr(win, 'ParamWarningText', None)
+        expander = getattr(win, 'CollectionExpander', None)
+        if warn is None:
+            return
+        avail = getattr(win, '_available_param_names', None)
+        count = len(avail) if isinstance(avail, list) else 0
+        # Si moins de 3 paramètres distincts, afficher l'avertissement
+        if count < 3:
+            warn.Visibility = Visibility.Visible
+            warn.Text = u"Paramètres insuffisants pour assurer des sélections uniques ({} trouvés).".format(count)
+        else:
+            warn.Visibility = Visibility.Collapsed
+        # Si aucun paramètre booléen n'est disponible, masquer l'expander
+        if expander is not None:
+            if count == 0:
+                expander.Visibility = Visibility.Collapsed
+            else:
+                expander.Visibility = Visibility.Visible
+    except Exception:
+        pass
+
+
+def _update_export_button_state(win):
+    """Active le bouton Export si 3 sélections valides et uniques sont présentes."""
+    try:
+        btn = getattr(win, 'ExportButton', None)
+        if btn is None:
+            return
+        avail = getattr(win, '_available_param_names', None)
+        count = len(avail) if isinstance(avail, list) else 0
+        if count < 3:
+            btn.IsEnabled = False
+            return
+        selected = _get_selected_values(win)
+        vals = [v for v in selected.values() if v]
+        if len(vals) != 3 or len(set(vals)) != 3:
+            btn.IsEnabled = False
+            return
+        btn.IsEnabled = True
     except Exception:
         pass
 
