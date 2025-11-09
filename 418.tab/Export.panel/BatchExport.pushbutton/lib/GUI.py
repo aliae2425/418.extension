@@ -177,28 +177,21 @@ def _get_sheet_sets(doc):
 def _populate_sheet_sets(win):
     """Remplit le ListView SheetSetsList avec les jeux de feuilles."""
     try:
-        lv = getattr(win, 'SheetSetsList', None)
-        if lv is None:
-            return
-        # Récupération doc
-        try:
-            doc = __revit__.ActiveUIDocument.Document  # type: ignore
-        except Exception:
-            # Placeholder si pas de doc
-            lv.Items.Clear()
-            lv.Items.Add({'Titre': 'Document introuvable', 'Feuilles': 0})
-            return
+        GUI_ListView = getattr(win, 'SheetSetsList', None)
+        doc = __revit__.ActiveUIDocument.Document  # type: ignore
+
         data = _get_sheet_sets(doc)
         try:
-            lv.Items.Clear()
+            GUI_ListView.Items.Clear()
         except Exception:
             pass
         if not data:
-            lv.Items.Add({'Titre': 'Aucun jeu trouvé', 'Feuilles': 0})
+            GUI_ListView.Items.Add({'Titre': 'Aucun jeu trouvé', 'Feuilles': 0})
             return
         for row in data:
             try:
-                lv.Items.Add(row)
+                print(row)
+                GUI_ListView.Items.Add(row)
             except Exception:
                 continue
     except Exception:

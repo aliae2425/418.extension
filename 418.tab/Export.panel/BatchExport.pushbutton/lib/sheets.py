@@ -69,29 +69,16 @@ def filter_param_names(names, config_store):
 
 
 def collect_sheet_parameter_names(doc, config_store):
-    """Retourne liste triée de noms de paramètres Oui/Non modifiables des feuilles.
-
-    NOTE: Par préférence projet, tente DB.SheetCollection si disponible.
-    """
-    if DB is None:
-        return []
+    # Retourne liste triée de noms de paramètres Oui/Non modifiables des feuilles.
     names = set()
     any_writable = {}
     # Préférence: SheetCollection si dispo
-    sheets = None
+    Collections = None
     try:
-        sheet_collection_type = getattr(DB, 'SheetCollection', None)
-        if sheet_collection_type is not None:
-            sheets = DB.FilteredElementCollector(doc).OfClass(sheet_collection_type)
+        Collections = DB.FilteredElementCollector(doc).OfClass(DB.SheetCollection).ToElements()
     except Exception:
-        sheets = None
-    if sheets is None:
-        # Fallback vers ViewSheet si besoin (peut être désactivé selon préférences)
-        try:
-            sheets = DB.FilteredElementCollector(doc).OfClass(DB.ViewSheet)
-        except Exception:
-            return []
-    for sheet in sheets:
+        Collections = None
+    for sheet in Collections:
         try:
             for p in sheet.Parameters:
                 try:
@@ -121,61 +108,22 @@ def collect_sheet_parameter_names(doc, config_store):
 
 
 def get_sheet_sets(doc):
-    """Retourne liste de dicts {Titre, Feuilles} représentant les jeux de feuilles.
-
-    Tente DB.SheetCollection, sinon fallback à une ligne "Toutes les feuilles".
-    """
     out = []
     if DB is None:
         return [{'Titre': 'Aucune donnée', 'Feuilles': 0}]
-    try:
-        sheet_collection_type = getattr(DB, 'SheetCollection', None)
-        if sheet_collection_type is not None:
-            try:
-                coll = DB.FilteredElementCollector(doc).OfClass(sheet_collection_type)
-                for sc in coll:
-                    try:
-                        titre = None
-                        for attr in ['Title', 'Name']:
-                            if hasattr(sc, attr):
-                                v = getattr(sc, attr)
-                                if v:
-                                    titre = v
-                                    break
-                        if not titre:
-                            titre = '(Sans titre)'
-                        count = None
-                        for attr in ['Count', 'SheetCount']:
-                            if hasattr(sc, attr):
-                                try:
-                                    cv = getattr(sc, attr)
-                                    if isinstance(cv, int):
-                                        count = cv
-                                        break
-                                except Exception:
-                                    pass
-                        if count is None and hasattr(sc, 'Sheets'):
-                            try:
-                                sheets_prop = getattr(sc, 'Sheets')
-                                count = len(list(sheets_prop))
-                            except Exception:
-                                count = 0
-                        if count is None:
-                            count = 0
-                        out.append({'Titre': titre, 'Feuilles': count})
-                    except Exception:
-                        continue
-            except Exception:
-                pass
-    except Exception:
-        pass
-    if not out:
-        try:
-            vsheets = DB.FilteredElementCollector(doc).OfClass(DB.ViewSheet)
-            count = 0
-            for _ in vsheets:
-                count += 1
-            out.append({'Titre': 'Toutes les feuilles', 'Feuilles': count})
-        except Exception:
-            out.append({'Titre': 'Aucune donnée', 'Feuilles': 0})
+    sheet_collection = DB.FilteredElementCollector(doc).OfClass(DB.SheetCollection).ToElements()
+    sheets = DB.FilteredElementCollector(doc).OfClass(DB.ViewSheet).ToElements()
+    # print(dir(sheet_collection[0].ID), len(sheet_collection))
+    for collection_item in sheet_collection:
+            titre = collection_item.Name
+            sheet_count = 0
+            for s in sheets:
+                try:
+                    parent_id = s.get_Parameter(DB.BuiltInParameter.SHEET_COLLECTION_ID).AsElementId()
+                    if parent_id == collection_item.Id:
+                        sheet_count += 1
+                except Exception:
+                    continue
+            print(titre, sheet_count)
+            out.append({'Titre': titre, 'Feuilles': sheet_count})
     return out
