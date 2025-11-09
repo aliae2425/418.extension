@@ -84,7 +84,7 @@ class ExportMainWindow(forms.WPFWindow):
         except Exception:
             pass
         # Abonnements
-        for _cname in ["ExportationCombo", "CarnetCombo", "DWGCombo"]:
+        for _cname in _PARAM_COMBOS:
             try:
                 ctrl = getattr(self, _cname)
                 ctrl.SelectionChanged += self._on_param_combo_changed
@@ -94,6 +94,12 @@ class ExportMainWindow(forms.WPFWindow):
         try:
             if hasattr(self, 'ExportButton'):
                 self.ExportButton.Click += self._on_export_clicked
+        except Exception:
+            pass
+        # Abonnement du bouton de sauvegarde des paramètres
+        try:
+            if hasattr(self, 'SaveParametersButton'):
+                self.SaveParametersButton.Click += self._on_save_parameters_clicked
         except Exception:
             pass
         # Snapshot des sélections pour pouvoir revenir en arrière si besoin
@@ -111,11 +117,7 @@ class ExportMainWindow(forms.WPFWindow):
             # Ancienne contrainte d'unicité supprimée: on laisse le choix
             # Mettre à jour l'instantané "avant"
             self._prev_selection = _get_selected_values(self)
-            # Persister la valeur du sender après ajustement
-            name = getattr(sender, 'Name', None) or 'Unknown'
-            val = getattr(sender, 'SelectedItem', None)
-            if val is not None:
-                _config_set('sheet_param_{}'.format(name), str(val))
+            # (On ne sauvegarde plus automatiquement; l'utilisateur doit cliquer sur "save parameters")
             # Mettre à jour l'avertissement si insuffisant
             _check_and_warn_insufficient(self)
             # Mettre à jour l'état du bouton Export
@@ -163,11 +165,41 @@ class GUI:
 
 # ------------------------------- Paramètres & jeux de feuilles (délégués aux modules) ------------------------------- #
 
-from .config import UserConfigStore
+from .config import UserConfigStore as UC
 from .sheets import collect_sheet_parameter_names, get_sheet_sets
 
 # Store de config (namespace par défaut)
-CONFIG = UserConfigStore('batch_export')
+CONFIG = UC('batch_export')
+
+
+# ------------------------------- Accès config (helpers) ------------------------------- #
+
+_PARAM_COMBOS = ["ExportationCombo", "CarnetCombo", "DWGCombo"]
+
+
+def _config_key_for(cname):
+    return 'sheet_param_{}'.format(cname)
+
+
+def _load_saved_param_selections():
+    """Retourne dict {ComboName: saved_value_or_None}."""
+    saved = {}
+    for cname in _PARAM_COMBOS:
+        try:
+            saved[cname] = CONFIG.get(_config_key_for(cname))
+        except Exception:
+            saved[cname] = None
+    return saved
+
+
+def _save_param_selection(combo_name, value):
+    """Persiste la valeur (string) pour un combo (ignore None)."""
+    if value in (None, ''):
+        return
+    try:
+        CONFIG.set(_config_key_for(combo_name), value)
+    except Exception:
+        pass
 
 
 def _get_sheet_sets(doc):
@@ -336,17 +368,25 @@ def _update_export_button_state(win):
     """Active le bouton Export si 3 sélections valides et uniques sont présentes."""
     try:
         btn = getattr(win, 'ExportButton', None)
+        save_btn = getattr(win, 'SaveParametersButton', None)
         unique_err = getattr(win, 'UniqueErrorText', None)
-        if btn is None:
+        # Si aucun des boutons principaux n'existe, rien à faire
+        if btn is None and save_btn is None:
             return
         avail = getattr(win, '_available_param_names', None)
         count = len(avail) if isinstance(avail, list) else 0
         if count < 3:
-            btn.IsEnabled = False
+            if btn is not None:
+                btn.IsEnabled = False
+            if save_btn is not None:
+                save_btn.IsEnabled = False
             return
         are_unique, selected = _are_three_unique(win)
         if not are_unique:
-            btn.IsEnabled = False
+            if btn is not None:
+                btn.IsEnabled = False
+            if save_btn is not None:
+                save_btn.IsEnabled = False
             # Afficher le message d'erreur d'unicité si pertinent
             if unique_err is not None:
                 try:
@@ -354,7 +394,10 @@ def _update_export_button_state(win):
                 except Exception:
                     pass
             return
-        btn.IsEnabled = True
+        if btn is not None:
+            btn.IsEnabled = True
+        if save_btn is not None:
+            save_btn.IsEnabled = True
         if unique_err is not None:
             try:
                 unique_err.Visibility = Visibility.Collapsed
@@ -363,23 +406,46 @@ def _update_export_button_state(win):
     except Exception:
         pass
 
+    
+def _on_save_parameters_clicked(self, sender, args):
+    """Sauvegarde explicite des paramètres sélectionnés quand conditions remplies."""
+    try:
+        are_unique, selected = _are_three_unique(self)
+        if not are_unique:
+            print('[info] Sauvegarde ignorée: sélections non uniques')
+            return
+        # Sauvegarder chaque sélection dans la config
+        for combo_name, value in selected.items():
+            if value:
+                try:
+                    _save_param_selection(combo_name, value)
+                except Exception:
+                    pass
+        print('[info] Paramètres sauvegardés:', selected)
+    except Exception as e:
+        print('[info] Erreur sauvegarde paramètres:', e)
+
 
 def _apply_saved_selection(win):
-    """Charge la sélection mémorisée pour chaque combo si l'item existe."""
-    for cname in ["ExportationCombo", "CarnetCombo", "DWGCombo"]:
+    """Charge les sélections mémorisées pour chaque combo si l'item existe."""
+    saved_map = _load_saved_param_selections()
+    for cname in _PARAM_COMBOS:
         ctrl = getattr(win, cname, None)
         if ctrl is None:
             continue
+        saved = saved_map.get(cname)
+        if not saved:
+            continue
         try:
-            saved = CONFIG.get('sheet_param_{}'.format(cname))
-            if not saved:
-                continue
             idx = -1
             try:
                 for i in range(ctrl.Items.Count):
-                    if str(ctrl.Items[i]) == str(saved):
-                        idx = i
-                        break
+                    try:
+                        if str(ctrl.Items[i]) == str(saved):
+                            idx = i
+                            break
+                    except Exception:
+                        continue
             except Exception:
                 pass
             if idx >= 0:
@@ -394,5 +460,4 @@ def _apply_saved_selection(win):
 # (filtrage des noms de paramètres déplacé dans lib.sheets.filter_param_names)
 
 
-def _config_set(key, value):
-    CONFIG.set(key, value)
+## Ancienne fonction _config_set supprimée (remplacée par _save_param_selection)

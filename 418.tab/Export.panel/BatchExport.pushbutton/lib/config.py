@@ -10,63 +10,71 @@ Cette implémentation tente différentes signatures usuelles de user_Config
 pour rester compatible avec plusieurs implémentations.
 """
 
+
+
+from pyrevit.userconfig import user_config as UC
+from pyrevit import DB, forms
+
+# Compat: alias de type pour chaînes (Py2 basestring / Py3 str)
 try:
-    import user_Config as UC  # type: ignore
-except Exception:
-    UC = None  # type: ignore
+    BASESTRING_T = basestring  # type: ignore
+except NameError:
+    BASESTRING_T = str  # type: ignore
 
 
-class UserConfigStore(object):
+
+class UserConfigStore:
+    """Adaptateur simple pour le stockage utilisateur via un module user_Config externe.
+
+    Méthodes:
+    - get(key, default=None)
+    - set(key, value)
+    """
+
     def __init__(self, namespace='batch_export'):
         self.namespace = namespace
-        self._fallback_store = {}
 
-    # --- lecture ---
-    def get(self, key, default=None):
-        if UC is not None:
-            try:
-                if hasattr(UC, 'get'):
-                    return UC.get(self.namespace, key, default)
-                if hasattr(UC, 'get_config'):
-                    return UC.get_config(self.namespace, key, default)
-                if hasattr(UC, 'read'):
-                    return UC.read(self.namespace, key, default)
-                if hasattr(UC, 'get_value'):
-                    return UC.get_value(key, default)
-            except Exception:
-                pass
-        # fallback en mémoire (utile hors Revit)
-        return self._fallback_store.get(key, default)
-
-    def get_list(self, key, default=None):
-        val = self.get(key, default)
-        if val is None:
-            return default
-        if isinstance(val, (list, tuple)):
-            return list(val)
-        if isinstance(val, str):
-            items = [s.strip() for s in val.split(',') if s and s.strip()]
-            return items
-        return default
-
-    # --- écriture ---
     def set(self, key, value):
-        if UC is not None:
+        try:
+            UC.add_section("batch_export")
+        except Exception:
+            pass
+        try:
+            sval = str(value)
+        except Exception:
             try:
-                if hasattr(UC, 'set'):
-                    UC.set(self.namespace, key, value)
-                    return True
-                if hasattr(UC, 'set_config'):
-                    UC.set_config(self.namespace, key, value)
-                    return True
-                if hasattr(UC, 'write'):
-                    UC.write(self.namespace, key, value)
-                    return True
-                if hasattr(UC, 'set_value'):
-                    UC.set_value(key, value)
-                    return True
+                sval = u"{}".format(value)
             except Exception:
-                pass
-        # fallback en mémoire (utile hors Revit)
-        self._fallback_store[key] = value
-        return False
+                sval = value
+
+        try:
+            if key == "Export":
+                UC.batch_export.Export = sval
+            elif key == "ExportParFeuilles":
+                UC.batch_export.ExportParFeuilles = sval
+            elif key == "ExportDWG":
+                UC.batch_export.ExportDWG = sval
+            elif key == "PathDossier":
+                UC.batch_export.PathDossier = sval
+            else:
+                # Fallback générique: créer/mettre à jour un attribut dynamique
+                try:
+                    setattr(UC.batch_export, key, sval)
+                except Exception:
+                    return False
+            UC.save_changes()
+            return True
+        except Exception:
+            return False
+
+    def get(self, key, default=""):
+        """Récupère une valeur, avec fallback sur getattr si get_option indisponible."""
+        try:
+            return UC.batch_export.get_option(key, default)
+        except Exception:
+            try:
+                return getattr(UC.batch_export, key)
+            except Exception:
+                return default
+
+
