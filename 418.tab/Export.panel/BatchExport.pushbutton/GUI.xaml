@@ -158,8 +158,9 @@
             <ListView Name="SheetSetsList" Height="180" Margin="0,0,0,8">
                 <ListView.View>
                     <GridView>
-                        <GridViewColumn Width="280" Header="Titre" DisplayMemberBinding="{Binding Path=Titre}"/>
-                        <GridViewColumn Width="120" Header="Feuilles" DisplayMemberBinding="{Binding Path=Feuilles}"/>
+                        <!-- Bind on dictionary keys using indexer syntax -->
+                        <GridViewColumn Width="280" Header="Titre" DisplayMemberBinding="{Binding [Titre]}"/>
+                        <GridViewColumn Width="120" Header="Feuilles" DisplayMemberBinding="{Binding [Feuilles]}"/>
                     </GridView>
                 </ListView.View>
             </ListView>

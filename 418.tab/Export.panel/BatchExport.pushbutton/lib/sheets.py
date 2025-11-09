@@ -113,14 +113,13 @@ def get_sheet_sets(doc):
         return [{'Titre': 'Aucune donnée', 'Feuilles': 0}]
     sheet_collection = DB.FilteredElementCollector(doc).OfClass(DB.SheetCollection).ToElements()
     sheets = DB.FilteredElementCollector(doc).OfClass(DB.ViewSheet).ToElements()
-    # print(dir(sheet_collection[0].ID), len(sheet_collection))
     for collection_item in sheet_collection:
             titre = collection_item.Name
             sheet_count = 0
+            print(dir(sheets[0]))
             for s in sheets:
                 try:
-                    parent_id = s.get_Parameter(DB.BuiltInParameter.SHEET_COLLECTION_ID).AsElementId()
-                    if parent_id == collection_item.Id:
+                    if s.SheetCollectionId == collection_item.Id:
                         sheet_count += 1
                 except Exception:
                     continue

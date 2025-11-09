@@ -96,12 +96,7 @@ class ExportMainWindow(forms.WPFWindow):
                 self.ExportButton.Click += self._on_export_clicked
         except Exception:
             pass
-        # Abonnement du bouton de sauvegarde des paramètres
-        try:
-            if hasattr(self, 'SaveParametersButton'):
-                self.SaveParametersButton.Click += self._on_save_parameters_clicked
-        except Exception:
-            pass
+        # (Bouton de sauvegarde supprimé)
         # Snapshot des sélections pour pouvoir revenir en arrière si besoin
         try:
             self._prev_selection = _get_selected_values(self)
@@ -117,7 +112,11 @@ class ExportMainWindow(forms.WPFWindow):
             # Ancienne contrainte d'unicité supprimée: on laisse le choix
             # Mettre à jour l'instantané "avant"
             self._prev_selection = _get_selected_values(self)
-            # (On ne sauvegarde plus automatiquement; l'utilisateur doit cliquer sur "save parameters")
+            # Auto-save: persister la valeur du sender après ajustement
+            name = getattr(sender, 'Name', None) or 'Unknown'
+            val = getattr(sender, 'SelectedItem', None)
+            if val is not None:
+                _save_param_selection(name, str(val))
             # Mettre à jour l'avertissement si insuffisant
             _check_and_warn_insufficient(self)
             # Mettre à jour l'état du bouton Export
@@ -368,25 +367,18 @@ def _update_export_button_state(win):
     """Active le bouton Export si 3 sélections valides et uniques sont présentes."""
     try:
         btn = getattr(win, 'ExportButton', None)
-        save_btn = getattr(win, 'SaveParametersButton', None)
         unique_err = getattr(win, 'UniqueErrorText', None)
-        # Si aucun des boutons principaux n'existe, rien à faire
-        if btn is None and save_btn is None:
+        # Si le bouton n'existe pas, rien à faire
+        if btn is None:
             return
         avail = getattr(win, '_available_param_names', None)
         count = len(avail) if isinstance(avail, list) else 0
         if count < 3:
-            if btn is not None:
-                btn.IsEnabled = False
-            if save_btn is not None:
-                save_btn.IsEnabled = False
+            btn.IsEnabled = False
             return
         are_unique, selected = _are_three_unique(win)
         if not are_unique:
-            if btn is not None:
-                btn.IsEnabled = False
-            if save_btn is not None:
-                save_btn.IsEnabled = False
+            btn.IsEnabled = False
             # Afficher le message d'erreur d'unicité si pertinent
             if unique_err is not None:
                 try:
@@ -394,10 +386,7 @@ def _update_export_button_state(win):
                 except Exception:
                     pass
             return
-        if btn is not None:
-            btn.IsEnabled = True
-        if save_btn is not None:
-            save_btn.IsEnabled = True
+        btn.IsEnabled = True
         if unique_err is not None:
             try:
                 unique_err.Visibility = Visibility.Collapsed
@@ -405,25 +394,7 @@ def _update_export_button_state(win):
                 pass
     except Exception:
         pass
-
-    
-def _on_save_parameters_clicked(self, sender, args):
-    """Sauvegarde explicite des paramètres sélectionnés quand conditions remplies."""
-    try:
-        are_unique, selected = _are_three_unique(self)
-        if not are_unique:
-            print('[info] Sauvegarde ignorée: sélections non uniques')
-            return
-        # Sauvegarder chaque sélection dans la config
-        for combo_name, value in selected.items():
-            if value:
-                try:
-                    _save_param_selection(combo_name, value)
-                except Exception:
-                    pass
-        print('[info] Paramètres sauvegardés:', selected)
-    except Exception as e:
-        print('[info] Erreur sauvegarde paramètres:', e)
+    # (Handler de sauvegarde supprimé)
 
 
 def _apply_saved_selection(win):
@@ -455,9 +426,3 @@ def _apply_saved_selection(win):
                     pass
         except Exception:
             pass
-
-
-# (filtrage des noms de paramètres déplacé dans lib.sheets.filter_param_names)
-
-
-## Ancienne fonction _config_set supprimée (remplacée par _save_param_selection)
