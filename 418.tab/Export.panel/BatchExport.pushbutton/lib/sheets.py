@@ -116,7 +116,7 @@ def get_sheet_sets(doc):
     for collection_item in sheet_collection:
             titre = collection_item.Name
             sheet_count = 0
-            print(dir(sheets[0]))
+            # print(dir(sheets[0]))
             for s in sheets:
                 try:
                     if s.SheetCollectionId == collection_item.Id:

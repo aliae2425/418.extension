@@ -3,12 +3,14 @@
 """GUI module centralisant l'ouverture de la fenêtre WPF pour l'export.
 
 API publique:
-  - GUI.show(): ouvre la fenêtre principale (modal si possible).
+    - GUI.show(): ouvre la fenêtre principale (modal si possible).
 
 Notes:
-  - Ce module dépend de pyRevit (pyrevit.forms.WPFWindow). L'analyse statique
-    hors Revit peut indiquer un import manquant; dans Revit/pyRevit, l'import
-    est disponible.
+    - Tous les fichiers XAML résident maintenant dans le dossier GUI/ :
+            * MainWindow.xaml (fenêtre principale)
+            * Piker.xaml (fenêtre modale de nommage)
+    - Ce module dépend de pyRevit (pyrevit.forms.WPFWindow). L'analyse statique
+        hors Revit peut indiquer des imports manquants; dans Revit/pyRevit, ils sont disponibles.
 """
 
 from pyrevit import forms
@@ -32,15 +34,21 @@ except Exception:  # en analyse statique hors Revit
 
 # ------------------------------- Helpers ------------------------------- #
 
-GUI_FILE = 'GUI.xaml'
+GUI_FILE = os.path.join('GUI', 'MainWindow.xaml')
+PIKER_FILE = os.path.join('GUI', 'Piker.xaml')
 EXPORT_WINDOW_TITLE = u"418 • Exportation"
 
 
 def _get_xaml_path():
-    """Chemin absolu vers GUI.xaml situé un dossier au-dessus de ce fichier."""
-    # GUI.py est dans .../BatchExport.pushbutton/lib
-    # Le XAML est dans .../BatchExport.pushbutton/GUI.xaml
+    """Chemin absolu vers GUI/MainWindow.xaml."""
     return os.path.join(os.path.dirname(os.path.dirname(__file__)), GUI_FILE)
+
+
+def _get_piker_xaml_path():
+    """Chemin absolu vers GUI/Piker.xaml. Ne crée pas le fichier si absent."""
+    base_dir = os.path.dirname(os.path.dirname(__file__))
+    p = os.path.join(base_dir, PIKER_FILE)
+    return p
 
 
 class ExportMainWindow(forms.WPFWindow):
@@ -96,6 +104,14 @@ class ExportMainWindow(forms.WPFWindow):
                 self.ExportButton.Click += self._on_export_clicked
         except Exception:
             pass
+        # Abonnements des boutons Nommage
+        try:
+            if hasattr(self, 'SheetNamingButton'):
+                self.SheetNamingButton.Click += self._on_open_sheet_naming
+            if hasattr(self, 'SetNamingButton'):
+                self.SetNamingButton.Click += self._on_open_set_naming
+        except Exception:
+            pass
         # (Bouton de sauvegarde supprimé)
         # Snapshot des sélections pour pouvoir revenir en arrière si besoin
         try:
@@ -135,6 +151,19 @@ class ExportMainWindow(forms.WPFWindow):
         except Exception as e:
             print('[info] Erreur export:', e)
 
+    # Ouvrir la modale Piker.xaml depuis la section Nommage
+    def _on_open_sheet_naming(self, sender, args):
+        try:
+            _show_piker_modal(title=u"Nommage des feuilles")
+        except Exception as e:
+            print('[info] Ouverture Piker (feuilles) échouée: {}'.format(e))
+
+    def _on_open_set_naming(self, sender, args):
+        try:
+            _show_piker_modal(title=u"Nommage des carnets")
+        except Exception as e:
+            print('[info] Ouverture Piker (carnets) échouée: {}'.format(e))
+
 
 def _show_ui():
     """Affiche la fenêtre principale si le XAML existe."""
@@ -160,6 +189,44 @@ class GUI:
     def show():
         """Ouvre la fenêtre d'export et renvoie True si affichée avec succès."""
         return _show_ui()
+
+
+class PikerWindow(forms.WPFWindow):
+    """Petite fenêtre modale basée sur Piker.xaml"""
+    def __init__(self, title=u"Piker"):
+        forms.WPFWindow.__init__(self, _get_piker_xaml_path())
+        try:
+            self.Title = title
+        except Exception:
+            pass
+        # Fermer via OK/Annuler si présents
+        try:
+            if hasattr(self, 'OkButton'):
+                self.OkButton.Click += self._on_close
+            if hasattr(self, 'CancelButton'):
+                self.CancelButton.Click += self._on_close
+        except Exception:
+            pass
+
+    def _on_close(self, sender, args):
+        try:
+            self.Close()
+        except Exception:
+            pass
+
+
+def _show_piker_modal(title=u"Piker"):
+    """Ouvre Piker.xaml en modal."""
+    try:
+        win = PikerWindow(title=title)
+        try:
+            win.ShowDialog()
+        except Exception:
+            win.show()
+        return True
+    except Exception as e:
+        print('[info] Erreur ouverture Piker: {}'.format(e))
+        return False
 
 
 # ------------------------------- Paramètres & jeux de feuilles (délégués aux modules) ------------------------------- #

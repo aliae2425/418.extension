@@ -135,11 +135,11 @@
             <TextBlock Text="Nommage" FontWeight="Bold" Margin="0,0,0,6"/>
             <DockPanel LastChildFill="True" Margin="0,4,0,0">
                 <TextBlock Text="Feuilles : " MinWidth="100" VerticalAlignment="Center"/>
-                <Button Content="..." Background="{StaticResource LightGrayBrush}" HorizontalAlignment="Stretch" />
+                <Button Name="SheetNamingButton" Content="..." Background="{StaticResource LightGrayBrush}" HorizontalAlignment="Stretch" />
             </DockPanel>   
             <DockPanel LastChildFill="True" Margin="0,4,0,0">
                 <TextBlock Text="Carnets : " MinWidth="100"  VerticalAlignment="Center"/>
-                <Button Content="..." Background="{StaticResource LightGrayBrush}" HorizontalAlignment="Stretch"/>
+                <Button Name="SetNamingButton" Content="..." Background="{StaticResource LightGrayBrush}" HorizontalAlignment="Stretch"/>
             </DockPanel>
         </StackPanel>
     </Border>
