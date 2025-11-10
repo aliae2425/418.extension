@@ -87,7 +87,11 @@
                         ExpandDirection="Down"
                         Margin="0,0,8,0">
                             <StackPanel Orientation="Vertical">
-                                <TextBlock Text="(À venir)"/>
+                                <TextBlock Text="Réglage PDF" Margin="0,0,0,4"/>
+                            <DockPanel LastChildFill="True">
+                                <ComboBox Name="PDFSetupCombo" MinWidth="160"/>
+                                <Button Name="PDFCreateButton" Content="Créer réglage…" DockPanel.Dock="Right" Margin="8,0,0,0"/>
+                            </DockPanel>
                             </StackPanel>
                     </Expander>
                     <Expander Header="DWG"
@@ -96,7 +100,11 @@
                         ExpandDirection="Down"
                         Margin="0,0,8,0">
                             <StackPanel Orientation="Vertical">
-                                <TextBlock Text="(À venir)"/>
+                                <TextBlock Text="Réglage DWG" Margin="0,0,0,4"/>
+                                <DockPanel LastChildFill="True">
+                                    <ComboBox Name="DWGSetupCombo" MinWidth="160"/>
+                                </DockPanel>
+                                <CheckBox Name="DWGSeparateCheck" Content="Exporter les vues en fichiers séparés" Margin="0,6,0,0"/>
                             </StackPanel>
                     </Expander>
                 </StackPanel>

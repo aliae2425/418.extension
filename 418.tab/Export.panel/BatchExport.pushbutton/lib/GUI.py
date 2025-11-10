@@ -131,6 +131,11 @@ class ExportMainWindow(forms.WPFWindow):
                 self.PathTextBox.TextChanged += self._on_path_changed
         except Exception:
             pass
+        # PDF/DWG setups & toggles
+        try:
+            self._init_pdf_dwg_controls()
+        except Exception as e:
+            print('[info] init PDF/DWG échouée:', e)
         # (Bouton de sauvegarde supprimé)
         # Snapshot des sélections pour pouvoir revenir en arrière si besoin
         try:
@@ -280,6 +285,127 @@ class ExportMainWindow(forms.WPFWindow):
             pass
         self._dest_valid = bool(ok)
         return self._dest_valid
+
+    # ---------------------- PDF / DWG Setups ---------------------- #
+    def _init_pdf_dwg_controls(self):
+        doc = None
+        try:
+            doc = __revit__.ActiveUIDocument.Document  # type: ignore
+        except Exception:
+            doc = None
+        # PDF setups
+        try:
+            from .pdf_export import list_all_pdf_setups, get_saved_pdf_setup, set_saved_pdf_setup, get_saved_pdf_separate, set_saved_pdf_separate
+            if hasattr(self, 'PDFSetupCombo'):
+                pdf_names = list_all_pdf_setups(doc)
+                self.PDFSetupCombo.Items.Clear()
+                if pdf_names:
+                    for n in pdf_names:
+                        self.PDFSetupCombo.Items.Add(n)
+                    # Rétablir sélection
+                    saved = get_saved_pdf_setup()
+                    if saved and saved in pdf_names:
+                        self.PDFSetupCombo.SelectedIndex = pdf_names.index(saved)
+                    else:
+                        self.PDFSetupCombo.SelectedIndex = 0
+                else:
+                    self.PDFSetupCombo.Items.Add('(Aucun réglage PDF)')
+                    self.PDFSetupCombo.SelectedIndex = 0
+                # Event
+                self.PDFSetupCombo.SelectionChanged += lambda s,a: set_saved_pdf_setup(str(getattr(self.PDFSetupCombo,'SelectedItem', '')))
+            if hasattr(self, 'PDFSeparateCheck'):
+                self.PDFSeparateCheck.IsChecked = get_saved_pdf_separate(False)
+                self.PDFSeparateCheck.Checked += lambda s,a: set_saved_pdf_separate(True)
+                self.PDFSeparateCheck.Unchecked += lambda s,a: set_saved_pdf_separate(False)
+            if hasattr(self, 'PDFCreateButton'):
+                self.PDFCreateButton.Click += self._on_create_pdf_setup
+        except Exception as e:
+            print('[info] PDF setups non initialisés:', e)
+        # DWG setups
+        try:
+            from .dwg_export import list_all_dwg_setups, get_saved_dwg_setup, set_saved_dwg_setup, get_saved_dwg_separate, set_saved_dwg_separate
+            if hasattr(self, 'DWGSetupCombo'):
+                dwg_names = list_all_dwg_setups(doc)
+                self.DWGSetupCombo.Items.Clear()
+                if dwg_names:
+                    for n in dwg_names:
+                        self.DWGSetupCombo.Items.Add(n)
+                    saved = get_saved_dwg_setup()
+                    if saved and saved in dwg_names:
+                        self.DWGSetupCombo.SelectedIndex = dwg_names.index(saved)
+                    else:
+                        self.DWGSetupCombo.SelectedIndex = 0
+                else:
+                    self.DWGSetupCombo.Items.Add('(Aucun réglage DWG)')
+                    self.DWGSetupCombo.SelectedIndex = 0
+                self.DWGSetupCombo.SelectionChanged += lambda s,a: set_saved_dwg_setup(str(getattr(self.DWGSetupCombo,'SelectedItem', '')))
+            if hasattr(self, 'DWGSeparateCheck'):
+                self.DWGSeparateCheck.IsChecked = get_saved_dwg_separate(False)
+                self.DWGSeparateCheck.Checked += lambda s,a: set_saved_dwg_separate(True)
+                self.DWGSeparateCheck.Unchecked += lambda s,a: set_saved_dwg_separate(False)
+            if hasattr(self, 'DWGCreateButton'):
+                self.DWGCreateButton.Click += self._on_create_dwg_setup
+        except Exception as e:
+            print('[info] DWG setups non initialisés:', e)
+
+    def _refresh_pdf_combo(self):
+        try:
+            doc = __revit__.ActiveUIDocument.Document  # type: ignore
+        except Exception:
+            doc = None
+        try:
+            from .pdf_export import list_all_pdf_setups, get_saved_pdf_setup
+            if not hasattr(self, 'PDFSetupCombo'):
+                return
+            names = list_all_pdf_setups(doc)
+            self.PDFSetupCombo.Items.Clear()
+            for n in names:
+                self.PDFSetupCombo.Items.Add(n)
+            saved = get_saved_pdf_setup()
+            if saved and saved in names:
+                self.PDFSetupCombo.SelectedIndex = names.index(saved)
+            elif names:
+                self.PDFSetupCombo.SelectedIndex = 0
+        except Exception:
+            pass
+
+    def _refresh_dwg_combo(self):
+        try:
+            doc = __revit__.ActiveUIDocument.Document  # type: ignore
+        except Exception:
+            doc = None
+        try:
+            from .dwg_export import list_all_dwg_setups, get_saved_dwg_setup
+            if not hasattr(self, 'DWGSetupCombo'):
+                return
+            names = list_all_dwg_setups(doc)
+            self.DWGSetupCombo.Items.Clear()
+            for n in names:
+                self.DWGSetupCombo.Items.Add(n)
+            saved = get_saved_dwg_setup()
+            if saved and saved in names:
+                self.DWGSetupCombo.SelectedIndex = names.index(saved)
+            elif names:
+                self.DWGSetupCombo.SelectedIndex = 0
+        except Exception:
+            pass
+
+    def _on_create_pdf_setup(self, sender, args):
+        try:
+            from .setup_editor import open_setup_editor
+            if open_setup_editor(kind='pdf'):
+                self._refresh_pdf_combo()
+        except Exception as e:
+            print('[info] Création réglage PDF échouée:', e)
+
+    def _on_create_dwg_setup(self, sender, args):
+        try:
+            from .setup_editor import open_setup_editor
+            if open_setup_editor(kind='dwg'):
+                self._refresh_dwg_combo()
+        except Exception as e:
+            print('[info] Création réglage DWG échouée:', e)
+
 
 
 def _show_ui():
