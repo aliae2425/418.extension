@@ -7,7 +7,8 @@ et la persistance via le module naming.
 
 import os
 from pyrevit import forms
-from .naming import load_pattern, save_pattern, build_pattern_from_rows
+from .naming import *
+from .sheets import *
 from .config import UserConfigStore as UC
 
 # Feuille de style XAML
@@ -52,12 +53,37 @@ class PikerWindow(forms.WPFWindow):
         # Charger l'existant
         patt, rows = load_pattern(self._kind)
         self._selected_rows = rows or []
-        self._reload_selected_grid()
+        self._reload_selected_list()
         self._refresh_preview()
 
     # API publique
     def load_params(self, names):
-        self._available_all = list(names or [])
+        """Charge la liste initiale (portée Collection)."""
+        self._available_collection = list(names or [])
+        # Charger aussi projet & feuille
+        try:
+            doc = __revit__.ActiveUIDocument.Document  # type: ignore
+        except Exception:
+            doc = None
+        if doc is not None:
+            try:
+                self._available_project = picker_collect_project_parameter_names(doc, UC('batch_export'))
+            except Exception:
+                self._available_project = []
+            try:
+                self._available_sheet = picker_collect_sheet_instance_parameter_names(doc, UC('batch_export'))
+            except Exception:
+                self._available_sheet = []
+        else:
+            self._available_project = []
+            self._available_sheet = []
+        # Tout = union dédupliquée
+        all_union = set()
+        for lst in (self._available_project, self._available_collection, self._available_sheet):
+            for n in lst:
+                if n:
+                    all_union.add(n)
+        self._available_all = sorted(list(all_union), key=lambda s: s.lower())
         self._apply_scope_filter()
         self._refresh_preview()
 
@@ -67,6 +93,132 @@ class PikerWindow(forms.WPFWindow):
 
     def ParamCell_TextChanged(self, sender, args):
         # Optionnel: rafraîchi en live
+        self._refresh_preview()
+
+    def AvailableParamsList_DoubleClick(self, sender, args):
+        # Ajoute l'item double-cliqué comme si on appuyait sur Ajouter
+        try:
+            sel = getattr(self.AvailableParamsList, 'SelectedItem', None)
+            if sel and not any(r.get('Name') == sel for r in self._selected_rows):
+                self._selected_rows.append({'Name': sel, 'Prefix': '', 'Suffix': ''})
+                self._reload_selected_list()
+        except Exception:
+            pass
+        self._refresh_preview()
+
+    def SelectedParamsList_DoubleClick(self, sender, args):
+        # Retire l'item double-cliqué côté droit
+        try:
+            lst = self.SelectedParamsList
+            sel = getattr(lst, 'SelectedItem', None)
+            if sel and isinstance(sel, dict):
+                name = sel.get('Name')
+                self._selected_rows = [r for r in self._selected_rows if r.get('Name') != name]
+                self._reload_selected_list()
+        except Exception:
+            pass
+        self._refresh_preview()
+
+    def MoveUpButton_Click(self, sender, args):
+        try:
+            lst = self.SelectedParamsList
+            sel = getattr(lst, 'SelectedItem', None)
+            if not(sel and isinstance(sel, dict)):
+                return
+            name = sel.get('Name')
+            idx = None
+            for i, r in enumerate(self._selected_rows):
+                if r.get('Name') == name:
+                    idx = i
+                    break
+            if idx is None or idx <= 0:
+                return
+            # swap positions
+            self._selected_rows[idx-1], self._selected_rows[idx] = self._selected_rows[idx], self._selected_rows[idx-1]
+            self._reload_selected_list()
+            # Reselect moved item
+            try:
+                lst.SelectedIndex = idx-1
+            except Exception:
+                pass
+        except Exception:
+            pass
+        self._refresh_preview()
+
+    def MoveDownButton_Click(self, sender, args):
+        try:
+            lst = self.SelectedParamsList
+            sel = getattr(lst, 'SelectedItem', None)
+            if not(sel and isinstance(sel, dict)):
+                return
+            name = sel.get('Name')
+            idx = None
+            for i, r in enumerate(self._selected_rows):
+                if r.get('Name') == name:
+                    idx = i
+                    break
+            if idx is None or idx >= len(self._selected_rows)-1:
+                return
+            # swap positions
+            self._selected_rows[idx+1], self._selected_rows[idx] = self._selected_rows[idx], self._selected_rows[idx+1]
+            self._reload_selected_list()
+            try:
+                lst.SelectedIndex = idx+1
+            except Exception:
+                pass
+        except Exception:
+            pass
+        self._refresh_preview()
+
+    def MoveTopButton_Click(self, sender, args):
+        try:
+            lst = self.SelectedParamsList
+            sel = getattr(lst, 'SelectedItem', None)
+            if not(sel and isinstance(sel, dict)):
+                return
+            name = sel.get('Name')
+            idx = None
+            for i, r in enumerate(self._selected_rows):
+                if r.get('Name') == name:
+                    idx = i
+                    break
+            if idx is None or idx <= 0:
+                return
+            row = self._selected_rows.pop(idx)
+            self._selected_rows.insert(0, row)
+            self._reload_selected_list()
+            try:
+                lst.SelectedIndex = 0
+            except Exception:
+                pass
+        except Exception:
+            pass
+        self._refresh_preview()
+
+    def MoveBottomButton_Click(self, sender, args):
+        try:
+            lst = self.SelectedParamsList
+            sel = getattr(lst, 'SelectedItem', None)
+            if not(sel and isinstance(sel, dict)):
+                return
+            name = sel.get('Name')
+            idx = None
+            for i, r in enumerate(self._selected_rows):
+                if r.get('Name') == name:
+                    idx = i
+                    break
+            last_index = len(self._selected_rows)-1
+            if idx is None or idx >= last_index:
+                return
+            row = self._selected_rows.pop(idx)
+            self._selected_rows.append(row)
+            self._reload_selected_list()
+            try:
+                lst.SelectedIndex = last_index
+            except Exception:
+                pass
+        except Exception:
+            pass
         self._refresh_preview()
 
     # Internals
@@ -85,8 +237,23 @@ class PikerWindow(forms.WPFWindow):
             pass
 
     def _apply_scope_filter(self):
-        # Pour l'instant: pas de filtre spécifique
-        self._available_filtered = list(self._available_all)
+        scope = 'Tout'
+        try:
+            if hasattr(self, 'ScopeCombo'):
+                sel = getattr(self.ScopeCombo, 'SelectedItem', None)
+                if sel is not None:
+                    scope = getattr(sel, 'Content', 'Tout')
+        except Exception:
+            scope = 'Tout'
+        if scope == 'Projet':
+            filtered = list(self._available_project or [])
+        elif scope == 'Collection':
+            filtered = list(self._available_collection or [])
+        elif scope == 'Feuille':
+            filtered = list(self._available_sheet or [])
+        else:  # Tout
+            filtered = list(self._available_all or [])
+        self._available_filtered = sorted(filtered, key=lambda s: s.lower())
         if hasattr(self, 'AvailableParamsList'):
             try:
                 self.AvailableParamsList.Items.Clear()
@@ -104,34 +271,34 @@ class PikerWindow(forms.WPFWindow):
             sel = getattr(self.AvailableParamsList, 'SelectedItem', None)
             if sel and not any(r.get('Name') == sel for r in self._selected_rows):
                 self._selected_rows.append({'Name': sel, 'Prefix': '', 'Suffix': ''})
-                self._reload_selected_grid()
+                self._reload_selected_list()
         except Exception:
             pass
         self._refresh_preview()
 
     def _on_remove_param(self, sender, args):
         try:
-            grid = self.SelectedParamsGrid
-            sel = getattr(grid, 'SelectedItem', None)
+            lst = self.SelectedParamsList
+            sel = getattr(lst, 'SelectedItem', None)
             if sel and isinstance(sel, dict):
                 name = sel.get('Name')
                 self._selected_rows = [r for r in self._selected_rows if r.get('Name') != name]
-                self._reload_selected_grid()
+                self._reload_selected_list()
         except Exception:
             pass
         self._refresh_preview()
 
-    def _reload_selected_grid(self):
-        grid = getattr(self, 'SelectedParamsGrid', None)
-        if grid is None:
+    def _reload_selected_list(self):
+        lst = getattr(self, 'SelectedParamsList', None)
+        if lst is None:
             return
         try:
-            grid.Items.Clear()
+            lst.Items.Clear()
         except Exception:
             pass
         for row in self._selected_rows:
             try:
-                grid.Items.Add(row)
+                lst.Items.Add(row)
             except Exception:
                 continue
 
@@ -154,11 +321,10 @@ def open_modal(kind='sheet', title=u"Piker"):
         win = PikerWindow(kind=kind, title=title)
         # Charger paramètres disponibles
         try:
-            # collect depuis l'API si dispo
+            # collect paramètres Collection (base), puis charge projet & feuille via load_params
             doc = __revit__.ActiveUIDocument.Document  # type: ignore
-            from .sheets import collect_sheet_parameter_names
-            names = collect_sheet_parameter_names(doc, UC('batch_export'))
-            win.load_params(names)
+            names_coll = picker_collect_sheet_parameter_names(doc, UC('batch_export'))
+            win.load_params(names_coll)
         except Exception:
             pass
         try:

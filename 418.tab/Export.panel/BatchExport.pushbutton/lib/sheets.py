@@ -136,3 +136,91 @@ def get_sheet_sets(doc):
         # print(coll_title, count_in_coll)
         result_sets.append({'Titre': coll_title, 'Feuilles': count_in_coll})
     return result_sets
+
+
+# ------------------------ Paramètres par portée (Projet / Feuille / Collection) ------------------------ #
+
+def picker_collect_project_parameter_names(doc, config_store):
+    """Retourne la liste triée des noms de paramètres Oui/Non modifiables au niveau Projet.
+
+    Source: doc.ProjectInformation.Parameters
+    """
+    out = []
+
+    proj_info= DB.FilteredElementCollector(doc).OfClass(DB.ProjectInfo).ToElements()
+    for param in proj_info[0].GetOrderedParameters():
+        out.append(param.Definition.Name)
+    try:
+        out.sort(key=lambda s: s.lower())
+    except Exception:
+        out.sort()
+    return out
+
+
+def picker_collect_sheet_instance_parameter_names(doc, config_store):
+    """Retourne la liste triée des noms de paramètres Oui/Non modifiables au niveau Feuille (ViewSheet instances)."""
+    names = set()
+    writable = {}
+    try:
+        sheets = DB.FilteredElementCollector(doc).OfClass(DB.ViewSheet).ToElements()
+    except Exception:
+        sheets = []
+    for vs in sheets:
+        try:
+            for param in vs.Parameters:
+                try:
+                    pdef = param.Definition
+                    pname = pdef.Name
+                    if pname and pname.strip():
+                        pname_clean = pname.strip()
+                        names.add(pname_clean)
+                        try:
+                            if hasattr(param, 'IsReadOnly') and not param.IsReadOnly:
+                                writable[pname_clean] = True
+                            else:
+                                writable.setdefault(pname_clean, False)
+                        except Exception:
+                            writable.setdefault(pname_clean, True)
+                except Exception:
+                    continue
+        except Exception:
+            continue
+    out = [n for n in names if writable.get(n, True)]
+    out = filter_param_names(out, config_store)
+    try:
+        out.sort(key=lambda s: s.lower())
+    except Exception:
+        out.sort()
+    return out
+
+def picker_collect_sheet_parameter_names(doc, config_store):
+    collected_names = set()
+    writable_flags = {}
+    collections = None
+    try:
+        collections = DB.FilteredElementCollector(doc).OfClass(DB.SheetCollection).ToElements()
+    except Exception:
+        collections = None
+    for coll in collections:
+        try:
+            for param in coll.Parameters:
+                try:
+                    pdef = param.Definition
+                    pname = pdef.Name
+                    if pname and pname.strip():
+                        pname_clean = pname.strip()
+                        collected_names.add(pname_clean)
+                        try:
+                            if hasattr(param, 'IsReadOnly') and not param.IsReadOnly:
+                                writable_flags[pname_clean] = True
+                            else:
+                                writable_flags.setdefault(pname_clean, False)
+                        except Exception:
+                            writable_flags.setdefault(pname_clean, True)
+                except Exception:
+                    continue
+        except Exception:
+            continue
+    filtered_names = [n for n in collected_names if writable_flags.get(n, True)]
+    filtered_names = filter_param_names(filtered_names, config_store)
+    return sorted(filtered_names, key=lambda s: s.lower())
