@@ -31,6 +31,11 @@ try:
 except Exception:  # en analyse statique hors Revit
     REVIT_API_AVAILABLE = False
 
+try:
+    from System.Windows.Media import Brushes  # pour feedback visuel
+except Exception:
+    Brushes = None  # type: ignore
+
 # ------------------------------- Helpers ------------------------------- #
 
 GUI_FILE = os.path.join('GUI', 'MainWindow.xaml')
@@ -62,6 +67,7 @@ class ExportMainWindow(forms.WPFWindow):
         # Etat interne pour éviter les boucles d'événements
         self._updating = False
         self._prev_selection = {}
+        self._dest_valid = False
 
         # Peupler les ComboBox des paramètres de feuilles Revit
         try:
@@ -109,6 +115,20 @@ class ExportMainWindow(forms.WPFWindow):
                 self.SheetNamingButton.Click += self._on_open_sheet_naming
             if hasattr(self, 'SetNamingButton'):
                 self.SetNamingButton.Click += self._on_open_set_naming
+        except Exception:
+            pass
+        # Destination: initialiser, lier événements
+        try:
+            if hasattr(self, 'BrowseButton'):
+                self.BrowseButton.Click += self._on_browse_clicked
+            if hasattr(self, 'PathTextBox'):
+                # Valeur initiale depuis config
+                from .destination import get_saved_destination
+                self.PathTextBox.Text = get_saved_destination()
+                # Valider et créer si besoin
+                self._validate_destination(create=True)
+                # Écouter les modifications manuelles
+                self.PathTextBox.TextChanged += self._on_path_changed
         except Exception:
             pass
         # (Bouton de sauvegarde supprimé)
@@ -195,6 +215,71 @@ class ExportMainWindow(forms.WPFWindow):
                 self.SetNamingButton.Content = set_patt or '...'
         except Exception:
             pass
+
+    # ---------------------- Destination: handlers & helpers ---------------------- #
+    def _on_browse_clicked(self, sender, args):
+        try:
+            from .destination import choose_destination_explorer
+            chosen = choose_destination_explorer(save=True)
+            if chosen:
+                try:
+                    self.PathTextBox.Text = chosen
+                except Exception:
+                    pass
+                self._validate_destination(create=True)
+                _update_export_button_state(self)
+        except Exception as e:
+            print('[info] Sélection dossier échouée: {}'.format(e))
+
+    def _on_path_changed(self, sender, args):
+        # Valide à la volée sans créer le dossier
+        try:
+            self._validate_destination(create=False)
+            _update_export_button_state(self)
+        except Exception:
+            pass
+
+    def _validate_destination(self, create=False):
+        """Valide/Crée le dossier, donne un feedback visuel et persiste la valeur."""
+        try:
+            from .destination import ensure_directory, set_saved_destination
+        except Exception:
+            return False
+        path = ''
+        try:
+            path = self.PathTextBox.Text or ''
+        except Exception:
+            path = ''
+        ok = False
+        err = None
+        if path:
+            if create:
+                ok, err = ensure_directory(path)
+            else:
+                try:
+                    import os as _os
+                    ok = _os.path.isdir(path)
+                except Exception:
+                    ok = False
+        # Feedback visuel
+        try:
+            if ok:
+                if Brushes is not None:
+                    self.PathTextBox.BorderBrush = Brushes.Gray
+                    self.PathTextBox.Background = Brushes.White
+                self.PathTextBox.ToolTip = path
+                # Persister si valide
+                set_saved_destination(path)
+            else:
+                if Brushes is not None:
+                    self.PathTextBox.BorderBrush = Brushes.Red
+                    # léger rose pour signaler l'erreur
+                    self.PathTextBox.Background = Brushes.MistyRose if hasattr(Brushes, 'MistyRose') else self.PathTextBox.Background
+                self.PathTextBox.ToolTip = err or u"Chemin invalide"
+        except Exception:
+            pass
+        self._dest_valid = bool(ok)
+        return self._dest_valid
 
 
 def _show_ui():
@@ -437,7 +522,9 @@ def _update_export_button_state(win):
             return
         avail = getattr(win, '_available_param_names', None)
         count = len(avail) if isinstance(avail, list) else 0
-        if count < 3:
+        # Destination valide ?
+        dest_ok = bool(getattr(win, '_dest_valid', False))
+        if count < 3 or not dest_ok:
             btn.IsEnabled = False
             return
         are_unique, selected = _are_three_unique(win)
