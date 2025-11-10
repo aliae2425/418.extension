@@ -207,6 +207,27 @@ class PikerWindow(forms.WPFWindow):
                 self.CancelButton.Click += self._on_close
         except Exception:
             pass
+        # Attacher handlers d'interaction si présents
+        try:
+            if hasattr(self, 'AddParamButton'):
+                self.AddParamButton.Click += self._on_add_param
+            if hasattr(self, 'RemoveParamButton'):
+                self.RemoveParamButton.Click += self._on_remove_param
+            if hasattr(self, 'MoveUpButton'):
+                self.MoveUpButton.Click += self._on_move_up
+            if hasattr(self, 'MoveDownButton'):
+                self.MoveDownButton.Click += self._on_move_down
+            if hasattr(self, 'PrefixTextBox'):
+                self.PrefixTextBox.TextChanged += self._on_pattern_changed
+            if hasattr(self, 'SuffixTextBox'):
+                self.SuffixTextBox.TextChanged += self._on_pattern_changed
+        except Exception:
+            pass
+        # État interne
+        self._available = []
+        self._selected = []
+        # Construit l'aperçu initial
+        self._refresh_preview()
 
     def _on_close(self, sender, args):
         try:
@@ -214,11 +235,132 @@ class PikerWindow(forms.WPFWindow):
         except Exception:
             pass
 
+    # ---------------- Paramètres ---------------- #
+    def load_params(self, names):
+        """Charge la liste des paramètres disponibles (liste de strings)."""
+        try:
+            self._available = list(names or [])
+            if hasattr(self, 'AvailableParamsList'):
+                try:
+                    self.AvailableParamsList.Items.Clear()
+                except Exception:
+                    pass
+                for n in self._available:
+                    try:
+                        self.AvailableParamsList.Items.Add(n)
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+        self._refresh_preview()
+
+    def _on_add_param(self, sender, args):
+        try:
+            if not hasattr(self, 'AvailableParamsList') or not hasattr(self, 'SelectedParamsList'):
+                return
+            sel = getattr(self.AvailableParamsList, 'SelectedItem', None)
+            if sel and sel not in self._selected:
+                self._selected.append(sel)
+                self.SelectedParamsList.Items.Add(sel)
+        except Exception:
+            pass
+        self._refresh_preview()
+
+    def _on_remove_param(self, sender, args):
+        try:
+            if not hasattr(self, 'SelectedParamsList'):
+                return
+            sel = getattr(self.SelectedParamsList, 'SelectedItem', None)
+            if sel and sel in self._selected:
+                self._selected.remove(sel)
+                try:
+                    self.SelectedParamsList.Items.Remove(sel)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        self._refresh_preview()
+
+    def _on_move_up(self, sender, args):
+        try:
+            if not hasattr(self, 'SelectedParamsList'):
+                return
+            sel = getattr(self.SelectedParamsList, 'SelectedItem', None)
+            if sel and sel in self._selected:
+                idx = self._selected.index(sel)
+                if idx > 0:
+                    self._selected[idx], self._selected[idx-1] = self._selected[idx-1], self._selected[idx]
+                    self._reload_selected_list(sel)
+        except Exception:
+            pass
+        self._refresh_preview()
+
+    def _on_move_down(self, sender, args):
+        try:
+            if not hasattr(self, 'SelectedParamsList'):
+                return
+            sel = getattr(self.SelectedParamsList, 'SelectedItem', None)
+            if sel and sel in self._selected:
+                idx = self._selected.index(sel)
+                if idx < len(self._selected) - 1:
+                    self._selected[idx], self._selected[idx+1] = self._selected[idx+1], self._selected[idx]
+                    self._reload_selected_list(sel)
+        except Exception:
+            pass
+        self._refresh_preview()
+
+    def _reload_selected_list(self, reselect=None):
+        try:
+            self.SelectedParamsList.Items.Clear()
+            for n in self._selected:
+                self.SelectedParamsList.Items.Add(n)
+            if reselect is not None:
+                try:
+                    self.SelectedParamsList.SelectedItem = reselect
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def _on_pattern_changed(self, sender, args):
+        self._refresh_preview()
+
+    def _build_pattern(self):
+        try:
+            prefix = ''
+            suffix = ''
+            if hasattr(self, 'PrefixTextBox'):
+                prefix = self.PrefixTextBox.Text or ''
+            if hasattr(self, 'SuffixTextBox'):
+                suffix = self.SuffixTextBox.Text or ''
+            core = ''.join(['{' + n + '}'] for n in self._selected)
+            pattern = prefix + core + suffix
+            return pattern
+        except Exception:
+            return ''
+
+    def _refresh_preview(self):
+        patt = self._build_pattern()
+        try:
+            if hasattr(self, 'PatternPreviewText'):
+                self.PatternPreviewText.Text = patt or '(vide)'
+        except Exception:
+            pass
+
 
 def _show_piker_modal(title=u"Piker"):
-    """Ouvre Piker.xaml en modal."""
+    """Ouvre Piker.xaml en modal et charge la liste des paramètres disponibles si possible."""
     try:
         win = PikerWindow(title=title)
+        # Tenter de charger la liste des paramètres dispo (depuis fenêtre principale si ouverte)
+        try:
+            # si on peut accéder au doc actif et à collect_sheet_parameter_names
+            doc = __revit__.ActiveUIDocument.Document  # type: ignore
+            names = collect_sheet_parameter_names(doc, CONFIG)
+            if hasattr(win, 'load_params'):
+                win.load_params(names)
+        except Exception:
+            pass
         try:
             win.ShowDialog()
         except Exception:
