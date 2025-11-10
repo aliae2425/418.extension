@@ -213,19 +213,15 @@ class PikerWindow(forms.WPFWindow):
                 self.AddParamButton.Click += self._on_add_param
             if hasattr(self, 'RemoveParamButton'):
                 self.RemoveParamButton.Click += self._on_remove_param
-            if hasattr(self, 'MoveUpButton'):
-                self.MoveUpButton.Click += self._on_move_up
-            if hasattr(self, 'MoveDownButton'):
-                self.MoveDownButton.Click += self._on_move_down
-            if hasattr(self, 'PrefixTextBox'):
-                self.PrefixTextBox.TextChanged += self._on_pattern_changed
-            if hasattr(self, 'SuffixTextBox'):
-                self.SuffixTextBox.TextChanged += self._on_pattern_changed
+            if hasattr(self, 'ScopeCombo'):
+                self.ScopeCombo.SelectionChanged += self._on_scope_changed
+            # DataGrid changes will be captured via preview refresh (binding change + manual call)
         except Exception:
             pass
         # État interne
-        self._available = []
-        self._selected = []
+        self._available_all = []  # toutes sources confondues
+        self._available_filtered = []  # selon scope
+        self._selected_rows = []  # liste de dict {Name, Prefix, Suffix}
         # Construit l'aperçu initial
         self._refresh_preview()
 
@@ -237,105 +233,84 @@ class PikerWindow(forms.WPFWindow):
 
     # ---------------- Paramètres ---------------- #
     def load_params(self, names):
-        """Charge la liste des paramètres disponibles (liste de strings)."""
+        """Charge la liste complète des paramètres (liste de strings) puis applique le filtre initial (Tout)."""
         try:
-            self._available = list(names or [])
-            if hasattr(self, 'AvailableParamsList'):
-                try:
-                    self.AvailableParamsList.Items.Clear()
-                except Exception:
-                    pass
-                for n in self._available:
-                    try:
-                        self.AvailableParamsList.Items.Add(n)
-                    except Exception:
-                        continue
+            self._available_all = list(names or [])
+            self._apply_scope_filter()
+        except Exception:
+            pass
+        self._refresh_preview()
+
+    def _apply_scope_filter(self):
+        scope = 'Tout'
+        try:
+            if hasattr(self, 'ScopeCombo'):
+                sel = getattr(self.ScopeCombo, 'SelectedItem', None)
+                if sel is not None:
+                    scope = getattr(sel, 'Content', 'Tout')
+        except Exception:
+            pass
+        # NOTE: Actuellement pas de différenciation réelle (Projet/Collection/Feuille).
+        # On garde tout jusqu'à ce qu'on ait la logique API appropriée.
+        self._available_filtered = list(self._available_all)
+        # Rafraîchir UI liste disponible
+        if hasattr(self, 'AvailableParamsList'):
+            try:
+                self.AvailableParamsList.Items.Clear()
+                for n in self._available_filtered:
+                    self.AvailableParamsList.Items.Add(n)
+            except Exception:
+                pass
+
+    def _on_scope_changed(self, sender, args):
+        try:
+            self._apply_scope_filter()
         except Exception:
             pass
         self._refresh_preview()
 
     def _on_add_param(self, sender, args):
         try:
-            if not hasattr(self, 'AvailableParamsList') or not hasattr(self, 'SelectedParamsList'):
+            if not hasattr(self, 'AvailableParamsList') or not hasattr(self, 'SelectedParamsGrid'):
                 return
             sel = getattr(self.AvailableParamsList, 'SelectedItem', None)
-            if sel and sel not in self._selected:
-                self._selected.append(sel)
-                self.SelectedParamsList.Items.Add(sel)
+            if sel and not any(r.get('Name') == sel for r in self._selected_rows):
+                self._selected_rows.append({'Name': sel, 'Prefix': '', 'Suffix': ''})
+                self._reload_selected_grid()
         except Exception:
             pass
         self._refresh_preview()
 
     def _on_remove_param(self, sender, args):
         try:
-            if not hasattr(self, 'SelectedParamsList'):
+            if not hasattr(self, 'SelectedParamsGrid'):
                 return
-            sel = getattr(self.SelectedParamsList, 'SelectedItem', None)
-            if sel and sel in self._selected:
-                self._selected.remove(sel)
-                try:
-                    self.SelectedParamsList.Items.Remove(sel)
-                except Exception:
-                    pass
+            grid = self.SelectedParamsGrid
+            sel = getattr(grid, 'SelectedItem', None)
+            if sel and isinstance(sel, dict):
+                name = sel.get('Name')
+                self._selected_rows = [r for r in self._selected_rows if r.get('Name') != name]
+                self._reload_selected_grid()
         except Exception:
             pass
         self._refresh_preview()
 
-    def _on_move_up(self, sender, args):
-        try:
-            if not hasattr(self, 'SelectedParamsList'):
-                return
-            sel = getattr(self.SelectedParamsList, 'SelectedItem', None)
-            if sel and sel in self._selected:
-                idx = self._selected.index(sel)
-                if idx > 0:
-                    self._selected[idx], self._selected[idx-1] = self._selected[idx-1], self._selected[idx]
-                    self._reload_selected_list(sel)
-        except Exception:
-            pass
-        self._refresh_preview()
-
-    def _on_move_down(self, sender, args):
-        try:
-            if not hasattr(self, 'SelectedParamsList'):
-                return
-            sel = getattr(self.SelectedParamsList, 'SelectedItem', None)
-            if sel and sel in self._selected:
-                idx = self._selected.index(sel)
-                if idx < len(self._selected) - 1:
-                    self._selected[idx], self._selected[idx+1] = self._selected[idx+1], self._selected[idx]
-                    self._reload_selected_list(sel)
-        except Exception:
-            pass
-        self._refresh_preview()
-
-    def _reload_selected_list(self, reselect=None):
-        try:
-            self.SelectedParamsList.Items.Clear()
-            for n in self._selected:
-                self.SelectedParamsList.Items.Add(n)
-            if reselect is not None:
-                try:
-                    self.SelectedParamsList.SelectedItem = reselect
-                except Exception:
-                    pass
-        except Exception:
-            pass
+    # (Reorder non demandé pour DataGrid version, pourrait être ajouté si besoin)
 
     def _on_pattern_changed(self, sender, args):
         self._refresh_preview()
 
     def _build_pattern(self):
         try:
-            prefix = ''
-            suffix = ''
-            if hasattr(self, 'PrefixTextBox'):
-                prefix = self.PrefixTextBox.Text or ''
-            if hasattr(self, 'SuffixTextBox'):
-                suffix = self.SuffixTextBox.Text or ''
-            core = ''.join(['{' + n + '}'] for n in self._selected)
-            pattern = prefix + core + suffix
-            return pattern
+            parts = []
+            for row in self._selected_rows:
+                name = row.get('Name', '')
+                if not name:
+                    continue
+                pf = row.get('Prefix', '') or ''
+                sf = row.get('Suffix', '') or ''
+                parts.append(pf + '{' + name + '}' + sf)
+            return ''.join(parts)
         except Exception:
             return ''
 
@@ -346,6 +321,20 @@ class PikerWindow(forms.WPFWindow):
                 self.PatternPreviewText.Text = patt or '(vide)'
         except Exception:
             pass
+
+    def _reload_selected_grid(self):
+        if not hasattr(self, 'SelectedParamsGrid'):
+            return
+        grid = self.SelectedParamsGrid
+        try:
+            grid.Items.Clear()
+        except Exception:
+            pass
+        for row in self._selected_rows:
+            try:
+                grid.Items.Add(row)
+            except Exception:
+                continue
 
 
 def _show_piker_modal(title=u"Piker"):

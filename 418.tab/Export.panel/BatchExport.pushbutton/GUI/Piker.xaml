@@ -1,7 +1,7 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Piker"
-        Height="440" Width="760"
+        Height="520" Width="840"
         WindowStartupLocation="CenterOwner">
   <Grid Margin="12">
     <Grid.RowDefinitions>
@@ -12,56 +12,72 @@
 
     <TextBlock Text="Configuration du nommage" FontSize="16" FontWeight="Bold"/>
 
-    <!-- Zone centrale: prefix / listes / suffix -->
+    <!-- zoneCentrale: gauche = filtres + paramètres; centre = boutons; droite = DataGrid des paramètres choisis -->
     <Grid Grid.Row="1" Margin="0,8,0,8">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="180"/>
+        <ColumnDefinition Width="280"/>
+        <ColumnDefinition Width="80"/>
         <ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="180"/>
       </Grid.ColumnDefinitions>
 
-      <!-- Prefix -->
-      <StackPanel Grid.Column="0" Margin="0,0,8,0">
-        <TextBlock Text="Préfix" FontWeight="Bold"/>
-        <TextBox Name="PrefixTextBox" MinHeight="26" />
-        <TextBlock Text="Préfix appliqué avant la concaténation." FontSize="11" Foreground="#666" Margin="0,4,0,0"/>
-      </StackPanel>
-
-      <!-- Liste paramètres disponibles -->
-      <Border Grid.Column="1" BorderBrush="#CCC" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,8,0">
+      <!-- leftSection: filtres + liste des paramètres -->
+      <Border Grid.Column="0" BorderBrush="#CCC" BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,0,8,0">
         <StackPanel>
-          <TextBlock Text="Paramètres disponibles" FontWeight="Bold" Margin="0,0,0,4"/>
-          <ListBox Name="AvailableParamsList" Height="220" />
-          <Button Name="AddParamButton" Content="Ajouter →" Height="26" Margin="0,6,0,0" />
+          <!-- scopeFilter -->
+          <TextBlock Text="Source des paramètres" FontWeight="Bold"/>
+          <ComboBox Name="ScopeCombo" Margin="0,4,0,8">
+            <ComboBoxItem Content="Tout" IsSelected="True"/>
+            <ComboBoxItem Content="Projet"/>
+            <ComboBoxItem Content="Collection"/>
+            <ComboBoxItem Content="Feuille"/>
+          </ComboBox>
+          <!-- availableParams -->
+          <TextBlock Text="Paramètres disponibles" FontWeight="Bold" Margin="0,2,0,4"/>
+          <ListBox Name="AvailableParamsList" Height="300"/>
         </StackPanel>
       </Border>
 
-      <!-- Liste paramètres choisis -->
-      <Border Grid.Column="2" BorderBrush="#CCC" BorderThickness="1" CornerRadius="4" Padding="6" Margin="0,0,8,0">
+      <!-- middleButtons: actions ajouter / retirer -->
+      <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center">
+        <Button Name="AddParamButton" Content="Ajouter →" Width="74" Height="28" Margin="0,0,0,8"/>
+        <Button Name="RemoveParamButton" Content="← Supprimer" Width="74" Height="28"/>
+      </StackPanel>
+
+      <!-- rightGrid: paramètres choisis avec prefix/suffix par ligne -->
+      <Border Grid.Column="2" BorderBrush="#CCC" BorderThickness="1" CornerRadius="4" Padding="8">
         <StackPanel>
-          <TextBlock Text="Paramètres choisis (ordre)" FontWeight="Bold" Margin="0,0,0,4"/>
-          <ListBox Name="SelectedParamsList" Height="180" />
-          <DockPanel Margin="0,6,0,0" LastChildFill="False">
-            <Button Name="MoveUpButton" Content="↑" Width="40" Height="26" Margin="0,0,4,0" />
-            <Button Name="MoveDownButton" Content="↓" Width="40" Height="26" Margin="0,0,4,0" />
-            <Button Name="RemoveParamButton" Content="Retirer" Width="80" Height="26" />
-          </DockPanel>
+          <TextBlock Text="Paramètres choisis" FontWeight="Bold" Margin="0,0,0,6"/>
+          <DataGrid Name="SelectedParamsGrid" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column" Height="320">
+            <DataGrid.Columns>
+              <!-- colParamName -->
+              <DataGridTextColumn Header="Paramètre" Binding="{Binding [Name]}" Width="2*"/>
+              <!-- colPrefix editable -->
+              <DataGridTemplateColumn Header="Préfix" Width="*">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBox Text="{Binding [Prefix], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <!-- colSuffix editable -->
+              <DataGridTemplateColumn Header="Suffix" Width="*">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBox Text="{Binding [Suffix], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+            </DataGrid.Columns>
+          </DataGrid>
         </StackPanel>
       </Border>
-
-      <!-- Suffix -->
-      <StackPanel Grid.Column="3" Margin="0,0,0,0">
-        <TextBlock Text="Suffix" FontWeight="Bold"/>
-        <TextBox Name="SuffixTextBox" MinHeight="26" />
-        <TextBlock Text="Suffix appliqué après la concaténation." FontSize="11" Foreground="#666" Margin="0,4,0,0"/>
-      </StackPanel>
     </Grid>
 
     <!-- Aperçu du pattern résultant -->
     <Border Grid.Row="2" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,0,0,8">
       <StackPanel Orientation="Vertical">
         <TextBlock Text="Aperçu" FontWeight="Bold"/>
+        <TextBlock Text="Chaque ligne génère: Préfix + {Paramètre} + Suffix. L'ensemble est concaténé." FontSize="11" Foreground="#666"/>
         <TextBlock Name="PatternPreviewText" Text="" Margin="0,4,0,0" Foreground="#333" FontFamily="Consolas"/>
         <DockPanel Margin="0,8,0,0" LastChildFill="False">
           <Button Name="CancelButton" Content="Annuler" Width="110" Height="30" Margin="0,0,8,0" />
