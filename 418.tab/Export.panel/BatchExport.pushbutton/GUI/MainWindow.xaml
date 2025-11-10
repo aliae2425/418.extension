@@ -17,10 +17,7 @@
                 <Setter Property="Margin" Value="8"/>
             </Style>
 
-            <Style x:Key="FlatComboBox" TargetType="ComboBox">
-                <Setter Property="Background" Value="Transparent"/>
-                <Setter Property="BorderThickness" Value="0"/>
-            </Style>
+            <!-- Style FlatComboBox retiré (non utilisé) -->
         </Window.Resources>
 
   <Grid>
@@ -83,21 +80,24 @@
                             <ComboBox Name="DWGCombo" MinWidth="50"/>
                         </StackPanel>
                     </Expander>
-                    <!-- PDF -->
-                    <Expander Header="Export PDF"
-                        Name="PDFExpander"
+                    <!-- Expanders PDF/DWG placeholder ne pas retirer -->
+                    <Expander Header="PDF"
+                        Name="CollectionExpander"
                         IsExpanded="False"
                         ExpandDirection="Down"
                         Margin="0,0,8,0">
-                        <TextBlock Text="Paramètres spécifiques à l'export PDF."/>
+                            <StackPanel Orientation="Vertical">
+                                <TextBlock Text="(À venir)"/>
+                            </StackPanel>
                     </Expander>
-                    <!-- DWG -->
-                    <Expander Header="Export DWG"
-                        Name="DWGExpander"
+                    <Expander Header="DWG"
+                        Name="CollectionExpander"
                         IsExpanded="False"
                         ExpandDirection="Down"
                         Margin="0,0,8,0">
-                        <TextBlock Text="Paramètres spécifiques à l'export DWG."/> 
+                            <StackPanel Orientation="Vertical">
+                                <TextBlock Text="(À venir)"/>
+                            </StackPanel>
                     </Expander>
                 </StackPanel>
             </ScrollViewer>

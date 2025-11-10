@@ -14,7 +14,6 @@ Notes:
 """
 
 from pyrevit import forms
-from Autodesk.Revit import DB
 import os
 try:
     # WPF Visibility enum for showing/hiding warnings
@@ -419,7 +418,6 @@ def _populate_sheet_sets(win):
             return
         for row in data:
             try:
-                print(row)
                 GUI_ListView.Items.Add(row)
             except Exception:
                 continue
