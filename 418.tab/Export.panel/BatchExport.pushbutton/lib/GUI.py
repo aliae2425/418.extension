@@ -117,6 +117,11 @@ class ExportMainWindow(forms.WPFWindow):
             self._prev_selection = _get_selected_values(self)
         except Exception:
             pass
+        # Afficher les patterns de nommage sauvegardés sur les boutons
+        try:
+            self._refresh_naming_buttons()
+        except Exception:
+            pass
 
     # Événement: mémoriser le choix utilisateur
     def _on_param_combo_changed(self, sender, args):
@@ -153,15 +158,43 @@ class ExportMainWindow(forms.WPFWindow):
     # Ouvrir la modale Piker.xaml depuis la section Nommage
     def _on_open_sheet_naming(self, sender, args):
         try:
-            _show_piker_modal(title=u"Nommage des feuilles")
+            from . import piker
+            piker.open_modal(kind='sheet', title=u"Nommage des feuilles")
+            self._refresh_naming_buttons()
         except Exception as e:
             print('[info] Ouverture Piker (feuilles) échouée: {}'.format(e))
 
     def _on_open_set_naming(self, sender, args):
         try:
-            _show_piker_modal(title=u"Nommage des carnets")
+            from . import piker
+            piker.open_modal(kind='set', title=u"Nommage des carnets")
+            self._refresh_naming_buttons()
         except Exception as e:
             print('[info] Ouverture Piker (carnets) échouée: {}'.format(e))
+
+    def _refresh_naming_buttons(self):
+        try:
+            from .naming import load_pattern
+        except Exception:
+            return
+        try:
+            sheet_patt, _ = load_pattern('sheet')
+        except Exception:
+            sheet_patt = ''
+        try:
+            set_patt, _ = load_pattern('set')
+        except Exception:
+            set_patt = ''
+        try:
+            if hasattr(self, 'SheetNamingButton'):
+                self.SheetNamingButton.Content = sheet_patt or '...'
+        except Exception:
+            pass
+        try:
+            if hasattr(self, 'SetNamingButton'):
+                self.SetNamingButton.Content = set_patt or '...'
+        except Exception:
+            pass
 
 
 def _show_ui():
@@ -190,173 +223,8 @@ class GUI:
         return _show_ui()
 
 
-class PikerWindow(forms.WPFWindow):
-    """Petite fenêtre modale basée sur Piker.xaml"""
-    def __init__(self, title=u"Piker"):
-        forms.WPFWindow.__init__(self, _get_piker_xaml_path())
-        try:
-            self.Title = title
-        except Exception:
-            pass
-        # Fermer via OK/Annuler si présents
-        try:
-            if hasattr(self, 'OkButton'):
-                self.OkButton.Click += self._on_close
-            if hasattr(self, 'CancelButton'):
-                self.CancelButton.Click += self._on_close
-        except Exception:
-            pass
-        # Attacher handlers d'interaction si présents
-        try:
-            if hasattr(self, 'AddParamButton'):
-                self.AddParamButton.Click += self._on_add_param
-            if hasattr(self, 'RemoveParamButton'):
-                self.RemoveParamButton.Click += self._on_remove_param
-            if hasattr(self, 'ScopeCombo'):
-                self.ScopeCombo.SelectionChanged += self._on_scope_changed
-            # DataGrid changes will be captured via preview refresh (binding change + manual call)
-        except Exception:
-            pass
-        # État interne
-        self._available_all = []  # toutes sources confondues
-        self._available_filtered = []  # selon scope
-        self._selected_rows = []  # liste de dict {Name, Prefix, Suffix}
-        # Construit l'aperçu initial
-        self._refresh_preview()
-
-    def _on_close(self, sender, args):
-        try:
-            self.Close()
-        except Exception:
-            pass
-
-    # ---------------- Paramètres ---------------- #
-    def load_params(self, names):
-        """Charge la liste complète des paramètres (liste de strings) puis applique le filtre initial (Tout)."""
-        try:
-            self._available_all = list(names or [])
-            self._apply_scope_filter()
-        except Exception:
-            pass
-        self._refresh_preview()
-
-    def _apply_scope_filter(self):
-        scope = 'Tout'
-        try:
-            if hasattr(self, 'ScopeCombo'):
-                sel = getattr(self.ScopeCombo, 'SelectedItem', None)
-                if sel is not None:
-                    scope = getattr(sel, 'Content', 'Tout')
-        except Exception:
-            pass
-        # NOTE: Actuellement pas de différenciation réelle (Projet/Collection/Feuille).
-        # On garde tout jusqu'à ce qu'on ait la logique API appropriée.
-        self._available_filtered = list(self._available_all)
-        # Rafraîchir UI liste disponible
-        if hasattr(self, 'AvailableParamsList'):
-            try:
-                self.AvailableParamsList.Items.Clear()
-                for n in self._available_filtered:
-                    self.AvailableParamsList.Items.Add(n)
-            except Exception:
-                pass
-
-    def _on_scope_changed(self, sender, args):
-        try:
-            self._apply_scope_filter()
-        except Exception:
-            pass
-        self._refresh_preview()
-
-    def _on_add_param(self, sender, args):
-        try:
-            if not hasattr(self, 'AvailableParamsList') or not hasattr(self, 'SelectedParamsGrid'):
-                return
-            sel = getattr(self.AvailableParamsList, 'SelectedItem', None)
-            if sel and not any(r.get('Name') == sel for r in self._selected_rows):
-                self._selected_rows.append({'Name': sel, 'Prefix': '', 'Suffix': ''})
-                self._reload_selected_grid()
-        except Exception:
-            pass
-        self._refresh_preview()
-
-    def _on_remove_param(self, sender, args):
-        try:
-            if not hasattr(self, 'SelectedParamsGrid'):
-                return
-            grid = self.SelectedParamsGrid
-            sel = getattr(grid, 'SelectedItem', None)
-            if sel and isinstance(sel, dict):
-                name = sel.get('Name')
-                self._selected_rows = [r for r in self._selected_rows if r.get('Name') != name]
-                self._reload_selected_grid()
-        except Exception:
-            pass
-        self._refresh_preview()
-
-    # (Reorder non demandé pour DataGrid version, pourrait être ajouté si besoin)
-
-    def _on_pattern_changed(self, sender, args):
-        self._refresh_preview()
-
-    def _build_pattern(self):
-        try:
-            parts = []
-            for row in self._selected_rows:
-                name = row.get('Name', '')
-                if not name:
-                    continue
-                pf = row.get('Prefix', '') or ''
-                sf = row.get('Suffix', '') or ''
-                parts.append(pf + '{' + name + '}' + sf)
-            return ''.join(parts)
-        except Exception:
-            return ''
-
-    def _refresh_preview(self):
-        patt = self._build_pattern()
-        try:
-            if hasattr(self, 'PatternPreviewText'):
-                self.PatternPreviewText.Text = patt or '(vide)'
-        except Exception:
-            pass
-
-    def _reload_selected_grid(self):
-        if not hasattr(self, 'SelectedParamsGrid'):
-            return
-        grid = self.SelectedParamsGrid
-        try:
-            grid.Items.Clear()
-        except Exception:
-            pass
-        for row in self._selected_rows:
-            try:
-                grid.Items.Add(row)
-            except Exception:
-                continue
-
-
-def _show_piker_modal(title=u"Piker"):
-    """Ouvre Piker.xaml en modal et charge la liste des paramètres disponibles si possible."""
-    try:
-        win = PikerWindow(title=title)
-        # Tenter de charger la liste des paramètres dispo (depuis fenêtre principale si ouverte)
-        try:
-            # si on peut accéder au doc actif et à collect_sheet_parameter_names
-            doc = __revit__.ActiveUIDocument.Document  # type: ignore
-            names = collect_sheet_parameter_names(doc, CONFIG)
-            if hasattr(win, 'load_params'):
-                win.load_params(names)
-        except Exception:
-            pass
-        try:
-            win.ShowDialog()
-        except Exception:
-            win.show()
-        return True
-    except Exception as e:
-        print('[info] Erreur ouverture Piker: {}'.format(e))
-        return False
+## Piker extrait dans module séparé (.piker). L'ancienne classe et l'appel modal
+## sont supprimés ici pour alléger le fichier.
 
 
 # ------------------------------- Paramètres & jeux de feuilles (délégués aux modules) ------------------------------- #

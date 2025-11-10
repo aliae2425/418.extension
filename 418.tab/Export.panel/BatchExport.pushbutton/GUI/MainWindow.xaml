@@ -82,7 +82,7 @@
                     </Expander>
                     <!-- Expanders PDF/DWG placeholder ne pas retirer -->
                     <Expander Header="PDF"
-                        Name="CollectionExpander"
+                        Name="PDFExpander"
                         IsExpanded="False"
                         ExpandDirection="Down"
                         Margin="0,0,8,0">
@@ -91,7 +91,7 @@
                             </StackPanel>
                     </Expander>
                     <Expander Header="DWG"
-                        Name="CollectionExpander"
+                        Name="DWGExpander"
                         IsExpanded="False"
                         ExpandDirection="Down"
                         Margin="0,0,8,0">

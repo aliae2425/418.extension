@@ -55,7 +55,9 @@
               <DataGridTemplateColumn Header="Préfix" Width="*">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
-                    <TextBox Text="{Binding [Prefix], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBox Text="{Binding [Prefix], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             LostFocus="ParamCell_LostFocus"
+                             TextChanged="ParamCell_TextChanged"/>
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
@@ -63,7 +65,9 @@
               <DataGridTemplateColumn Header="Suffix" Width="*">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
-                    <TextBox Text="{Binding [Suffix], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBox Text="{Binding [Suffix], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             LostFocus="ParamCell_LostFocus"
+                             TextChanged="ParamCell_TextChanged"/>
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
