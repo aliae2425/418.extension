@@ -270,7 +270,7 @@ def _find_collection_by_name(doc, name):
 
 def _export_pdf_sheet(doc, sheet, rows, base_folder, options, separate=True):
     # Résoudre le nom via les paramètres de la feuille; fallback sur token si vide
-    desired_name_no_ext = sanitize_filename(resolve_rows_for_element(sheet, rows, empty_fallback=True) or getattr(sheet, 'Name', 'Sheet'))
+    desired_name_no_ext = sanitize_filename(resolve_rows_for_element(sheet, rows, empty_fallback=False) or getattr(sheet, 'Name', 'Sheet'))
     ensure_directory(base_folder)
     path = unique_path(os.path.join(base_folder, desired_name_no_ext + '.pdf'))
     folder = os.path.dirname(path)
@@ -339,7 +339,7 @@ def _export_pdf_sheet(doc, sheet, rows, base_folder, options, separate=True):
 
 def _export_dwg_sheet(doc, sheet, rows, base_folder, options):
     # Construire le nom désiré et exporter dans un sous-dossier temporaire, puis renommer
-    desired_name_no_ext = sanitize_filename(resolve_rows_for_element(sheet, rows, empty_fallback=True) or getattr(sheet, 'Name', 'Sheet'))
+    desired_name_no_ext = sanitize_filename(resolve_rows_for_element(sheet, rows, empty_fallback=False) or getattr(sheet, 'Name', 'Sheet'))
     ensure_directory(base_folder)
     final_path = unique_path(os.path.join(base_folder, desired_name_no_ext + '.dwg'))
     tmp_dir = os.path.join(base_folder, '_tmp_dwg')
@@ -387,7 +387,7 @@ def _export_dwg_sheet(doc, sheet, rows, base_folder, options):
 
 def _export_pdf_collection(doc, sheets, rows, base_folder, options):
     # Nom combiné basé sur le premier sheet ou libellé; combine=True si possible
-    name_no_ext = sanitize_filename('' if not sheets else resolve_rows_for_element(sheets[0], rows, empty_fallback=True)) or 'export'
+    name_no_ext = sanitize_filename('' if not sheets else resolve_rows_for_element(sheets[0], rows, empty_fallback=False)) or 'export'
     ensure_directory(base_folder)
     path = unique_path(os.path.join(base_folder, name_no_ext + '.pdf'))
     folder = os.path.dirname(path)

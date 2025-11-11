@@ -168,6 +168,8 @@ class ExportMainWindow(forms.WPFWindow):
             _check_and_warn_insufficient(self)
             # Mettre à jour l'état du bouton Export
             _update_export_button_state(self)
+            # Rafraîchir l'aperçu des collections
+            _populate_sheet_sets(self)
         except Exception:
             pass
         finally:
@@ -522,24 +524,155 @@ def _get_sheet_sets(doc):
 
 
 def _populate_sheet_sets(win):
-    """Remplit le ListView SheetSetsList avec les jeux de feuilles."""
-    try:
-        GUI_ListView = getattr(win, 'SheetSetsList', None)
-        doc = __revit__.ActiveUIDocument.Document  # type: ignore
+    """Remplit la ListView CollectionPreviewList avec un tableau des collections (6 colonnes),
+    chaque ligne étant extensible pour afficher un sous-tableau des feuilles.
 
-        data = _get_sheet_sets(doc)
-        try:
-            GUI_ListView.Items.Clear()
-        except Exception:
-            pass
-        if not data:
-            GUI_ListView.Items.Add({'Titre': 'Aucun jeu trouvé', 'Feuilles': 0})
+    Colonnes (collections): Nom | Feuilles | Export | Carnet | DWG | Statut
+    Sous-table (feuilles): Nom | Format | Statut
+    """
+    try:
+        lst = getattr(win, 'CollectionPreviewList', None)
+        doc = __revit__.ActiveUIDocument.Document  # type: ignore
+        if lst is None or doc is None or not REVIT_API_AVAILABLE:
             return
-        for row in data:
+
+        # Imports .NET nécessaires
+        try:
+            from System.Collections.ObjectModel import ObservableCollection  # type: ignore
+            from System.Windows.Data import CollectionViewSource, PropertyGroupDescription  # type: ignore
+        except Exception:
+            ObservableCollection = None  # type: ignore
+            CollectionViewSource = None  # type: ignore
+            PropertyGroupDescription = None  # type: ignore
+        try:
+            from Autodesk.Revit import DB  # type: ignore
+        except Exception:
+            DB = None  # type: ignore
+
+        # Helpers
+        def _collections(document):
+            if DB is None:
+                return []
             try:
-                GUI_ListView.Items.Add(row)
+                return list(DB.FilteredElementCollector(document).OfClass(DB.SheetCollection).ToElements())
+            except Exception:
+                return []
+
+        def _sheets_in(document, collection):
+            if DB is None:
+                return []
+            out = []
+            try:
+                for vs in DB.FilteredElementCollector(document).OfClass(DB.ViewSheet).ToElements():
+                    try:
+                        if vs.SheetCollectionId == collection.Id:
+                            out.append(vs)
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+            return out
+
+        def _read_flag(elem, pname, default=False):
+            if not pname:
+                return default
+            try:
+                for p in elem.Parameters:
+                    try:
+                        d = getattr(p, 'Definition', None)
+                        if d is not None and d.Name == pname:
+                            try:
+                                v = p.AsInteger()
+                                return bool(v)
+                            except Exception:
+                                return default
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+            return default
+
+        # Sélections courantes
+        selected = _get_selected_values(win)
+        pname_export = selected.get('ExportationCombo')
+        pname_carnet = selected.get('CarnetCombo')
+        pname_dwg = selected.get('DWGCombo')
+
+        # Nommage feuilles
+        try:
+            from .naming import load_pattern, resolve_rows_for_element
+            _, sheet_rows = load_pattern('sheet')
+        except Exception:
+            sheet_rows = []
+        try:
+            from .destination import sanitize_filename
+        except Exception:
+            def sanitize_filename(s):
+                return s or ''
+
+        # Préparer la collection d'items
+        items = []
+        cols = _collections(doc)
+        for coll in cols:
+            try:
+                do_export = _read_flag(coll, pname_export, False)
+                per_sheet = _read_flag(coll, pname_carnet, False)
+                do_dwg = _read_flag(coll, pname_dwg, False)
+                do_pdf = bool(do_export)
+                sheets = _sheets_in(doc, coll)
+
+                # Construire le sous-tableau (Details)
+                details = []
+                # PDF
+                if do_pdf:
+                    if per_sheet:
+                        for sh in sheets:
+                            try:
+                                base = sanitize_filename(resolve_rows_for_element(sh, sheet_rows, empty_fallback=False)) or getattr(sh, 'Name', 'Sheet')
+                                details.append({'Nom': base, 'Format': 'PDF', 'StatutText': u'', 'StatutColor': Brushes.Green if Brushes is not None else None})
+                            except Exception:
+                                continue
+                    else:
+                        base = ''
+                        try:
+                            if sheets:
+                                base = sanitize_filename(resolve_rows_for_element(sheets[0], sheet_rows, empty_fallback=False))
+                        except Exception:
+                            base = ''
+                        if not base:
+                            base = coll.Name
+                        details.append({'Nom': base, 'Format': 'PDF (combiné)', 'StatutText': u'', 'StatutColor': Brushes.Green if Brushes is not None else None})
+                # DWG
+                if do_dwg:
+                    for sh in sheets:
+                        try:
+                            base = sanitize_filename(resolve_rows_for_element(sh, sheet_rows, empty_fallback=False)) or getattr(sh, 'Name', 'Sheet')
+                            details.append({'Nom': base, 'Format': 'DWG', 'StatutText': u'', 'StatutColor': Brushes.Green if Brushes is not None else None})
+                        except Exception:
+                            continue
+
+                # Item collection (ligne principale)
+                items.append({
+                    'Nom': coll.Name,
+                    'Feuilles': len(sheets),
+                    'ExportText': u"Oui" if do_pdf else u"Non",
+                    'ExportColor': Brushes.Green if (Brushes is not None and do_pdf) else (Brushes.Gray if Brushes is not None else None),
+                    'CarnetText': u"Oui" if per_sheet else u"Non",
+                    'CarnetColor': Brushes.Green if (Brushes is not None and per_sheet) else (Brushes.Gray if Brushes is not None else None),
+                    'DWGText': u"Oui" if do_dwg else u"Non",
+                    'DWGColor': Brushes.Green if (Brushes is not None and do_dwg) else (Brushes.Gray if Brushes is not None else None),
+                    'StatutText': u"",  # à remplir pendant l'export
+                    'StatutColor': Brushes.Green if False else None,
+                    'Details': details,
+                })
             except Exception:
                 continue
+
+        # Appliquer ItemsSource (pas de groupement ici; chaque expander est une collection)
+        try:
+            lst.ItemsSource = items
+        except Exception:
+            pass
     except Exception:
         pass
 

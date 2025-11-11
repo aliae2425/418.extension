@@ -166,16 +166,72 @@
             <ProgressBar Name="ExportProgressBar" 
                 Height="24" Minimum="0" 
                 Maximum="100" Value="0" Margin="0,4,0,8"/>
-            <!-- Tableau récapitulatif des jeux de feuilles -->
-            <ListView Name="SheetSetsList" Height="180" Margin="0,0,0,8">
-                <ListView.View>
-                    <GridView>
-                        <!-- Bind on dictionary keys using indexer syntax -->
-                        <GridViewColumn Width="280" Header="Titre" DisplayMemberBinding="{Binding [Titre]}"/>
-                        <GridViewColumn Width="120" Header="Feuilles" DisplayMemberBinding="{Binding [Feuilles]}"/>
-                    </GridView>
-                </ListView.View>
-            </ListView>
+            <!-- Aperçu export: tableau groupé par collection (groupes repliés par défaut) -->
+            <Border BorderThickness="0" Margin="0,0,0,8">
+                <StackPanel>
+                    <!-- En-têtes du tableau des collections -->
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="3*"/>
+                            <ColumnDefinition Width="1*"/>
+                            <ColumnDefinition Width="1.2*"/>
+                            <ColumnDefinition Width="1.2*"/>
+                            <ColumnDefinition Width="1.2*"/>
+                            <ColumnDefinition Width="1.6*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Nom" FontWeight="Bold"/>
+                        <TextBlock Grid.Column="1" Text="Feuilles" FontWeight="Bold"/>
+                        <TextBlock Grid.Column="2" Text="Export" FontWeight="Bold"/>
+                        <TextBlock Grid.Column="3" Text="Carnet" FontWeight="Bold"/>
+                        <TextBlock Grid.Column="4" Text="DWG" FontWeight="Bold"/>
+                        <TextBlock Grid.Column="5" Text="Statut" FontWeight="Bold"/>
+                    </Grid>
+                    <!-- Lignes (expandables) des collections -->
+                    <ListView Name="CollectionPreviewList" BorderThickness="0">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Expander IsExpanded="False">
+                                    <Expander.Header>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="3*"/>
+                                                <ColumnDefinition Width="1*"/>
+                                                <ColumnDefinition Width="1.2*"/>
+                                                <ColumnDefinition Width="1.2*"/>
+                                                <ColumnDefinition Width="1.2*"/>
+                                                <ColumnDefinition Width="1.6*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding [Nom]}"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding [Feuilles]}"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding [ExportText]}" Foreground="{Binding [ExportColor]}"/>
+                                            <TextBlock Grid.Column="3" Text="{Binding [CarnetText]}" Foreground="{Binding [CarnetColor]}"/>
+                                            <TextBlock Grid.Column="4" Text="{Binding [DWGText]}" Foreground="{Binding [DWGColor]}"/>
+                                            <TextBlock Grid.Column="5" Text="{Binding [StatutText]}" Foreground="{Binding [StatutColor]}"/>
+                                        </Grid>
+                                    </Expander.Header>
+                                    <Grid Margin="0,6,0,8">
+                                        <ListView ItemsSource="{Binding [Details]}" BorderThickness="0">
+                                            <ListView.View>
+                                                <GridView>
+                                                    <GridViewColumn Width="320" Header="Nom" DisplayMemberBinding="{Binding [Nom]}"/>
+                                                    <GridViewColumn Width="160" Header="Format" DisplayMemberBinding="{Binding [Format]}"/>
+                                                    <GridViewColumn Width="160" Header="Statut">
+                                                        <GridViewColumn.CellTemplate>
+                                                            <DataTemplate>
+                                                                <TextBlock Text="{Binding [StatutText]}" Foreground="{Binding [StatutColor]}"/>
+                                                            </DataTemplate>
+                                                        </GridViewColumn.CellTemplate>
+                                                    </GridViewColumn>
+                                                </GridView>
+                                            </ListView.View>
+                                        </ListView>
+                                    </Grid>
+                                </Expander>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </Border>
             <DockPanel LastChildFill="False" Margin="0,8,0,0">
                 <TextBlock Name="ExportStatusText"
                            VerticalAlignment="Center"
