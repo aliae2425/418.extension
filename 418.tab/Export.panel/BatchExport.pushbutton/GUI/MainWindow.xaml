@@ -90,7 +90,7 @@
                                 <TextBlock Text="Réglage PDF" Margin="0,0,0,4"/>
                             <DockPanel LastChildFill="True">
                                 <ComboBox Name="PDFSetupCombo" MinWidth="160"/>
-                                <Button Name="PDFCreateButton" Content="Créer réglage…" DockPanel.Dock="Right" Margin="8,0,0,0"/>
+                                <!-- <Button Name="PDFCreateButton" Content="Créer réglage…" DockPanel.Dock="Right" Margin="8,0,0,0"/> -->
                             </DockPanel>
                             </StackPanel>
                     </Expander>
@@ -132,6 +132,10 @@
                         HorizontalAlignment="Stretch" 
                         ToolTip="Sélectionne un dossier de sortie"/>
             </DockPanel>
+            <StackPanel Orientation="Vertical" Margin="0,6,0,0">
+                <CheckBox Name="CreateSubfoldersCheck" Content="Créer des sous-dossiers"/>
+                <CheckBox Name="SeparateByFormatCheck" Content="Dossiers séparés par format"/>
+            </StackPanel>
         </StackPanel>
     </Border>
 
@@ -173,6 +177,14 @@
                 </ListView.View>
             </ListView>
             <DockPanel LastChildFill="False" Margin="0,8,0,0">
+                <TextBlock Name="ExportStatusText"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"
+                           TextWrapping="Wrap"
+                           Width="Auto"
+                           DockPanel.Dock="Left"
+                           Foreground="Red"
+                           Text="Sélectionnez un dossier de destination valide."/>
                 <Button Name="ExportButton"
                         Content="Exporter"
                         Height="32"

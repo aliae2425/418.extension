@@ -129,6 +129,8 @@ class ExportMainWindow(forms.WPFWindow):
                 self._validate_destination(create=True)
                 # Écouter les modifications manuelles
                 self.PathTextBox.TextChanged += self._on_path_changed
+            # Toggles destination
+            self._init_destination_toggles()
         except Exception:
             pass
         # PDF/DWG setups & toggles
@@ -176,7 +178,29 @@ class ExportMainWindow(forms.WPFWindow):
         try:
             selected = _get_selected_values(self)
             print('[info] Export lancé avec paramètres:', selected)
-            # TODO: Implémenter la logique d'export réelle ici
+            # Exécuter l'export via module exporter
+            try:
+                doc = __revit__.ActiveUIDocument.Document  # type: ignore
+            except Exception:
+                doc = None
+            if doc is None:
+                print('[info] Document Revit introuvable')
+                return
+            from .exporter import execute_exports
+            def _progress(i, n, text):
+                try:
+                    if hasattr(self, 'ExportProgressBar'):
+                        self.ExportProgressBar.Maximum = max(n, 1)
+                        self.ExportProgressBar.Value = i
+                except Exception:
+                    pass
+                if text:
+                    print('[info]', text)
+            def _log(msg):
+                print('[info]', msg)
+            def _get_ctrl(name):
+                return getattr(self, name, None)
+            execute_exports(doc, _get_ctrl, progress_cb=_progress, log_cb=_log)
         except Exception as e:
             print('[info] Erreur export:', e)
 
@@ -285,6 +309,22 @@ class ExportMainWindow(forms.WPFWindow):
             pass
         self._dest_valid = bool(ok)
         return self._dest_valid
+
+    def _init_destination_toggles(self):
+        # Lecture depuis config (1/0)
+        try:
+            getv = lambda k, d=False: (CONFIG.get(k, '') == '1') if CONFIG else d
+            setv = lambda k, v: CONFIG.set(k, '1' if v else '0') if CONFIG else None
+            if hasattr(self, 'CreateSubfoldersCheck'):
+                self.CreateSubfoldersCheck.IsChecked = getv('create_subfolders', False)
+                self.CreateSubfoldersCheck.Checked += lambda s,a: setv('create_subfolders', True)
+                self.CreateSubfoldersCheck.Unchecked += lambda s,a: setv('create_subfolders', False)
+            if hasattr(self, 'SeparateByFormatCheck'):
+                self.SeparateByFormatCheck.IsChecked = getv('separate_format_folders', False)
+                self.SeparateByFormatCheck.Checked += lambda s,a: setv('separate_format_folders', True)
+                self.SeparateByFormatCheck.Unchecked += lambda s,a: setv('separate_format_folders', False)
+        except Exception:
+            pass
 
     # ---------------------- PDF / DWG Setups ---------------------- #
     def _init_pdf_dwg_controls(self):
@@ -639,31 +679,45 @@ def _check_and_warn_insufficient(win):
 
 
 def _update_export_button_state(win):
-    """Active le bouton Export si 3 sélections valides et uniques sont présentes."""
+    """Active le bouton Export si la destination est valide et qu'au moins un paramètre est disponible.
+
+    Note: l'ancienne contrainte d'unicité des 3 sélections est levée pour éviter de bloquer l'export.
+    """
     try:
         btn = getattr(win, 'ExportButton', None)
+        status = getattr(win, 'ExportStatusText', None)
         unique_err = getattr(win, 'UniqueErrorText', None)
-        # Si le bouton n'existe pas, rien à faire
         if btn is None:
             return
         avail = getattr(win, '_available_param_names', None)
         count = len(avail) if isinstance(avail, list) else 0
-        # Destination valide ?
         dest_ok = bool(getattr(win, '_dest_valid', False))
-        if count < 3 or not dest_ok:
-            btn.IsEnabled = False
-            return
-        are_unique, selected = _are_three_unique(win)
-        if not are_unique:
-            btn.IsEnabled = False
-            # Afficher le message d'erreur d'unicité si pertinent
-            if unique_err is not None:
-                try:
-                    unique_err.Visibility = Visibility.Visible
-                except Exception:
-                    pass
-            return
-        btn.IsEnabled = True
+
+        # Déterminer l'état et le message
+        messages = []
+        if not dest_ok:
+            messages.append(u"Sélectionnez un dossier de destination valide.")
+        if count < 1:
+            messages.append(u"Aucun paramètre de feuille disponible.")
+
+        enabled = (len(messages) == 0)
+        btn.IsEnabled = enabled
+
+        # Mettre à jour la ligne de statut
+        if status is not None:
+            try:
+                if enabled:
+                    status.Text = u"Prêt à exporter."  # message court et clair
+                    if Brushes is not None and hasattr(Brushes, 'Green'):
+                        status.Foreground = Brushes.Green
+                else:
+                    status.Text = u" • ".join(messages)
+                    if Brushes is not None and hasattr(Brushes, 'Red'):
+                        status.Foreground = Brushes.Red
+            except Exception:
+                pass
+
+        # Cacher l'ancienne erreur d'unicité (plus bloquante)
         if unique_err is not None:
             try:
                 unique_err.Visibility = Visibility.Collapsed
