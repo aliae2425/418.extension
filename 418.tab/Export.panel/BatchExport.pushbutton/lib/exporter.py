@@ -201,7 +201,7 @@ def plan_exports_for_collections(doc, get_ctrl):
     return plans
 
 
-def execute_exports(doc, get_ctrl, progress_cb=None, log_cb=None):
+def execute_exports(doc, get_ctrl, progress_cb=None, log_cb=None, ui_win=None):
     """Exécute l'export selon plan.
 
     - get_ctrl(name) -> contrôle (permet d'accéder aux SelectedItem si besoin)
@@ -226,6 +226,14 @@ def execute_exports(doc, get_ctrl, progress_cb=None, log_cb=None):
             if log_cb:
                 log_cb(u"Ignoré: {} (Export=0)".format(plan.collection_name))
             continue
+        # UI: statut collection -> en cours
+        try:
+            if ui_win is not None:
+                from .GUI import _set_collection_status, _refresh_collection_grid  # type: ignore
+                _set_collection_status(ui_win, plan.collection_name, 'progress')
+                _refresh_collection_grid(ui_win)
+        except Exception:
+            pass
         sheets = _get_collection_sheets(doc, _find_collection_by_name(doc, plan.collection_name))
         # Bases de destination
         base_pdf = _get_destination_base('PDF', plan.collection_name) if plan.do_pdf else None
@@ -236,24 +244,101 @@ def execute_exports(doc, get_ctrl, progress_cb=None, log_cb=None):
             for sh in sheets:
                 rows = _build_filename_rows_for_sheet(sh)
                 if plan.do_pdf and base_pdf:
-                    _export_pdf_sheet(doc, sh, rows, base_pdf, pdf_opt, separate=pdf_sep)
-                # Pour DWG: toujours par feuille (on respecte le nommage des feuilles)
+                    try:
+                        if ui_win is not None:
+                            from .GUI import _set_detail_status, _refresh_collection_grid  # type: ignore
+                            _set_detail_status(ui_win, plan.collection_name, _safe_sheet_name(sh), 'PDF', 'progress')
+                            _refresh_collection_grid(ui_win)
+                    except Exception:
+                        pass
+                    ok_path = _export_pdf_sheet(doc, sh, rows, base_pdf, pdf_opt, separate=pdf_sep)
+                    try:
+                        if ui_win is not None:
+                            from .GUI import _set_detail_status, _refresh_collection_grid  # type: ignore
+                            _set_detail_status(ui_win, plan.collection_name, _safe_sheet_name(sh), 'PDF', 'ok')
+                            _refresh_collection_grid(ui_win)
+                    except Exception:
+                        pass
                 if plan.do_dwg and base_dwg:
+                    try:
+                        if ui_win is not None:
+                            from .GUI import _set_detail_status, _refresh_collection_grid  # type: ignore
+                            _set_detail_status(ui_win, plan.collection_name, _safe_sheet_name(sh), 'DWG', 'progress')
+                            _refresh_collection_grid(ui_win)
+                    except Exception:
+                        pass
                     _export_dwg_sheet(doc, sh, rows, base_dwg, dwg_opt)
+                    try:
+                        if ui_win is not None:
+                            from .GUI import _set_detail_status, _refresh_collection_grid  # type: ignore
+                            _set_detail_status(ui_win, plan.collection_name, _safe_sheet_name(sh), 'DWG', 'ok')
+                            _refresh_collection_grid(ui_win)
+                    except Exception:
+                        pass
         else:
             # Export groupé (PDF et/ou DWG) -> un fichier par format
             rows = _build_filename_rows_for_sheet(sheets[0]) if sheets else [{'Name': plan.collection_name, 'Prefix': '', 'Suffix': ''}]
             if plan.do_pdf and base_pdf:
+                # Marquer toutes les entrées PDF comme progress puis ok
+                try:
+                    if ui_win is not None:
+                        from .GUI import _set_detail_status, _refresh_collection_grid  # type: ignore
+                        # Une seule ligne PDF (combiné)
+                        name_preview = _safe_sheet_name(sheets[0]) if sheets else plan.collection_name
+                        _set_detail_status(ui_win, plan.collection_name, name_preview, 'PDF (combiné)', 'progress')
+                        _refresh_collection_grid(ui_win)
+                except Exception:
+                    pass
                 _export_pdf_collection(doc, sheets, rows, base_pdf, pdf_opt)
+                try:
+                    if ui_win is not None:
+                        from .GUI import _set_detail_status, _refresh_collection_grid  # type: ignore
+                        name_preview = _safe_sheet_name(sheets[0]) if sheets else plan.collection_name
+                        _set_detail_status(ui_win, plan.collection_name, name_preview, 'PDF (combiné)', 'ok')
+                        _refresh_collection_grid(ui_win)
+                except Exception:
+                    pass
             # DWG: exporter malgré tout par feuille pour contrôler les noms
             if plan.do_dwg and base_dwg:
                 for sh in sheets:
                     rows_sh = _build_filename_rows_for_sheet(sh)
+                    try:
+                        if ui_win is not None:
+                            from .GUI import _set_detail_status, _refresh_collection_grid  # type: ignore
+                            _set_detail_status(ui_win, plan.collection_name, _safe_sheet_name(sh), 'DWG', 'progress')
+                            _refresh_collection_grid(ui_win)
+                    except Exception:
+                        pass
                     _export_dwg_sheet(doc, sh, rows_sh, base_dwg, dwg_opt)
+                    try:
+                        if ui_win is not None:
+                            from .GUI import _set_detail_status, _refresh_collection_grid  # type: ignore
+                            _set_detail_status(ui_win, plan.collection_name, _safe_sheet_name(sh), 'DWG', 'ok')
+                            _refresh_collection_grid(ui_win)
+                    except Exception:
+                        pass
+        # Collection terminée
+        try:
+            if ui_win is not None:
+                from .GUI import _set_collection_status, _refresh_collection_grid  # type: ignore
+                _set_collection_status(ui_win, plan.collection_name, 'ok')
+                _refresh_collection_grid(ui_win)
+        except Exception:
+            pass
 
     if progress_cb:
         progress_cb(total, max(total, 1), 'Terminé')
     return True
+
+
+def _safe_sheet_name(sheet):
+    try:
+        return sheet.SheetNumber + '_' + sheet.Name
+    except Exception:
+        try:
+            return getattr(sheet, 'Name', 'Sheet')
+        except Exception:
+            return 'Sheet'
 
 
 def _find_collection_by_name(doc, name):

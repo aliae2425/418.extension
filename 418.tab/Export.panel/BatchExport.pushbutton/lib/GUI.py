@@ -202,7 +202,25 @@ class ExportMainWindow(forms.WPFWindow):
                 print('[info]', msg)
             def _get_ctrl(name):
                 return getattr(self, name, None)
-            execute_exports(doc, _get_ctrl, progress_cb=_progress, log_cb=_log)
+            # Callback statut pour mettre à jour le tableau en direct
+            def _status(kind, payload):
+                try:
+                    if kind == 'collection':
+                        state = payload.get('state')
+                        name = payload.get('name')
+                        _set_collection_status(self, name, state)
+                        _refresh_collection_grid(self)
+                    elif kind == 'sheet':
+                        state = payload.get('state')
+                        cname = payload.get('collection')
+                        nm = payload.get('name')
+                        fmt = payload.get('format')
+                        _set_detail_status(self, cname, nm, fmt, state)
+                        _refresh_collection_grid(self)
+                except Exception:
+                    pass
+
+            execute_exports(doc, _get_ctrl, progress_cb=_progress, log_cb=_log, ui_win=self)
         except Exception as e:
             print('[info] Erreur export:', e)
 
@@ -531,7 +549,7 @@ def _populate_sheet_sets(win):
     Sous-table (feuilles): Nom | Format | Statut
     """
     try:
-        lst = getattr(win, 'CollectionPreviewList', None)
+        lst = getattr(win, 'CollectionGrid', None)
         doc = __revit__.ActiveUIDocument.Document  # type: ignore
         if lst is None or doc is None or not REVIT_API_AVAILABLE:
             return
@@ -610,10 +628,12 @@ def _populate_sheet_sets(win):
             def sanitize_filename(s):
                 return s or ''
 
-        # Préparer la collection d'items
+    # Préparer la collection d'items
         items = []
         cols = _collections(doc)
-        for coll in cols:
+        # Trier les collections par nom (insensible à la casse)
+        cols_sorted = sorted(cols, key=lambda c: (getattr(c, 'Name', '') or '').lower())
+        for coll in cols_sorted:
             try:
                 do_export = _read_flag(coll, pname_export, False)
                 per_sheet = _read_flag(coll, pname_carnet, False)
@@ -621,7 +641,7 @@ def _populate_sheet_sets(win):
                 do_pdf = bool(do_export)
                 sheets = _sheets_in(doc, coll)
 
-                # Construire le sous-tableau (Details)
+                # Construire le sous-tableau (Details) et trier par Nom
                 details = []
                 # PDF
                 if do_pdf:
@@ -651,15 +671,21 @@ def _populate_sheet_sets(win):
                         except Exception:
                             continue
 
+                # Trier les détails par Nom
+                try:
+                    details.sort(key=lambda d: (d.get('Nom','') or '').lower())
+                except Exception:
+                    pass
+
                 # Item collection (ligne principale)
                 items.append({
                     'Nom': coll.Name,
                     'Feuilles': len(sheets),
-                    'ExportText': u"Oui" if do_pdf else u"Non",
+                    'ExportText': u"\u2713" if do_pdf else u"\u2717",  # ✓ / ✗
                     'ExportColor': Brushes.Green if (Brushes is not None and do_pdf) else (Brushes.Gray if Brushes is not None else None),
-                    'CarnetText': u"Oui" if per_sheet else u"Non",
+                    'CarnetText': u"\u2713" if per_sheet else u"\u2717",
                     'CarnetColor': Brushes.Green if (Brushes is not None and per_sheet) else (Brushes.Gray if Brushes is not None else None),
-                    'DWGText': u"Oui" if do_dwg else u"Non",
+                    'DWGText': u"\u2713" if do_dwg else u"\u2717",
                     'DWGColor': Brushes.Green if (Brushes is not None and do_dwg) else (Brushes.Gray if Brushes is not None else None),
                     'StatutText': u"",  # à remplir pendant l'export
                     'StatutColor': Brushes.Green if False else None,
@@ -668,11 +694,112 @@ def _populate_sheet_sets(win):
             except Exception:
                 continue
 
-        # Appliquer ItemsSource (pas de groupement ici; chaque expander est une collection)
+        # Trier les collections par Nom (insensible à la casse)
         try:
-            lst.ItemsSource = items
+            items.sort(key=lambda i: (i.get('Nom','') or '').lower())
         except Exception:
             pass
+
+        # Mémoriser pour mises à jour dynamiques et mettre à jour le compteur
+        try:
+            win._preview_items = items
+        except Exception:
+            win._preview_items = items
+        try:
+            counter = getattr(win, 'PreviewCounterText', None)
+            if counter is not None:
+                ncoll = len(items)
+                nelems = sum(len(it.get('Details', []) or []) for it in items)
+                counter.Text = u"Collections: {} • Éléments: {}".format(ncoll, nelems)
+        except Exception:
+            pass
+        # Appliquer ItemsSource
+        try:
+            lst.ItemsSource = win._preview_items
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
+# ---------------------- Mise à jour dynamique du statut (collection & feuilles) ---------------------- #
+
+def _refresh_collection_grid(win):
+    try:
+        grid = getattr(win, 'CollectionGrid', None)
+        if grid is None:
+            return
+        try:
+            from System.Windows.Data import CollectionViewSource  # type: ignore
+            view = CollectionViewSource.GetDefaultView(grid.ItemsSource)
+            if view is not None:
+                view.Refresh()
+            else:
+                grid.ItemsSource = list(grid.ItemsSource or [])
+        except Exception:
+            try:
+                grid.Items.Refresh()
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
+def _set_collection_status(win, collection_name, state):
+    # state: 'progress' | 'ok' | 'error'
+    try:
+        items = getattr(win, '_preview_items', []) or []
+        color = None
+        txt = u""
+        if state == 'progress':
+            txt = u"En cours…"
+            color = getattr(Brushes, 'DarkOrange', None) or getattr(Brushes, 'Orange', None) or getattr(Brushes, 'Gray', None)
+        elif state == 'ok':
+            txt = u"Terminé"
+            color = getattr(Brushes, 'Green', None)
+        elif state == 'error':
+            txt = u"Erreur"
+            color = getattr(Brushes, 'Red', None)
+        for it in items:
+            try:
+                if it.get('Nom') == collection_name:
+                    it['StatutText'] = txt
+                    it['StatutColor'] = color
+                    break
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+
+def _set_detail_status(win, collection_name, detail_name, detail_format, state):
+    try:
+        items = getattr(win, '_preview_items', []) or []
+        color = None
+        txt = u""
+        if state == 'progress':
+            txt = u"En cours…"
+            color = getattr(Brushes, 'DarkOrange', None) or getattr(Brushes, 'Orange', None) or getattr(Brushes, 'Gray', None)
+        elif state == 'ok':
+            txt = u"Terminé"
+            color = getattr(Brushes, 'Green', None)
+        elif state == 'error':
+            txt = u"Erreur"
+            color = getattr(Brushes, 'Red', None)
+        for it in items:
+            try:
+                if it.get('Nom') != collection_name:
+                    continue
+                for d in it.get('Details', []) or []:
+                    try:
+                        if (d.get('Nom') == detail_name) and (d.get('Format') == detail_format):
+                            d['StatutText'] = txt
+                            d['StatutColor'] = color
+                            return
+                    except Exception:
+                        continue
+            except Exception:
+                continue
     except Exception:
         pass
 

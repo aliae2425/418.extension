@@ -35,7 +35,11 @@
     </Grid.ColumnDefinitions>
 
     
-    <TextBlock Text="418 : Exportation des jeux" Grid.Row="0" Grid.ColumnSpan="2" FontSize="23" Margin="20,8,0,8"/>
+    <TextBlock Text="418 : Exportation des jeux" 
+                Grid.Row="0" 
+                Grid.ColumnSpan="2" 
+                FontSize="23" 
+                Margin="20,8,0,8"/>
 
     <!-- Zone choix des parametre. a recuperer depuis config -->
     <Border Style="{StaticResource StyledBorder}"
@@ -147,11 +151,15 @@
             <TextBlock Text="Nommage" FontWeight="Bold" Margin="0,0,0,6"/>
             <DockPanel LastChildFill="True" Margin="0,4,0,0">
                 <TextBlock Text="Feuilles : " MinWidth="100" VerticalAlignment="Center"/>
-                <Button Name="SheetNamingButton" Content="..." Background="{StaticResource LightGrayBrush}" HorizontalAlignment="Stretch" />
+                <Button Name="SheetNamingButton" Content="..." 
+                        Background="{StaticResource LightGrayBrush}" 
+                        HorizontalAlignment="Stretch" />
             </DockPanel>   
             <DockPanel LastChildFill="True" Margin="0,4,0,0">
                 <TextBlock Text="Carnets : " MinWidth="100"  VerticalAlignment="Center"/>
-                <Button Name="SetNamingButton" Content="..." Background="{StaticResource LightGrayBrush}" HorizontalAlignment="Stretch"/>
+                <Button Name="SetNamingButton" Content="..." 
+                        Background="{StaticResource LightGrayBrush}" 
+                        HorizontalAlignment="Stretch"/>
             </DockPanel>
         </StackPanel>
     </Border>
@@ -166,70 +174,98 @@
             <ProgressBar Name="ExportProgressBar" 
                 Height="24" Minimum="0" 
                 Maximum="100" Value="0" Margin="0,4,0,8"/>
-            <!-- Aperçu export: tableau groupé par collection (groupes repliés par défaut) -->
+            <!-- Aperçu export: DataGrids imbriqués (collections -> feuilles). Sélectionner une ligne pour déplier. -->
             <Border BorderThickness="0" Margin="0,0,0,8">
                 <StackPanel>
-                    <!-- En-têtes du tableau des collections -->
-                    <Grid Margin="0,0,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="3*"/>
-                            <ColumnDefinition Width="1*"/>
-                            <ColumnDefinition Width="1.2*"/>
-                            <ColumnDefinition Width="1.2*"/>
-                            <ColumnDefinition Width="1.2*"/>
-                            <ColumnDefinition Width="1.6*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Nom" FontWeight="Bold"/>
-                        <TextBlock Grid.Column="1" Text="Feuilles" FontWeight="Bold"/>
-                        <TextBlock Grid.Column="2" Text="Export" FontWeight="Bold"/>
-                        <TextBlock Grid.Column="3" Text="Carnet" FontWeight="Bold"/>
-                        <TextBlock Grid.Column="4" Text="DWG" FontWeight="Bold"/>
-                        <TextBlock Grid.Column="5" Text="Statut" FontWeight="Bold"/>
-                    </Grid>
-                    <!-- Lignes (expandables) des collections -->
-                    <ListView Name="CollectionPreviewList" BorderThickness="0">
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
-                                <Expander IsExpanded="False">
-                                    <Expander.Header>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="3*"/>
-                                                <ColumnDefinition Width="1*"/>
-                                                <ColumnDefinition Width="1.2*"/>
-                                                <ColumnDefinition Width="1.2*"/>
-                                                <ColumnDefinition Width="1.2*"/>
-                                                <ColumnDefinition Width="1.6*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="{Binding [Nom]}"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding [Feuilles]}"/>
-                                            <TextBlock Grid.Column="2" Text="{Binding [ExportText]}" Foreground="{Binding [ExportColor]}"/>
-                                            <TextBlock Grid.Column="3" Text="{Binding [CarnetText]}" Foreground="{Binding [CarnetColor]}"/>
-                                            <TextBlock Grid.Column="4" Text="{Binding [DWGText]}" Foreground="{Binding [DWGColor]}"/>
-                                            <TextBlock Grid.Column="5" Text="{Binding [StatutText]}" Foreground="{Binding [StatutColor]}"/>
-                                        </Grid>
-                                    </Expander.Header>
-                                    <Grid Margin="0,6,0,8">
-                                        <ListView ItemsSource="{Binding [Details]}" BorderThickness="0">
-                                            <ListView.View>
-                                                <GridView>
-                                                    <GridViewColumn Width="320" Header="Nom" DisplayMemberBinding="{Binding [Nom]}"/>
-                                                    <GridViewColumn Width="160" Header="Format" DisplayMemberBinding="{Binding [Format]}"/>
-                                                    <GridViewColumn Width="160" Header="Statut">
-                                                        <GridViewColumn.CellTemplate>
-                                                            <DataTemplate>
-                                                                <TextBlock Text="{Binding [StatutText]}" Foreground="{Binding [StatutColor]}"/>
-                                                            </DataTemplate>
-                                                        </GridViewColumn.CellTemplate>
-                                                    </GridViewColumn>
-                                                </GridView>
-                                            </ListView.View>
-                                        </ListView>
-                                    </Grid>
-                                </Expander>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                    <TextBlock Name="PreviewCounterText"
+                               Margin="0,0,0,6"
+                               Foreground="Gray"
+                               Text="Collections: 0 • Éléments: 0"/>
+                <DataGrid Name="CollectionGrid"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          HeadersVisibility="Column"
+                          RowDetailsVisibilityMode="VisibleWhenSelected"
+                          GridLinesVisibility="None"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False">
+                    <DataGrid.Columns>
+                        <!-- Indicateur expand/collapse -->
+                        <DataGridTemplateColumn Header="" Width="28">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray" FontSize="14">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="▶"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
+                                                        <Setter Property="Text" Value="▼"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="Nom" Binding="{Binding [Nom]}" Width="3*"/>
+                        <DataGridTextColumn Header="Feuilles" Binding="{Binding [Feuilles]}" Width="1*"/>
+                        <DataGridTemplateColumn Header="Export" Width="1.2*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding [ExportText]}" Foreground="{Binding [ExportColor]}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Carnet" Width="1.2*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding [CarnetText]}" Foreground="{Binding [CarnetColor]}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="DWG" Width="1.2*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding [DWGText]}" Foreground="{Binding [DWGColor]}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Statut" Width="1.6*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding [StatutText]}" Foreground="{Binding [StatutColor]}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                    <DataGrid.RowDetailsTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,6,0,8" Padding="0">
+                                <DataGrid ItemsSource="{Binding [Details]}"
+                                          AutoGenerateColumns="False"
+                                          IsReadOnly="True"
+                                          HeadersVisibility="Column"
+                                          GridLinesVisibility="None"
+                                          CanUserAddRows="False"
+                                          CanUserDeleteRows="False">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Nom" Binding="{Binding [Nom]}" Width="3*"/>
+                                        <DataGridTextColumn Header="Format" Binding="{Binding [Format]}" Width="2*"/>
+                                        <DataGridTemplateColumn Header="Statut" Width="2*">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding [StatutText]}" Foreground="{Binding [StatutColor]}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Border>
+                        </DataTemplate>
+                    </DataGrid.RowDetailsTemplate>
+                </DataGrid>
                 </StackPanel>
             </Border>
             <DockPanel LastChildFill="False" Margin="0,8,0,0">
