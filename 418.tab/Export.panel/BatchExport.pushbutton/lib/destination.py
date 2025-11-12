@@ -213,7 +213,7 @@ def choose_destination_explorer(start_dir=None, save=True, description=u"Choisir
     Fallback automatique vers `choose_destination_interactive` si WinForms indisponible.
     Retourne le dossier choisi ou None.
     """
-    chosen = None
+    # Si WinForms est disponible, l'utiliser et NE PAS faire de fallback si l'utilisateur annule (Échap/CANCEL)
     if FolderBrowserDialog is not None and DialogResult is not None:
         try:
             dlg = FolderBrowserDialog()
@@ -236,13 +236,17 @@ def choose_destination_explorer(start_dir=None, save=True, description=u"Choisir
                     chosen = dlg.SelectedPath
                 except Exception:
                     chosen = None
+                if chosen:
+                    ok, _ = ensure_directory(chosen)
+                    if ok and save:
+                        set_saved_destination(chosen)
+                return chosen
+            else:
+                # Annulation / Échap -> ne rien ouvrir d'autre, retourner None
+                return None
         except Exception:
-            chosen = None
-    # Fallback si nécessaire
-    if not chosen:
-        return choose_destination_interactive(start_dir=start_dir, save=save)
-    ok, _ = ensure_directory(chosen)
-    if ok and save:
-        set_saved_destination(chosen)
-    return chosen
+            # En cas d'échec d'ouverture du dialogue WinForms, on tente le fallback simple
+            pass
+    # Fallback uniquement si WinForms indisponible
+    return choose_destination_interactive(start_dir=start_dir, save=save)
 

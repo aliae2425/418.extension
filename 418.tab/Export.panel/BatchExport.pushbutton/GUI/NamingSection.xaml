@@ -1,0 +1,14 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <StackPanel>
+    <TextBlock Text="Nommage" FontWeight="Bold" Margin="0,0,0,6"/>
+    <DockPanel LastChildFill="True" Margin="0,4,0,0">
+      <TextBlock Text="Feuilles : " MinWidth="100" VerticalAlignment="Center"/>
+      <Button Name="SheetNamingButton" Content="..." HorizontalAlignment="Stretch"/>
+    </DockPanel>
+    <DockPanel LastChildFill="True" Margin="0,4,0,0">
+      <TextBlock Text="Carnets : " MinWidth="100" VerticalAlignment="Center"/>
+      <Button Name="SetNamingButton" Content="..." HorizontalAlignment="Stretch"/>
+    </DockPanel>
+  </StackPanel>
+</Grid>

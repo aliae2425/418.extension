@@ -55,6 +55,109 @@ def _get_piker_xaml_path():
     return p
 
 
+def _get_section_path(filename):
+    """Chemin absolu vers un fichier XAML de section dans GUI/."""
+    base_dir = os.path.dirname(os.path.dirname(__file__))
+    return os.path.join(base_dir, 'GUI', filename)
+
+
+def _register_named_elements(win, root):
+    """Parcourt l'arbre logique à partir de root et expose les éléments nommés en attributs sur win.
+
+    Cela permet d'accéder aux contrôles des sections chargées via win.<Name> comme si
+    ils étaient déclarés dans la fenêtre principale.
+    """
+    try:
+        from System.Windows import FrameworkElement
+        from System.Windows import LogicalTreeHelper
+    except Exception:
+        FrameworkElement = None  # type: ignore
+        LogicalTreeHelper = None  # type: ignore
+    if root is None or LogicalTreeHelper is None:
+        return
+
+    def _walk(node):
+        try:
+            # Enregistrer si l'élément possède un Name
+            if FrameworkElement is not None and isinstance(node, FrameworkElement):
+                try:
+                    nm = getattr(node, 'Name', None)
+                except Exception:
+                    nm = None
+                if nm:
+                    try:
+                        setattr(win, nm, node)
+                    except Exception:
+                        pass
+            # Descendre récursivement
+            try:
+                children = list(LogicalTreeHelper.GetChildren(node))
+            except Exception:
+                children = []
+            for ch in children:
+                _walk(ch)
+        except Exception:
+            pass
+
+    _walk(root)
+
+
+def _load_section_into(win, host_name, section_filename):
+    """Charge un XAML de section et l'insère dans le ContentControl host_name.
+
+    Enregistre aussi les éléments nommés comme attributs sur la fenêtre pour rétrocompatibilité.
+    """
+    try:
+        host = getattr(win, host_name, None)
+    except Exception:
+        host = None
+    if host is None:
+        return False
+    xaml_path = _get_section_path(section_filename)
+    if not os.path.exists(xaml_path):
+        return False
+    try:
+        # Charger le XAML en tant qu'arbre WPF
+        try:
+            from System.Windows.Markup import XamlReader  # type: ignore
+            from System.IO import FileStream, FileMode  # type: ignore
+            fs = FileStream(xaml_path, FileMode.Open)
+            try:
+                element = XamlReader.Load(fs)
+            finally:
+                try:
+                    fs.Close()
+                except Exception:
+                    pass
+        except Exception:
+            # Fallback: lecture texte et Parse
+            try:
+                from System.Windows.Markup import XamlReader  # type: ignore
+            except Exception:
+                XamlReader = None  # type: ignore
+            element = None
+            try:
+                with open(xaml_path, 'r') as f:
+                    xml = f.read()
+                if XamlReader is not None:
+                    element = XamlReader.Parse(xml)
+            except Exception:
+                element = None
+        if element is None:
+            return False
+        # Injecter dans l'hôte
+        try:
+            host.Content = element
+        except Exception:
+            pass
+        # Exposer les controls nommés sur la fenêtre
+        _register_named_elements(win, element)
+        return True
+    except Exception as e:
+        print('[info] Chargement section {} échoué: {}'.format(section_filename, e))
+        return False
+
+
 class ExportMainWindow(forms.WPFWindow):
     """Fenêtre WPF basée sur le XAML GUI.xaml."""
     def __init__(self):
@@ -63,6 +166,31 @@ class ExportMainWindow(forms.WPFWindow):
             self.Title = EXPORT_WINDOW_TITLE
         except Exception:
             # En environnement ironpython/pyRevit, certaines propriétés peuvent lever.
+            pass
+        # Charger les sections modulaires dans leurs hôtes
+        try:
+            _load_section_into(self, 'ParametersHost', 'ParametersSection.xaml')
+        except Exception:
+            pass
+        try:
+            _load_section_into(self, 'DestinationHost', 'DestinationSection.xaml')
+        except Exception:
+            pass
+        try:
+            _load_section_into(self, 'NamingHost', 'NamingSection.xaml')
+        except Exception:
+            pass
+        try:
+            _load_section_into(self, 'PreviewHost', 'PreviewSection.xaml')
+        except Exception:
+            pass
+        # Brancher le toggle expand/collapse sur clic de la première colonne
+        try:
+            if hasattr(self, 'CollectionGrid'):
+                from System.Windows import Input
+                # Utiliser PreviewMouseLeftButtonUp pour capter le clic même sur TextBlock
+                self.CollectionGrid.PreviewMouseLeftButtonUp += lambda s,a: _on_collection_grid_click(self, s, a)
+        except Exception:
             pass
         # Etat interne pour éviter les boucles d'événements
         self._updating = False
@@ -689,6 +817,7 @@ def _populate_sheet_sets(win):
                     'DWGColor': Brushes.Green if (Brushes is not None and do_dwg) else (Brushes.Gray if Brushes is not None else None),
                     'StatutText': u"",  # à remplir pendant l'export
                     'StatutColor': Brushes.Green if False else None,
+                    'IsExpanded': False,
                     'Details': details,
                 })
             except Exception:
@@ -718,6 +847,69 @@ def _populate_sheet_sets(win):
             lst.ItemsSource = win._preview_items
         except Exception:
             pass
+    except Exception:
+        pass
+
+
+def _get_ancestor_of_type(element, target_type_name):
+    """Remonte l'arbre visuel pour trouver l'ancêtre du type dont le nom .NET est target_type_name."""
+    try:
+        from System.Windows.Media import VisualTreeHelper  # type: ignore
+    except Exception:
+        VisualTreeHelper = None  # type: ignore
+    try:
+        from System import Type  # type: ignore
+    except Exception:
+        Type = None  # type: ignore
+    if element is None or VisualTreeHelper is None:
+        return None
+    cur = element
+    # Limite de sécurité pour éviter boucles infinies
+    for _ in range(100):
+        try:
+            parent = VisualTreeHelper.GetParent(cur)
+        except Exception:
+            parent = None
+        if parent is None:
+            return None
+        try:
+            # Comparer le nom du type .NET
+            tname = str(type(parent))
+            if target_type_name in tname:
+                return parent
+        except Exception:
+            pass
+        cur = parent
+    return None
+
+
+def _on_collection_grid_click(win, sender, args):
+    """Toggle expand/collapse when clicking anywhere on a DataGrid row."""
+    try:
+        grid = getattr(win, 'CollectionGrid', None)
+        if grid is None:
+            return
+        src = getattr(args, 'OriginalSource', None)
+        if src is None:
+            return
+        # Trouver la ligne cliquée (peu importe la colonne)
+        row = _get_ancestor_of_type(src, 'DataGridRow')
+        if row is None:
+            return
+        # Récupérer l'item et basculer IsExpanded
+        try:
+            item = getattr(row, 'Item', None)
+        except Exception:
+            item = None
+        if not isinstance(item, dict):
+            return
+        try:
+            cur = bool(item.get('IsExpanded', False))
+            item['IsExpanded'] = (not cur)
+        except Exception:
+            return
+        # Rafraîchir l'affichage
+        _refresh_collection_grid(win)
     except Exception:
         pass
 
