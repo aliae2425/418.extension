@@ -4,10 +4,12 @@
         Height="700" Width="1100"
         WindowStartupLocation="CenterScreen">
 
+        <!-- Ressources partagées (couleurs, styles globaux) -->
         <Window.Resources>
             <SolidColorBrush x:Key="LightGrayBrush" Color="#FFF8F8F8"/>
             <SolidColorBrush x:Key="MediumGrayBrush" Color="#da2626cc"/>
 
+            <!-- Style de base pour les cadres de sections -->
             <Style x:Key="StyledBorder" TargetType="Border">
                 <Setter Property="Background" Value="{StaticResource LightGrayBrush}"/>
                 <Setter Property="BorderBrush" Value="{StaticResource MediumGrayBrush}"/>
@@ -20,8 +22,10 @@
             <!-- Style FlatComboBox retiré (non utilisé) -->
         </Window.Resources>
 
+  <!-- Grille principale de la fenêtre -->
   <Grid>
 
+    <!-- Découpage vertical : titre, sections, prévisualisation -->
     <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/>
         <RowDefinition Height="Auto"/>
@@ -29,19 +33,20 @@
         <RowDefinition Height="*"/>
     </Grid.RowDefinitions>
 
+    <!-- Découpage horizontal : colonne paramètres / colonne destination+nommage -->
     <Grid.ColumnDefinitions>
         <ColumnDefinition Width="1*"/>
         <ColumnDefinition Width="3*"/>
     </Grid.ColumnDefinitions>
 
-    
+    <!-- Titre principal de la fenêtre -->
     <TextBlock Text="418 : Exportation des jeux" 
                 Grid.Row="0" 
                 Grid.ColumnSpan="2" 
                 FontSize="23" 
                 Margin="20,8,0,8"/>
 
-    <!-- Zone choix des paramètres: chargée dynamiquement -->
+    <!-- Zone choix des paramètres: UserControl chargé dynamiquement dans ParametersHost -->
     <Border Style="{StaticResource StyledBorder}"
             Grid.Row="1"
             Grid.RowSpan="2"
@@ -50,21 +55,21 @@
         <ContentControl Name="ParametersHost" />
     </Border>
 
-    <!-- Zone de destination: chargée dynamiquement -->
+    <!-- Zone de destination: UserControl chargé dynamiquement dans DestinationHost -->
     <Border Style="{StaticResource StyledBorder}"
             Grid.Row="1"
             Grid.Column="1">
         <ContentControl Name="DestinationHost" />
     </Border>
 
-    <!-- Zone de nommage -->
+    <!-- Zone de nommage: UserControl chargé dynamiquement dans NamingHost -->
     <Border Style="{StaticResource StyledBorder}"
             Grid.Row="2"
             Grid.Column="1">
         <ContentControl Name="NamingHost" />
     </Border>
 
-    <!-- Zone recapitulatif + progression -->
+    <!-- Zone récapitulatif + progression: UserControl chargé dynamiquement dans PreviewHost -->
     <Border Style="{StaticResource StyledBorder}"
             Grid.Row="3"
             Grid.ColumnSpan="2"
