@@ -16,7 +16,7 @@
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
                   HeadersVisibility="Column"
-                  RowDetailsVisibilityMode="Collapsed"
+            RowDetailsVisibilityMode="Visible"
                   GridLinesVisibility="None"
                   CanUserAddRows="False"
                   CanUserDeleteRows="False">

@@ -26,108 +26,34 @@ CONFIG = UserConfigStore('batch_export')
 DEST_FOLDER_KEY = 'PathDossier'
 
 
-def get_saved_destination(default=None):
-    """Retourne le dossier de destination enregistré, ou `default`.
+# -*- coding: utf-8 -*-
+"""Facade: re-export destination helpers from core.destination."""
 
-    Si rien n'est configuré, tente "Documents\\Exports" dans le profil utilisateur.
-    """
-    try:
-        path = CONFIG.get(DEST_FOLDER_KEY, '') or ''
-    except Exception:
-        path = ''
-    if path:
-        return path
-    if default:
-        return default
-    # Fallback: Documents/Exports
-    try:
-        home = os.path.expanduser('~')
-        docs = os.path.join(home, 'Documents')
-        return os.path.join(docs, 'Exports')
-    except Exception:
-        return os.getcwd()
+from .core.destination import (
+    DEST_FOLDER_KEY,
+    get_saved_destination,
+    set_saved_destination,
+    ensure_directory,
+    sanitize_filename,
+    unique_path,
+    build_filename_from_rows,
+    build_export_path,
+    choose_destination_interactive,
+    choose_destination_explorer,
+)
 
-
-def set_saved_destination(path):
-    """Enregistre le dossier de destination (tel quel). Retourne True/False."""
-    try:
-        return bool(CONFIG.set(DEST_FOLDER_KEY, path or ''))
-    except Exception:
-        return False
-
-
-def ensure_directory(path):
-    """Crée le dossier s'il n'existe pas. Retourne (exists_ok: bool, error: str|None)."""
-    try:
-        if not path:
-            return False, 'chemin vide'
-        if not os.path.exists(path):
-            os.makedirs(path)
-        return True, None
-    except Exception as e:
-        return False, str(e)
-
-
-_INVALID_CHARS_RE = re.compile(r"[\\\\/:*?\"<>|]+")
-_TRIM_DOTS_SPACES_RE = re.compile(r"[\s\.]+$")
-
-
-def sanitize_filename(name, replacement="_"):
-    """Nettoie un nom de fichier pour Windows.
-
-    - remplace les caractères interdits <>:"/\|?* par `replacement`
-    - rogne les espaces/points finaux (Windows n'aime pas)
-    - limite la longueur à ~180 caractères pour garder de la marge pour l'extension
-    """
-    if not name:
-        return "untitled"
-    # Retirer séparateurs de chemin au cas où
-    base = name.replace(os.sep, replacement).replace('/', replacement)
-    base = _INVALID_CHARS_RE.sub(replacement, base)
-    base = base.strip()
-    base = _TRIM_DOTS_SPACES_RE.sub('', base)
-    if len(base) > 180:
-        base = base[:180]
-    return base or 'untitled'
-
-
-def unique_path(path):
-    """Si `path` existe déjà, ajoute un suffixe (1), (2), ... et retourne le premier libre."""
-    if not os.path.exists(path):
-        return path
-    root, ext = os.path.splitext(path)
-    i = 1
-    while True:
-        cand = u"{} ({}){}".format(root, i, ext)
-        if not os.path.exists(cand):
-            return cand
-        i += 1
-
-
-def build_filename_from_rows(rows, timestamp=False, ext='pdf'):
-    """Construit un nom de fichier depuis les `rows` du Piker.
-
-    Utilise build_pattern_from_rows pour générer un pattern puis nettoie pour un usage en nom de fichier.
-    Options:
-      - timestamp: bool -> ajoute _YYYYMMDD-HHMMSS
-      - ext: extension sans point (pdf, dwg, ...)
-    """
-    pattern = build_pattern_from_rows(rows)
-    fname = sanitize_filename(pattern)
-    if timestamp:
-        ts = _dt.datetime.now().strftime('%Y%m%d-%H%M%S')
-        fname = u"{}_{}".format(fname, ts)
-    ext = (ext or '').lstrip('.')
-    if ext:
-        return u"{}.{}".format(fname, ext)
-    return fname
-
-
-def build_export_path(rows=None, folder=None, timestamp=False, ext='pdf', ensure_dir=True, unique=True):
-    """Retourne un chemin de fichier complet pour l'export.
-
-    - rows: liste de dicts {Name, Prefix, Suffix} (optionnelle, peut être vide)
-    - folder: dossier cible; si None, prend la valeur sauvegardée (ou fallback)
+__all__ = [
+    "DEST_FOLDER_KEY",
+    "get_saved_destination",
+    "set_saved_destination",
+    "ensure_directory",
+    "sanitize_filename",
+    "unique_path",
+    "build_filename_from_rows",
+    "build_export_path",
+    "choose_destination_interactive",
+    "choose_destination_explorer",
+]
     - timestamp: ajoute _YYYYMMDD-HHMMSS au nom
     - ext: extension sans point
     - ensure_dir: crée le dossier s'il n'existe pas

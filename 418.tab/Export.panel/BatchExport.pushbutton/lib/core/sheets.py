@@ -1,36 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Facade: re-export sheets helpers from core.sheets."""
-
-from .core.sheets import (
-    is_boolean_param_definition,
-    filter_param_names,
-    collect_sheet_parameter_names,
-    get_sheet_sets,
-    picker_collect_project_parameter_names,
-    picker_collect_sheet_instance_parameter_names,
-    picker_collect_sheet_parameter_names,
-)
-
-__all__ = [
-    'is_boolean_param_definition',
-    'filter_param_names',
-    'collect_sheet_parameter_names',
-    'get_sheet_sets',
-    'picker_collect_project_parameter_names',
-    'picker_collect_sheet_instance_parameter_names',
-    'picker_collect_sheet_parameter_names',
-]
-# -*- coding: utf-8 -*-
-"""Fonctions utilitaires liées aux feuilles et jeux de feuilles Revit.
-
-Thématiques:
-- Détection de type Oui/Non (booléen) pour paramètres -> is_boolean_param_definition
-- Filtrage de noms de paramètres selon règles/config -> filter_param_names
-- Collecte des paramètres pertinents au niveau des collections de feuilles -> collect_sheet_parameter_names
-- Agrégation des jeux de feuilles et comptage -> get_sheet_sets
-
-Contrat: ne modifie pas la logique existante; uniquement réorganisation et noms explicites.
-"""
+"""Core utilities for Revit sheets and sheet collections."""
 
 try:
     from Autodesk.Revit import DB
@@ -39,12 +8,6 @@ except Exception:
 
 
 def is_boolean_param_definition(param_def):
-    """Vérifie si "param_def" décrit un paramètre Oui/Non (booléen).
-
-    Compat API:
-      - Revit <=2021: Definition.ParameterType == DB.ParameterType.YesNo
-      - Revit >=2022: Definition.GetDataType().TypeId contient 'yesno'/'boolean'/'bool'
-    """
     try:
         pt = getattr(param_def, 'ParameterType', None)
         if pt is not None and DB is not None and hasattr(DB, 'ParameterType'):
@@ -70,13 +33,6 @@ def is_boolean_param_definition(param_def):
 
 
 def filter_param_names(param_names, config_store):
-    """Filtre les noms de paramètres selon règles simples et configuration.
-
-    Règles:
-    - retirer les vides
-    - retirer ceux qui commencent par '_'
-    - retirer ceux présents dans la liste "excluded_sheet_params" de la config
-    """
     try:
         excluded_list = config_store.get_list('excluded_sheet_params', default=[])
     except Exception:
@@ -95,10 +51,6 @@ def filter_param_names(param_names, config_store):
 
 
 def collect_sheet_parameter_names(doc, config_store):
-    """Retourne liste triée de noms de paramètres Oui/Non modifiables (au niveau SheetCollection).
-
-    Logique d'origine conservée; seulement variables clarifiées.
-    """
     collected_names = set()
     writable_flags = {}
     collections = None
@@ -136,11 +88,6 @@ def collect_sheet_parameter_names(doc, config_store):
 
 
 def get_sheet_sets(doc):
-    """Retourne la liste des jeux de feuilles avec nombre de feuilles par jeu.
-
-    Structure: [{'Titre': <str>, 'Feuilles': <int>}]
-    Logique intacte, variables rendues explicites.
-    """
     result_sets = []
     if DB is None:
         return [{'Titre': 'Aucune donnée', 'Feuilles': 0}]
@@ -155,20 +102,12 @@ def get_sheet_sets(doc):
                     count_in_coll += 1
             except Exception:
                 continue
-        # print(coll_title, count_in_coll)
         result_sets.append({'Titre': coll_title, 'Feuilles': count_in_coll})
     return result_sets
 
 
-# ------------------------ Paramètres par portée (Projet / Feuille / Collection) ------------------------ #
-
 def picker_collect_project_parameter_names(doc, config_store):
-    """Retourne la liste triée des noms de paramètres Oui/Non modifiables au niveau Projet.
-
-    Source: doc.ProjectInformation.Parameters
-    """
     out = []
-
     proj_info= DB.FilteredElementCollector(doc).OfClass(DB.ProjectInfo).ToElements()
     for param in proj_info[0].GetOrderedParameters():
         out.append(param.Definition.Name)
@@ -180,7 +119,6 @@ def picker_collect_project_parameter_names(doc, config_store):
 
 
 def picker_collect_sheet_instance_parameter_names(doc, config_store):
-    """Retourne la liste triée des noms de paramètres Oui/Non modifiables au niveau Feuille (ViewSheet instances)."""
     names = set()
     writable = {}
     try:
@@ -215,6 +153,7 @@ def picker_collect_sheet_instance_parameter_names(doc, config_store):
         out.sort()
     return out
 
+
 def picker_collect_sheet_parameter_names(doc, config_store):
     collected_names = set()
     writable_flags = {}
@@ -246,3 +185,14 @@ def picker_collect_sheet_parameter_names(doc, config_store):
     filtered_names = [n for n in collected_names if writable_flags.get(n, True)]
     filtered_names = filter_param_names(filtered_names, config_store)
     return sorted(filtered_names, key=lambda s: s.lower())
+
+
+__all__ = [
+    'is_boolean_param_definition',
+    'filter_param_names',
+    'collect_sheet_parameter_names',
+    'get_sheet_sets',
+    'picker_collect_project_parameter_names',
+    'picker_collect_sheet_instance_parameter_names',
+    'picker_collect_sheet_parameter_names',
+]
