@@ -197,26 +197,18 @@
                         <DataGridTemplateColumn Header="" Width="28">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <ToggleButton
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        Foreground="Gray"
-                                        FontSize="14"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Width="20" Height="20"
-                                        IsChecked="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}, Mode=TwoWay}">
-                                        <ToggleButton.Style>
-                                            <Style TargetType="ToggleButton">
-                                                <Setter Property="Content" Value="▶"/>
+                                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray" FontSize="14">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="▶"/>
                                                 <Style.Triggers>
-                                                    <Trigger Property="IsChecked" Value="True">
-                                                        <Setter Property="Content" Value="▼"/>
-                                                    </Trigger>
+                                                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
+                                                        <Setter Property="Text" Value="▼"/>
+                                                    </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
-                                        </ToggleButton.Style>
-                                    </ToggleButton>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>

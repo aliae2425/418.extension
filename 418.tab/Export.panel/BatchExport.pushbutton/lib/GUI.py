@@ -149,6 +149,12 @@ class ExportMainWindow(forms.WPFWindow):
             self._refresh_naming_buttons()
         except Exception:
             pass
+        # Permettre le toggle d'ouverture/fermeture des détails en cliquant la ligne
+        try:
+            if hasattr(self, 'CollectionGrid') and self.CollectionGrid is not None:
+                self.CollectionGrid.PreviewMouseLeftButtonDown += self._on_grid_preview_mouse_left_button_down
+        except Exception:
+            pass
 
     # Événement: mémoriser le choix utilisateur
     def _on_param_combo_changed(self, sender, args):
@@ -223,6 +229,44 @@ class ExportMainWindow(forms.WPFWindow):
             execute_exports(doc, _get_ctrl, progress_cb=_progress, log_cb=_log, ui_win=self)
         except Exception as e:
             print('[info] Erreur export:', e)
+
+    # Permettre de désélectionner une ligne par clic si elle est déjà sélectionnée,
+    # afin de refermer les RowDetails (RowDetailsVisibilityMode=VisibleWhenSelected)
+    def _on_grid_preview_mouse_left_button_down(self, sender, e):
+        try:
+            # Retrouver le DataGridRow depuis la source de l'événement
+            from System.Windows import DependencyObject
+            from System.Windows.Media import VisualTreeHelper
+            from System.Windows.Controls import DataGridRow
+        except Exception:
+            return
+        try:
+            src = getattr(e, 'OriginalSource', None)
+            obj = src if isinstance(src, DependencyObject) else None
+            row = None
+            # Remonter l'arbre visuel jusqu'à un DataGridRow
+            while obj is not None:
+                try:
+                    if isinstance(obj, DataGridRow):
+                        row = obj
+                        break
+                except Exception:
+                    pass
+                try:
+                    obj = VisualTreeHelper.GetParent(obj)
+                except Exception:
+                    obj = None
+            if row is None:
+                return
+            # Si déjà sélectionnée, on la désélectionne et on consomme l'événement
+            if getattr(row, 'IsSelected', False):
+                try:
+                    row.IsSelected = False
+                    e.Handled = True
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     # Ouvrir la modale Piker.xaml depuis la section Nommage
     def _on_open_sheet_naming(self, sender, args):
