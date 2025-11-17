@@ -55,6 +55,13 @@ class ExportMainWindow(forms.WPFWindow):
     
     Attributs:
         config (UserConfigStore): Store de configuration utilisateur
+        preview (CollectionPreview): Composant de prévisualisation
+        progress (ProgressTracker): Composant de progression
+        parameter_handlers (ParameterHandlers): Gestionnaire événements paramètres
+        export_handlers (ExportHandlers): Gestionnaire événements export
+        destination_handlers (DestinationHandlers): Gestionnaire événements destination
+        naming_handlers (NamingHandlers): Gestionnaire événements nommage
+        grid_handlers (GridHandlers): Gestionnaire événements DataGrid
         _updating (bool): Flag pour éviter les boucles d'événements
         _prev_selection (dict): Sélections précédentes des ComboBox
         _dest_valid (bool): Indicateur de validité de la destination
@@ -75,6 +82,11 @@ class ExportMainWindow(forms.WPFWindow):
         
         # Configuration
         self.config = UserConfigStore('batch_export')
+        
+        # Composants UI (créés avant les handlers qui peuvent en avoir besoin)
+        from ..components import CollectionPreview, ProgressTracker
+        self.preview = CollectionPreview(self)
+        self.progress = ProgressTracker(self)
         
         # État interne
         self._updating = False
@@ -120,9 +132,9 @@ class ExportMainWindow(forms.WPFWindow):
         except Exception:
             pass
         
-        # 4. Peupler le tableau récapitulatif
+        # 4. Peupler le tableau récapitulatif (via composant)
         try:
-            _populate_sheet_sets(self)
+            self.preview.populate()
         except Exception as e:
             print('[info] Récap jeux de feuilles échoué: {}'.format(e))
         
