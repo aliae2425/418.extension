@@ -1,0 +1,291 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="418 : Exportation des jeux"
+        Height="700" Width="1100"
+        WindowStartupLocation="CenterScreen">
+
+        <!-- Importation des ressources globales (styles et couleurs) -->
+        <Window.Resources>
+            <ResourceDictionary>
+                <ResourceDictionary.MergedDictionaries>
+                    <ResourceDictionary Source="../Resources/Styles.xaml"/>
+                </ResourceDictionary.MergedDictionaries>
+            </ResourceDictionary>
+        </Window.Resources>
+
+  <Grid>
+
+    <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+
+    <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="1*"/>
+        <ColumnDefinition Width="3*"/>
+    </Grid.ColumnDefinitions>
+
+    
+    <TextBlock Text="418 : Exportation des jeux" 
+                Grid.Row="0" 
+                Grid.ColumnSpan="2" 
+                FontSize="23" 
+                Margin="20,8,0,8"/>
+
+    <!-- Zone choix des parametre. a recuperer depuis config -->
+    <Border Style="{StaticResource StyledBorder}"
+            Grid.Row="1"
+            Grid.RowSpan="2"
+            Grid.Column="0" 
+            MaxHeight="180">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Orientation="Vertical" Margin="0"> 
+                    <TextBlock Text="Paramètres" FontWeight="Bold" Margin="0,0,0,6"/>   
+                    <!-- Plugin -->
+                    <Expander Header="Jeu de feuilles"
+                        Name="CollectionExpander"
+                        IsExpanded="False"
+                        ExpandDirection="Down"
+                        Margin="0,0,8,0">
+                        <StackPanel Orientation="Vertical">
+                            <TextBlock Name="ParamWarningText"
+                                       Foreground="Red"
+                                       FontStyle="Italic"
+                                       Margin="0,6,0,0"
+                                       Visibility="Collapsed"
+                                       Text="Paramètres insuffisants pour assurer des sélections uniques."/>
+                            <!-- Erreur d'unicité des sélections -->
+                            <TextBox Name="UniqueErrorText"
+                                     IsReadOnly="True"
+                                     Foreground="Red"
+                                     BorderBrush="Red"
+                                     Background="{StaticResource LightGrayBrush}"
+                                     Margin="0,6,0,0"
+                                     Visibility="Collapsed"
+                                     Text="Les trois paramètres doivent être uniques pour activer l'export."/>
+                            <!-- Warning insuffisance paramètres -->
+                            <!-- Section 1: Exportation -->
+                            <TextBlock Text="Paramètre Exportation" Margin="0,0,0,4"/>
+                            <ComboBox Name="ExportationCombo" MinWidth="50"/>
+                            <!-- Section 2: Carnet -->
+                            <TextBlock Text="Paramètre Carnet" Margin="0,0,0,4"/>
+                            <ComboBox Name="CarnetCombo" MinWidth="50"/>
+                            <!-- Section 3: DWG -->
+                            <TextBlock Text="Paramètre DWG" Margin="0,0,0,4"/>
+                            <ComboBox Name="DWGCombo" MinWidth="50"/>
+                        </StackPanel>
+                    </Expander>
+                    <!-- Expanders PDF/DWG placeholder ne pas retirer -->
+                    <Expander Header="PDF"
+                        Name="PDFExpander"
+                        IsExpanded="False"
+                        ExpandDirection="Down"
+                        Margin="0,0,8,0">
+                            <StackPanel Orientation="Vertical">
+                                <TextBlock Text="Réglage PDF" Margin="0,0,0,4"/>
+                            <DockPanel LastChildFill="True">
+                                <ComboBox Name="PDFSetupCombo" MinWidth="160"/>
+                                <!-- <Button Name="PDFCreateButton" Content="Créer réglage…" DockPanel.Dock="Right" Margin="8,0,0,0"/> -->
+                            </DockPanel>
+                            </StackPanel>
+                    </Expander>
+                    <Expander Header="DWG"
+                        Name="DWGExpander"
+                        IsExpanded="False"
+                        ExpandDirection="Down"
+                        Margin="0,0,8,0">
+                            <StackPanel Orientation="Vertical">
+                                <TextBlock Text="Réglage DWG" Margin="0,0,0,4"/>
+                                <DockPanel LastChildFill="True">
+                                    <ComboBox Name="DWGSetupCombo" MinWidth="160"/>
+                                </DockPanel>
+                                <CheckBox Name="DWGSeparateCheck" Content="Exporter les vues en fichiers séparés" Margin="0,6,0,0"/>
+                            </StackPanel>
+                    </Expander>
+                </StackPanel>
+            </ScrollViewer>
+    </Border>
+
+    <!-- Zone de destination -->
+    <Border Style="{StaticResource StyledBorder}"
+            Grid.Row="1"
+            Grid.Column="1">
+        <StackPanel>
+            <TextBlock Text="Destination : " FontWeight="Bold" Margin="0,0,0,6"/>
+            <DockPanel LastChildFill="True" Margin="0,4,0,0">
+                <Button Content="..."
+                        Name="BrowseButton"
+                        DockPanel.Dock="Right"
+                        Height="28"
+                        Width="35"
+                        Margin="8,0,0,0"
+                        Padding="12,4"/>
+                <TextBox Name="PathTextBox"
+                        MinHeight="28"
+                        Padding="6,4"
+                        Text=""
+                        HorizontalAlignment="Stretch" 
+                        ToolTip="Sélectionne un dossier de sortie"/>
+            </DockPanel>
+            <StackPanel Orientation="Vertical" Margin="0,6,0,0">
+                <CheckBox Name="CreateSubfoldersCheck" Content="Créer des sous-dossiers"/>
+                <CheckBox Name="SeparateByFormatCheck" Content="Dossiers séparés par format"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+
+    <!-- Zone de nommage -->
+    <Border Style="{StaticResource StyledBorder}"
+            Grid.Row="2"
+            Grid.Column="1">
+        <StackPanel>
+            <TextBlock Text="Nommage" FontWeight="Bold" Margin="0,0,0,6"/>
+            <DockPanel LastChildFill="True" Margin="0,4,0,0">
+                <TextBlock Text="Feuilles : " MinWidth="100" VerticalAlignment="Center"/>
+                <Button Name="SheetNamingButton" Content="..." 
+                        Background="{StaticResource LightGrayBrush}" 
+                        HorizontalAlignment="Stretch" />
+            </DockPanel>   
+            <DockPanel LastChildFill="True" Margin="0,4,0,0">
+                <TextBlock Text="Carnets : " MinWidth="100"  VerticalAlignment="Center"/>
+                <Button Name="SetNamingButton" Content="..." 
+                        Background="{StaticResource LightGrayBrush}" 
+                        HorizontalAlignment="Stretch"/>
+            </DockPanel>
+        </StackPanel>
+    </Border>
+
+    <!-- Zone recapitulatif + progression -->
+    <Border Style="{StaticResource StyledBorder}"
+            Grid.Row="3"
+            Grid.ColumnSpan="2"
+            Grid.Column="0">
+        <StackPanel>
+            <TextBlock Text="Recapitulatif : " FontWeight="Bold" Margin="0,0,0,6"/>
+            <ProgressBar Name="ExportProgressBar" 
+                Height="24" Minimum="0" 
+                Maximum="100" Value="0" Margin="0,4,0,8"/>
+            <!-- Aperçu export: DataGrids imbriqués (collections -> feuilles). Sélectionner une ligne pour déplier. -->
+            <Border BorderThickness="0" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Name="PreviewCounterText"
+                               Margin="0,0,0,6"
+                               Foreground="Gray"
+                               Text="Collections: 0 • Éléments: 0"/>
+                <DataGrid Name="CollectionGrid"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          HeadersVisibility="Column"
+                          RowDetailsVisibilityMode="VisibleWhenSelected"
+                          GridLinesVisibility="None"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          Height="200"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          ScrollViewer.CanContentScroll="True">
+                    <DataGrid.Columns>
+                        <!-- Indicateur expand/collapse -->
+                        <DataGridTemplateColumn Header="" Width="28">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray" FontSize="14">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="▶"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
+                                                        <Setter Property="Text" Value="▼"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="Nom" Binding="{Binding [Nom]}" Width="3*"/>
+                        <DataGridTextColumn Header="Feuilles" Binding="{Binding [Feuilles]}" Width="1*"/>
+                        <DataGridTemplateColumn Header="Export" Width="1.2*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding [ExportText]}" Foreground="{Binding [ExportColor]}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Carnet" Width="1.2*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding [CarnetText]}" Foreground="{Binding [CarnetColor]}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="DWG" Width="1.2*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding [DWGText]}" Foreground="{Binding [DWGColor]}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Statut" Width="1.6*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding [StatutText]}" Foreground="{Binding [StatutColor]}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                    <DataGrid.RowDetailsTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,6,0,8" Padding="0">
+                                <DataGrid ItemsSource="{Binding [Details]}"
+                                          AutoGenerateColumns="False"
+                                          IsReadOnly="True"
+                                          HeadersVisibility="Column"
+                                          GridLinesVisibility="None"
+                                          CanUserAddRows="False"
+                                          CanUserDeleteRows="False">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Nom" Binding="{Binding [Nom]}" Width="3*"/>
+                                        <DataGridTextColumn Header="Format" Binding="{Binding [Format]}" Width="2*"/>
+                                        <DataGridTemplateColumn Header="Statut" Width="2*">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding [StatutText]}" Foreground="{Binding [StatutColor]}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Border>
+                        </DataTemplate>
+                    </DataGrid.RowDetailsTemplate>
+                </DataGrid>
+                </StackPanel>
+            </Border>
+            <DockPanel LastChildFill="False" Margin="0,8,0,0">
+                <TextBlock Name="ExportStatusText"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"
+                           TextWrapping="Wrap"
+                           Width="Auto"
+                           DockPanel.Dock="Left"
+                           Foreground="Red"
+                           Text="Sélectionnez un dossier de destination valide."/>
+                <Button Name="ExportButton"
+                        Content="Exporter"
+                        Height="32"
+                        MinWidth="120"
+                        HorizontalAlignment="Right"
+                        DockPanel.Dock="Right"
+                        IsEnabled="False"/>
+            </DockPanel>
+        </StackPanel>
+    </Border>
+
+
+
+
+  </Grid>
+</Window>
