@@ -1,0 +1,12 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Styles globaux -->
+  <Style x:Key="StyledBorder" TargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource LightGrayBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource MediumGrayBrush}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="Padding" Value="10"/>
+    <Setter Property="Margin" Value="8"/>
+  </Style>
+</ResourceDictionary>

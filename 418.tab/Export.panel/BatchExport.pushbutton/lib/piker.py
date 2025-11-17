@@ -12,7 +12,7 @@ from .sheets import *
 from .config import UserConfigStore as UC
 
 # Feuille de style XAML
-GUI_FILE = os.path.join('GUI', 'Piker.xaml')
+GUI_FILE = os.path.join('GUI', 'Views', 'naming.xaml')
 
 
 def _get_piker_xaml_path():

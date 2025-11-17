@@ -15,6 +15,7 @@ Notes:
 
 from pyrevit import forms
 import os
+import re
 try:
     # WPF Visibility enum for showing/hiding warnings
     from System.Windows import Visibility
@@ -38,18 +39,18 @@ except Exception:
 
 # ------------------------------- Helpers ------------------------------- #
 
-GUI_FILE = os.path.join('GUI', 'MainWindow.xaml')
-PIKER_FILE = os.path.join('GUI', 'Piker.xaml')
+GUI_FILE = os.path.join('GUI', 'Views', 'index.xaml')
+PIKER_FILE = os.path.join('GUI', 'Views', 'naming.xaml')
 EXPORT_WINDOW_TITLE = u"418 • Exportation"
 
 
 def _get_xaml_path():
-    """Chemin absolu vers GUI/MainWindow.xaml."""
+    """Chemin absolu vers GUI/Views/index.xaml."""
     return os.path.join(os.path.dirname(os.path.dirname(__file__)), GUI_FILE)
 
 
 def _get_piker_xaml_path():
-    """Chemin absolu vers GUI/Piker.xaml. Ne crée pas le fichier si absent."""
+    """Chemin absolu vers GUI/Views/naming.xaml. Ne crée pas le fichier si absent."""
     base_dir = os.path.dirname(os.path.dirname(__file__))
     p = os.path.join(base_dir, PIKER_FILE)
     return p
@@ -64,6 +65,12 @@ class ExportMainWindow(forms.WPFWindow):
         except Exception:
             # En environnement ironpython/pyRevit, certaines propriétés peuvent lever.
             pass
+        # Lier les contrôles internes des templates aux attributs de la fenêtre
+        try:
+            self._merge_control_resources()
+            self._bind_template_controls()
+        except Exception as e:
+            print('[info] Merge/bind templates error:', e)
         # Etat interne pour éviter les boucles d'événements
         self._updating = False
         self._prev_selection = {}
@@ -153,6 +160,105 @@ class ExportMainWindow(forms.WPFWindow):
         try:
             if hasattr(self, 'CollectionGrid') and self.CollectionGrid is not None:
                 self.CollectionGrid.PreviewMouseLeftButtonDown += self._on_grid_preview_mouse_left_button_down
+        except Exception:
+            pass
+
+    def _bind_template_controls(self):
+        """Récupère les éléments nommés à l'intérieur des ControlTemplates
+        (définis dans GUI/Controls/*.xaml) et les expose comme attributs de la fenêtre,
+        pour conserver la compatibilité avec le code existant.
+        """
+        try:
+            hosts = {
+                'ParameterSelectorHost': [
+                    'CollectionExpander', 'ParamWarningText', 'UniqueErrorText',
+                    'ExportationCombo', 'CarnetCombo', 'DWGCombo'
+                ],
+                'ExportOptionsHost': [
+                    'PDFExpander', 'PDFSetupCombo', 'PDFSeparateCheck', 'PDFCreateButton',
+                    'DWGExpander', 'DWGSetupCombo', 'DWGSeparateCheck', 'DWGCreateButton'
+                ],
+                'DestinationPickerHost': [
+                    'BrowseButton', 'PathTextBox', 'CreateSubfoldersCheck', 'SeparateByFormatCheck'
+                ],
+                'NamingConfigHost': [
+                    'SheetNamingButton', 'SetNamingButton'
+                ],
+                'CollectionPreviewHost': [
+                    'ExportProgressBar', 'PreviewCounterText', 'CollectionGrid', 'ExportStatusText', 'ExportButton'
+                ],
+            }
+        except Exception:
+            hosts = {}
+        for host_name, child_names in hosts.items():
+            try:
+                host = getattr(self, host_name, None)
+            except Exception:
+                host = None
+            if host is None:
+                continue
+            try:
+                host.ApplyTemplate()
+            except Exception:
+                pass
+            for cname in child_names:
+                try:
+                    ctrl = None
+                    try:
+                        tmpl = getattr(host, 'Template', None)
+                        if tmpl is not None:
+                            ctrl = tmpl.FindName(cname, host)
+                    except Exception:
+                        ctrl = None
+                    if ctrl is not None:
+                        try:
+                            setattr(self, cname, ctrl)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+    def _merge_control_resources(self):
+        """Charge et merge les ResourceDictionaries des contrôles découpés
+        (Controls/*.xaml) dans les ressources de la fenêtre.
+        """
+        try:
+            from System import Uri, UriKind
+            from System.Windows import ResourceDictionary as WResourceDictionary
+        except Exception:
+            return
+        try:
+            views_dir = os.path.dirname(_get_xaml_path())
+            controls_dir = os.path.normpath(os.path.join(views_dir, '..', 'Controls'))
+            # Merge windows.xaml first so base resources (styles/colors) exist
+            win_path = os.path.normpath(os.path.join(views_dir, '..', 'windows.xaml'))
+            if os.path.exists(win_path):
+                try:
+                    d0 = WResourceDictionary()
+                    u0 = Uri('file:///' + win_path.replace('\\', '/').replace(':', ':/'), UriKind.Absolute)
+                    d0.Source = u0
+                    self.Resources.MergedDictionaries.Add(d0)
+                except Exception as ex:
+                    print('[info] Merge windows.xaml échoué:', win_path, '| err =', ex)
+            files = [
+                'ParameterSelector.xaml',
+                'ExportOptions.xaml',
+                'DestinationPicker.xaml',
+                'NamingConfig.xaml',
+                'CollectionPreview.xaml',
+            ]
+            for fname in files:
+                path = os.path.join(controls_dir, fname)
+                if not os.path.exists(path):
+                    print('[info] Dictionnaire contrôle manquant:', path)
+                    continue
+                try:
+                    d = WResourceDictionary()
+                    u = Uri('file:///' + path.replace('\\', '/').replace(':', ':/'), UriKind.Absolute)
+                    d.Source = u
+                    self.Resources.MergedDictionaries.Add(d)
+                except Exception as ex:
+                    print('[info] Merge dictionnaire contrôle échoué:', path, '| err =', ex)
         except Exception:
             pass
 
@@ -518,6 +624,11 @@ def _show_ui():
     if not os.path.exists(xaml_path):
         print('[info] fenetre_wpf.xaml introuvable')
         return False
+    # Diagnostic: tester les ResourceDictionaries mergés avant chargement de la fenêtre
+    try:
+        _debug_check_merged_resources(xaml_path)
+    except Exception as e:
+        print('[info] Check dictionnaires (pré-chargement) a échoué:', e)
     try:
         win = ExportMainWindow()
         # Modal si possible
@@ -1061,3 +1172,84 @@ def _apply_saved_selection(win):
                     pass
         except Exception:
             pass
+
+
+# ------------------------------- Debug: vérification des ResourceDictionaries ------------------------------- #
+
+def _debug_check_merged_resources(main_xaml_path):
+    """Essaye de charger chaque ResourceDictionary référencé par le XAML principal
+    (et leurs sous-dictionnaires) pour identifier celui qui échoue.
+    """
+    try:
+        base_dir = os.path.dirname(main_xaml_path)
+        # Lister les sources dans index.xaml
+        sources = list(_extract_dictionary_sources(main_xaml_path))
+        # Inclure récursivement les sources depuis windows.xaml
+        rec_queue = list(sources)
+        seen = set()
+        all_sources = []
+        while rec_queue:
+            rel = rec_queue.pop(0)
+            abs_path = os.path.normpath(os.path.join(base_dir, rel))
+            if abs_path in seen:
+                continue
+            seen.add(abs_path)
+            all_sources.append(abs_path)
+            # Si ce dictionnaire est windows.xaml, ajouter ses merges
+            if os.path.basename(abs_path).lower() == 'windows.xaml' and os.path.exists(abs_path):
+                for sub in _extract_dictionary_sources(abs_path):
+                    sub_abs = os.path.normpath(os.path.join(os.path.dirname(abs_path), sub))
+                    if sub_abs not in seen:
+                        # Reconvertir en chemin relatif à main pour logs cohérents
+                        rel_from_main = os.path.relpath(sub_abs, base_dir)
+                        rec_queue.append(rel_from_main)
+        # Essayer de charger chacun et loguer
+        try:
+            from System import Uri, UriKind
+            from System.Windows import ResourceDictionary as WResourceDictionary
+        except Exception:
+            WResourceDictionary = None
+            Uri = None
+        for p in all_sources:
+            if not os.path.exists(p):
+                print('[info] Dictionnaire manquant:', p)
+                continue
+            if WResourceDictionary is None:
+                # En environnement hors WPF, on se contente de signaler la présence
+                print('[info] Dictionnaire détecté (pas de test de chargement):', p)
+                continue
+            try:
+                d = WResourceDictionary()
+                # Utiliser un Uri absolu pour éviter les résolutions relatives hasardeuses
+                u = Uri('file:///' + p.replace('\\', '/').replace(':', ':/'), UriKind.Absolute)
+                d.Source = u
+                # Accéder à une clé inexistante pour forcer le parse si paresseux
+                _ = d.Keys
+                print('[info] Dictionnaire OK:', p)
+            except Exception as ex:
+                print('[info] Dictionnaire EN ÉCHEC:', p, '| err =', ex)
+    except Exception as e:
+        print('[info] Debug merged resources error:', e)
+
+
+def _extract_dictionary_sources(xaml_file_path):
+    """Renvoie une liste de valeurs de Source= trouvées dans ResourceDictionary.
+    Les chemins sont renvoyés tels quels (possiblement relatifs).
+    Compatible avec IronPython (évite les generators + return value).
+    """
+    try:
+        with open(xaml_file_path, 'rb') as f:
+            blob = f.read()
+        try:
+            text = blob.decode('utf-8')
+        except Exception:
+            text = blob.decode('latin-1', 'ignore')
+    except Exception:
+        return []
+    pattern = re.compile(r'Source\s*=\s*"([^"]+)"')
+    out = []
+    for m in pattern.finditer(text):
+        val = m.group(1)
+        if val:
+            out.append(val)
+    return out

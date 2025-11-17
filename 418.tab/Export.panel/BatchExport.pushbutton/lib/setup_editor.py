@@ -17,7 +17,7 @@ from .config import UserConfigStore
 
 CONFIG = UserConfigStore('batch_export')
 
-GUI_FILE = os.path.join('GUI', 'SetupEditor.xaml')
+GUI_FILE = os.path.join('GUI', 'Modals', 'SetupEditor.xaml')
 
 
 def _get_xaml_path():
