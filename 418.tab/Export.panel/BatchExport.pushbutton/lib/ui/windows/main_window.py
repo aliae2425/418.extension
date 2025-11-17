@@ -155,61 +155,38 @@ class ExportMainWindow(forms.WPFWindow):
         """Abonne les gestionnaires d'événements aux contrôles.
         
         Cette méthode configure tous les événements (Click, SelectionChanged, etc.)
-        en utilisant les handlers de l'ancien GUI.py. Dans les prochaines phases,
-        ces handlers seront extraits dans des modules dédiés.
+        en utilisant les handlers extraits dans des modules dédiés.
         """
-        from ...GUI import _PARAM_COMBOS
+        # Import des handlers
+        from ..handlers import (
+            ParameterHandlers,
+            ExportHandlers,
+            DestinationHandlers,
+            NamingHandlers,
+            GridHandlers
+        )
         
-        # Événements ComboBox paramètres
-        for cname in _PARAM_COMBOS:
-            try:
-                ctrl = getattr(self, cname)
-                ctrl.SelectionChanged += self._on_param_combo_changed
-            except Exception:
-                pass
+        # Créer et bind les handlers
+        self.parameter_handlers = ParameterHandlers(self)
+        self.parameter_handlers.bind()
         
-        # Événement bouton Export
-        try:
-            if hasattr(self, 'ExportButton'):
-                self.ExportButton.Click += self._on_export_clicked
-        except Exception:
-            pass
+        self.export_handlers = ExportHandlers(self)
+        self.export_handlers.bind()
         
-        # Événements boutons Nommage
-        try:
-            if hasattr(self, 'SheetNamingButton'):
-                self.SheetNamingButton.Click += self._on_open_sheet_naming
-            if hasattr(self, 'SetNamingButton'):
-                self.SetNamingButton.Click += self._on_open_set_naming
-        except Exception:
-            pass
+        self.destination_handlers = DestinationHandlers(self)
+        self.destination_handlers.bind()
         
-        # Événements destination
-        try:
-            if hasattr(self, 'BrowseButton'):
-                self.BrowseButton.Click += self._on_browse_clicked
-            if hasattr(self, 'PathTextBox'):
-                self.PathTextBox.TextChanged += self._on_path_changed
-        except Exception:
-            pass
+        self.naming_handlers = NamingHandlers(self)
+        self.naming_handlers.bind()
         
-        # Événement grid pour toggle expand/collapse
-        try:
-            if hasattr(self, 'CollectionGrid') and self.CollectionGrid is not None:
-                self.CollectionGrid.PreviewMouseLeftButtonDown += self._on_grid_preview_mouse_left_button_down
-        except Exception:
-            pass
+        self.grid_handlers = GridHandlers(self)
+        self.grid_handlers.bind()
     
     def _init_destination(self):
         """Initialise les contrôles de destination."""
-        from ...destination import get_saved_destination
-        
-        try:
-            if hasattr(self, 'PathTextBox'):
-                self.PathTextBox.Text = get_saved_destination()
-                self._validate_destination(create=True)
-        except Exception:
-            pass
+        # Utiliser le handler pour charger la destination
+        if hasattr(self, 'destination_handlers'):
+            self.destination_handlers.load_saved_destination()
         
         # Toggles destination
         self._init_destination_toggles()
@@ -246,32 +223,9 @@ class ExportMainWindow(forms.WPFWindow):
     
     def _refresh_naming_buttons(self):
         """Rafraîchit l'affichage des patterns de nommage sur les boutons."""
-        try:
-            from ...naming import load_pattern
-        except Exception:
-            return
-        
-        try:
-            sheet_patt, _ = load_pattern('sheet')
-        except Exception:
-            sheet_patt = ''
-        
-        try:
-            set_patt, _ = load_pattern('set')
-        except Exception:
-            set_patt = ''
-        
-        try:
-            if hasattr(self, 'SheetNamingButton'):
-                self.SheetNamingButton.Content = sheet_patt or '...'
-        except Exception:
-            pass
-        
-        try:
-            if hasattr(self, 'SetNamingButton'):
-                self.SetNamingButton.Content = set_patt or '...'
-        except Exception:
-            pass
+        # Utiliser le handler pour rafraîchir
+        if hasattr(self, 'naming_handlers'):
+            self.naming_handlers.refresh_naming_buttons()
     
     def _validate_destination(self, create=False):
         """Valide/Crée le dossier de destination."""
@@ -314,42 +268,6 @@ class ExportMainWindow(forms.WPFWindow):
         self._dest_valid = bool(ok)
         return self._dest_valid
     
-    # ========== Gestionnaires d'événements (délégués temporairement à GUI.py) ==========
-    
-    def _on_param_combo_changed(self, sender, args):
-        """Gestionnaire de changement de sélection dans les ComboBox paramètres."""
-        from ...GUI import ExportMainWindow as OldWindow
-        OldWindow._on_param_combo_changed(self, sender, args)
-    
-    def _on_export_clicked(self, sender, args):
-        """Gestionnaire du clic sur le bouton Export."""
-        from ...GUI import ExportMainWindow as OldWindow
-        OldWindow._on_export_clicked(self, sender, args)
-    
-    def _on_grid_preview_mouse_left_button_down(self, sender, e):
-        """Gestionnaire de clic sur le DataGrid pour toggle expand/collapse."""
-        from ...GUI import ExportMainWindow as OldWindow
-        OldWindow._on_grid_preview_mouse_left_button_down(self, sender, e)
-    
-    def _on_open_sheet_naming(self, sender, args):
-        """Gestionnaire d'ouverture du dialogue de nommage des feuilles."""
-        from ...GUI import ExportMainWindow as OldWindow
-        OldWindow._on_open_sheet_naming(self, sender, args)
-    
-    def _on_open_set_naming(self, sender, args):
-        """Gestionnaire d'ouverture du dialogue de nommage des carnets."""
-        from ...GUI import ExportMainWindow as OldWindow
-        OldWindow._on_open_set_naming(self, sender, args)
-    
-    def _on_browse_clicked(self, sender, args):
-        """Gestionnaire du clic sur le bouton Browse."""
-        from ...GUI import ExportMainWindow as OldWindow
-        OldWindow._on_browse_clicked(self, sender, args)
-    
-    def _on_path_changed(self, sender, args):
-        """Gestionnaire de changement du chemin de destination."""
-        from ...GUI import ExportMainWindow as OldWindow
-        OldWindow._on_path_changed(self, sender, args)
     
     def _on_create_pdf_setup(self, sender, args):
         """Gestionnaire de création de setup PDF."""
