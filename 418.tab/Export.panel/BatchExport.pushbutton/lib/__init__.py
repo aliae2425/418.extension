@@ -1,3 +1,3 @@
-# Make 'lib' a package so imports like 'from lib.GUI import GUI' work in all Python runtimes (incl. IronPython/pyRevit).
+# Make 'lib' a package; expose minimal surface for back-compat.
 
-__all__ = ["GUI", "config", "sheets", "piker", "naming", "destination", "dwg_export", "pdf_export", "setup_editor", "exporter"]
+__all__ = ["config", "piker", "naming", "sheets", "setup_editor"]

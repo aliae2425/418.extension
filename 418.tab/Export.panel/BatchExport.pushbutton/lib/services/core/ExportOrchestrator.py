@@ -176,6 +176,13 @@ class ExportOrchestrator(object):
 
     # ------------------- Exécution ------------------- #
     def run(self, doc, get_ctrl, progress_cb=None, log_cb=None, ui_win=None):
+        # UI status component for live updates
+        ui_comp = None
+        try:
+            from ...ui.components.CollectionPreviewComponent import CollectionPreviewComponent
+            ui_comp = CollectionPreviewComponent()
+        except Exception:
+            ui_comp = None
         plans = self.plan_exports_for_collections(doc, get_ctrl)
         total = len(plans)
         if progress_cb:
@@ -194,10 +201,9 @@ class ExportOrchestrator(object):
                     log_cb(u"Ignoré: {} (Export=0)".format(plan.collection_name))
                 continue
             try:
-                if ui_win is not None:
-                    from ...GUI import _set_collection_status, _refresh_collection_grid  # type: ignore
-                    _set_collection_status(ui_win, plan.collection_name, 'progress')
-                    _refresh_collection_grid(ui_win)
+                if ui_win is not None and ui_comp is not None:
+                    ui_comp.set_collection_status(ui_win, plan.collection_name, 'progress')
+                    ui_comp.refresh_grid(ui_win)
             except Exception:
                 pass
 
@@ -211,82 +217,73 @@ class ExportOrchestrator(object):
                     rows = self._get_rows_for_sheet(sh)
                     if plan.do_pdf and base_pdf:
                         try:
-                            if ui_win is not None:
-                                from ...GUI import _set_detail_status, _refresh_collection_grid  # type: ignore
-                                _set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'PDF', 'progress')
-                                _refresh_collection_grid(ui_win)
+                            if ui_win is not None and ui_comp is not None:
+                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'PDF', 'progress')
+                                ui_comp.refresh_grid(ui_win)
                         except Exception:
                             pass
                         self._export_pdf_sheet(doc, sh, rows, base_pdf, pdf_opt, separate=pdf_sep)
                         try:
-                            if ui_win is not None:
-                                from ...GUI import _set_detail_status, _refresh_collection_grid  # type: ignore
-                                _set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'PDF', 'ok')
-                                _refresh_collection_grid(ui_win)
+                            if ui_win is not None and ui_comp is not None:
+                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'PDF', 'ok')
+                                ui_comp.refresh_grid(ui_win)
                         except Exception:
                             pass
                     if plan.do_dwg and base_dwg:
-                        try:
-                            if ui_win is not None:
-                                from ...GUI import _set_detail_status, _refresh_collection_grid  # type: ignore
-                                _set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'progress')
-                                _refresh_collection_grid(ui_win)
-                        except Exception:
-                            pass
+                            try:
+                                if ui_win is not None and ui_comp is not None:
+                                    ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'progress')
+                                    ui_comp.refresh_grid(ui_win)
+                            except Exception:
+                                pass
                         self._export_dwg_sheet(doc, sh, rows, base_dwg, dwg_opt)
-                        try:
-                            if ui_win is not None:
-                                from ...GUI import _set_detail_status, _refresh_collection_grid  # type: ignore
-                                _set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'ok')
-                                _refresh_collection_grid(ui_win)
-                        except Exception:
-                            pass
+                            try:
+                                if ui_win is not None and ui_comp is not None:
+                                    ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'ok')
+                                    ui_comp.refresh_grid(ui_win)
+                            except Exception:
+                                pass
             else:
                 rows = self._get_rows_for_sheet(sheets[0]) if sheets else [{'Name': plan.collection_name, 'Prefix': '', 'Suffix': ''}]
                 if plan.do_pdf and base_pdf:
-                    try:
-                        if ui_win is not None:
-                            from ...GUI import _set_detail_status, _refresh_collection_grid  # type: ignore
-                            name_preview = self._safe_sheet_name(sheets[0]) if sheets else plan.collection_name
-                            _set_detail_status(ui_win, plan.collection_name, name_preview, 'PDF (combiné)', 'progress')
-                            _refresh_collection_grid(ui_win)
-                    except Exception:
-                        pass
+                        try:
+                            if ui_win is not None and ui_comp is not None:
+                                name_preview = self._safe_sheet_name(sheets[0]) if sheets else plan.collection_name
+                                ui_comp.set_detail_status(ui_win, plan.collection_name, name_preview, 'PDF (combiné)', 'progress')
+                                ui_comp.refresh_grid(ui_win)
+                        except Exception:
+                            pass
                     self._export_pdf_collection(doc, sheets, rows, base_pdf, pdf_opt)
-                    try:
-                        if ui_win is not None:
-                            from ...GUI import _set_detail_status, _refresh_collection_grid  # type: ignore
-                            name_preview = self._safe_sheet_name(sheets[0]) if sheets else plan.collection_name
-                            _set_detail_status(ui_win, plan.collection_name, name_preview, 'PDF (combiné)', 'ok')
-                            _refresh_collection_grid(ui_win)
-                    except Exception:
-                        pass
+                        try:
+                            if ui_win is not None and ui_comp is not None:
+                                name_preview = self._safe_sheet_name(sheets[0]) if sheets else plan.collection_name
+                                ui_comp.set_detail_status(ui_win, plan.collection_name, name_preview, 'PDF (combiné)', 'ok')
+                                ui_comp.refresh_grid(ui_win)
+                        except Exception:
+                            pass
                 if plan.do_dwg and base_dwg:
                     for sh in sheets:
                         rows_sh = self._get_rows_for_sheet(sh)
-                        try:
-                            if ui_win is not None:
-                                from ...GUI import _set_detail_status, _refresh_collection_grid  # type: ignore
-                                _set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'progress')
-                                _refresh_collection_grid(ui_win)
-                        except Exception:
-                            pass
+                            try:
+                                if ui_win is not None and ui_comp is not None:
+                                    ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'progress')
+                                    ui_comp.refresh_grid(ui_win)
+                            except Exception:
+                                pass
                         self._export_dwg_sheet(doc, sh, rows_sh, base_dwg, dwg_opt)
-                        try:
-                            if ui_win is not None:
-                                from ...GUI import _set_detail_status, _refresh_collection_grid  # type: ignore
-                                _set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'ok')
-                                _refresh_collection_grid(ui_win)
-                        except Exception:
-                            pass
+                            try:
+                                if ui_win is not None and ui_comp is not None:
+                                    ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'ok')
+                                    ui_comp.refresh_grid(ui_win)
+                            except Exception:
+                                pass
 
-            try:
-                if ui_win is not None:
-                    from ...GUI import _set_collection_status, _refresh_collection_grid  # type: ignore
-                    _set_collection_status(ui_win, plan.collection_name, 'ok')
-                    _refresh_collection_grid(ui_win)
-            except Exception:
-                pass
+                try:
+                    if ui_win is not None and ui_comp is not None:
+                        ui_comp.set_collection_status(ui_win, plan.collection_name, 'ok')
+                        ui_comp.refresh_grid(ui_win)
+                except Exception:
+                    pass
 
         if progress_cb:
             progress_cb(total, max(total, 1), 'Terminé')

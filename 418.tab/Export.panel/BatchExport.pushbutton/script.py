@@ -19,10 +19,11 @@ __min_revit_ver__ = 2026
 
 
 # ------------------------------- Imports ------------------------------- #
-from lib.GUI import GUI
+from lib.ui.windows.MainWindowController import MainWindowController
 
 
 
 if __name__ == "__main__":
-    if not GUI.show():
+    ctrl = MainWindowController()
+    if not ctrl.show():
         print('[erreur] UI non affichée')

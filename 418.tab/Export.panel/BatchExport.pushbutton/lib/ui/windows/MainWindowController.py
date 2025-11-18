@@ -279,7 +279,7 @@ class MainWindowController(object):
 
     def _on_create_pdf(self, sender, args):
         try:
-            from ...setup_editor import open_setup_editor
+            from .SetupEditorWindow import open_setup_editor
             if open_setup_editor(kind='pdf'):
                 self._opts_comp.populate_pdf(self._win)
         except Exception:
@@ -287,7 +287,7 @@ class MainWindowController(object):
 
     def _on_create_dwg(self, sender, args):
         try:
-            from ...setup_editor import open_setup_editor
+            from .SetupEditorWindow import open_setup_editor
             if open_setup_editor(kind='dwg'):
                 self._opts_comp.populate_dwg(self._win)
         except Exception:
@@ -326,16 +326,16 @@ class MainWindowController(object):
 
     def _on_open_sheet_naming(self, s,a):
         try:
-            from ... import piker
-            piker.open_modal(kind='sheet', title=u"Nommage des feuilles")
+            from ..windows.PikerWindow import open_modal
+            open_modal(kind='sheet', title=u"Nommage des feuilles")
             self._name_comp.refresh_buttons(self._win)
         except Exception:
             pass
 
     def _on_open_set_naming(self, s,a):
         try:
-            from ... import piker
-            piker.open_modal(kind='set', title=u"Nommage des carnets")
+            from ..windows.PikerWindow import open_modal
+            open_modal(kind='set', title=u"Nommage des carnets")
             self._name_comp.refresh_buttons(self._win)
         except Exception:
             pass

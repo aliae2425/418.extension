@@ -1,47 +1,59 @@
 # -*- coding: utf-8 -*-
-"""Fenêtre modale Piker extraite dans un module dédié.
+# Fenêtre modale Piker re-localisée sous ui/windows, sans dépendre des facades lib/*.
 
-Gère la sélection de paramètres, l'édition de préfix/suffix
-et la persistance via le module naming.
-"""
+from __future__ import unicode_literals
 
 import os
 from pyrevit import forms
-from .naming import *
-from .sheets import *
-from .config import UserConfigStore as UC
-
-# Feuille de style XAML
-GUI_FILE = os.path.join('GUI', 'Views', 'naming.xaml')
 
 
-def _get_piker_xaml_path():
-    base_dir = os.path.dirname(os.path.dirname(__file__))
-    return os.path.join(base_dir, GUI_FILE)
+def _naming_store():
+    from ...data.naming.NamingPatternStore import NamingPatternStore
+    return NamingPatternStore()
+
+
+def _naming_resolver():
+    from ...data.naming.NamingResolver import NamingResolver
+    return NamingResolver()
+
+
+def _sheet_repo():
+    from ...data.sheets.SheetParameterRepository import SheetParameterRepository
+    from ...core.UserConfig import UserConfig
+    return SheetParameterRepository(UserConfig('batch_export'))
+
+
+def _get_naming_xaml_path():
+    try:
+        from ...core.AppPaths import AppPaths
+        paths = AppPaths()
+        return os.path.join(paths.gui_root(), 'Views', 'naming.xaml')
+    except Exception:
+        # Fallback: compute from this file
+        here = os.path.dirname(__file__)
+        return os.path.normpath(os.path.join(here, '..', '..', 'GUI', 'Views', 'naming.xaml'))
 
 
 class PikerWindow(forms.WPFWindow):
     def __init__(self, kind='sheet', title=u"Piker"):
-        forms.WPFWindow.__init__(self, _get_piker_xaml_path())
+        forms.WPFWindow.__init__(self, _get_naming_xaml_path())
         self._kind = kind  # 'sheet' | 'set'
         try:
             self.Title = title
         except Exception:
             pass
-        # Etat interne
         self._available_all = []
         self._available_filtered = []
-        self._selected_rows = []  # dict rows
-        # Boutons OK/Annuler
+        self._available_project = []
+        self._available_collection = []
+        self._available_sheet = []
+        self._selected_rows = []
+        # Buttons
         try:
             if hasattr(self, 'OkButton'):
                 self.OkButton.Click += self._on_ok
             if hasattr(self, 'CancelButton'):
                 self.CancelButton.Click += self._on_cancel
-        except Exception:
-            pass
-        # Handlers
-        try:
             if hasattr(self, 'AddParamButton'):
                 self.AddParamButton.Click += self._on_add_param
             if hasattr(self, 'RemoveParamButton'):
@@ -50,53 +62,62 @@ class PikerWindow(forms.WPFWindow):
                 self.ScopeCombo.SelectionChanged += self._on_scope_changed
         except Exception:
             pass
-        # Charger l'existant
-        patt, rows = load_pattern(self._kind)
+        # Load existing rows
+        try:
+            patt, rows = _naming_store().load(self._kind)
+        except Exception:
+            patt, rows = '', []
         self._selected_rows = rows or []
         self._reload_selected_list()
         self._refresh_preview()
 
-    # API publique
-    def load_params(self, names):
-        """Charge la liste initiale (portée Collection)."""
-        self._available_collection = list(names or [])
-        # Charger aussi projet & feuille
+    def load_params(self):
         try:
             doc = __revit__.ActiveUIDocument.Document  # type: ignore
         except Exception:
             doc = None
+        repo = _sheet_repo()
         if doc is not None:
             try:
-                self._available_project = picker_collect_project_parameter_names(doc, UC('batch_export'))
+                self._available_collection = repo.collect_for_collections(doc)
+            except Exception:
+                self._available_collection = []
+            try:
+                self._available_project = repo.collect_project_params(doc)
             except Exception:
                 self._available_project = []
             try:
-                self._available_sheet = picker_collect_sheet_instance_parameter_names(doc, UC('batch_export'))
+                self._available_sheet = repo.collect_sheet_instance_params(doc)
             except Exception:
                 self._available_sheet = []
         else:
+            self._available_collection = []
             self._available_project = []
             self._available_sheet = []
-        # Tout = union dédupliquée
+        # Union
         all_union = set()
         for lst in (self._available_project, self._available_collection, self._available_sheet):
             for n in lst:
                 if n:
-                    all_union.add(n)
-        self._available_all = sorted(list(all_union), key=lambda s: s.lower())
+                    try:
+                        all_union.add(n)
+                    except Exception:
+                        pass
+        try:
+            self._available_all = sorted(list(all_union), key=lambda s: s.lower())
+        except Exception:
+            self._available_all = list(all_union)
         self._apply_scope_filter()
         self._refresh_preview()
 
-    # XAML events (DataGrid template textboxes hook these)
+    # XAML events hooks
     def ParamCell_LostFocus(self, sender, args):
         self._refresh_preview()
 
     def ParamCell_TextChanged(self, sender, args):
-        # Optionnel: rafraîchi en live
         self._refresh_preview()
 
     def AvailableParamsList_DoubleClick(self, sender, args):
-        # Ajoute l'item double-cliqué comme si on appuyait sur Ajouter
         try:
             sel = getattr(self.AvailableParamsList, 'SelectedItem', None)
             if sel and not any(r.get('Name') == sel for r in self._selected_rows):
@@ -107,7 +128,6 @@ class PikerWindow(forms.WPFWindow):
         self._refresh_preview()
 
     def SelectedParamsList_DoubleClick(self, sender, args):
-        # Retire l'item double-cliqué côté droit
         try:
             lst = self.SelectedParamsList
             sel = getattr(lst, 'SelectedItem', None)
@@ -126,17 +146,11 @@ class PikerWindow(forms.WPFWindow):
             if not(sel and isinstance(sel, dict)):
                 return
             name = sel.get('Name')
-            idx = None
-            for i, r in enumerate(self._selected_rows):
-                if r.get('Name') == name:
-                    idx = i
-                    break
+            idx = next((i for i,r in enumerate(self._selected_rows) if r.get('Name')==name), None)
             if idx is None or idx <= 0:
                 return
-            # swap positions
             self._selected_rows[idx-1], self._selected_rows[idx] = self._selected_rows[idx], self._selected_rows[idx-1]
             self._reload_selected_list()
-            # Reselect moved item
             try:
                 lst.SelectedIndex = idx-1
             except Exception:
@@ -152,14 +166,9 @@ class PikerWindow(forms.WPFWindow):
             if not(sel and isinstance(sel, dict)):
                 return
             name = sel.get('Name')
-            idx = None
-            for i, r in enumerate(self._selected_rows):
-                if r.get('Name') == name:
-                    idx = i
-                    break
+            idx = next((i for i,r in enumerate(self._selected_rows) if r.get('Name')==name), None)
             if idx is None or idx >= len(self._selected_rows)-1:
                 return
-            # swap positions
             self._selected_rows[idx+1], self._selected_rows[idx] = self._selected_rows[idx], self._selected_rows[idx+1]
             self._reload_selected_list()
             try:
@@ -177,11 +186,7 @@ class PikerWindow(forms.WPFWindow):
             if not(sel and isinstance(sel, dict)):
                 return
             name = sel.get('Name')
-            idx = None
-            for i, r in enumerate(self._selected_rows):
-                if r.get('Name') == name:
-                    idx = i
-                    break
+            idx = next((i for i,r in enumerate(self._selected_rows) if r.get('Name')==name), None)
             if idx is None or idx <= 0:
                 return
             row = self._selected_rows.pop(idx)
@@ -202,11 +207,7 @@ class PikerWindow(forms.WPFWindow):
             if not(sel and isinstance(sel, dict)):
                 return
             name = sel.get('Name')
-            idx = None
-            for i, r in enumerate(self._selected_rows):
-                if r.get('Name') == name:
-                    idx = i
-                    break
+            idx = next((i for i,r in enumerate(self._selected_rows) if r.get('Name')==name), None)
             last_index = len(self._selected_rows)-1
             if idx is None or idx >= last_index:
                 return
@@ -223,8 +224,8 @@ class PikerWindow(forms.WPFWindow):
 
     # Internals
     def _on_ok(self, sender, args):
-        patt = build_pattern_from_rows(self._selected_rows)
-        save_pattern(self._kind, patt, self._selected_rows)
+        patt = self._build_pattern_from_rows(self._selected_rows)
+        _naming_store().save(self._kind, patt, self._selected_rows)
         try:
             self.Close()
         except Exception:
@@ -251,9 +252,12 @@ class PikerWindow(forms.WPFWindow):
             filtered = list(self._available_collection or [])
         elif scope == 'Feuille':
             filtered = list(self._available_sheet or [])
-        else:  # Tout
+        else:
             filtered = list(self._available_all or [])
-        self._available_filtered = sorted(filtered, key=lambda s: s.lower())
+        try:
+            self._available_filtered = sorted(filtered, key=lambda s: s.lower())
+        except Exception:
+            self._available_filtered = filtered
         if hasattr(self, 'AvailableParamsList'):
             try:
                 self.AvailableParamsList.Items.Clear()
@@ -302,8 +306,14 @@ class PikerWindow(forms.WPFWindow):
             except Exception:
                 continue
 
+    def _build_pattern_from_rows(self, rows):
+        try:
+            return _naming_resolver().build_pattern(rows)
+        except Exception:
+            return ''
+
     def _refresh_preview(self):
-        patt = build_pattern_from_rows(self._selected_rows)
+        patt = self._build_pattern_from_rows(self._selected_rows)
         try:
             if hasattr(self, 'PatternPreviewText'):
                 self.PatternPreviewText.Text = patt or '(vide)'
@@ -311,20 +321,11 @@ class PikerWindow(forms.WPFWindow):
             pass
 
 
-# Helpers
-
 def open_modal(kind='sheet', title=u"Piker"):
-    """Ouvre la fenêtre en modal et tente de charger les paramètres disponibles.
-    Retourne True si affichée; la persistance est faite sur OK.
-    """
     try:
         win = PikerWindow(kind=kind, title=title)
-        # Charger paramètres disponibles
         try:
-            # collect paramètres Collection (base), puis charge projet & feuille via load_params
-            doc = __revit__.ActiveUIDocument.Document  # type: ignore
-            names_coll = picker_collect_sheet_parameter_names(doc, UC('batch_export'))
-            win.load_params(names_coll)
+            win.load_params()
         except Exception:
             pass
         try:
@@ -333,5 +334,5 @@ def open_modal(kind='sheet', title=u"Piker"):
             win.show()
         return True
     except Exception as e:
-        print('[info] Erreur ouverture Piker:', e)
+        print('[info] Erreur PikerWindow:', e)
         return False
