@@ -148,6 +148,7 @@ class CollectionPreviewComponent(object):
                     'StatutText': u"",
                     'StatutColor': None,
                     'Details': details,
+                    'IsExpanded': False,
                 })
             except Exception:
                 continue

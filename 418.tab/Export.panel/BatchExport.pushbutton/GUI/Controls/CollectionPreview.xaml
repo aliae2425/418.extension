@@ -1,6 +1,10 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <ControlTemplate x:Key="CollectionPreviewTemplate" TargetType="ContentControl">
+    <ControlTemplate.Resources>
+      <!-- Convertisseur Boolean vers Visibility -->
+      <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </ControlTemplate.Resources>
     <StackPanel>
       <!-- ═══════════════════════════════════════════════════════════════ -->
       <!-- EN-TÊTE ET PROGRESSION -->
@@ -22,121 +26,137 @@
                      Foreground="Gray"
                      Text="Collections: 0 • Éléments: 0"/>
           
-          <!-- Grille principale des collections -->
-          <DataGrid Name="CollectionGrid"
-                    AutoGenerateColumns="False"
-                    IsReadOnly="True"
-                    HeadersVisibility="Column"
-                    RowDetailsVisibilityMode="VisibleWhenSelected"
-                    GridLinesVisibility="None"
-                    CanUserAddRows="False"
-                    CanUserDeleteRows="False"
+          <!-- ListView avec GridView (style tableau) -->
+          <ListView Name="CollectionGrid"
                     Height="200"
                     ScrollViewer.VerticalScrollBarVisibility="Auto"
-                    ScrollViewer.CanContentScroll="True">
-            <DataGrid.Columns>
-              <!-- ─────────────────────────────────────────────────────── -->
-              <!-- COLONNES DU TABLEAU PRINCIPAL -->
-              <!-- ─────────────────────────────────────────────────────── -->
-              
-              <!-- Colonne 1: Indicateur expand/collapse (▶/▼) -->
-              <DataGridTemplateColumn Header="" Width="28">
-                <DataGridTemplateColumn.CellTemplate>
-                  <DataTemplate>
-                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray" FontSize="14">
-                      <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                          <Setter Property="Text" Value="▶"/>
-                          <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
-                              <Setter Property="Text" Value="▼"/>
-                            </DataTrigger>
-                          </Style.Triggers>
-                        </Style>
-                      </TextBlock.Style>
-                    </TextBlock>
-                  </DataTemplate>
-                </DataGridTemplateColumn.CellTemplate>
-              </DataGridTemplateColumn>
-              
-              <!-- Colonne 2: Nom de la collection (largeur flexible) -->
-              <DataGridTextColumn Header="Nom" Binding="{Binding [Nom]}" Width="5*"/>
-              
-              <!-- Colonne 3: Nombre de feuilles (largeur fixe) -->
-              <DataGridTextColumn Header="Feuilles" Binding="{Binding [Feuilles]}" Width="80"/>
-              
-              <!-- Colonne 4: Export PDF (✓/✗) -->
-              <DataGridTemplateColumn Header="Export" Width="70">
-                <DataGridTemplateColumn.CellTemplate>
-                  <DataTemplate>
-                    <TextBlock Text="{Binding [ExportText]}" Foreground="{Binding [ExportColor]}" HorizontalAlignment="Center"/>
-                  </DataTemplate>
-                </DataGridTemplateColumn.CellTemplate>
-              </DataGridTemplateColumn>
-              
-              <!-- Colonne 5: Export par feuille/Carnet (✓/✗) -->
-              <DataGridTemplateColumn Header="Carnet" Width="70">
-                <DataGridTemplateColumn.CellTemplate>
-                  <DataTemplate>
-                    <TextBlock Text="{Binding [CarnetText]}" Foreground="{Binding [CarnetColor]}" HorizontalAlignment="Center"/>
-                  </DataTemplate>
-                </DataGridTemplateColumn.CellTemplate>
-              </DataGridTemplateColumn>
-              
-              <!-- Colonne 6: Export DWG (✓/✗) -->
-              <DataGridTemplateColumn Header="DWG" Width="70">
-                <DataGridTemplateColumn.CellTemplate>
-                  <DataTemplate>
-                    <TextBlock Text="{Binding [DWGText]}" Foreground="{Binding [DWGColor]}" HorizontalAlignment="Center"/>
-                  </DataTemplate>
-                </DataGridTemplateColumn.CellTemplate>
-              </DataGridTemplateColumn>
-              
-              <!-- Colonne 7: Statut d'export (En cours, Terminé, Erreur) -->
-              <DataGridTemplateColumn Header="Statut" Width="2*">
-                <DataGridTemplateColumn.CellTemplate>
-                  <DataTemplate>
-                    <TextBlock Text="{Binding [StatutText]}" Foreground="{Binding [StatutColor]}"/>
-                  </DataTemplate>
-                </DataGridTemplateColumn.CellTemplate>
-              </DataGridTemplateColumn>
-            </DataGrid.Columns>
+                    ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                    BorderThickness="1"
+                    BorderBrush="LightGray">
+            <ListView.View>
+              <GridView AllowsColumnReorder="False">
+                <!-- Colonne 1: Indicateur expand/collapse (▶/▼) -->
+                <GridViewColumn Width="28">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate>
+                      <ToggleButton Width="20" Height="20" 
+                                    IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                                    Style="{StaticResource {x:Static ToolBar.ToggleButtonStyleKey}}"
+                                    Background="Transparent"
+                                    BorderThickness="0">
+                        <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray" FontSize="12">
+                          <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                              <Setter Property="Text" Value="▶"/>
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                  <Setter Property="Text" Value="▼"/>
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBlock.Style>
+                        </TextBlock>
+                      </ToggleButton>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                
+                <!-- Colonne 2: Nom de la collection -->
+                <GridViewColumn Header="Nom" Width="400" DisplayMemberBinding="{Binding [Nom]}"/>
+                
+                <!-- Colonne 3: Nombre de feuilles -->
+                <GridViewColumn Header="Feuilles" Width="80" DisplayMemberBinding="{Binding [Feuilles]}"/>
+                
+                <!-- Colonne 4: Export PDF (✓/✗) -->
+                <GridViewColumn Header="Export" Width="70">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding [ExportText]}" 
+                                 Foreground="{Binding [ExportColor]}" 
+                                 HorizontalAlignment="Center"/>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                
+                <!-- Colonne 5: Export par feuille/Carnet (✓/✗) -->
+                <GridViewColumn Header="Carnet" Width="70">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding [CarnetText]}" 
+                                 Foreground="{Binding [CarnetColor]}" 
+                                 HorizontalAlignment="Center"/>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                
+                <!-- Colonne 6: Export DWG (✓/✗) -->
+                <GridViewColumn Header="DWG" Width="70">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding [DWGText]}" 
+                                 Foreground="{Binding [DWGColor]}" 
+                                 HorizontalAlignment="Center"/>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                
+                <!-- Colonne 7: Statut d'export -->
+                <GridViewColumn Header="Statut" Width="150">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding [StatutText]}" 
+                                 Foreground="{Binding [StatutColor]}"/>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+              </GridView>
+            </ListView.View>
             
-            <!-- ─────────────────────────────────────────────────────── -->
-            <!-- DÉTAILS DES FEUILLES (expand) -->
-            <!-- ─────────────────────────────────────────────────────── -->
-            <DataGrid.RowDetailsTemplate>
-              <DataTemplate>
-                <Border Margin="0,6,0,8" Padding="28,0,0,0">
-                  <!-- Sous-grille affichant les feuilles individuelles -->
-                  <DataGrid ItemsSource="{Binding [Details]}"
-                            AutoGenerateColumns="False"
-                            IsReadOnly="True"
-                            HeadersVisibility="Column"
-                            GridLinesVisibility="None"
-                            CanUserAddRows="False"
-                            CanUserDeleteRows="False"
-                            Background="Transparent"
-                            BorderThickness="0">
-                    <DataGrid.Columns>
-                      <!-- Nom du fichier exporté (aligné avec colonne Nom du parent) -->
-                      <DataGridTextColumn Header="Nom" Binding="{Binding [Nom]}" Width="*"/>
-                      <!-- Format d'export (aligné avec Feuilles du parent) -->
-                      <DataGridTextColumn Header="Format" Binding="{Binding [Format]}" Width="80"/>
-                      <!-- Statut de l'export individuel (aligné avec Export+Carnet+DWG+Statut) -->
-                      <DataGridTemplateColumn Header="Statut" Width="*">
-                        <DataGridTemplateColumn.CellTemplate>
-                          <DataTemplate>
-                            <TextBlock Text="{Binding [StatutText]}" Foreground="{Binding [StatutColor]}"/>
-                          </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                      </DataGridTemplateColumn>
-                    </DataGrid.Columns>
-                  </DataGrid>
-                </Border>
-              </DataTemplate>
-            </DataGrid.RowDetailsTemplate>
-          </DataGrid>
+            <!-- Template pour afficher les détails quand IsExpanded = true -->
+            <ListView.ItemContainerStyle>
+              <Style TargetType="ListViewItem">
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="Template">
+                  <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                      <StackPanel>
+                        <!-- Ligne principale (collection) -->
+                        <GridViewRowPresenter Content="{TemplateBinding Content}"
+                                              Columns="{TemplateBinding GridView.ColumnCollection}"/>
+                        
+                        <!-- Détails (feuilles) - affichés si IsExpanded = true -->
+                        <ItemsControl ItemsSource="{Binding [Details]}" 
+                                      Margin="28,0,0,4"
+                                      Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                              <Grid Margin="0,2">
+                                <Grid.ColumnDefinitions>
+                                  <ColumnDefinition Width="400"/>
+                                  <ColumnDefinition Width="80"/>
+                                  <ColumnDefinition Width="70"/>
+                                  <ColumnDefinition Width="70"/>
+                                  <ColumnDefinition Width="70"/>
+                                  <ColumnDefinition Width="150"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <TextBlock Grid.Column="0" Text="{Binding [Nom]}" 
+                                           Foreground="Gray" FontSize="11" Padding="4,2"/>
+                                <TextBlock Grid.Column="1" Text="{Binding [Format]}" 
+                                           Foreground="Gray" FontSize="11" Padding="4,2"/>
+                                <TextBlock Grid.Column="5" Text="{Binding [StatutText]}" 
+                                           Foreground="{Binding [StatutColor]}" FontSize="11" Padding="4,2"/>
+                              </Grid>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </ControlTemplate>
+                  </Setter.Value>
+                </Setter>
+              </Style>
+            </ListView.ItemContainerStyle>
+          </ListView>
         </StackPanel>
       </Border>
       
