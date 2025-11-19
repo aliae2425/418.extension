@@ -2,16 +2,27 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <ControlTemplate x:Key="CollectionPreviewTemplate" TargetType="ContentControl">
     <StackPanel>
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!-- EN-TÊTE ET PROGRESSION -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
       <TextBlock Text="Recapitulatif : " FontWeight="Bold" Margin="0,0,0,6"/>
+      
+      <!-- Barre de progression de l'export -->
       <ProgressBar Name="ExportProgressBar"
                    Height="24" Minimum="0"
                    Maximum="100" Value="0" Margin="0,4,0,8"/>
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!-- TABLEAU DE PRÉVISUALISATION DES COLLECTIONS -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
       <Border BorderThickness="0" Margin="0,0,0,8">
         <StackPanel>
+          <!-- Compteur de collections et éléments -->
           <TextBlock Name="PreviewCounterText"
                      Margin="0,0,0,6"
                      Foreground="Gray"
                      Text="Collections: 0 • Éléments: 0"/>
+          
+          <!-- Grille principale des collections -->
           <DataGrid Name="CollectionGrid"
                     AutoGenerateColumns="False"
                     IsReadOnly="True"
@@ -24,7 +35,11 @@
                     ScrollViewer.VerticalScrollBarVisibility="Auto"
                     ScrollViewer.CanContentScroll="True">
             <DataGrid.Columns>
-              <!-- Indicateur expand/collapse -->
+              <!-- ─────────────────────────────────────────────────────── -->
+              <!-- COLONNES DU TABLEAU PRINCIPAL -->
+              <!-- ─────────────────────────────────────────────────────── -->
+              
+              <!-- Colonne 1: Indicateur expand/collapse (▶/▼) -->
               <DataGridTemplateColumn Header="" Width="28">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
@@ -43,30 +58,42 @@
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
-              <DataGridTextColumn Header="Nom" Binding="{Binding [Nom]}" Width="3*"/>
-              <DataGridTextColumn Header="Feuilles" Binding="{Binding [Feuilles]}" Width="1*"/>
-              <DataGridTemplateColumn Header="Export" Width="1.2*">
+              
+              <!-- Colonne 2: Nom de la collection (largeur flexible) -->
+              <DataGridTextColumn Header="Nom" Binding="{Binding [Nom]}" Width="5*"/>
+              
+              <!-- Colonne 3: Nombre de feuilles (largeur fixe) -->
+              <DataGridTextColumn Header="Feuilles" Binding="{Binding [Feuilles]}" Width="80"/>
+              
+              <!-- Colonne 4: Export PDF (✓/✗) -->
+              <DataGridTemplateColumn Header="Export" Width="70">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
-                    <TextBlock Text="{Binding [ExportText]}" Foreground="{Binding [ExportColor]}"/>
+                    <TextBlock Text="{Binding [ExportText]}" Foreground="{Binding [ExportColor]}" HorizontalAlignment="Center"/>
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
-              <DataGridTemplateColumn Header="Carnet" Width="1.2*">
+              
+              <!-- Colonne 5: Export par feuille/Carnet (✓/✗) -->
+              <DataGridTemplateColumn Header="Carnet" Width="70">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
-                    <TextBlock Text="{Binding [CarnetText]}" Foreground="{Binding [CarnetColor]}"/>
+                    <TextBlock Text="{Binding [CarnetText]}" Foreground="{Binding [CarnetColor]}" HorizontalAlignment="Center"/>
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
-              <DataGridTemplateColumn Header="DWG" Width="1.2*">
+              
+              <!-- Colonne 6: Export DWG (✓/✗) -->
+              <DataGridTemplateColumn Header="DWG" Width="70">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
-                    <TextBlock Text="{Binding [DWGText]}" Foreground="{Binding [DWGColor]}"/>
+                    <TextBlock Text="{Binding [DWGText]}" Foreground="{Binding [DWGColor]}" HorizontalAlignment="Center"/>
                   </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
-              <DataGridTemplateColumn Header="Statut" Width="1.6*">
+              
+              <!-- Colonne 7: Statut d'export (En cours, Terminé, Erreur) -->
+              <DataGridTemplateColumn Header="Statut" Width="2*">
                 <DataGridTemplateColumn.CellTemplate>
                   <DataTemplate>
                     <TextBlock Text="{Binding [StatutText]}" Foreground="{Binding [StatutColor]}"/>
@@ -74,20 +101,30 @@
                 </DataGridTemplateColumn.CellTemplate>
               </DataGridTemplateColumn>
             </DataGrid.Columns>
+            
+            <!-- ─────────────────────────────────────────────────────── -->
+            <!-- DÉTAILS DES FEUILLES (expand) -->
+            <!-- ─────────────────────────────────────────────────────── -->
             <DataGrid.RowDetailsTemplate>
               <DataTemplate>
-                <Border Margin="0,6,0,8" Padding="0">
+                <Border Margin="0,6,0,8" Padding="28,0,0,0">
+                  <!-- Sous-grille affichant les feuilles individuelles -->
                   <DataGrid ItemsSource="{Binding [Details]}"
                             AutoGenerateColumns="False"
                             IsReadOnly="True"
                             HeadersVisibility="Column"
                             GridLinesVisibility="None"
                             CanUserAddRows="False"
-                            CanUserDeleteRows="False">
+                            CanUserDeleteRows="False"
+                            Background="Transparent"
+                            BorderThickness="0">
                     <DataGrid.Columns>
-                      <DataGridTextColumn Header="Nom" Binding="{Binding [Nom]}" Width="3*"/>
-                      <DataGridTextColumn Header="Format" Binding="{Binding [Format]}" Width="2*"/>
-                      <DataGridTemplateColumn Header="Statut" Width="2*">
+                      <!-- Nom du fichier exporté (aligné avec colonne Nom du parent) -->
+                      <DataGridTextColumn Header="Nom" Binding="{Binding [Nom]}" Width="*"/>
+                      <!-- Format d'export (aligné avec Feuilles du parent) -->
+                      <DataGridTextColumn Header="Format" Binding="{Binding [Format]}" Width="80"/>
+                      <!-- Statut de l'export individuel (aligné avec Export+Carnet+DWG+Statut) -->
+                      <DataGridTemplateColumn Header="Statut" Width="*">
                         <DataGridTemplateColumn.CellTemplate>
                           <DataTemplate>
                             <TextBlock Text="{Binding [StatutText]}" Foreground="{Binding [StatutColor]}"/>
@@ -102,7 +139,12 @@
           </DataGrid>
         </StackPanel>
       </Border>
+      
+      <!-- ═══════════════════════════════════════════════════════════════ -->
+      <!-- BARRE D'ACTION (Statut + Bouton Export) -->
+      <!-- ═══════════════════════════════════════════════════════════════ -->
       <DockPanel LastChildFill="False" Margin="0,8,0,0">
+        <!-- Message de statut (erreurs, avertissements) -->
         <TextBlock Name="ExportStatusText"
                    VerticalAlignment="Center"
                    Margin="0,0,8,0"
@@ -111,6 +153,8 @@
                    DockPanel.Dock="Left"
                    Foreground="Red"
                    Text="Sélectionnez un dossier de destination valide."/>
+        
+        <!-- Bouton pour lancer l'export -->
         <Button Name="ExportButton"
                 Content="Exporter"
                 Height="32"

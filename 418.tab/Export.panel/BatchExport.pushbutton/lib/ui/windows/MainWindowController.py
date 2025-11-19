@@ -6,6 +6,12 @@ from __future__ import unicode_literals
 import os
 from pyrevit import forms
 
+try:
+    from pyrevit import EXEC_PARAMS
+    _verbose = EXEC_PARAMS.debug_mode
+except Exception:
+    _verbose = False
+
 class MainWindow(forms.WPFWindow):
     def __init__(self, xaml_path):
         forms.WPFWindow.__init__(self, xaml_path)
@@ -58,7 +64,7 @@ class MainWindowController(object):
     def _merge_and_bind(self):
         # Merge resources
         merge_ok = self._res_loader_cls(self._win, self._paths).merge_all()
-        if not merge_ok:
+        if not merge_ok and _verbose:
             print('[warning] Resource loading may have failed')
         # Bind template children
         hosts = {
@@ -82,10 +88,11 @@ class MainWindowController(object):
         }
         self._binder_cls(self._win).bind(hosts)
         # Debug: verify ParameterSelectorHost is bound
-        if not hasattr(self._win, 'CollectionExpander'):
-            print('[warning] CollectionExpander not found - ParameterSelector template may not be loaded')
-        if not hasattr(self._win, 'ExportationCombo'):
-            print('[warning] ExportationCombo not found - check template binding')
+        if _verbose:
+            if not hasattr(self._win, 'CollectionExpander'):
+                print('[warning] CollectionExpander not found - ParameterSelector template may not be loaded')
+            if not hasattr(self._win, 'ExportationCombo'):
+                print('[warning] ExportationCombo not found - check template binding')
 
     def _load_param_combos(self):
         # Collect available parameters

@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 # Liaison des éléments nommés à l'intérieur des ControlTemplates vers des attributs Python
 
+try:
+    from pyrevit import EXEC_PARAMS
+    _verbose = EXEC_PARAMS.debug_mode
+except Exception:
+    _verbose = False
+
 class UITemplateBinder(object):
     def __init__(self, window):
         self._win = window
@@ -15,11 +21,13 @@ class UITemplateBinder(object):
                 print('[error] Failed to get host {}: {}'.format(host_name, e))
                 host = None
             if host is None:
-                print('[warning] Host {} not found in window'.format(host_name))
+                if _verbose:
+                    print('[warning] Host {} not found in window'.format(host_name))
                 continue
             try:
                 host.ApplyTemplate()
-                print('[debug] Applied template to {}'.format(host_name))
+                if _verbose:
+                    print('[debug] Applied template to {}'.format(host_name))
             except Exception as e:
                 print('[error] Failed to apply template to {}: {}'.format(host_name, e))
                 pass
@@ -30,16 +38,19 @@ class UITemplateBinder(object):
                     if tmpl is not None:
                         ctrl = tmpl.FindName(cname, host)
                     else:
-                        print('[warning] No template found for {}'.format(host_name))
+                        if _verbose:
+                            print('[warning] No template found for {}'.format(host_name))
                 except Exception as e:
                     print('[error] Failed to find {} in {}: {}'.format(cname, host_name, e))
                     ctrl = None
                 if ctrl is not None:
                     try:
                         setattr(self._win, cname, ctrl)
-                        print('[debug] Bound {} from {}'.format(cname, host_name))
+                        if _verbose:
+                            print('[debug] Bound {} from {}'.format(cname, host_name))
                     except Exception as e:
                         print('[error] Failed to bind {}: {}'.format(cname, e))
                         pass
                 else:
-                    print('[warning] Control {} not found in template of {}'.format(cname, host_name))
+                    if _verbose:
+                        print('[warning] Control {} not found in template of {}'.format(cname, host_name))

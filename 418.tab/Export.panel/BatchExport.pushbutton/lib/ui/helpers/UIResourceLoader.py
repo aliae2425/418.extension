@@ -3,6 +3,12 @@
 
 import os
 
+try:
+    from pyrevit import EXEC_PARAMS
+    _verbose = EXEC_PARAMS.debug_mode
+except Exception:
+    _verbose = False
+
 class UIResourceLoader(object):
     def __init__(self, window, app_paths=None):
         self._win = window
@@ -27,7 +33,8 @@ class UIResourceLoader(object):
             return False
         # windows.xaml
         win_path = self._paths.windows_xaml()
-        print('[debug] Loading windows.xaml from:', win_path)
+        if _verbose:
+            print('[debug] Loading windows.xaml from:', win_path)
         if not os.path.exists(win_path):
             print('[error] windows.xaml not found at:', win_path)
         try:
@@ -35,25 +42,29 @@ class UIResourceLoader(object):
             u0 = Uri('file:///' + win_path.replace('\\', '/').replace(':', ':/'), UriKind.Absolute)
             d0.Source = u0
             self._win.Resources.MergedDictionaries.Add(d0)
-            print('[debug] windows.xaml loaded successfully')
+            if _verbose:
+                print('[debug] windows.xaml loaded successfully')
         except Exception as e:
             print('[error] Failed to load windows.xaml:', e)
             pass
         # Controls
         ctrl_dir = self._paths.controls_dir()
-        print('[debug] Loading controls from:', ctrl_dir)
+        if _verbose:
+            print('[debug] Loading controls from:', ctrl_dir)
         names = ['ParameterSelector.xaml','ExportOptions.xaml','DestinationPicker.xaml','NamingConfig.xaml','CollectionPreview.xaml']
         for n in names:
             path = os.path.join(ctrl_dir, n)
             if not os.path.exists(path):
-                print('[warning] Control file not found:', path)
+                if _verbose:
+                    print('[warning] Control file not found:', path)
                 continue
             try:
                 d = WResourceDictionary()
                 u = Uri('file:///' + path.replace('\\', '/').replace(':', ':/'), UriKind.Absolute)
                 d.Source = u
                 self._win.Resources.MergedDictionaries.Add(d)
-                print('[debug] Loaded control:', n)
+                if _verbose:
+                    print('[debug] Loaded control:', n)
             except Exception as e:
                 print('[error] Failed to load {}: {}'.format(n, e))
                 pass
