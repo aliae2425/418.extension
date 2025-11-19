@@ -5,11 +5,13 @@
         WindowStartupLocation="CenterScreen">
 
   <Window.Resources>
-    <ResourceDictionary/>
+    <ResourceDictionary>
+      <!-- Convertisseur pour la visibilité -->
+      <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
+    </ResourceDictionary>
   </Window.Resources>
 
   <Grid>
-
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
@@ -18,37 +20,88 @@
     </Grid.RowDefinitions>
 
     <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="1*"/>
-      <ColumnDefinition Width="3*"/>
+      <ColumnDefinition Width="*"/>
     </Grid.ColumnDefinitions>
 
-    <TextBlock Text="418 : Exportation des jeux"
-               Grid.Row="0"
-               Grid.ColumnSpan="2"
-               FontSize="23"
-               Margin="20,8,0,8"/>
+    <!-- En-tête avec bouton burger -->
+    <Grid Grid.Row="0" Grid.ColumnSpan="2">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+      
+      <!-- Bouton burger -->
+      <Button Name="BurgerButton" 
+              Grid.Column="0"
+              Width="40" Height="40"
+              Margin="8"
+              Background="Transparent"
+              BorderThickness="1"
+              BorderBrush="Gray"
+              Cursor="Hand"
+              ToolTip="Paramètres et options d'export">
+        <TextBlock Text="☰" FontSize="20" FontWeight="Bold" Foreground="#333"/>
+      </Button>
+      
+      <TextBlock Text="418 : Exportation des jeux"
+                 Grid.Column="1"
+                 FontSize="23"
+                 Margin="8"
+                 VerticalAlignment="Center"/>
+    </Grid>
 
-    <!-- Zone choix des paramètres -->
-    <Border Style="{DynamicResource StyledBorder}"
-            Grid.Row="1"
-            Grid.RowSpan="2"
-            Grid.Column="0"
-            MaxHeight="180">
-      <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel>
-          <ContentControl x:Name="ParameterSelectorHost"
-                          Template="{DynamicResource ParameterSelectorTemplate}"/>
-          <ContentControl x:Name="ExportOptionsHost"
-                          Margin="0,6,0,0"
-                          Template="{DynamicResource ExportOptionsTemplate}"/>
-        </StackPanel>
-      </ScrollViewer>
+    <!-- Menu burger (panneau coulissant) -->
+    <Border Name="BurgerMenu"
+            Grid.Row="0" Grid.RowSpan="4"
+            Width="320"
+            HorizontalAlignment="Left"
+            Background="White"
+            BorderThickness="0,0,1,0"
+            BorderBrush="LightGray"
+            Panel.ZIndex="1000"
+            Visibility="Collapsed">
+      <Border.Effect>
+        <DropShadowEffect ShadowDepth="3" BlurRadius="10" Opacity="0.3"/>
+      </Border.Effect>
+      
+      <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <!-- En-tête du menu -->
+        <Border Grid.Row="0" Background="#f5f5f5" BorderThickness="0,0,0,1" BorderBrush="LightGray">
+          <Grid>
+            <TextBlock Text="Paramètres" FontSize="16" FontWeight="Bold" Margin="16,12" VerticalAlignment="Center"/>
+            <Button Name="CloseBurgerButton" 
+                    Content="×" 
+                    FontSize="24"
+                    Width="40" Height="40"
+                    HorizontalAlignment="Right"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Cursor="Hand"/>
+          </Grid>
+        </Border>
+        
+        <!-- Contenu du menu -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="12">
+            <ContentControl x:Name="ParameterSelectorHost"
+                            Template="{DynamicResource ParameterSelectorTemplate}"/>
+            <ContentControl x:Name="ExportOptionsHost"
+                            Margin="0,12,0,0"
+                            Template="{DynamicResource ExportOptionsTemplate}"/>
+          </StackPanel>
+        </ScrollViewer>
+      </Grid>
     </Border>
 
     <!-- Zone de destination -->
     <Border Style="{DynamicResource StyledBorder}"
             Grid.Row="1"
-            Grid.Column="1">
+            Margin="8">
       <ContentControl x:Name="DestinationPickerHost"
                       Template="{DynamicResource DestinationPickerTemplate}"/>
     </Border>
@@ -56,7 +109,7 @@
     <!-- Zone de nommage -->
     <Border Style="{DynamicResource StyledBorder}"
             Grid.Row="2"
-            Grid.Column="1">
+            Margin="8">
       <ContentControl x:Name="NamingConfigHost"
                       Template="{DynamicResource NamingConfigTemplate}"/>
     </Border>
@@ -64,8 +117,7 @@
     <!-- Zone recapitulatif + progression -->
     <Border Style="{DynamicResource StyledBorder}"
             Grid.Row="3"
-            Grid.ColumnSpan="2"
-            Grid.Column="0">
+            Margin="8">
       <ContentControl x:Name="CollectionPreviewHost"
                       Template="{DynamicResource CollectionPreviewTemplate}"/>
     </Border>

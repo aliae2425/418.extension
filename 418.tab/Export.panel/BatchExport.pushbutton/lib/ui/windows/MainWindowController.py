@@ -414,6 +414,45 @@ class MainWindowController(object):
         except Exception:
             pass
 
+    def _wire_burger_menu(self):
+        """Configure le menu burger"""
+        try:
+            if hasattr(self._win, 'BurgerButton'):
+                self._win.BurgerButton.Click += self._toggle_burger_menu
+            if hasattr(self._win, 'CloseBurgerButton'):
+                self._win.CloseBurgerButton.Click += self._close_burger_menu
+        except Exception:
+            pass
+
+    def _toggle_burger_menu(self, sender, args):
+        """Ouvre/ferme le menu burger"""
+        try:
+            from System.Windows import Visibility
+        except Exception:
+            return
+        try:
+            menu = getattr(self._win, 'BurgerMenu', None)
+            if menu is not None:
+                if menu.Visibility == Visibility.Visible:
+                    menu.Visibility = Visibility.Collapsed
+                else:
+                    menu.Visibility = Visibility.Visible
+        except Exception:
+            pass
+
+    def _close_burger_menu(self, sender, args):
+        """Ferme le menu burger"""
+        try:
+            from System.Windows import Visibility
+        except Exception:
+            return
+        try:
+            menu = getattr(self._win, 'BurgerMenu', None)
+            if menu is not None:
+                menu.Visibility = Visibility.Collapsed
+        except Exception:
+            pass
+
     def _on_export(self, sender, args):
         try:
             doc = __revit__.ActiveUIDocument.Document  # type: ignore
@@ -456,6 +495,7 @@ class MainWindowController(object):
         self._wire_naming_buttons()
         self._wire_grid_click()
         self._wire_export()
+        self._wire_burger_menu()
 
     def show(self):
         self.initialize()

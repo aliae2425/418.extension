@@ -39,24 +39,28 @@
                 <GridViewColumn Width="28">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate>
-                      <ToggleButton Width="20" Height="20" 
-                                    IsChecked="{Binding IsExpanded, Mode=TwoWay}"
-                                    Style="{StaticResource {x:Static ToolBar.ToggleButtonStyleKey}}"
-                                    Background="Transparent"
-                                    BorderThickness="0">
-                        <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray" FontSize="12">
-                          <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                              <Setter Property="Text" Value="▶"/>
-                              <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                      <CheckBox Width="20" Height="20" 
+                                IsChecked="{Binding [IsExpanded]}"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                        <CheckBox.Template>
+                          <ControlTemplate TargetType="CheckBox">
+                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" 
+                                       Foreground="Gray" FontSize="12" Cursor="Hand">
+                              <TextBlock.Style>
+                                <Style TargetType="TextBlock">
                                   <Setter Property="Text" Value="▼"/>
-                                </DataTrigger>
-                              </Style.Triggers>
-                            </Style>
-                          </TextBlock.Style>
-                        </TextBlock>
-                      </ToggleButton>
+                                  <Style.Triggers>
+                                    <DataTrigger Binding="{Binding [IsExpanded]}" Value="False">
+                                      <Setter Property="Text" Value="▶"/>
+                                    </DataTrigger>
+                                  </Style.Triggers>
+                                </Style>
+                              </TextBlock.Style>
+                            </TextBlock>
+                          </ControlTemplate>
+                        </CheckBox.Template>
+                      </CheckBox>
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
@@ -127,7 +131,7 @@
                         <!-- Détails (feuilles) - affichés si IsExpanded = true -->
                         <ItemsControl ItemsSource="{Binding [Details]}" 
                                       Margin="28,0,0,4"
-                                      Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
+                                      Visibility="{Binding [IsExpanded], Converter={StaticResource BoolToVisibilityConverter}}">
                           <ItemsControl.ItemTemplate>
                             <DataTemplate>
                               <Grid Margin="0,2">
