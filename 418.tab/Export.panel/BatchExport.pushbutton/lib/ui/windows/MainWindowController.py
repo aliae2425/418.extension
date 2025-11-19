@@ -47,6 +47,9 @@ class MainWindowController(object):
 
         # Window instance
         self._win = MainWindow(self._paths.main_xaml())
+        # Initialize window state attributes
+        self._win._available_param_names = []
+        self._win._dest_valid = False
         try:
             self._win.Title = u"418 • Exportation"
         except Exception:
@@ -54,7 +57,9 @@ class MainWindowController(object):
 
     def _merge_and_bind(self):
         # Merge resources
-        self._res_loader_cls(self._win, self._paths).merge_all()
+        merge_ok = self._res_loader_cls(self._win, self._paths).merge_all()
+        if not merge_ok:
+            print('[warning] Resource loading may have failed')
         # Bind template children
         hosts = {
             'ParameterSelectorHost': [
@@ -76,8 +81,23 @@ class MainWindowController(object):
             ],
         }
         self._binder_cls(self._win).bind(hosts)
+        # Debug: verify ParameterSelectorHost is bound
+        if not hasattr(self._win, 'CollectionExpander'):
+            print('[warning] CollectionExpander not found - ParameterSelector template may not be loaded')
+        if not hasattr(self._win, 'ExportationCombo'):
+            print('[warning] ExportationCombo not found - check template binding')
 
     def _load_param_combos(self):
+        # Collect available parameters
+        try:
+            doc = __revit__.ActiveUIDocument.Document  # type: ignore
+        except Exception:
+            doc = None
+        try:
+            self._win._available_param_names = self._sheet_params.collect_for_collections(doc) if doc else []
+        except Exception:
+            self._win._available_param_names = []
+        # Populate combos
         self._param_comp.populate(self._win)
         # Apply saved selections
         self._apply_saved_selection()

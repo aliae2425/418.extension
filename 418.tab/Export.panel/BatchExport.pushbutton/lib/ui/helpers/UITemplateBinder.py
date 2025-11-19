@@ -11,13 +11,17 @@ class UITemplateBinder(object):
         for host_name, child_names in (hosts_to_children or {}).items():
             try:
                 host = getattr(self._win, host_name, None)
-            except Exception:
+            except Exception as e:
+                print('[error] Failed to get host {}: {}'.format(host_name, e))
                 host = None
             if host is None:
+                print('[warning] Host {} not found in window'.format(host_name))
                 continue
             try:
                 host.ApplyTemplate()
-            except Exception:
+                print('[debug] Applied template to {}'.format(host_name))
+            except Exception as e:
+                print('[error] Failed to apply template to {}: {}'.format(host_name, e))
                 pass
             for cname in child_names:
                 ctrl = None
@@ -25,10 +29,17 @@ class UITemplateBinder(object):
                     tmpl = getattr(host, 'Template', None)
                     if tmpl is not None:
                         ctrl = tmpl.FindName(cname, host)
-                except Exception:
+                    else:
+                        print('[warning] No template found for {}'.format(host_name))
+                except Exception as e:
+                    print('[error] Failed to find {} in {}: {}'.format(cname, host_name, e))
                     ctrl = None
                 if ctrl is not None:
                     try:
                         setattr(self._win, cname, ctrl)
-                    except Exception:
+                        print('[debug] Bound {} from {}'.format(cname, host_name))
+                    except Exception as e:
+                        print('[error] Failed to bind {}: {}'.format(cname, e))
                         pass
+                else:
+                    print('[warning] Control {} not found in template of {}'.format(cname, host_name))
