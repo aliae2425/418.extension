@@ -1,0 +1,6 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Palette de couleurs partagée -->
+  <SolidColorBrush x:Key="LightGrayBrush" Color="#FFF8F8F8"/>
+  <SolidColorBrush x:Key="MediumGrayBrush" Color="#da2626cc"/>
+</ResourceDictionary>

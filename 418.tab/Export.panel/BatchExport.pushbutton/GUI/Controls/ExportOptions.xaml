@@ -1,0 +1,38 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ControlTemplate x:Key="ExportOptionsTemplate" TargetType="ContentControl">
+    <StackPanel Orientation="Vertical">
+      <!-- PDF options -->
+      <Expander Header="PDF"
+                Name="PDFExpander"
+                IsExpanded="False"
+                ExpandDirection="Down"
+                Margin="0,0,8,0">
+        <StackPanel Orientation="Vertical">
+          <TextBlock Text="Réglage PDF" Margin="0,0,0,4"/>
+          <DockPanel LastChildFill="True">
+            <ComboBox Name="PDFSetupCombo" MinWidth="160"/>
+            <!-- Bouton de création optionnel -->
+            <!-- <Button Name="PDFCreateButton" Content="Créer réglage…" DockPanel.Dock="Right" Margin="8,0,0,0"/> -->
+          </DockPanel>
+          <CheckBox Name="PDFSeparateCheck" Content="Exporter les vues en fichiers séparés" Margin="0,6,0,0"/>
+        </StackPanel>
+      </Expander>
+      <!-- DWG options -->
+      <Expander Header="DWG"
+                Name="DWGExpander"
+                IsExpanded="False"
+                ExpandDirection="Down"
+                Margin="0,0,8,0">
+        <StackPanel Orientation="Vertical">
+          <TextBlock Text="Réglage DWG" Margin="0,0,0,4"/>
+          <DockPanel LastChildFill="True">
+            <ComboBox Name="DWGSetupCombo" MinWidth="160"/>
+            <!-- <Button Name="DWGCreateButton" Content="Créer réglage…" DockPanel.Dock="Right" Margin="8,0,0,0"/> -->
+          </DockPanel>
+          <CheckBox Name="DWGSeparateCheck" Content="Exporter les vues en fichiers séparés" Margin="0,6,0,0"/>
+        </StackPanel>
+      </Expander>
+    </StackPanel>
+  </ControlTemplate>
+</ResourceDictionary>

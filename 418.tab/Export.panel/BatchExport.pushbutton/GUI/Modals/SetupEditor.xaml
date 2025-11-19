@@ -1,0 +1,118 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Nouveau réglage d'export" Height="520" Width="640"
+        WindowStartupLocation="CenterOwner">
+  <Grid Margin="12">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <TextBlock Text="Créer un réglage" FontSize="18" FontWeight="Bold"/>
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+      <StackPanel Orientation="Vertical" Margin="0,8,0,0">
+        <DockPanel Margin="0,0,0,8">
+          <TextBlock Text="Nom du réglage:" Width="140" VerticalAlignment="Center"/>
+          <TextBox Name="SetupNameText" MinWidth="220"/>
+          <ComboBox Name="KindCombo" Width="120" Margin="12,0,0,0">
+            <ComboBoxItem Content="PDF" IsSelected="True"/>
+            <ComboBoxItem Content="DWG"/>
+          </ComboBox>
+        </DockPanel>
+        <!-- Taille / Zoom / Orientation -->
+        <GroupBox Header="Page" Margin="0,0,0,8">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+              <TextBlock Text="Taille de page"/>
+              <ComboBox Name="PageSizeCombo" MinWidth="140">
+                <ComboBoxItem Content="&lt;Use Sheet Size&gt;" IsSelected="True"/>
+                <ComboBoxItem Content="A0"/>
+                <ComboBoxItem Content="A1"/>
+                <ComboBoxItem Content="A2"/>
+                <ComboBoxItem Content="A3"/>
+                <ComboBoxItem Content="A4"/>
+              </ComboBox>
+              <TextBlock Text="Zoom" Margin="0,8,0,0"/>
+              <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                <RadioButton GroupName="ZoomMode" Content="Fit to Page" Name="ZoomFitRadio" IsChecked="True"/>
+                <RadioButton GroupName="ZoomMode" Content="% size" Name="ZoomPercentRadio" Margin="12,0,0,0"/>
+                <TextBox Name="ZoomPercentText" Width="50" Margin="8,0,0,0" Text="100"/>
+              </StackPanel>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+              <TextBlock Text="Orientation"/>
+              <StackPanel>
+                <RadioButton GroupName="Orientation" Content="Auto" Name="OrientationAuto" IsChecked="True"/>
+                <RadioButton GroupName="Orientation" Content="Portrait" Name="OrientationPortrait"/>
+                <RadioButton GroupName="Orientation" Content="Landscape" Name="OrientationLandscape"/>
+              </StackPanel>
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+              <TextBlock Text="Placement"/>
+              <StackPanel>
+                <RadioButton GroupName="Placement" Content="Center" Name="PlacementCenter" IsChecked="True"/>
+                <RadioButton GroupName="Placement" Content="Offset" Name="PlacementOffset"/>
+                <DockPanel Margin="0,4,0,0">
+                  <TextBlock Text="X:" Width="16"/>
+                  <TextBox Name="OffsetXText" Width="50"/>
+                  <TextBlock Text="Y:" Width="16" Margin="8,0,0,0"/>
+                  <TextBox Name="OffsetYText" Width="50"/>
+                </DockPanel>
+              </StackPanel>
+            </StackPanel>
+          </Grid>
+        </GroupBox>
+        <GroupBox Header="Apparence" Margin="0,0,0,8">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+              <TextBlock Text="Qualité raster"/>
+              <ComboBox Name="RasterQualityCombo">
+                <ComboBoxItem Content="Low"/>
+                <ComboBoxItem Content="Medium"/>
+                <ComboBoxItem Content="High" IsSelected="True"/>
+              </ComboBox>
+              <TextBlock Text="Couleurs" Margin="0,8,0,0"/>
+              <ComboBox Name="ColorsCombo">
+                <ComboBoxItem Content="Color" IsSelected="True"/>
+                <ComboBoxItem Content="Black and White"/>
+                <ComboBoxItem Content="Grayscale"/>
+              </ComboBox>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+              <TextBlock Text="Traitement"/>
+              <RadioButton GroupName="Processing" Content="Vector" Name="ProcessingVector" IsChecked="True"/>
+              <RadioButton GroupName="Processing" Content="Raster" Name="ProcessingRaster"/>
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+              <TextBlock Text="Options"/>
+              <CheckBox Name="OptHideRefWorkPlanes" Content="Hide ref/work planes" IsChecked="True"/>
+              <CheckBox Name="OptHideUnrefTags" Content="Hide unreferenced view tags"/>
+              <CheckBox Name="OptHideCropBoundaries" Content="Hide crop boundaries"/>
+              <CheckBox Name="OptHideScopeBoxes" Content="Hide scope boxes" IsChecked="True"/>
+              <CheckBox Name="OptExportInBackground" Content="Export in background" IsChecked="True"/>
+            </StackPanel>
+          </Grid>
+        </GroupBox>
+        <GroupBox Header="Séparation" Margin="0,0,0,8">
+          <StackPanel>
+            <CheckBox Name="SeparateViewsCheck" Content="Exporter chaque vue/feuille dans un fichier séparé"/>
+          </StackPanel>
+        </GroupBox>
+      </StackPanel>
+    </ScrollViewer>
+    <DockPanel Grid.Row="2" LastChildFill="False" Margin="0,12,0,0" HorizontalAlignment="Right">
+      <Button Name="CancelButton" Content="Annuler" Width="110" Height="30" Margin="0,0,8,0"/>
+      <Button Name="SaveButton" Content="Enregistrer" Width="140" Height="30"/>
+    </DockPanel>
+  </Grid>
+</Window>

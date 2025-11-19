@@ -1,0 +1,74 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="418 : Exportation des jeux"
+        Height="700" Width="1100"
+        WindowStartupLocation="CenterScreen">
+
+  <Window.Resources>
+    <ResourceDictionary/>
+  </Window.Resources>
+
+  <Grid>
+
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="1*"/>
+      <ColumnDefinition Width="3*"/>
+    </Grid.ColumnDefinitions>
+
+    <TextBlock Text="418 : Exportation des jeux"
+               Grid.Row="0"
+               Grid.ColumnSpan="2"
+               FontSize="23"
+               Margin="20,8,0,8"/>
+
+    <!-- Zone choix des paramètres -->
+    <Border Style="{DynamicResource StyledBorder}"
+            Grid.Row="1"
+            Grid.RowSpan="2"
+            Grid.Column="0"
+            MaxHeight="180">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+          <ContentControl x:Name="ParameterSelectorHost"
+                          Template="{DynamicResource ParameterSelectorTemplate}"/>
+          <ContentControl x:Name="ExportOptionsHost"
+                          Margin="0,6,0,0"
+                          Template="{DynamicResource ExportOptionsTemplate}"/>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <!-- Zone de destination -->
+    <Border Style="{DynamicResource StyledBorder}"
+            Grid.Row="1"
+            Grid.Column="1">
+      <ContentControl x:Name="DestinationPickerHost"
+                      Template="{DynamicResource DestinationPickerTemplate}"/>
+    </Border>
+
+    <!-- Zone de nommage -->
+    <Border Style="{DynamicResource StyledBorder}"
+            Grid.Row="2"
+            Grid.Column="1">
+      <ContentControl x:Name="NamingConfigHost"
+                      Template="{DynamicResource NamingConfigTemplate}"/>
+    </Border>
+
+    <!-- Zone recapitulatif + progression -->
+    <Border Style="{DynamicResource StyledBorder}"
+            Grid.Row="3"
+            Grid.ColumnSpan="2"
+            Grid.Column="0">
+      <ContentControl x:Name="CollectionPreviewHost"
+                      Template="{DynamicResource CollectionPreviewTemplate}"/>
+    </Border>
+
+  </Grid>
+</Window>
