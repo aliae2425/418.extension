@@ -1,4 +1,4 @@
-__title__ = "Exportation"
+__title__ = "Edit materials"
 __doc__ = """
     Version : -
     Auteur : Aliae

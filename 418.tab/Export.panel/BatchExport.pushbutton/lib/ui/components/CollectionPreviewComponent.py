@@ -114,21 +114,46 @@ class CollectionPreviewComponent(object):
             from ...data.naming.NamingResolver import NamingResolver
             from ...data.destination.DestinationStore import DestinationStore
             nstore = NamingPatternStore()
-            nres = NamingResolver()
+            nres = NamingResolver(doc)
             dest = DestinationStore()
             _, sheet_rows = nstore.load('sheet')
+            _, set_rows = nstore.load('set')
         except Exception:
             sheet_rows = []
+            set_rows = []
             nres = None
             dest = None
 
-        def _name_for(viewsheet):
+        def _name_for_sheet(viewsheet):
+            """Retourne le nom projeté d'une feuille selon les règles de nommage"""
             try:
                 base = nres.resolve_for_element(viewsheet, sheet_rows, empty_fallback=False) if nres is not None else ''
                 base = dest.sanitize(base) if (dest is not None and base) else base
                 if not base:
                     base = getattr(viewsheet, 'Name', 'Sheet')
                 return base
+            except Exception:
+                return getattr(viewsheet, 'Name', 'Sheet')
+        
+        def _name_for_collection(collection):
+            """Retourne le nom projeté d'une collection (carnet) selon les règles de nommage"""
+            try:
+                base = nres.resolve_for_element(collection, set_rows, empty_fallback=False) if nres is not None else ''
+                base = dest.sanitize(base) if (dest is not None and base) else base
+                if not base:
+                    base = getattr(collection, 'Name', 'Collection')
+                return base
+            except Exception:
+                return getattr(collection, 'Name', 'Collection')
+        
+        def _sheet_info(viewsheet):
+            """Retourne l'info de la feuille (numéro + nom)"""
+            try:
+                num = getattr(viewsheet, 'SheetNumber', '')
+                name = getattr(viewsheet, 'Name', '')
+                if num and name:
+                    return u"{} - {}".format(num, name)
+                return name or num or 'Sheet'
             except Exception:
                 return getattr(viewsheet, 'Name', 'Sheet')
 
@@ -150,37 +175,57 @@ class CollectionPreviewComponent(object):
                 details = []
                 if do_pdf:
                     if per_sheet:
+                        # Export PDF par feuille
                         for sh in sheets:
                             try:
-                                base = _name_for(sh)
-                                details.append({'Nom': base, 'Format': 'PDF', 'StatutText': u'', 'StatutColor': getattr(Brushes, 'Green', None) if Brushes is not None else None})
+                                preview = _name_for_sheet(sh)
+                                sheet_info = _sheet_info(sh)
+                                details.append({
+                                    'SheetInfo': sheet_info,
+                                    'PreviewNom': preview,
+                                    'Format': 'PDF', 
+                                    'StatutText': u'', 
+                                    'StatutColor': getattr(Brushes, 'Green', None) if Brushes is not None else None
+                                })
                             except Exception:
                                 continue
                     else:
-                        base = ''
-                        try:
-                            if sheets:
-                                base = _name_for(sheets[0])
-                        except Exception:
-                            base = ''
-                        if not base:
-                            base = coll.Name
-                        details.append({'Nom': base, 'Format': 'PDF (combiné)', 'StatutText': u'', 'StatutColor': getattr(Brushes, 'Green', None) if Brushes is not None else None})
+                        # Export PDF combiné (carnet)
+                        preview = _name_for_collection(coll)
+                        details.append({
+                            'SheetInfo': u'{} feuilles'.format(len(sheets)),
+                            'PreviewNom': preview,
+                            'Format': 'PDF (combiné)', 
+                            'StatutText': u'', 
+                            'StatutColor': getattr(Brushes, 'Green', None) if Brushes is not None else None
+                        })
                 if do_dwg:
+                    # Export DWG toujours par feuille
                     for sh in sheets:
                         try:
-                            base = _name_for(sh)
-                            details.append({'Nom': base, 'Format': 'DWG', 'StatutText': u'', 'StatutColor': getattr(Brushes, 'Green', None) if Brushes is not None else None})
+                            preview = _name_for_sheet(sh)
+                            sheet_info = _sheet_info(sh)
+                            details.append({
+                                'SheetInfo': sheet_info,
+                                'PreviewNom': preview,
+                                'Format': 'DWG', 
+                                'StatutText': u'', 
+                                'StatutColor': getattr(Brushes, 'Green', None) if Brushes is not None else None
+                            })
                         except Exception:
                             continue
 
                 try:
-                    details.sort(key=lambda d: (d.get('Nom','') or '').lower())
+                    details.sort(key=lambda d: (d.get('SheetInfo','') or '').lower())
                 except Exception:
                     pass
 
+                # Preview nom pour la collection
+                collection_preview = _name_for_collection(coll)
+
                 items.append(ObservableItem({
                     'Nom': coll.Name,
+                    'PreviewNom': collection_preview,
                     'Feuilles': len(sheets),
                     'ExportText': u"\u2713" if do_pdf else u"\u2717",
                     'ExportColor': getattr(Brushes, 'Green', None) if (Brushes is not None and do_pdf) else (getattr(Brushes, 'Gray', None) if Brushes is not None else None),
@@ -287,7 +332,7 @@ class CollectionPreviewComponent(object):
                         continue
                     for d in it.get('Details', []) or []:
                         try:
-                            if (d.get('Nom') == detail_name) and (d.get('Format') == detail_format):
+                            if (d.get('PreviewNom') == detail_name) and (d.get('Format') == detail_format):
                                 d['StatutText'] = txt
                                 d['StatutColor'] = color
                                 return
