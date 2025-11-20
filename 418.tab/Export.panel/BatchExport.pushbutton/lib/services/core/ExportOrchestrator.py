@@ -47,7 +47,8 @@ class ExportOrchestrator(object):
             NamingResolver = None  # type: ignore
         self._dest = DestinationStore() if DestinationStore is not None else None
         self._nstore = NamingPatternStore() if NamingPatternStore is not None else None
-        self._nres = NamingResolver() if NamingResolver is not None else None
+        self._nres = None  # Sera initialisé avec le doc dans run()
+        self._NamingResolver_cls = NamingResolver
 
     # ------------------- Planification ------------------- #
     def _get_ui_selected_param_names(self, get_ctrl):
@@ -125,7 +126,9 @@ class ExportOrchestrator(object):
         plans = []
         for coll, cname in self._collect_collections(doc):
             do_export = self._read_flag_from_param(coll, pname_export, default=False) if pname_export else False
-            per_sheet = self._read_flag_from_param(coll, pname_per_sheet, default=False) if pname_per_sheet else False
+            # Inverser la logique : si le param Carnet est True = compiler (per_sheet=False), si False = par feuille (per_sheet=True)
+            carnet_flag = self._read_flag_from_param(coll, pname_per_sheet, default=False) if pname_per_sheet else False
+            per_sheet = not carnet_flag  # Inversion : True dans le paramètre = carnet = per_sheet False
             do_dwg = self._read_flag_from_param(coll, pname_dwg, default=False) if pname_dwg else False
             do_pdf = bool(do_export)
             plans.append(ExportPlan(cname, do_export, per_sheet, do_dwg, do_pdf))
@@ -176,6 +179,13 @@ class ExportOrchestrator(object):
 
     # ------------------- Exécution ------------------- #
     def run(self, doc, get_ctrl, progress_cb=None, log_cb=None, ui_win=None):
+        # Initialiser le NamingResolver avec le document
+        if self._NamingResolver_cls is not None and self._nres is None:
+            try:
+                self._nres = self._NamingResolver_cls(doc)
+            except Exception:
+                self._nres = None
+        
         # UI status component for live updates
         ui_comp = None
         try:
@@ -230,53 +240,53 @@ class ExportOrchestrator(object):
                         except Exception:
                             pass
                     if plan.do_dwg and base_dwg:
-                            try:
-                                if ui_win is not None and ui_comp is not None:
-                                    ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'progress')
-                                    ui_comp.refresh_grid(ui_win)
-                            except Exception:
-                                pass
+                        try:
+                            if ui_win is not None and ui_comp is not None:
+                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'progress')
+                                ui_comp.refresh_grid(ui_win)
+                        except Exception:
+                            pass
                         self._export_dwg_sheet(doc, sh, rows, base_dwg, dwg_opt)
-                            try:
-                                if ui_win is not None and ui_comp is not None:
-                                    ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'ok')
-                                    ui_comp.refresh_grid(ui_win)
-                            except Exception:
-                                pass
+                        try:
+                            if ui_win is not None and ui_comp is not None:
+                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'ok')
+                                ui_comp.refresh_grid(ui_win)
+                        except Exception:
+                            pass
             else:
                 rows = self._get_rows_for_sheet(sheets[0]) if sheets else [{'Name': plan.collection_name, 'Prefix': '', 'Suffix': ''}]
                 if plan.do_pdf and base_pdf:
-                        try:
-                            if ui_win is not None and ui_comp is not None:
-                                name_preview = self._safe_sheet_name(sheets[0]) if sheets else plan.collection_name
-                                ui_comp.set_detail_status(ui_win, plan.collection_name, name_preview, 'PDF (combiné)', 'progress')
-                                ui_comp.refresh_grid(ui_win)
-                        except Exception:
-                            pass
+                    try:
+                        if ui_win is not None and ui_comp is not None:
+                            name_preview = self._safe_sheet_name(sheets[0]) if sheets else plan.collection_name
+                            ui_comp.set_detail_status(ui_win, plan.collection_name, name_preview, 'PDF (combiné)', 'progress')
+                            ui_comp.refresh_grid(ui_win)
+                    except Exception:
+                        pass
                     self._export_pdf_collection(doc, sheets, rows, base_pdf, pdf_opt)
-                        try:
-                            if ui_win is not None and ui_comp is not None:
-                                name_preview = self._safe_sheet_name(sheets[0]) if sheets else plan.collection_name
-                                ui_comp.set_detail_status(ui_win, plan.collection_name, name_preview, 'PDF (combiné)', 'ok')
-                                ui_comp.refresh_grid(ui_win)
-                        except Exception:
-                            pass
+                    try:
+                        if ui_win is not None and ui_comp is not None:
+                            name_preview = self._safe_sheet_name(sheets[0]) if sheets else plan.collection_name
+                            ui_comp.set_detail_status(ui_win, plan.collection_name, name_preview, 'PDF (combiné)', 'ok')
+                            ui_comp.refresh_grid(ui_win)
+                    except Exception:
+                        pass
                 if plan.do_dwg and base_dwg:
                     for sh in sheets:
                         rows_sh = self._get_rows_for_sheet(sh)
-                            try:
-                                if ui_win is not None and ui_comp is not None:
-                                    ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'progress')
-                                    ui_comp.refresh_grid(ui_win)
-                            except Exception:
-                                pass
+                        try:
+                            if ui_win is not None and ui_comp is not None:
+                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'progress')
+                                ui_comp.refresh_grid(ui_win)
+                        except Exception:
+                            pass
                         self._export_dwg_sheet(doc, sh, rows_sh, base_dwg, dwg_opt)
-                            try:
-                                if ui_win is not None and ui_comp is not None:
-                                    ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'ok')
-                                    ui_comp.refresh_grid(ui_win)
-                            except Exception:
-                                pass
+                        try:
+                            if ui_win is not None and ui_comp is not None:
+                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'ok')
+                                ui_comp.refresh_grid(ui_win)
+                        except Exception:
+                            pass
 
                 try:
                     if ui_win is not None and ui_comp is not None:

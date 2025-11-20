@@ -167,7 +167,9 @@ class CollectionPreviewComponent(object):
         for coll in cols_sorted:
             try:
                 do_export = _read_flag(coll, pname_export, False)
-                per_sheet = _read_flag(coll, pname_carnet, False)
+                # Inverser la logique : si le param Carnet est True = compiler (per_sheet=False), si False = par feuille (per_sheet=True)
+                carnet_flag = _read_flag(coll, pname_carnet, False)
+                per_sheet = not carnet_flag  # Inversion
                 do_dwg = _read_flag(coll, pname_dwg, False)
                 do_pdf = bool(do_export)
                 sheets = _sheets_in(doc, coll)
@@ -229,8 +231,8 @@ class CollectionPreviewComponent(object):
                     'Feuilles': len(sheets),
                     'ExportText': u"\u2713" if do_pdf else u"\u2717",
                     'ExportColor': getattr(Brushes, 'Green', None) if (Brushes is not None and do_pdf) else (getattr(Brushes, 'Gray', None) if Brushes is not None else None),
-                    'CarnetText': u"\u2713" if per_sheet else u"\u2717",
-                    'CarnetColor': getattr(Brushes, 'Green', None) if (Brushes is not None and per_sheet) else (getattr(Brushes, 'Gray', None) if Brushes is not None else None),
+                    'CarnetText': u"\u2713" if carnet_flag else u"\u2717",
+                    'CarnetColor': getattr(Brushes, 'Green', None) if (Brushes is not None and carnet_flag) else (getattr(Brushes, 'Gray', None) if Brushes is not None else None),
                     'DWGText': u"\u2713" if do_dwg else u"\u2717",
                     'DWGColor': getattr(Brushes, 'Green', None) if (Brushes is not None and do_dwg) else (getattr(Brushes, 'Gray', None) if Brushes is not None else None),
                     'StatutText': u"",

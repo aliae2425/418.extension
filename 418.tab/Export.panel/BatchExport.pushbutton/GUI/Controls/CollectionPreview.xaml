@@ -40,7 +40,7 @@
                   <GridViewColumn.CellTemplate>
                     <DataTemplate>
                       <CheckBox Width="20" Height="20" 
-                                IsChecked="{Binding [IsExpanded]}"
+                                IsChecked="{Binding [IsExpanded], Mode=TwoWay}"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center">
                         <CheckBox.Template>
