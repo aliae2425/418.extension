@@ -323,7 +323,13 @@ class ExportOrchestrator(object):
     def _resolve_name_no_ext(self, elem, rows):
         try:
             s = self._nres.resolve_for_element(elem, rows, empty_fallback=False) if self._nres is not None else ''
-            return self._dest.sanitize(s or getattr(elem, 'Name', 'export')) if self._dest is not None else (s or 'export')
+            # Si le résultat est vide après résolution, utiliser un nom par défaut
+            if not s or not s.strip():
+                try:
+                    s = elem.SheetNumber + '_' + elem.Name
+                except Exception:
+                    s = getattr(elem, 'Name', 'export')
+            return self._dest.sanitize(s) if self._dest is not None else s
         except Exception:
             return 'export'
 

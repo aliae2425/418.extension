@@ -115,8 +115,9 @@ class NamingResolver(object):
             pf = r.get('Prefix', '') or ''
             sf = r.get('Suffix', '') or ''
             val = self._get_param_value(elem, token)
-            if not val and empty_fallback:
-                val = token
+            # Si valeur vide: utiliser chaîne vide (pas de fallback vers token)
+            if not val:
+                val = ''
             parts.append(u"{}{}{}".format(pf, val, sf))
         return u''.join(parts)
 
