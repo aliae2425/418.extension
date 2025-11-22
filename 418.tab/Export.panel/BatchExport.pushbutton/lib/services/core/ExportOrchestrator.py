@@ -254,7 +254,11 @@ class ExportOrchestrator(object):
                         except Exception:
                             pass
             else:
-                rows = self._get_rows_for_sheet(sheets[0]) if sheets else [{'Name': plan.collection_name, 'Prefix': '', 'Suffix': ''}]
+                # Utiliser le pattern 'set' (carnet) s'il existe, sinon fallback sur sheet/default
+                rows = self._get_rows_for_set()
+                if not rows:
+                    rows = self._get_rows_for_sheet(sheets[0]) if sheets else [{'Name': plan.collection_name, 'Prefix': '', 'Suffix': ''}]
+
                 if plan.do_pdf and base_pdf:
                     try:
                         if ui_win is not None and ui_comp is not None:
@@ -263,7 +267,7 @@ class ExportOrchestrator(object):
                             ui_comp.refresh_grid(ui_win)
                     except Exception:
                         pass
-                    self._export_pdf_collection(doc, sheets, rows, base_pdf, pdf_opt)
+                    self._export_pdf_collection(doc, sheets, rows, base_pdf, pdf_opt, collection=collection)
                     try:
                         if ui_win is not None and ui_comp is not None:
                             name_preview = self._safe_sheet_name(sheets[0]) if sheets else plan.collection_name
@@ -320,11 +324,21 @@ class ExportOrchestrator(object):
             return [{'Name': display_name, 'Prefix': '', 'Suffix': ''}]
         return rows
 
+    def _get_rows_for_set(self):
+        patt, rows = self._nstore.load('set') if self._nstore is not None else ('', [])
+        return rows
+
     def _resolve_name_no_ext(self, elem, rows):
         try:
             s = self._nres.resolve_for_element(elem, rows, empty_fallback=False) if self._nres is not None else ''
             # Si le résultat est vide après résolution, utiliser un nom par défaut
+            # MAIS seulement si rows était vide ou si le résultat est vraiment vide
+            # Si rows n'est pas vide, c'est que l'utilisateur a demandé un format spécifique.
+            # Si ce format donne une chaîne vide (ex: paramètre vide), on respecte (ou on met un placeholder ?)
+            # Pour l'instant, on garde le fallback si vide, car un nom de fichier vide est invalide.
             if not s or not s.strip():
+                # Fallback seulement si rows était vide ou invalide
+                # Si rows existe, on essaie de voir si on peut sauver les meubles
                 try:
                     s = elem.SheetNumber + '_' + elem.Name
                 except Exception:
@@ -360,7 +374,9 @@ class ExportOrchestrator(object):
                     views = None
                 try:
                     if hasattr(options, 'Combine'):
-                        options.Combine = False
+                        # Toujours combiner pour forcer l'utilisation du FileName exact
+                        # (sinon Revit utilise FileName comme préfixe)
+                        options.Combine = True
                 except Exception:
                     pass
                 try:
@@ -448,9 +464,11 @@ class ExportOrchestrator(object):
         print('[DWG] {} -> {} ({})'.format(getattr(sheet, 'Name', 'Sheet'), final_path, 'OK' if ok else 'FAIL'))
         return final_path
 
-    def _export_pdf_collection(self, doc, sheets, rows, base_folder, options):
+    def _export_pdf_collection(self, doc, sheets, rows, base_folder, options, collection=None):
         try:
-            name_no_ext = self._dest.sanitize('' if not sheets else self._nres.resolve_for_element(sheets[0], rows, empty_fallback=False)) if (self._dest is not None and self._nres is not None) else 'export'
+            # Résoudre le nom: utiliser la collection si fournie (pour accès aux params collection), sinon la 1ère feuille
+            elem_to_resolve = collection if collection else (sheets[0] if sheets else None)
+            name_no_ext = self._dest.sanitize('' if not elem_to_resolve else self._nres.resolve_for_element(elem_to_resolve, rows, empty_fallback=False)) if (self._dest is not None and self._nres is not None) else 'export'
         except Exception:
             name_no_ext = 'export'
         try:
