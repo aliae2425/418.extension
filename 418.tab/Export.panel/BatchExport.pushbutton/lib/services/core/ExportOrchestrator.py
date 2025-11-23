@@ -436,7 +436,9 @@ class ExportOrchestrator(object):
                 from System.Collections.Generic import List as Clist  # type: ignore
                 views = Clist[DB.ElementId]()
                 views.Add(sheet.Id)
-                ok = bool(doc.Export(tmp_dir, views, options))
+                # DWG export requires a prefix name in most overloads
+                # Export(folder, name, views, options)
+                ok = bool(doc.Export(tmp_dir, "export", views, options))
         except Exception:
             ok = False
         try:
