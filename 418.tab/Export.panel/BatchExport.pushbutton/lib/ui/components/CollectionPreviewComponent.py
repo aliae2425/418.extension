@@ -317,17 +317,19 @@ class CollectionPreviewComponent(object):
             Brushes = None  # type: ignore
         try:
             items = getattr(win, '_preview_items', []) or []
-            color = None
+            row_bg = getattr(Brushes, 'Transparent', None)
             txt = u""
+            
             if state == 'progress':
                 txt = u"En cours…"
-                color = getattr(Brushes, 'DarkOrange', None) or getattr(Brushes, 'Orange', None) or getattr(Brushes, 'Gray', None)
+                # row_bg reste transparent ou gris clair
             elif state == 'ok':
-                txt = u"Terminé"
-                color = getattr(Brushes, 'Green', None)
+                txt = u""
+                row_bg = getattr(Brushes, 'LightGreen', None)
             elif state == 'error':
                 txt = u"Erreur"
-                color = getattr(Brushes, 'Red', None)
+                row_bg = getattr(Brushes, 'LightYellow', None)
+            
             for it in items:
                 try:
                     if it.get('Nom') != collection_name:
@@ -336,7 +338,7 @@ class CollectionPreviewComponent(object):
                         try:
                             if (d.get('PreviewNom') == detail_name) and (d.get('Format') == detail_format):
                                 d['StatutText'] = txt
-                                d['StatutColor'] = color
+                                d['RowBackground'] = row_bg
                                 return
                         except Exception:
                             continue

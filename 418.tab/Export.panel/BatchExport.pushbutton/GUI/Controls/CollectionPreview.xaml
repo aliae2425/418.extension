@@ -69,7 +69,7 @@
                 <GridViewColumn Header="Nom" Width="200" DisplayMemberBinding="{Binding [Nom]}"/>
                 
                 <!-- Colonne 3: Preview du nom de fichier -->
-                <GridViewColumn Header="Preview Nom" Width="250" DisplayMemberBinding="{Binding [PreviewNom]}"/>
+                <GridViewColumn Header="Preview Nom" Width="200" DisplayMemberBinding="{Binding [PreviewNom]}"/>
                 
                 <!-- Colonne 4: Nombre de feuilles -->
                 <GridViewColumn Header="Feuilles" Width="80" DisplayMemberBinding="{Binding [Feuilles]}"/>
@@ -137,26 +137,28 @@
                                       Visibility="{Binding [IsExpanded], Converter={StaticResource BoolToVisibilityConverter}}">
                           <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                              <Grid Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                  <ColumnDefinition Width="200"/>
-                                  <ColumnDefinition Width="250"/>
-                                  <ColumnDefinition Width="80"/>
-                                  <ColumnDefinition Width="70"/>
-                                  <ColumnDefinition Width="70"/>
-                                  <ColumnDefinition Width="70"/>
-                                  <ColumnDefinition Width="150"/>
-                                </Grid.ColumnDefinitions>
-                                
-                                <TextBlock Grid.Column="0" Text="{Binding [SheetInfo]}" 
-                                           Foreground="Gray" FontSize="11" Padding="4,2"/>
-                                <TextBlock Grid.Column="1" Text="{Binding [PreviewNom]}" 
-                                           Foreground="DarkBlue" FontSize="11" FontWeight="SemiBold" Padding="4,2"/>
-                                <TextBlock Grid.Column="2" Text="{Binding [Format]}" 
-                                           Foreground="Gray" FontSize="11" Padding="4,2"/>
-                                <TextBlock Grid.Column="6" Text="{Binding [StatutText]}" 
-                                           Foreground="{Binding [StatutColor]}" FontSize="11" Padding="4,2"/>
-                              </Grid>
+                              <Border Background="{Binding [RowBackground]}" CornerRadius="2" Margin="0,1" Padding="0,2">
+                                <Grid>
+                                  <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="250"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="*"/>
+                                  </Grid.ColumnDefinitions>
+                                  
+                                  <TextBlock Grid.Column="0" Text="{Binding [SheetInfo]}" 
+                                             Foreground="Gray" FontSize="11" Padding="4,0"/>
+                                  <TextBlock Grid.Column="1" Text="{Binding [PreviewNom]}" 
+                                             Foreground="DarkBlue" FontSize="11" FontWeight="SemiBold" Padding="4,0"/>
+                                  <TextBlock Grid.Column="2" Text="{Binding [Format]}" 
+                                             Foreground="Gray" FontSize="11" Padding="4,0"/>
+                                  <TextBlock Grid.Column="6" Text="{Binding [StatutText]}" 
+                                             Foreground="Red" FontSize="11" Padding="4,0" TextWrapping="Wrap"/>
+                                </Grid>
+                              </Border>
                             </DataTemplate>
                           </ItemsControl.ItemTemplate>
                         </ItemsControl>

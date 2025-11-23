@@ -15,7 +15,6 @@
             <!-- Bouton de création optionnel -->
             <!-- <Button Name="PDFCreateButton" Content="Créer réglage…" DockPanel.Dock="Right" Margin="8,0,0,0"/> -->
           </DockPanel>
-          <CheckBox Name="PDFSeparateCheck" Content="Exporter les vues en fichiers séparés" Margin="0,6,0,0"/>
         </StackPanel>
       </Expander>
       <!-- DWG options -->

@@ -178,6 +178,42 @@ class ExportOrchestrator(object):
         setup_name = self._dwg.get_saved_setup()
         return self._dwg.build_options(doc, setup_name=setup_name)
 
+    # ------------------- Détection des fichiers existants ------------------- #
+    def _detect_existing_files(self, doc, plans):
+        for plan in plans:
+            if not plan.do_export: continue
+            
+            collection = self._find_collection_by_name(doc, plan.collection_name)
+            sheets = self._get_collection_sheets(doc, collection) if collection else []
+            
+            base_pdf = self._get_destination_base('PDF', plan.collection_name) if plan.do_pdf else None
+            base_dwg = self._get_destination_base('DWG', plan.collection_name) if plan.do_dwg else None
+            
+            # Check PDF
+            if plan.do_pdf and base_pdf:
+                if plan.per_sheet:
+                    for sh in sheets:
+                        rows = self._get_rows_for_sheet(sh)
+                        name = self._resolve_name_no_ext(sh, rows)
+                        if os.path.exists(os.path.join(base_pdf, name + '.pdf')): return True
+                else:
+                    # Collection PDF
+                    rows = self._get_rows_for_set()
+                    if not rows:
+                        rows = self._get_rows_for_sheet(sheets[0]) if sheets else [{'Name': plan.collection_name, 'Prefix': '', 'Suffix': ''}]
+                    elem = collection if collection else (sheets[0] if sheets else None)
+                    name = self._dest.sanitize('' if not elem else self._nres.resolve_for_element(elem, rows, empty_fallback=False)) or 'export'
+                    if os.path.exists(os.path.join(base_pdf, name + '.pdf')): return True
+
+            # Check DWG (always per sheet)
+            if plan.do_dwg and base_dwg:
+                for sh in sheets:
+                    rows = self._get_rows_for_sheet(sh)
+                    name = self._resolve_name_no_ext(sh, rows)
+                    if os.path.exists(os.path.join(base_dwg, name + '.dwg')): return True
+                    
+        return False
+
     # ------------------- Exécution ------------------- #
     def run(self, doc, get_ctrl, progress_cb=None, log_cb=None, ui_win=None):
         # Initialiser le NamingResolver avec le document
@@ -196,6 +232,23 @@ class ExportOrchestrator(object):
             ui_comp = None
         plans = self.plan_exports_for_collections(doc, get_ctrl)
         total = len(plans)
+
+        # --- Check existing files ---
+        overwrite = False
+        try:
+            if self._detect_existing_files(doc, plans):
+                from pyrevit import forms
+                res = forms.alert(
+                    "Des fichiers existent déjà.\nVoulez-vous les remplacer ?",
+                    options=["Remplacer", "Renommer (garder les deux)"],
+                    footer="Les fichiers existants seront écrasés si vous choisissez Remplacer."
+                )
+                if res == "Remplacer":
+                    overwrite = True
+        except Exception:
+            pass
+        # ----------------------------
+
         if progress_cb:
             progress_cb(0, max(total, 1), 'Préparation...')
 
@@ -257,10 +310,11 @@ class ExportOrchestrator(object):
                                 ui_comp.refresh_grid(ui_win)
                         except Exception:
                             pass
-                        self._export_pdf_sheet(doc, sh, rows, base_pdf, pdf_opt, separate=pdf_sep)
+                        ok, path = self._export_pdf_sheet(doc, sh, rows, base_pdf, pdf_opt, separate=pdf_sep, overwrite=overwrite)
                         try:
                             if ui_win is not None and ui_comp is not None:
-                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'PDF', 'ok')
+                                status = 'ok' if ok else 'error'
+                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'PDF', status)
                                 ui_comp.refresh_grid(ui_win)
                         except Exception:
                             pass
@@ -271,10 +325,11 @@ class ExportOrchestrator(object):
                                 ui_comp.refresh_grid(ui_win)
                         except Exception:
                             pass
-                        self._export_dwg_sheet(doc, sh, rows, base_dwg, dwg_opt)
+                        ok, path = self._export_dwg_sheet(doc, sh, rows, base_dwg, dwg_opt, overwrite=overwrite)
                         try:
                             if ui_win is not None and ui_comp is not None:
-                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'ok')
+                                status = 'ok' if ok else 'error'
+                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', status)
                                 ui_comp.refresh_grid(ui_win)
                         except Exception:
                             pass
@@ -292,11 +347,12 @@ class ExportOrchestrator(object):
                             ui_comp.refresh_grid(ui_win)
                     except Exception:
                         pass
-                    self._export_pdf_collection(doc, sheets, rows, base_pdf, pdf_opt, collection=collection)
+                    ok, path = self._export_pdf_collection(doc, sheets, rows, base_pdf, pdf_opt, collection=collection, overwrite=overwrite)
                     try:
                         if ui_win is not None and ui_comp is not None:
                             name_preview = self._safe_sheet_name(sheets[0]) if sheets else plan.collection_name
-                            ui_comp.set_detail_status(ui_win, plan.collection_name, name_preview, 'PDF (combiné)', 'ok')
+                            status = 'ok' if ok else 'error'
+                            ui_comp.set_detail_status(ui_win, plan.collection_name, name_preview, 'PDF (combiné)', status)
                             ui_comp.refresh_grid(ui_win)
                     except Exception:
                         pass
@@ -309,10 +365,11 @@ class ExportOrchestrator(object):
                                 ui_comp.refresh_grid(ui_win)
                         except Exception:
                             pass
-                        self._export_dwg_sheet(doc, sh, rows_sh, base_dwg, dwg_opt)
+                        ok, path = self._export_dwg_sheet(doc, sh, rows_sh, base_dwg, dwg_opt, overwrite=overwrite)
                         try:
                             if ui_win is not None and ui_comp is not None:
-                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'ok')
+                                status = 'ok' if ok else 'error'
+                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', status)
                                 ui_comp.refresh_grid(ui_win)
                         except Exception:
                             pass
@@ -372,20 +429,22 @@ class ExportOrchestrator(object):
         except Exception:
             return 'export'
 
-    def _unique_with_ext(self, folder, file_no_ext, ext):
+    def _unique_with_ext(self, folder, file_no_ext, ext, overwrite=False):
         try:
             base = os.path.join(folder, file_no_ext + '.' + ext)
+            if overwrite:
+                return base
             return self._dest.unique_path(base) if self._dest is not None else base
         except Exception:
             return os.path.join(folder, file_no_ext + '.' + ext)
 
-    def _export_pdf_sheet(self, doc, sheet, rows, base_folder, options, separate=True):
+    def _export_pdf_sheet(self, doc, sheet, rows, base_folder, options, separate=True, overwrite=False):
         name_no_ext = self._resolve_name_no_ext(sheet, rows)
         try:
             self._dest.ensure(base_folder)
         except Exception:
             pass
-        path = self._unique_with_ext(base_folder, name_no_ext, 'pdf')
+        path = self._unique_with_ext(base_folder, name_no_ext, 'pdf', overwrite=overwrite)
         folder = os.path.dirname(path)
         file_no_ext = os.path.splitext(os.path.basename(path))[0]
         ok = False
@@ -440,16 +499,15 @@ class ExportOrchestrator(object):
                 ok = bool(pm.SubmitPrint(vs))
             except Exception:
                 ok = False
-        print('[PDF] {} -> {} ({})'.format(getattr(sheet, 'Name', 'Sheet'), path, 'OK' if ok else 'FAIL'))
-        return path
+        return ok, path
 
-    def _export_dwg_sheet(self, doc, sheet, rows, base_folder, options):
+    def _export_dwg_sheet(self, doc, sheet, rows, base_folder, options, overwrite=False):
         name_no_ext = self._resolve_name_no_ext(sheet, rows)
         try:
             self._dest.ensure(base_folder)
         except Exception:
             pass
-        final_path = self._unique_with_ext(base_folder, name_no_ext, 'dwg')
+        final_path = self._unique_with_ext(base_folder, name_no_ext, 'dwg', overwrite=overwrite)
         tmp_dir = os.path.join(base_folder, '_tmp_dwg')
         try:
             self._dest.ensure(tmp_dir)
@@ -489,10 +547,9 @@ class ExportOrchestrator(object):
                 shutil.rmtree(tmp_dir, ignore_errors=True)
         except Exception:
             pass
-        print('[DWG] {} -> {} ({})'.format(getattr(sheet, 'Name', 'Sheet'), final_path, 'OK' if ok else 'FAIL'))
-        return final_path
+        return ok, final_path
 
-    def _export_pdf_collection(self, doc, sheets, rows, base_folder, options, collection=None):
+    def _export_pdf_collection(self, doc, sheets, rows, base_folder, options, collection=None, overwrite=False):
         try:
             # Résoudre le nom: utiliser la collection si fournie (pour accès aux params collection), sinon la 1ère feuille
             elem_to_resolve = collection if collection else (sheets[0] if sheets else None)
@@ -503,7 +560,7 @@ class ExportOrchestrator(object):
             self._dest.ensure(base_folder)
         except Exception:
             pass
-        path = self._unique_with_ext(base_folder, name_no_ext or 'export', 'pdf')
+        path = self._unique_with_ext(base_folder, name_no_ext or 'export', 'pdf', overwrite=overwrite)
         folder = os.path.dirname(path)
         file_no_ext = os.path.splitext(os.path.basename(path))[0]
         ok = False
@@ -535,5 +592,4 @@ class ExportOrchestrator(object):
                         ok = False
         except Exception:
             ok = False
-        print('[PDF] collection({} feuilles) -> {} ({})'.format(len(sheets) if sheets else 0, path, 'OK' if ok else 'FAIL'))
-        return path
+        return ok, path
