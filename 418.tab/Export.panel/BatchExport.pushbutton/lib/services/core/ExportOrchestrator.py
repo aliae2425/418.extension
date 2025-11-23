@@ -149,12 +149,13 @@ class ExportOrchestrator(object):
             base = None
         base = base or os.getcwd()
         try:
-            if self._get_flag('create_subfolders', '0') == '1' and collection_name:
+            # Utiliser DestinationStore pour lire les flags de manière robuste
+            if self._dest.get_create_subfolders() and collection_name:
                 base = os.path.join(base, collection_name)
         except Exception:
             pass
         try:
-            if self._get_flag('separate_format_folders', '0') == '1' and fmt_subfolder:
+            if self._dest.get_separate_formats() and fmt_subfolder:
                 base = os.path.join(base, fmt_subfolder)
         except Exception:
             pass
@@ -197,6 +198,30 @@ class ExportOrchestrator(object):
         total = len(plans)
         if progress_cb:
             progress_cb(0, max(total, 1), 'Préparation...')
+
+        # --- LOG RECAP ---
+        if log_cb:
+            try:
+                log_cb("=== RÉCAPITULATIF EXPORT ===")
+                log_cb("Dossier destination: {}".format(self._dest.get()))
+                log_cb("Sous-dossiers par collection: {}".format("OUI" if self._dest.get_create_subfolders() else "NON"))
+                log_cb("Dossiers séparés par format: {}".format("OUI" if self._dest.get_separate_formats() else "NON"))
+                log_cb("Setup PDF: {}".format(self._pdf.get_saved_setup() or "(aucun)"))
+                log_cb("Setup DWG: {}".format(self._dwg.get_saved_setup() or "(aucun)"))
+                log_cb("--- Collections ---")
+                for p in plans:
+                    if p.do_export:
+                        mode = "Carnet" if not p.per_sheet else "Feuilles séparées"
+                        fmts = []
+                        if p.do_pdf: fmts.append("PDF")
+                        if p.do_dwg: fmts.append("DWG")
+                        log_cb("- {}: {} [{}]".format(p.collection_name, mode, ", ".join(fmts)))
+                    else:
+                        log_cb("- {}: (Ignoré)".format(p.collection_name))
+                log_cb("============================")
+            except Exception:
+                pass
+        # -----------------
 
         pdf_sep = self._pdf.get_separate(False) if self._pdf is not None else False
         dwg_sep = self._dwg.get_separate(False) if self._dwg is not None else False
@@ -459,8 +484,9 @@ class ExportOrchestrator(object):
         except Exception:
             ok = False
         try:
-            if os.path.isdir(tmp_dir) and not os.listdir(tmp_dir):
-                os.rmdir(tmp_dir)
+            if os.path.isdir(tmp_dir):
+                import shutil
+                shutil.rmtree(tmp_dir, ignore_errors=True)
         except Exception:
             pass
         print('[DWG] {} -> {} ({})'.format(getattr(sheet, 'Name', 'Sheet'), final_path, 'OK' if ok else 'FAIL'))

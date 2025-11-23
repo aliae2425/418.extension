@@ -10,6 +10,17 @@ class DestinationPickerComponent(object):
         try:
             if hasattr(win, 'PathTextBox'):
                 win.PathTextBox.Text = self._dest.get()
+            
+            # Checkboxes
+            if hasattr(win, 'CreateSubfoldersCheck'):
+                win.CreateSubfoldersCheck.IsChecked = self._dest.get_create_subfolders()
+                win.CreateSubfoldersCheck.Checked += lambda s,a: self._dest.set_create_subfolders(True)
+                win.CreateSubfoldersCheck.Unchecked += lambda s,a: self._dest.set_create_subfolders(False)
+            
+            if hasattr(win, 'SeparateByFormatCheck'):
+                win.SeparateByFormatCheck.IsChecked = self._dest.get_separate_formats()
+                win.SeparateByFormatCheck.Checked += lambda s,a: self._dest.set_separate_formats(True)
+                win.SeparateByFormatCheck.Unchecked += lambda s,a: self._dest.set_separate_formats(False)
         except Exception:
             pass
 

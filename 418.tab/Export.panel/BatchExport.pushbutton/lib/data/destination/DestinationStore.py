@@ -51,6 +51,35 @@ class DestinationStore(object):
         except Exception:
             return False
 
+    # Gestion des flags (sous-dossiers / formats séparés)
+    def get_create_subfolders(self):
+        try:
+            val = self._cfg.get('create_subfolders', '0') if self._cfg is not None else '0'
+            return str(val) == '1'
+        except Exception:
+            return False
+
+    def set_create_subfolders(self, val):
+        try:
+            if self._cfg is not None:
+                self._cfg.set('create_subfolders', '1' if val else '0')
+        except Exception:
+            pass
+
+    def get_separate_formats(self):
+        try:
+            val = self._cfg.get('separate_format_folders', '0') if self._cfg is not None else '0'
+            return str(val) == '1'
+        except Exception:
+            return False
+
+    def set_separate_formats(self, val):
+        try:
+            if self._cfg is not None:
+                self._cfg.set('separate_format_folders', '1' if val else '0')
+        except Exception:
+            pass
+
     # Valide/crée le dossier -> (ok: bool, err: str|None)
     def ensure(self, path):
         try:
