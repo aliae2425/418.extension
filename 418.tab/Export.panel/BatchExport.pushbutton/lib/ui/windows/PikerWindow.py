@@ -79,7 +79,7 @@ class PikerWindow(forms.WPFWindow):
         repo = _sheet_repo()
         if doc is not None:
             try:
-                self._available_collection = repo.collect_for_collections(doc)
+                self._available_collection = repo.collect_for_collections(doc, only_boolean=False)
             except Exception:
                 self._available_collection = []
             try:
