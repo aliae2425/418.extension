@@ -64,7 +64,7 @@ class SheetParameterRepository(object):
         return out
 
     # Liste de paramètres Oui/Non modifiables au niveau collection de feuilles
-    def collect_for_collections(self, doc):
+    def collect_for_collections(self, doc, only_boolean=True):
         collected = set()
         writable = {}
         collections = None
@@ -72,6 +72,8 @@ class SheetParameterRepository(object):
             collections = DB.FilteredElementCollector(doc).OfClass(DB.SheetCollection).ToElements()
         except Exception:
             collections = None
+        if collections is None:
+            return []
         for coll in collections:
             try:
                 for param in coll.Parameters:
@@ -79,7 +81,7 @@ class SheetParameterRepository(object):
                         pdef = param.Definition
                         if pdef is None:
                             continue
-                        if not self.is_boolean_param_definition(pdef):
+                        if only_boolean and not self.is_boolean_param_definition(pdef):
                             continue
                         pname = pdef.Name
                         if pname and pname.strip():

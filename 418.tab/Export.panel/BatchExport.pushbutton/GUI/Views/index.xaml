@@ -1,7 +1,8 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="418 : Exportation des jeux"
-        MinHeight="700" MinWidth="550"
+        MinHeight="710" MinWidth="950"
+        Height="710" Width="950"
         WindowStartupLocation="CenterScreen">
 
   <Window.Resources>
