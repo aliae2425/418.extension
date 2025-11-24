@@ -61,6 +61,12 @@ class CollectionPreviewComponent(object):
             doc = __revit__.ActiveUIDocument.Document  # type: ignore
         except Exception:
             doc = None
+        try:
+            from System.Windows.Data import ListCollectionView, PropertyGroupDescription  # type: ignore
+        except Exception:
+            ListCollectionView = None
+            PropertyGroupDescription = None
+
         if DB is None or doc is None:
             try:
                 win._preview_items = []
@@ -145,17 +151,33 @@ class CollectionPreviewComponent(object):
                 return base
             except Exception:
                 return getattr(collection, 'Name', 'Collection')
-        
-        def _sheet_info(viewsheet):
-            """Retourne l'info de la feuille (numéro + nom)"""
+
+        def _get_sheet_size_orientation(sheet):
             try:
-                num = getattr(viewsheet, 'SheetNumber', '')
-                name = getattr(viewsheet, 'Name', '')
-                if num and name:
-                    return u"{} - {}".format(num, name)
-                return name or num or 'Sheet'
+                # Try to find titleblock
+                tblock = DB.FilteredElementCollector(doc, sheet.Id)\
+                           .OfCategory(DB.BuiltInCategory.OST_TitleBlocks)\
+                           .FirstElement()
+                if tblock:
+                    size = tblock.Name
+                    # Try to guess orientation from width/height params if available
+                    # or just assume based on size name if it contains "Landscape" or "Portrait"
+                    # But usually size name is just "A1".
+                    # Let's try to get Width/Height from sheet parameters
+                    w_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_WIDTH)
+                    h_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_HEIGHT)
+                    
+                    width = w_param.AsDouble() if w_param else 0
+                    height = h_param.AsDouble() if h_param else 0
+                    
+                    orientation = "Landscape" if width > height else "Portrait"
+                    if width == 0 and height == 0:
+                         orientation = ""
+                    
+                    return size, orientation
             except Exception:
-                return getattr(viewsheet, 'Name', 'Sheet')
+                pass
+            return "", ""
 
         pname_export = selected_names.get('ExportationCombo')
         pname_carnet = selected_names.get('CarnetCombo')
@@ -164,99 +186,99 @@ class CollectionPreviewComponent(object):
         items = []
         cols = _collections(doc)
         cols_sorted = sorted(cols, key=lambda c: (getattr(c, 'Name', '') or '').lower())
+        
         for coll in cols_sorted:
             try:
                 do_export = _read_flag(coll, pname_export, False)
-                # Inverser la logique : si le param Carnet est True = compiler (per_sheet=False), si False = par feuille (per_sheet=True)
                 carnet_flag = _read_flag(coll, pname_carnet, False)
-                per_sheet = not carnet_flag  # Inversion
+                per_sheet = not carnet_flag
                 do_dwg = _read_flag(coll, pname_dwg, False)
                 do_pdf = bool(do_export)
+                
+                if not do_pdf and not do_dwg:
+                    continue
+
                 sheets = _sheets_in(doc, coll)
-
-                details = []
-                if do_pdf:
-                    if per_sheet:
-                        # Export PDF par feuille
-                        for sh in sheets:
-                            try:
-                                preview = _name_for_sheet(sh)
-                                sheet_info = _sheet_info(sh)
-                                details.append({
-                                    'SheetInfo': sheet_info,
-                                    'PreviewNom': preview,
-                                    'Format': 'PDF', 
-                                    'StatutText': u'', 
-                                    'StatutColor': getattr(Brushes, 'Green', None) if Brushes is not None else None
-                                })
-                            except Exception:
-                                continue
-                    else:
-                        # Export PDF combiné (carnet)
-                        preview = _name_for_collection(coll)
-                        details.append({
-                            'SheetInfo': u'{} feuilles'.format(len(sheets)),
-                            'PreviewNom': preview,
-                            'Format': 'PDF (combiné)', 
-                            'StatutText': u'', 
-                            'StatutColor': getattr(Brushes, 'Green', None) if Brushes is not None else None
-                        })
-                if do_dwg:
-                    # Export DWG toujours par feuille
-                    for sh in sheets:
-                        try:
-                            preview = _name_for_sheet(sh)
-                            sheet_info = _sheet_info(sh)
-                            details.append({
-                                'SheetInfo': sheet_info,
-                                'PreviewNom': preview,
-                                'Format': 'DWG', 
-                                'StatutText': u'', 
-                                'StatutColor': getattr(Brushes, 'Green', None) if Brushes is not None else None
-                            })
-                        except Exception:
-                            continue
-
+                # Sort sheets by number
                 try:
-                    details.sort(key=lambda d: (d.get('SheetInfo','') or '').lower())
+                    sheets.sort(key=lambda s: (getattr(s, 'SheetNumber', '') or ''))
                 except Exception:
                     pass
 
-                # Preview nom pour la collection
-                collection_preview = _name_for_collection(coll)
+                # Construct group info
+                export_info = []
+                if do_pdf:
+                    if per_sheet:
+                        export_info.append("PDF (Feuilles)")
+                    else:
+                        export_info.append("PDF (Combiné)")
+                if do_dwg:
+                    export_info.append("DWG")
+                
+                group_header = "{} [{}]".format(coll.Name, ", ".join(export_info))
 
-                items.append(ObservableItem({
-                    'Nom': coll.Name,
-                    'PreviewNom': collection_preview,
-                    'Feuilles': len(sheets),
-                    'ExportText': u"\u2713" if do_pdf else u"\u2717",
-                    'ExportColor': getattr(Brushes, 'Green', None) if (Brushes is not None and do_pdf) else (getattr(Brushes, 'Gray', None) if Brushes is not None else None),
-                    'CarnetText': u"\u2713" if carnet_flag else u"\u2717",
-                    'CarnetColor': getattr(Brushes, 'Green', None) if (Brushes is not None and carnet_flag) else (getattr(Brushes, 'Gray', None) if Brushes is not None else None),
-                    'DWGText': u"\u2713" if do_dwg else u"\u2717",
-                    'DWGColor': getattr(Brushes, 'Green', None) if (Brushes is not None and do_dwg) else (getattr(Brushes, 'Gray', None) if Brushes is not None else None),
-                    'StatutText': u"",
-                    'StatutColor': None,
-                    'Details': details,
-                    'IsExpanded': True,
-                }))
+                for sh in sheets:
+                    size, orientation = _get_sheet_size_orientation(sh)
+                    sheet_num = getattr(sh, 'SheetNumber', '')
+                    sheet_name = getattr(sh, 'Name', '')
+                    
+                    # Helper to add item
+                    def add_item(fmt, is_combined=False):
+                        # Calculate preview name
+                        preview_name = ""
+                        try:
+                            if is_combined:
+                                preview_name = _name_for_collection(coll)
+                            else:
+                                preview_name = _name_for_sheet(sh)
+                        except Exception:
+                            preview_name = sheet_name
+
+                        items.append(ObservableItem({
+                            'IsChecked': True,
+                            'SheetNumber': sheet_num,
+                            'SheetName': sheet_name,
+                            'PreviewNom': preview_name,
+                            'Format': fmt,
+                            'Size': size,
+                            'Orientation': orientation,
+                            'Progress': '',
+                            'ProgressColor': getattr(Brushes, 'Black', None),
+                            # Internal data
+                            'CollectionName': coll.Name,
+                            'GroupHeader': group_header,
+                            'SheetIdStr': sheet_num + '_' + sheet_name, # Matches _safe_sheet_name
+                            'IsCombined': is_combined
+                        }))
+
+                    if do_pdf:
+                        add_item('PDF', is_combined=not per_sheet)
+                    
+                    if do_dwg:
+                        add_item('DWG', is_combined=False)
+
             except Exception:
                 continue
 
         try:
-            items.sort(key=lambda i: (i.get('Nom','') or '').lower())
-        except Exception:
-            pass
-
-        try:
             win._preview_items = items
             if hasattr(win, 'PreviewCounterText') and win.PreviewCounterText is not None:
-                ncoll = len(items)
-                nelems = sum(len(it.get('Details', []) or []) for it in items)
+                ncoll = len(cols) # Total collections found
+                nelems = len(items)
                 win.PreviewCounterText.Text = u"Collections: {} • Éléments: {}".format(ncoll, nelems)
             grid = getattr(win, 'CollectionGrid', None)
             if grid is not None:
-                grid.ItemsSource = win._preview_items
+                if ListCollectionView is not None and PropertyGroupDescription is not None:
+                    view = ListCollectionView(items)
+                    # Use indexer syntax for dictionary access if needed, or just property name if ObservableItem supports it.
+                    # Since ObservableItem is a wrapper around dict, we might need to ensure it works.
+                    # PropertyGroupDescription("GroupHeader") expects a property named GroupHeader.
+                    # ObservableItem does not have a property named GroupHeader.
+                    # However, we can try to use the indexer syntax "[GroupHeader]" which WPF supports for indexers.
+                    view.GroupDescriptions.Add(PropertyGroupDescription("[GroupHeader]"))
+                    grid.ItemsSource = view
+                else:
+                    grid.ItemsSource = items
         except Exception:
             pass
 
@@ -282,33 +304,10 @@ class CollectionPreviewComponent(object):
             pass
 
     def set_collection_status(self, win, collection_name, state):
-        try:
-            from System.Windows.Media import Brushes  # type: ignore
-        except Exception:
-            Brushes = None  # type: ignore
-        try:
-            items = getattr(win, '_preview_items', []) or []
-            color = None
-            txt = u""
-            if state == 'progress':
-                txt = u"En cours…"
-                color = getattr(Brushes, 'DarkOrange', None) or getattr(Brushes, 'Orange', None) or getattr(Brushes, 'Gray', None)
-            elif state == 'ok':
-                txt = u"Terminé"
-                color = getattr(Brushes, 'Green', None)
-            elif state == 'error':
-                txt = u"Erreur"
-                color = getattr(Brushes, 'Red', None)
-            for it in items:
-                try:
-                    if it.get('Nom') == collection_name:
-                        it['StatutText'] = txt
-                        it['StatutColor'] = color
-                        break
-                except Exception:
-                    continue
-        except Exception:
-            pass
+        # In flat list, we might not show collection status directly, 
+        # or we could update all items of that collection?
+        # For now, ignore collection-level status updates as they are redundant with detail updates usually.
+        pass
 
     def set_detail_status(self, win, collection_name, detail_name, detail_format, state):
         try:
@@ -317,31 +316,46 @@ class CollectionPreviewComponent(object):
             Brushes = None  # type: ignore
         try:
             items = getattr(win, '_preview_items', []) or []
-            row_bg = getattr(Brushes, 'Transparent', None)
+            color = getattr(Brushes, 'Black', None)
             txt = u""
             
             if state == 'progress':
                 txt = u"En cours…"
-                # row_bg reste transparent ou gris clair
+                color = getattr(Brushes, 'Orange', None)
             elif state == 'ok':
-                txt = u""
-                row_bg = getattr(Brushes, 'LightGreen', None)
+                txt = u"Terminé"
+                color = getattr(Brushes, 'Green', None)
             elif state == 'error':
                 txt = u"Erreur"
-                row_bg = getattr(Brushes, 'LightYellow', None)
+                color = getattr(Brushes, 'Red', None)
+            
+            # Handle "PDF (combiné)"
+            is_combined_update = (detail_format == 'PDF (combiné)')
             
             for it in items:
                 try:
-                    if it.get('Nom') != collection_name:
+                    if it.get('CollectionName') != collection_name:
                         continue
-                    for d in it.get('Details', []) or []:
-                        try:
-                            if (d.get('PreviewNom') == detail_name) and (d.get('Format') == detail_format):
-                                d['StatutText'] = txt
-                                d['RowBackground'] = row_bg
-                                return
-                        except Exception:
+                    
+                    # Check format
+                    # If update is combined PDF, we update all PDF items for this collection
+                    if is_combined_update:
+                        if it.get('Format') == 'PDF':
+                            it['Progress'] = txt
+                            it['ProgressColor'] = color
+                    else:
+                        # Per sheet update
+                        # Check format match (PDF vs DWG)
+                        # detail_format is 'PDF' or 'DWG'
+                        if it.get('Format') != detail_format:
                             continue
+                            
+                        # Check sheet match
+                        # detail_name passed from orchestrator is _safe_sheet_name (SheetNumber_SheetName)
+                        if it.get('SheetIdStr') == detail_name:
+                            it['Progress'] = txt
+                            it['ProgressColor'] = color
+                            
                 except Exception:
                     continue
         except Exception:
