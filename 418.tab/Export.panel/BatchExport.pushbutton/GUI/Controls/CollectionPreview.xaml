@@ -40,12 +40,29 @@
                     <Setter Property="Template">
                       <Setter.Value>
                         <ControlTemplate TargetType="{x:Type GroupItem}">
-                          <StackPanel>
-                            <Border Background="#F0F0F0" BorderBrush="LightGray" BorderThickness="0,0,0,1" Padding="5">
-                              <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="#333333"/>
-                            </Border>
+                          <Expander IsExpanded="True" BorderThickness="0,0,0,1" BorderBrush="LightGray">
+                            <Expander.Header>
+                                <Grid Height="25" Width="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ListView}}, Path=ActualWidth}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="30"/> <!-- Checkbox -->
+                                        <ColumnDefinition Width="100"/> <!-- Number -->
+                                        <ColumnDefinition Width="250"/> <!-- Name -->
+                                        <ColumnDefinition Width="250"/> <!-- Preview -->
+                                        <ColumnDefinition Width="60"/> <!-- Format -->
+                                        <ColumnDefinition Width="50"/> <!-- Size -->
+                                        <ColumnDefinition Width="80"/> <!-- Orientation -->
+                                        <ColumnDefinition Width="120"/> <!-- Progress -->
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <!-- Content -->
+                                    <TextBlock Grid.Column="1" Text="" FontWeight="Bold" VerticalAlignment="Center" Margin="5,0" Foreground="#555"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding Name}" FontWeight="Bold" VerticalAlignment="Center" Margin="5,0"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding Items[0].CollectionPreviewName}" FontStyle="Italic" VerticalAlignment="Center" Margin="5,0" Foreground="#555"/>
+                                    <TextBlock Grid.Column="4" Text="{Binding Items[0].CollectionExportInfo}" FontSize="10" VerticalAlignment="Center" Margin="5,0" Foreground="#555"/>
+                                </Grid>
+                            </Expander.Header>
                             <ItemsPresenter />
-                          </StackPanel>
+                          </Expander>
                         </ControlTemplate>
                       </Setter.Value>
                     </Setter>
@@ -57,23 +74,23 @@
               <GridView AllowsColumnReorder="False">
                 
                 <!-- Colonne 2: View/Sheet Number -->
-                <GridViewColumn Header="View/Sheet Number" Width="100" DisplayMemberBinding="{Binding [SheetNumber]}"/>
+                <GridViewColumn Header="numéro" Width="60" DisplayMemberBinding="{Binding [SheetNumber]}"/>
                 
                 <!-- Colonne 3: View / Sheet Name -->
-                <GridViewColumn Header="View / Sheet Name" Width="250" DisplayMemberBinding="{Binding [SheetName]}"/>
+                <GridViewColumn Header="nom" Width="150" DisplayMemberBinding="{Binding [SheetName]}"/>
 
                 <!-- Colonne 3b: Preview Name -->
-                <GridViewColumn Header="Preview Name" Width="250" DisplayMemberBinding="{Binding [PreviewNom]}"/>
+                <GridViewColumn Header="nom d'export" Width="250" DisplayMemberBinding="{Binding [PreviewNom]}"/>
                 
                 <!-- Colonne 4: Format -->
                 <GridViewColumn Header="Format" Width="60" DisplayMemberBinding="{Binding [Format]}"/>
                 
                 <!-- Colonne 5: Size -->
-                <GridViewColumn Header="Size" Width="50" DisplayMemberBinding="{Binding [Size]}"/>
+                <GridViewColumn Header="Taille" Width="50" DisplayMemberBinding="{Binding [Size]}"/>
                 
                 <!-- Colonne 6: Orientation -->
                 <GridViewColumn Header="Orientation" Width="80" DisplayMemberBinding="{Binding [Orientation]}"/>
-                
+
                 <!-- Colonne 7: Progress -->
                 <GridViewColumn Header="Progress" Width="120">
                   <GridViewColumn.CellTemplate>

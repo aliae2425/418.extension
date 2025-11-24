@@ -209,13 +209,18 @@ class CollectionPreviewComponent(object):
                 export_info = []
                 if do_pdf:
                     if per_sheet:
-                        export_info.append("PDF (Feuilles)")
+                        export_info.append("PDF")
                     else:
-                        export_info.append("PDF (Combiné)")
+                        export_info.append("PDF (C)")
                 if do_dwg:
                     export_info.append("DWG")
                 
-                group_header = "{} [{}]".format(coll.Name, ", ".join(export_info))
+                export_info_str = ", ".join(export_info)
+                
+                # Collection preview name
+                coll_preview_name = _name_for_collection(coll)
+                
+                group_header = coll.Name
 
                 for sh in sheets:
                     size, orientation = _get_sheet_size_orientation(sh)
@@ -228,7 +233,7 @@ class CollectionPreviewComponent(object):
                         preview_name = ""
                         try:
                             if is_combined:
-                                preview_name = _name_for_collection(coll)
+                                preview_name = coll_preview_name
                             else:
                                 preview_name = _name_for_sheet(sh)
                         except Exception:
@@ -246,6 +251,8 @@ class CollectionPreviewComponent(object):
                             'ProgressColor': getattr(Brushes, 'Black', None),
                             # Internal data
                             'CollectionName': coll.Name,
+                            'CollectionExportInfo': export_info_str,
+                            'CollectionPreviewName': coll_preview_name,
                             'GroupHeader': group_header,
                             'SheetIdStr': sheet_num + '_' + sheet_name, # Matches _safe_sheet_name
                             'IsCombined': is_combined
