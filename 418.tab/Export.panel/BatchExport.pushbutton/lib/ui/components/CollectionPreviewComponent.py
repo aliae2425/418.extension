@@ -206,16 +206,12 @@ class CollectionPreviewComponent(object):
                     pass
 
                 # Construct group info
-                export_info = []
-                if do_pdf:
-                    if per_sheet:
-                        export_info.append("PDF")
-                    else:
-                        export_info.append("PDF (C)")
-                if do_dwg:
-                    export_info.append("DWG")
-                
-                export_info_str = ", ".join(export_info)
+                # export : [❌/ ✔️] | Compilé : [❌/ ✔️] | DWG : [❌/ ✔️]
+                export_info_str = u"export : [{}] | Compilé : [{}] | DWG : [{}]".format(
+                    u"\u2714\uFE0F" if do_pdf else u"\u274C",
+                    u"\u2714\uFE0F" if carnet_flag else u"\u274C",
+                    u"\u2714\uFE0F" if do_dwg else u"\u274C"
+                )
                 
                 # Collection preview name
                 coll_preview_name = _name_for_collection(coll)
@@ -252,6 +248,7 @@ class CollectionPreviewComponent(object):
                             # Internal data
                             'CollectionName': coll.Name,
                             'CollectionExportInfo': export_info_str,
+                            'SheetCount': len(sheets),
                             'CollectionPreviewName': coll_preview_name,
                             'GroupHeader': group_header,
                             'SheetIdStr': sheet_num + '_' + sheet_name, # Matches _safe_sheet_name
