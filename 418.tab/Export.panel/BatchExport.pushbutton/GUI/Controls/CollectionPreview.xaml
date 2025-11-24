@@ -33,141 +33,75 @@
                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
                     BorderThickness="1"
                     BorderBrush="LightGray">
+            <ListView.GroupStyle>
+              <GroupStyle>
+                <GroupStyle.ContainerStyle>
+                  <Style TargetType="{x:Type GroupItem}">
+                    <Setter Property="Template">
+                      <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type GroupItem}">
+                          <Expander IsExpanded="False" BorderThickness="0,0,0,1" BorderBrush="LightGray">
+                            <Expander.Header>
+                                <Grid Height="25" Width="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ListView}}, Path=ActualWidth}">
+                                    <Grid.ColumnDefinitions>
+                                      <ColumnDefinition Width="100"/>
+                                      <ColumnDefinition Width="350"/>
+                                      <ColumnDefinition Width="100"/>
+                                      <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <!-- Content -->
+                                    <TextBlock Grid.Column="0" Text="{Binding Name}"
+                                              FontStyle="Italic" VerticalAlignment="Center" Margin="5,0"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Items[0][CollectionPreviewName]}" 
+                                              FontWeight="Bold" VerticalAlignment="Center" Margin="5,0" Foreground="#555"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding Items[0][SheetCount], StringFormat='{}{0} feuilles'}"
+                                              FontStyle="Italic"  VerticalAlignment="Center" Margin="5,0"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding Items[0][CollectionExportInfo]}" 
+                                              FontSize="10" VerticalAlignment="Center" Margin="5,0" Foreground="#555"/>
+                                </Grid>
+                            </Expander.Header>
+                            <ItemsPresenter />
+                          </Expander>
+                        </ControlTemplate>
+                      </Setter.Value>
+                    </Setter>
+                  </Style>
+                </GroupStyle.ContainerStyle>
+              </GroupStyle>
+            </ListView.GroupStyle>
             <ListView.View>
               <GridView AllowsColumnReorder="False">
-                <!-- Colonne 1: Indicateur expand/collapse (▶/▼) -->
-                <GridViewColumn Width="28">
+                
+                <!-- Colonne 2: View/Sheet Number -->
+                <GridViewColumn Header="numéro" Width="60" DisplayMemberBinding="{Binding [SheetNumber]}"/>
+                
+                <!-- Colonne 3: View / Sheet Name -->
+                <GridViewColumn Header="nom" Width="100" DisplayMemberBinding="{Binding [SheetName]}"/>
+
+                <!-- Colonne 3b: Preview Name -->
+                <GridViewColumn Header="nom d'export" Width="320" DisplayMemberBinding="{Binding [PreviewNom]}"/>
+                
+                <!-- Colonne 4: Format -->
+                <GridViewColumn Header="Format" Width="60" DisplayMemberBinding="{Binding [Format]}"/>
+                
+                <!-- Colonne 5: Size -->
+                <GridViewColumn Header="Taille" Width="50" DisplayMemberBinding="{Binding [Size]}"/>
+                
+                <!-- Colonne 6: Orientation -->
+                <GridViewColumn Header="Orientation" Width="80" DisplayMemberBinding="{Binding [Orientation]}"/>
+
+                <!-- Colonne 7: Progress -->
+                <GridViewColumn Header="Progress" Width="120">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate>
-                      <CheckBox Width="20" Height="20" 
-                                IsChecked="{Binding [IsExpanded], Mode=TwoWay}"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center">
-                        <CheckBox.Template>
-                          <ControlTemplate TargetType="CheckBox">
-                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" 
-                                       Foreground="Gray" FontSize="12" Cursor="Hand">
-                              <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                  <Setter Property="Text" Value="▼"/>
-                                  <Style.Triggers>
-                                    <DataTrigger Binding="{Binding [IsExpanded]}" Value="False">
-                                      <Setter Property="Text" Value="▶"/>
-                                    </DataTrigger>
-                                  </Style.Triggers>
-                                </Style>
-                              </TextBlock.Style>
-                            </TextBlock>
-                          </ControlTemplate>
-                        </CheckBox.Template>
-                      </CheckBox>
-                    </DataTemplate>
-                  </GridViewColumn.CellTemplate>
-                </GridViewColumn>
-                
-                <!-- Colonne 2: Nom de la collection -->
-                <GridViewColumn Header="Nom" Width="200" DisplayMemberBinding="{Binding [Nom]}"/>
-                
-                <!-- Colonne 3: Preview du nom de fichier -->
-                <GridViewColumn Header="Preview Nom" Width="200" DisplayMemberBinding="{Binding [PreviewNom]}"/>
-                
-                <!-- Colonne 4: Nombre de feuilles -->
-                <GridViewColumn Header="Feuilles" Width="80" DisplayMemberBinding="{Binding [Feuilles]}"/>
-                
-                <!-- Colonne 5: Export PDF (✓/✗) -->
-                <GridViewColumn Header="Export" Width="70">
-                  <GridViewColumn.CellTemplate>
-                    <DataTemplate>
-                      <TextBlock Text="{Binding [ExportText]}" 
-                                 Foreground="{Binding [ExportColor]}" 
-                                 HorizontalAlignment="Center"/>
-                    </DataTemplate>
-                  </GridViewColumn.CellTemplate>
-                </GridViewColumn>
-                
-                <!-- Colonne 6: Export par feuille/Carnet (✓/✗) -->
-                <GridViewColumn Header="Carnet" Width="70">
-                  <GridViewColumn.CellTemplate>
-                    <DataTemplate>
-                      <TextBlock Text="{Binding [CarnetText]}" 
-                                 Foreground="{Binding [CarnetColor]}" 
-                                 HorizontalAlignment="Center"/>
-                    </DataTemplate>
-                  </GridViewColumn.CellTemplate>
-                </GridViewColumn>
-                
-                <!-- Colonne 7: Export DWG (✓/✗) -->
-                <GridViewColumn Header="DWG" Width="70">
-                  <GridViewColumn.CellTemplate>
-                    <DataTemplate>
-                      <TextBlock Text="{Binding [DWGText]}" 
-                                 Foreground="{Binding [DWGColor]}" 
-                                 HorizontalAlignment="Center"/>
-                    </DataTemplate>
-                  </GridViewColumn.CellTemplate>
-                </GridViewColumn>
-                
-                <!-- Colonne 8: Statut d'export -->
-                <GridViewColumn Header="Statut" Width="150">
-                  <GridViewColumn.CellTemplate>
-                    <DataTemplate>
-                      <TextBlock Text="{Binding [StatutText]}" 
-                                 Foreground="{Binding [StatutColor]}"/>
+                      <TextBlock Text="{Binding [Progress]}" 
+                                 Foreground="{Binding [ProgressColor]}"/>
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
               </GridView>
             </ListView.View>
-            
-            <!-- Template pour afficher les détails quand IsExpanded = true -->
-            <ListView.ItemContainerStyle>
-              <Style TargetType="ListViewItem">
-                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                <Setter Property="Template">
-                  <Setter.Value>
-                    <ControlTemplate TargetType="ListViewItem">
-                      <StackPanel>
-                        <!-- Ligne principale (collection) -->
-                        <GridViewRowPresenter Content="{TemplateBinding Content}"
-                                              Columns="{TemplateBinding GridView.ColumnCollection}"/>
-                        
-                        <!-- Détails (feuilles) - affichés si IsExpanded = true -->
-                        <ItemsControl ItemsSource="{Binding [Details]}" 
-                                      Margin="28,0,0,4"
-                                      Visibility="{Binding [IsExpanded], Converter={StaticResource BoolToVisibilityConverter}}">
-                          <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                              <Border Background="{Binding [RowBackground]}" CornerRadius="2" Margin="0,1" Padding="0,2">
-                                <Grid>
-                                  <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="200"/>
-                                    <ColumnDefinition Width="250"/>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="70"/>
-                                    <ColumnDefinition Width="70"/>
-                                    <ColumnDefinition Width="70"/>
-                                    <ColumnDefinition Width="*"/>
-                                  </Grid.ColumnDefinitions>
-                                  
-                                  <TextBlock Grid.Column="0" Text="{Binding [SheetInfo]}" 
-                                             Foreground="Gray" FontSize="11" Padding="4,0"/>
-                                  <TextBlock Grid.Column="1" Text="{Binding [PreviewNom]}" 
-                                             Foreground="DarkBlue" FontSize="11" FontWeight="SemiBold" Padding="4,0"/>
-                                  <TextBlock Grid.Column="2" Text="{Binding [Format]}" 
-                                             Foreground="Gray" FontSize="11" Padding="4,0"/>
-                                  <TextBlock Grid.Column="6" Text="{Binding [StatutText]}" 
-                                             Foreground="Red" FontSize="11" Padding="4,0" TextWrapping="Wrap"/>
-                                </Grid>
-                              </Border>
-                            </DataTemplate>
-                          </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                      </StackPanel>
-                    </ControlTemplate>
-                  </Setter.Value>
-                </Setter>
-              </Style>
-            </ListView.ItemContainerStyle>
           </ListView>
         </StackPanel>
       </Border>
