@@ -20,10 +20,24 @@ __min_revit_ver__ = 2026
 
 # ------------------------------- Imports ------------------------------- #
 from lib.ui.windows.MainWindowController import MainWindowController
-
+from lib.ui.windows.TutorialWindow import show_tutorial
+from lib.data.sheets.SheetParameterRepository import SheetParameterRepository
 
 
 if __name__ == "__main__":
-    ctrl = MainWindowController()
-    if not ctrl.show():
-        print('[erreur] UI non affichée')
+    try:
+        doc = __revit__.ActiveUIDocument.Document  # type: ignore
+    except Exception:
+        doc = None
+
+    if doc:
+        repo = SheetParameterRepository()
+        # On verifie s'il existe des parametres booleens pour les collections
+        params = repo.collect_for_collections(doc, only_boolean=True)
+        
+        if not params:
+            show_tutorial()
+        else:
+            ctrl = MainWindowController()
+            if not ctrl.show():
+                print('[erreur] UI non affichée')
