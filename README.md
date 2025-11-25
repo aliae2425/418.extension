@@ -4,18 +4,14 @@ Une extension pyRevit conçue pour faciliter et automatiser l'exportation en lot
 
 ## 🚀 Fonctionnalités
 
-*   **Export Multi-Collections** : Traitez plusieurs collections de feuilles en une seule opération.
-*   **Formats Supportés** : Export simultané en **PDF** et **DWG**.
-*   **Nommage Intelligent** :
-    *   Configurez des modèles de nommage dynamiques.
-    *   Utilisez n'importe quel paramètre de Projet, de Collection ou de Feuille.
-    *   Prévisualisation en temps réel des noms de fichiers générés.
-*   **Options de Sortie Flexibles** :
-    *   Export par feuille individuelle ou combiné en un seul fichier (Carnet PDF).
-    *   Création automatique de sous-dossiers par collection.
-    *   Tri automatique dans des dossiers séparés par format (PDF/DWG).
-*   **Gestion des Fichiers** : Détection automatique des fichiers existants avec choix d'écraser ou de renommer.
-*   **Interface Conviviale** : Suivi de la progression et statut détaillé (succès/erreur) pour chaque fichier.
+| Nom | Description | Version | Status |
+|-----|-------------|---------|--------|
+| Export Multi-Collections | Traitez plusieurs collections de feuilles en une seule opération | - | ✅ |
+| Formats Supportés | Export simultané en **PDF** et **DWG** | - | ✅ |
+| Nommage Intelligent | Configurez des modèles de nommage dynamiques utilisant n'importe quel paramètre de Projet, de Collection ou de Feuille avec prévisualisation en temps réel | - | ✅ |
+| Options de Sortie Flexibles | Export par feuille individuelle ou combiné en carnets PDF, création automatique de sous-dossiers par collection, tri automatique par format | - | ✅ |
+| Gestion des Fichiers | Détection automatique des fichiers existants avec choix d'écraser ou de renommer | - | ✅ |
+| Interface Conviviale | Suivi de la progression et statut détaillé (succès/erreur) pour chaque fichier | - | ✅ |
 
 ## 📦 Installation
 
