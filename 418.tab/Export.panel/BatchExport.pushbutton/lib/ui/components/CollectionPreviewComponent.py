@@ -195,7 +195,11 @@ class CollectionPreviewComponent(object):
                 do_dwg = _read_flag(coll, pname_dwg, False)
                 do_pdf = bool(do_export)
                 
-                if not do_pdf and not do_dwg:
+                # On veut afficher le groupe même si export est False (pour le montrer grisé)
+                # Donc on force la génération des items PDF si do_export est False
+                should_generate_pdf = True if not do_export else do_pdf
+
+                if not should_generate_pdf and not do_dwg:
                     continue
 
                 sheets = _sheets_in(doc, coll)
@@ -252,10 +256,11 @@ class CollectionPreviewComponent(object):
                             'CollectionPreviewName': coll_preview_name,
                             'GroupHeader': group_header,
                             'SheetIdStr': sheet_num + '_' + sheet_name, # Matches _safe_sheet_name
-                            'IsCombined': is_combined
+                            'IsCombined': is_combined,
+                            'CollectionIsExported': do_export
                         }))
 
-                    if do_pdf:
+                    if should_generate_pdf:
                         add_item('PDF', is_combined=not per_sheet)
                     
                     if do_dwg:

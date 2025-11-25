@@ -6,7 +6,7 @@ Une extension pyRevit conçue pour faciliter et automatiser l'exportation en lot
 
 | Nom | Description | Version | Status |
 |-----|-------------|---------|--------|
-|BatchExport| Option d'export à partir des jeux de feuilles.|0.3|✔️|
+|BatchExport| Option d'export à partir des jeux de feuilles.|0.3|🖋️|
 |Repérage| Crée des filtres en fonction de la sélection ou du jeu de feuilles|-|⏳|
 |Edit material| Gestion des matériaux un peu plus sympa|-|⏳|
 |KeyNotes editor| Gestion des matériaux un peu plus sympa|-|⏳|

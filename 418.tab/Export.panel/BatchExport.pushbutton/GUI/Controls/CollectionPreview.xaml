@@ -40,7 +40,8 @@
                     <Setter Property="Template">
                       <Setter.Value>
                         <ControlTemplate TargetType="{x:Type GroupItem}">
-                          <Expander IsExpanded="False" BorderThickness="0,0,0,1" BorderBrush="LightGray">
+                          <Expander IsExpanded="False" BorderThickness="0,0,0,1" BorderBrush="LightGray"
+                                    IsEnabled="{Binding Items[0][CollectionIsExported]}">
                             <Expander.Header>
                                 <Grid Height="25" Width="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ListView}}, Path=ActualWidth}">
                                     <Grid.ColumnDefinitions>
