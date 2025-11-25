@@ -6,12 +6,12 @@ Une extension pyRevit conçue pour faciliter et automatiser l'exportation en lot
 
 | Nom | Description | Version | Status |
 |-----|-------------|---------|--------|
-| Export Multi-Collections | Traitez plusieurs collections de feuilles en une seule opération | - | ✅ |
-| Formats Supportés | Export simultané en **PDF** et **DWG** | - | ✅ |
-| Nommage Intelligent | Configurez des modèles de nommage dynamiques utilisant n'importe quel paramètre de Projet, de Collection ou de Feuille avec prévisualisation en temps réel | - | ✅ |
-| Options de Sortie Flexibles | Export par feuille individuelle ou combiné en carnets PDF, création automatique de sous-dossiers par collection, tri automatique par format | - | ✅ |
-| Gestion des Fichiers | Détection automatique des fichiers existants avec choix d'écraser ou de renommer | - | ✅ |
-| Interface Conviviale | Suivi de la progression et statut détaillé (succès/erreur) pour chaque fichier | - | ✅ |
+|BatchExport| Option d'export à partir des jeux de feuilles.|0.3|✔️|
+|Repérage| Crée des filtres en fonction de la sélection ou du jeu de feuilles|-|⏳|
+|Edit material| Gestion des matériaux un peu plus sympa|-|⏳|
+|KeyNotes editor| Gestion des matériaux un peu plus sympa|-|⏳|
+|CadastreImporter| Importe automatiquement le cadastre en fonction de la géolocalisation|-|⏳|
+
 
 ## 📦 Installation
 
