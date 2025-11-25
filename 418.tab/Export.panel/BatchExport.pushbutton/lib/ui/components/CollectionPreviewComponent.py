@@ -82,18 +82,28 @@ class CollectionPreviewComponent(object):
             except Exception:
                 return []
 
+        # Optimization: Pre-fetch sheets grouped by collection to avoid O(N*M) filtering
+        sheets_by_collection = {}
+        try:
+            for vs in DB.FilteredElementCollector(doc).OfClass(DB.ViewSheet).ToElements():
+                try:
+                    # Support Revit 2024+ (Value) and older (IntegerValue)
+                    cid = getattr(vs.SheetCollectionId, 'Value', getattr(vs.SheetCollectionId, 'IntegerValue', None))
+                    if cid is not None:
+                        if cid not in sheets_by_collection:
+                            sheets_by_collection[cid] = []
+                        sheets_by_collection[cid].append(vs)
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
         def _sheets_in(document, collection):
-            out = []
             try:
-                for vs in DB.FilteredElementCollector(document).OfClass(DB.ViewSheet).ToElements():
-                    try:
-                        if vs.SheetCollectionId == collection.Id:
-                            out.append(vs)
-                    except Exception:
-                        continue
+                cid = getattr(collection.Id, 'Value', getattr(collection.Id, 'IntegerValue', None))
+                return sheets_by_collection.get(cid, [])
             except Exception:
-                pass
-            return out
+                return []
 
         def _read_flag(elem, pname, default=False):
             if not pname:
@@ -152,12 +162,28 @@ class CollectionPreviewComponent(object):
             except Exception:
                 return getattr(collection, 'Name', 'Collection')
 
+        # Optimization: Pre-fetch titleblocks mapped by OwnerViewId (Sheet)
+        titleblocks_by_sheet = {}
+        try:
+            # Get all titleblocks in the project
+            tblocks = DB.FilteredElementCollector(doc).OfCategory(DB.BuiltInCategory.OST_TitleBlocks).WhereElementIsNotElementType().ToElements()
+            for tb in tblocks:
+                try:
+                    # OwnerViewId corresponds to the Sheet Id for titleblocks
+                    oid = getattr(tb.OwnerViewId, 'Value', getattr(tb.OwnerViewId, 'IntegerValue', None))
+                    if oid is not None:
+                        titleblocks_by_sheet[oid] = tb
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
         def _get_sheet_size_orientation(sheet):
             try:
-                # Try to find titleblock
-                tblock = DB.FilteredElementCollector(doc, sheet.Id)\
-                           .OfCategory(DB.BuiltInCategory.OST_TitleBlocks)\
-                           .FirstElement()
+                # Use pre-fetched titleblock
+                sid = getattr(sheet.Id, 'Value', getattr(sheet.Id, 'IntegerValue', None))
+                tblock = titleblocks_by_sheet.get(sid)
+                
                 if tblock:
                     size = tblock.Name
                     # Try to guess orientation from width/height params if available
