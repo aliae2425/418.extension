@@ -105,31 +105,9 @@ class MainWindowController(object):
     def _on_selection_changed(self, sender, args):
         item = self._win.KeynoteTree.SelectedItem
         self._selected_item = item
-        
-        if item:
-            self._win.DetailPanel.IsEnabled = True
-            self._win.KeyBox.Text = item.Key
-            self._win.DescBox.Text = item.Description
-            self._win.ParentBox.Text = item.ParentKey if item.ParentKey else ""
-        else:
-            self._win.DetailPanel.IsEnabled = False
-            self._win.KeyBox.Text = ""
-            self._win.DescBox.Text = ""
-            self._win.ParentBox.Text = ""
 
     def _on_apply_changes(self, sender, args):
-        if not self._selected_item:
-            return
-            
-        # Update object
-        self._selected_item.Key = self._win.KeyBox.Text
-        self._selected_item.Description = self._win.DescBox.Text
-        self._selected_item.ParentKey = self._win.ParentBox.Text or None
-        
-        # Refresh TreeView (hacky way: reset ItemsSource)
-        # Ideally we should implement INotifyPropertyChanged on KeynoteItem
-        # or use ObservableCollection but for now this is simple
-        self._refresh_tree()
+        pass
 
     def _refresh_tree(self):
         # Save current expansion state? Too complex for now.
