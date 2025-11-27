@@ -74,7 +74,7 @@
                            Text="{Binding [Prefix], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                            LostFocus="ParamCell_LostFocus"
                            TextChanged="ParamCell_TextChanged"/>
-                  <TextBlock Grid.Column="1" Text="{Binding [Name]}" VerticalAlignment="Center" Margin="0"/>
+                  <TextBlock Grid.Column="1" Text="{Binding [DisplayName]}" VerticalAlignment="Center" Margin="0"/>
                   <TextBox Grid.Column="2" Margin="0" HorizontalAlignment="Stretch"
                            Text="{Binding [Suffix], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                            LostFocus="ParamCell_LostFocus"

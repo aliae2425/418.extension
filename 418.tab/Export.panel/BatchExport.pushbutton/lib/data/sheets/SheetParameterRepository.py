@@ -161,3 +161,61 @@ class SheetParameterRepository(object):
         except Exception:
             out.sort()
         return out
+
+    def collect_params_extended(self, doc, scope='sheet'):
+        """Retourne une liste de dict {'Name': 'LocalName', 'Id': 'ID'}."""
+        from ...utils.BipTranslator import BipTranslator
+        
+        out = []
+        seen = set()
+        
+        # Helper to add
+        def _add(p_def, p_bip_name=None):
+            p_name = p_def.Name
+            if not p_name: return
+            if p_name in seen: return
+            
+            # ID logic: BIP:NAME if available, else Name
+            p_id = p_name
+            if p_bip_name:
+                p_id = "BIP:" + p_bip_name
+            elif isinstance(p_def, DB.InternalDefinition):
+                bip = p_def.BuiltInParameter
+                if bip != DB.BuiltInParameter.INVALID:
+                    p_id = "BIP:" + str(bip)
+            
+            out.append({'Name': p_name, 'Id': p_id})
+            seen.add(p_name)
+
+        if scope == 'project':
+            try:
+                proj_info = DB.FilteredElementCollector(doc).OfClass(DB.ProjectInfo).ToElements()
+                if proj_info:
+                    for param in proj_info[0].Parameters:
+                        _add(param.Definition)
+            except Exception:
+                pass
+        elif scope == 'collection':
+            try:
+                colls = DB.FilteredElementCollector(doc).OfClass(DB.SheetCollection).ToElements()
+                for c in colls:
+                    for param in c.Parameters:
+                        _add(param.Definition)
+            except Exception:
+                pass
+        else: # sheet
+            try:
+                sheets = DB.FilteredElementCollector(doc).OfClass(DB.ViewSheet).ToElements()
+                # Scan a few sheets to get all params
+                count = 0
+                for s in sheets:
+                    for param in s.Parameters:
+                        _add(param.Definition)
+                    count += 1
+                    if count > 5: break # Optimization
+            except Exception:
+                pass
+                
+        out.sort(key=lambda x: x['Name'].lower())
+        return out
+

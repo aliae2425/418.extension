@@ -106,6 +106,21 @@ class NamingResolver(object):
         """Retourne une représentation chaîne du paramètre nommé sur l'élément, si trouvé."""
         val = ''
         
+        # 0. Check for BIP
+        if param_name.startswith('BIP:'):
+            bip_str = param_name[4:]
+            try:
+                bip = getattr(DB.BuiltInParameter, bip_str, None)
+                if bip:
+                    p = elem.get_Parameter(bip)
+                    if p:
+                        val = self._extract_param_value(p)
+                        if val:
+                            return val
+            except Exception:
+                pass
+            # If BIP lookup fails, fallback to normal lookup (maybe it's literally named "BIP:...")
+        
         # 1. Essayer LookupParameter (plus fiable et rapide)
         try:
             p = elem.LookupParameter(param_name)
