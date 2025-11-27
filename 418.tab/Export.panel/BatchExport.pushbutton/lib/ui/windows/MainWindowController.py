@@ -356,6 +356,7 @@ class MainWindowController(object):
             from ..windows.PikerWindow import open_modal
             open_modal(kind='sheet', title=u"Nommage des feuilles")
             self._name_comp.refresh_buttons(self._win)
+            self._grid_comp.populate(self._win, self._get_selected_values())
         except Exception:
             pass
 
@@ -364,6 +365,7 @@ class MainWindowController(object):
             from ..windows.PikerWindow import open_modal
             open_modal(kind='set', title=u"Nommage des carnets")
             self._name_comp.refresh_buttons(self._win)
+            self._grid_comp.populate(self._win, self._get_selected_values())
         except Exception:
             pass
 

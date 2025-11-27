@@ -42,6 +42,17 @@ class PikerWindow(forms.WPFWindow):
             self.Title = title
         except Exception:
             pass
+        
+        # Update Title Text
+        try:
+            if hasattr(self, 'TitleText'):
+                if self._kind == 'set':
+                    self.TitleText.Text = "Configuration nom pour : Carnet ( PDF compiler )"
+                else:
+                    self.TitleText.Text = "Configuration nom pour : feuille ( PDF DWG )"
+        except Exception:
+            pass
+
         self._available_all = []
         self._available_filtered = []
         self._available_project = []

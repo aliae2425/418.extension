@@ -10,7 +10,7 @@
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
 
-    <TextBlock Text="Configuration du nommage" FontSize="16" FontWeight="Bold"/>
+    <TextBlock Name="TitleText" Text="Configuration du nommage" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
 
     <!-- zoneCentrale: gauche = filtres + paramètres; centre = boutons; droite = DataGrid des paramètres choisis -->
     <Grid Grid.Row="1" Margin="0,8,0,8">

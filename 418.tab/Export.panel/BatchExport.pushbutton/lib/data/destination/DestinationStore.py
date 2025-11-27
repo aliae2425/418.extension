@@ -32,6 +32,11 @@ class DestinationStore(object):
             path = self._cfg.get(self.DEST_FOLDER_KEY, '') if self._cfg is not None else ''
         except Exception:
             path = ''
+        
+        # Check if path exists
+        if path and not os.path.exists(path):
+            path = ''
+
         if path:
             return path
         if default:
