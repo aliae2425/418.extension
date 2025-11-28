@@ -519,39 +519,18 @@ class ExportOrchestrator(object):
                 from System.Collections.Generic import List as Clist  # type: ignore
                 views = Clist[DB.ElementId]()
                 views.Add(sheet.Id)
-                
-                # Force MergedViews to True to ensure single file output (no XREFs)
-                # This fixes the issue where XREFs (views) might be picked up instead of the sheet
-                try:
-                    options.MergedViews = True
-                except Exception:
-                    pass
-
                 # DWG export requires a prefix name in most overloads
                 # Export(folder, name, views, options)
                 ok = bool(doc.Export(tmp_dir, "export", views, options))
         except Exception:
             ok = False
-        
         try:
             if ok:
-                # Prioritize the main file "export.dwg"
-                exported_file = None
-                expected_main = os.path.join(tmp_dir, "export.dwg")
-                
-                if os.path.exists(expected_main):
-                    exported_file = expected_main
-                else:
-                    # Fallback: pick the most recent DWG
-                    cands = [os.path.join(tmp_dir, f) for f in os.listdir(tmp_dir) if f.lower().endswith('.dwg')]
-                    if cands:
-                        cands.sort(key=lambda p: os.path.getmtime(p), reverse=True)
-                        exported_file = cands[0]
-                
-                if exported_file:
+                cands = [os.path.join(tmp_dir, f) for f in os.listdir(tmp_dir) if f.lower().endswith('.dwg')]
+                if cands:
+                    cands.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+                    exported_file = cands[0]
                     try:
-                        if os.path.exists(final_path):
-                            os.remove(final_path)
                         os.rename(exported_file, final_path)
                     except Exception:
                         import shutil
@@ -562,7 +541,6 @@ class ExportOrchestrator(object):
                             pass
         except Exception:
             ok = False
-            
         try:
             if os.path.isdir(tmp_dir):
                 import shutil
