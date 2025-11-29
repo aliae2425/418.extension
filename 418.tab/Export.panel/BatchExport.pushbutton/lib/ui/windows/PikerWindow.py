@@ -37,6 +37,27 @@ def _get_naming_xaml_path():
 class PikerWindow(forms.WPFWindow):
     def __init__(self, kind='sheet', title=u"Piker"):
         forms.WPFWindow.__init__(self, _get_naming_xaml_path())
+
+        # Inject resources manually to avoid relative path issues in XAML
+        try:
+            from System import Uri, UriKind
+            from System.Windows import ResourceDictionary
+            
+            naming_path = _get_naming_xaml_path()
+            # naming_path is .../GUI/Views/naming.xaml
+            # we want .../GUI/resources/
+            gui_dir = os.path.dirname(os.path.dirname(naming_path))
+            res_dir = os.path.join(gui_dir, 'resources')
+            
+            for filename in ['Colors.xaml', 'Styles.xaml']:
+                path = os.path.join(res_dir, filename)
+                if os.path.exists(path):
+                    rd = ResourceDictionary()
+                    rd.Source = Uri(path, UriKind.Absolute)
+                    self.Resources.MergedDictionaries.Add(rd)
+        except Exception as e:
+            print('[warning] Could not load resources:', e)
+
         self._kind = kind  # 'sheet' | 'set'
         try:
             self.Title = title
