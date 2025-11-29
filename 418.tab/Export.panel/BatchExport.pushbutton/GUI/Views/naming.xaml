@@ -27,6 +27,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
           </Grid.RowDefinitions>
           <TextBlock Grid.Row="0" Text="Source des paramètres" FontWeight="Bold"/>
@@ -36,8 +37,9 @@
             <ComboBoxItem Content="Collection"/>
             <ComboBoxItem Content="Feuille"/>
           </ComboBox>
-          <TextBlock Grid.Row="2" Text="Paramètres disponibles" FontWeight="Bold" Margin="0,2,0,4"/>
-          <ListBox Grid.Row="3" Name="AvailableParamsList" MouseDoubleClick="AvailableParamsList_DoubleClick"/>
+          <TextBox Grid.Row="2" Name="SearchBox" Margin="0,0,0,8" ToolTip="Rechercher un paramètre..."/>
+          <TextBlock Grid.Row="3" Text="Paramètres disponibles" FontWeight="Bold" Margin="0,2,0,4"/>
+          <ListBox Grid.Row="4" Name="AvailableParamsList" MouseDoubleClick="AvailableParamsList_DoubleClick"/>
         </Grid>
       </Border>
 
@@ -84,10 +86,10 @@
             </ListBox.ItemTemplate>
           </ListBox>
           <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-            <Button Name="MoveTopButton" Content="⏮ Haut" Width="70" Height="26" Margin="0,0,8,0" Click="MoveTopButton_Click"/>
-            <Button Name="MoveUpButton" Content="▲" Width="40" Height="26" Margin="0,0,8,0" Click="MoveUpButton_Click"/>
-            <Button Name="MoveDownButton" Content="▼" Width="40" Height="26" Margin="0,0,8,0" Click="MoveDownButton_Click"/>
-            <Button Name="MoveBottomButton" Content="⏭ Bas" Width="70" Height="26" Click="MoveBottomButton_Click"/>
+            <Button Name="MoveTopButton" Content="⏫" Width="70" Height="26" Margin="0,0,8,0" Click="MoveTopButton_Click"/>
+            <Button Name="MoveUpButton" Content="🔼" Width="40" Height="26" Margin="0,0,8,0" Click="MoveUpButton_Click"/>
+            <Button Name="MoveDownButton" Content="🔽" Width="40" Height="26" Margin="0,0,8,0" Click="MoveDownButton_Click"/>
+            <Button Name="MoveBottomButton" Content="⏬" Width="70" Height="26" Click="MoveBottomButton_Click"/>
           </StackPanel>
         </Grid>
       </Border>

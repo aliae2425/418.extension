@@ -71,6 +71,8 @@ class PikerWindow(forms.WPFWindow):
                 self.RemoveParamButton.Click += self._on_remove_param
             if hasattr(self, 'ScopeCombo'):
                 self.ScopeCombo.SelectionChanged += self._on_scope_changed
+            if hasattr(self, 'SearchBox'):
+                self.SearchBox.TextChanged += self._on_search_changed
         except Exception:
             pass
         # Load existing rows
@@ -265,6 +267,19 @@ class PikerWindow(forms.WPFWindow):
             filtered = list(self._available_sheet or [])
         else:
             filtered = list(self._available_all or [])
+
+        # Apply search filter
+        search_text = ''
+        try:
+            if hasattr(self, 'SearchBox'):
+                search_text = self.SearchBox.Text
+        except Exception:
+            pass
+        
+        if search_text:
+            search_text = search_text.lower()
+            filtered = [n for n in filtered if search_text in n.lower()]
+
         try:
             self._available_filtered = sorted(filtered, key=lambda s: s.lower())
         except Exception:
@@ -280,6 +295,9 @@ class PikerWindow(forms.WPFWindow):
     def _on_scope_changed(self, sender, args):
         self._apply_scope_filter()
         self._refresh_preview()
+
+    def _on_search_changed(self, sender, args):
+        self._apply_scope_filter()
 
     def _on_add_param(self, sender, args):
         try:
