@@ -70,7 +70,7 @@ class MainWindowController(object):
         hosts = {
             'ParameterSelectorHost': [
                 'CollectionExpander', 'ParamWarningText', 'UniqueErrorText',
-                'ExportationCombo', 'CarnetCombo', 'DWGCombo'
+                'ExportationCombo', 'CarnetCombo', 'DWGCombo', 'HelpButton', 'DarkModeToggle'
             ],
             'ExportOptionsHost': [
                 'PDFExpander', 'PDFSetupCombo', 'PDFSeparateCheck', 'PDFCreateButton',
@@ -416,6 +416,60 @@ class MainWindowController(object):
         except Exception:
             pass
 
+    def _wire_help_button(self):
+        try:
+            if hasattr(self._win, 'HelpButton'):
+                self._win.HelpButton.Click += self._on_help_click
+        except Exception:
+            pass
+
+    def _on_help_click(self, sender, args):
+        try:
+            from .HelpWindow import show_help
+            content = (
+                "Les paramètres de feuille permettent de contrôler quels jeux de feuilles sont exportés et comment.\n\n"
+                "• Exportation : Paramètre Oui/Non pour activer l'export de la feuille.\n"
+                "• Export PDF compilé : Paramètre Oui/Non pour inclure la feuille dans un carnet PDF unique.\n"
+                "• Export en DWG : Paramètre Oui/Non pour générer également un fichier DWG pour cette feuille.\n\n"
+                "Ces paramètres doivent être créés dans votre projet Revit en tant que paramètres de projet ou partagés, "
+                "appliqués à la catégorie 'Feuilles'."
+            )
+            show_help(content)
+        except Exception:
+            pass
+
+    def _wire_dark_mode_toggle(self):
+        try:
+            if hasattr(self._win, 'DarkModeToggle'):
+                self._win.DarkModeToggle.Checked += self._on_dark_mode
+                self._win.DarkModeToggle.Unchecked += self._on_light_mode
+        except Exception:
+            pass
+
+    def _on_dark_mode(self, sender, args):
+        try:
+            from System.Windows import ResourceDictionary
+            from System import Uri, UriKind
+            # Load dark theme resources
+            dark_colors = self._paths.resource_path('ColorsDark.xaml')
+            dark_styles = self._paths.resource_path('StylesDark.xaml')
+            for path in [dark_colors, dark_styles]:
+                rd = ResourceDictionary()
+                rd.Source = Uri(path, UriKind.Absolute)
+                self._win.Resources.MergedDictionaries.Add(rd)
+        except Exception as e:
+            print('[error] Dark mode:', e)
+
+    def _on_light_mode(self, sender, args):
+        try:
+            # Remove dark theme resources (assume last two dictionaries are dark)
+            md = self._win.Resources.MergedDictionaries
+            if len(md) >= 2:
+                md.RemoveAt(md.Count-1)
+                md.RemoveAt(md.Count-1)
+        except Exception as e:
+            print('[error] Light mode:', e)
+
     def _wire_burger_menu(self):
         """Configure le menu burger"""
         try:
@@ -423,6 +477,47 @@ class MainWindowController(object):
                 self._win.BurgerButton.Click += self._toggle_burger_menu
             if hasattr(self._win, 'CloseBurgerButton'):
                 self._win.CloseBurgerButton.Click += self._close_burger_menu
+            if hasattr(self._win, 'BurgerMenuOverlay'):
+                self._win.BurgerMenuOverlay.MouseLeftButtonDown += self._close_burger_menu
+            
+            # Window Chrome
+            if hasattr(self._win, 'CloseWindowButton'):
+                self._win.CloseWindowButton.Click += self._on_close_window
+            if hasattr(self._win, 'TitleBar'):
+                self._win.TitleBar.MouseLeftButtonDown += self._on_title_bar_mouse_down
+            
+            # Accordion behavior
+            self._wire_accordion()
+        except Exception:
+            pass
+
+    def _wire_accordion(self):
+        """Wire expanders to behave like an accordion (one open at a time)"""
+        expanders = []
+        for name in ['CollectionExpander', 'PDFExpander', 'DWGExpander']:
+            if hasattr(self._win, name):
+                expanders.append(getattr(self._win, name))
+        
+        def _on_expanded(sender, args):
+            for exp in expanders:
+                if exp != sender and exp.IsExpanded:
+                    exp.IsExpanded = False
+        
+        for exp in expanders:
+            try:
+                exp.Expanded += _on_expanded
+            except Exception:
+                pass
+
+    def _on_close_window(self, sender, args):
+        try:
+            self._win.Close()
+        except Exception:
+            pass
+
+    def _on_title_bar_mouse_down(self, sender, args):
+        try:
+            self._win.DragMove()
         except Exception:
             pass
 
@@ -434,11 +529,15 @@ class MainWindowController(object):
             return
         try:
             menu = getattr(self._win, 'BurgerMenu', None)
+            overlay = getattr(self._win, 'BurgerMenuOverlay', None)
+            
             if menu is not None:
                 if menu.Visibility == Visibility.Visible:
                     menu.Visibility = Visibility.Collapsed
+                    if overlay: overlay.Visibility = Visibility.Collapsed
                 else:
                     menu.Visibility = Visibility.Visible
+                    if overlay: overlay.Visibility = Visibility.Visible
         except Exception:
             pass
 
@@ -450,8 +549,12 @@ class MainWindowController(object):
             return
         try:
             menu = getattr(self._win, 'BurgerMenu', None)
+            overlay = getattr(self._win, 'BurgerMenuOverlay', None)
+            
             if menu is not None:
                 menu.Visibility = Visibility.Collapsed
+            if overlay is not None:
+                overlay.Visibility = Visibility.Collapsed
         except Exception:
             pass
 
@@ -485,6 +588,14 @@ class MainWindowController(object):
     def initialize(self):
         # Build visual tree and bind
         self._merge_and_bind()
+        # Detect Revit theme (light/dark)
+        try:
+            from Autodesk.Revit.UI import UIThemeManager, UITheme
+            theme = UIThemeManager.CurrentTheme
+        except Exception:
+            theme = 'light'
+        if theme == UITheme.Dark:
+            self._on_dark_mode(None, None)
         # Populate UI
         self._load_param_combos()
         self._name_comp.refresh_buttons(self._win)
@@ -497,6 +608,8 @@ class MainWindowController(object):
         self._wire_naming_buttons()
         self._wire_grid_click()
         self._wire_export()
+        self._wire_help_button()
+        self._wire_dark_mode_toggle()
         self._wire_burger_menu()
 
     def show(self):

@@ -3,7 +3,12 @@
         Title="418 : Exportation des jeux"
         MinHeight="710" MinWidth="950"
         Height="710" Width="950"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        BorderThickness="1">
 
   <Window.Resources>
     <ResourceDictionary>
@@ -12,116 +17,166 @@
     </ResourceDictionary>
   </Window.Resources>
 
-  <Grid>
+  <Border CornerRadius="8" Background="{DynamicResource WindowBackgroundBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1">
+    <Grid>
     <Grid.RowDefinitions>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
     </Grid.RowDefinitions>
 
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="*"/>
-    </Grid.ColumnDefinitions>
-
-    <!-- En-tête avec bouton burger -->
-    <Grid Grid.Row="0" Grid.ColumnSpan="2">
+    <!-- Custom Title Bar -->
+    <Grid Grid.Row="0" Name="TitleBar" Background="Transparent" Margin="0">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
       </Grid.ColumnDefinitions>
       
-      <!-- Bouton burger -->
+      <!-- Bouton burger (déplacé dans la barre de titre) -->
       <Button Name="BurgerButton" 
               Grid.Column="0"
               Width="40" Height="40"
-              Margin="8"
+              Margin="4,4,0,0"
               Background="Transparent"
-              BorderThickness="1"
-              BorderBrush="Gray"
+              BorderThickness="0"
               Cursor="Hand"
               ToolTip="Paramètres et options d'export">
-        <TextBlock Text="☰" FontSize="20" FontWeight="Bold" Foreground="#333"/>
+        <TextBlock Text="☰" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
       </Button>
-      
+
       <TextBlock Text="418 : Exportation des jeux"
                  Grid.Column="1"
-                 FontSize="23"
-                 Margin="8"
+                 Style="{DynamicResource HeaderTextBlockStyle}"
+                 Margin="12,0,0,0"
                  VerticalAlignment="Center"/>
+
+      <Button Name="CloseWindowButton" 
+              Grid.Column="2" 
+              Content="✕" 
+              Width="40" Height="40" 
+              Margin="0,4,4,0"
+              VerticalAlignment="Top"
+              Background="Transparent" 
+              BorderThickness="0" 
+              Foreground="{DynamicResource TextPrimaryBrush}"
+              FontSize="16" 
+              Cursor="Hand">
+         <Button.Template>
+             <ControlTemplate TargetType="Button">
+                 <Border x:Name="border" Background="{TemplateBinding Background}">
+                     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                 </Border>
+                 <ControlTemplate.Triggers>
+                     <Trigger Property="IsMouseOver" Value="True">
+                         <Setter TargetName="border" Property="Background" Value="#FFE81123"/>
+                         <Setter Property="Foreground" Value="White"/>
+                     </Trigger>
+                 </ControlTemplate.Triggers>
+             </ControlTemplate>
+         </Button.Template>
+      </Button>
     </Grid>
 
-    <!-- Menu burger (panneau coulissant) -->
-    <Border Name="BurgerMenu"
-            Grid.Row="0" Grid.RowSpan="4"
-            Width="320"
-            HorizontalAlignment="Left"
-            Background="White"
-            BorderThickness="0,0,1,0"
-            BorderBrush="LightGray"
-            Panel.ZIndex="1000"
-            Visibility="Collapsed">
-      <Border.Effect>
-        <DropShadowEffect ShadowDepth="3" BlurRadius="10" Opacity="0.3"/>
-      </Border.Effect>
-      
-      <Grid>
-        <Grid.RowDefinitions>
-          <RowDefinition Height="Auto"/>
-          <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+    <!-- Main Content -->
+    <Grid Grid.Row="1" Margin="12">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+
+      <!-- Overlay for Burger Menu -->
+      <Border Name="BurgerMenuOverlay"
+              Grid.Row="0" Grid.RowSpan="4"
+              Background="#80000000"
+              Panel.ZIndex="999"
+              Visibility="Collapsed"
+              Margin="-12"/>
+
+      <!-- Menu burger (panneau coulissant) -->
+      <Border Name="BurgerMenu"
+              Grid.Row="0" Grid.RowSpan="4"
+              Width="320"
+              HorizontalAlignment="Left"
+              Background="{DynamicResource CardBackgroundBrush}"
+              BorderThickness="0,0,1,0"
+              BorderBrush="{DynamicResource ControlBorderBrush}"
+              Panel.ZIndex="1000"
+              Visibility="Collapsed"
+              Margin="-12,-12,0,-12">
+        <Border.Effect>
+          <DropShadowEffect ShadowDepth="4" BlurRadius="16" Opacity="0.2"/>
+        </Border.Effect>
         
-        <!-- En-tête du menu -->
-        <Border Grid.Row="0" Background="#f5f5f5" BorderThickness="0,0,0,1" BorderBrush="LightGray">
-          <Grid>
-            <TextBlock Text="Paramètres" FontSize="16" FontWeight="Bold" Margin="16,12" VerticalAlignment="Center"/>
-            <Button Name="CloseBurgerButton" 
-                    Content="×" 
-                    FontSize="24"
-                    Width="40" Height="40"
-                    HorizontalAlignment="Right"
-                    Background="Transparent"
-                    BorderThickness="0"
-                    Cursor="Hand"/>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          
+          <!-- En-tête du menu -->
+          <Border Grid.Row="0" Background="{DynamicResource MicaBackgroundBrush}" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource ControlBorderBrush}" Padding="16">
+            <Grid>
+              <TextBlock Text="Paramètres" Style="{DynamicResource SubHeaderTextBlockStyle}" VerticalAlignment="Center"/>
+              <Button Name="CloseBurgerButton" 
+                      Content="×" 
+                      FontSize="24"
+                      Width="32" Height="32"
+                      HorizontalAlignment="Right"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      Cursor="Hand"
+                      Foreground="{DynamicResource TextPrimaryBrush}"/>
+            </Grid>
+          </Border>
+          
+          <!-- Contenu du menu -->
+          <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="*"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+              <StackPanel Margin="16">
+                <ContentControl x:Name="ParameterSelectorHost"
+                                Template="{DynamicResource ParameterSelectorTemplate}"/>
+                <ContentControl x:Name="ExportOptionsHost"
+                                Margin="0,16,0,0"
+                                Template="{DynamicResource ExportOptionsTemplate}"/>
+              </StackPanel>
+            </ScrollViewer>
           </Grid>
-        </Border>
-        
-        <!-- Contenu du menu -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-          <StackPanel Margin="12">
-            <ContentControl x:Name="ParameterSelectorHost"
-                            Template="{DynamicResource ParameterSelectorTemplate}"/>
-            <ContentControl x:Name="ExportOptionsHost"
-                            Margin="0,12,0,0"
-                            Template="{DynamicResource ExportOptionsTemplate}"/>
-          </StackPanel>
-        </ScrollViewer>
-      </Grid>
-    </Border>
+        </Grid>
+      </Border>
 
-    <!-- Zone de destination -->
-    <Border Style="{DynamicResource StyledBorder}"
-            Grid.Row="1"
-            Margin="8">
-      <ContentControl x:Name="DestinationPickerHost"
-                      Template="{DynamicResource DestinationPickerTemplate}"/>
-    </Border>
+      <!-- Zone de destination -->
+      <Border Style="{DynamicResource StyledBorder}"
+              Grid.Row="1">
+        <ContentControl x:Name="DestinationPickerHost"
+                        Template="{DynamicResource DestinationPickerTemplate}"/>
+      </Border>
 
-    <!-- Zone de nommage -->
-    <Border Style="{DynamicResource StyledBorder}"
-            Grid.Row="2"
-            Margin="8">
-      <ContentControl x:Name="NamingConfigHost"
-                      Template="{DynamicResource NamingConfigTemplate}"/>
-    </Border>
+      <!-- Zone de nommage -->
+      <Border Style="{DynamicResource StyledBorder}"
+              Grid.Row="2">
+        <ContentControl x:Name="NamingConfigHost"
+                        Template="{DynamicResource NamingConfigTemplate}"/>
+      </Border>
 
-    <!-- Zone recapitulatif + progression -->
-    <Border Style="{DynamicResource StyledBorder}"
-            Grid.Row="3"
-            Margin="8">
-      <ContentControl x:Name="CollectionPreviewHost"
-                      Template="{DynamicResource CollectionPreviewTemplate}"/>
-    </Border>
+      <!-- Zone recapitulatif + progression -->
+      <Border Style="{DynamicResource StyledBorder}"
+              Grid.Row="3"
+              Margin="0,0,0,0">
+        <ContentControl x:Name="CollectionPreviewHost"
+                        Template="{DynamicResource CollectionPreviewTemplate}"/>
+      </Border>
 
-  </Grid>
+    </Grid>
+    </Grid>
+  </Border>
 </Window>

@@ -5,11 +5,13 @@
       <!-- PDF options -->
       <Expander Header="PDF"
                 Name="PDFExpander"
+                Style="{DynamicResource NavigationExpanderStyle}"
                 IsExpanded="False"
-                ExpandDirection="Down"
-                Margin="0,0,8,0">
+                ExpandDirection="Down">
         <StackPanel Orientation="Vertical">
-          <TextBlock Text="Réglage PDF" Margin="0,0,0,4"/>
+          <TextBlock Text="Réglage PDF"
+                      Foreground="{DynamicResource TextPrimaryBrush}"
+                      Margin="0,0,0,4"/>
           <DockPanel LastChildFill="True">
             <ComboBox Name="PDFSetupCombo" MinWidth="160"/>
             <!-- Bouton de création optionnel -->
@@ -20,11 +22,13 @@
       <!-- DWG options -->
       <Expander Header="DWG"
                 Name="DWGExpander"
+                Style="{DynamicResource NavigationExpanderStyle}"
                 IsExpanded="False"
-                ExpandDirection="Down"
-                Margin="0,0,8,0">
+                ExpandDirection="Down">
         <StackPanel Orientation="Vertical">
-          <TextBlock Text="Réglage DWG" Margin="0,0,0,4"/>
+          <TextBlock Text="Réglage DWG"
+                      Foreground="{DynamicResource TextPrimaryBrush}"
+                      Margin="0,0,0,4"/>
           <DockPanel LastChildFill="True">
             <ComboBox Name="DWGSetupCombo" MinWidth="160"/>
             <!-- <Button Name="DWGCreateButton" Content="Créer réglage…" DockPanel.Dock="Right" Margin="8,0,0,0"/> -->

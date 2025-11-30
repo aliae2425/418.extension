@@ -37,6 +37,28 @@ def _get_naming_xaml_path():
 class PikerWindow(forms.WPFWindow):
     def __init__(self, kind='sheet', title=u"Piker"):
         forms.WPFWindow.__init__(self, _get_naming_xaml_path())
+
+        # Inject resources manually to avoid relative path issues in XAML
+        try:
+            from System import Uri, UriKind
+            from System.Windows import ResourceDictionary
+            from Autodesk.Revit.UI import UIThemeManager, UITheme
+            from ...core.AppPaths import AppPaths
+            paths = AppPaths()
+            theme = UIThemeManager.CurrentTheme
+            if theme == UITheme.Dark:
+                files = ['ColorsDark.xaml', 'StylesDark.xaml']
+            else:
+                files = ['Colors.xaml', 'Styles.xaml']
+            for filename in files:
+                path = paths.resource_path(filename)
+                if os.path.exists(path):
+                    rd = ResourceDictionary()
+                    rd.Source = Uri(path, UriKind.Absolute)
+                    self.Resources.MergedDictionaries.Add(rd)
+        except Exception as e:
+            print('[warning] Could not load resources:', e)
+
         self._kind = kind  # 'sheet' | 'set'
         try:
             self.Title = title
@@ -73,6 +95,12 @@ class PikerWindow(forms.WPFWindow):
                 self.ScopeCombo.SelectionChanged += self._on_scope_changed
             if hasattr(self, 'SearchBox'):
                 self.SearchBox.TextChanged += self._on_search_changed
+            
+            # Window Chrome
+            if hasattr(self, 'CloseWindowButton'):
+                self.CloseWindowButton.Click += self._on_close_window
+            if hasattr(self, 'TitleBar'):
+                self.TitleBar.MouseLeftButtonDown += self._on_title_bar_mouse_down
         except Exception:
             pass
         # Load existing rows
@@ -236,6 +264,15 @@ class PikerWindow(forms.WPFWindow):
         self._refresh_preview()
 
     # Internals
+    def _on_close_window(self, sender, args):
+        self.Close()
+
+    def _on_title_bar_mouse_down(self, sender, args):
+        try:
+            self.DragMove()
+        except Exception:
+            pass
+
     def _on_ok(self, sender, args):
         patt = self._build_pattern_from_rows(self._selected_rows)
         _naming_store().save(self._kind, patt, self._selected_rows)
