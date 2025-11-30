@@ -9,7 +9,9 @@
       <!-- ═══════════════════════════════════════════════════════════════ -->
       <!-- EN-TÊTE ET PROGRESSION -->
       <!-- ═══════════════════════════════════════════════════════════════ -->
-      <TextBlock Text="Recapitulatif : " FontWeight="Bold" Margin="0,0,0,6"/>
+      <TextBlock Text="Recapitulatif : " 
+                  Foreground="{DynamicResource TextPrimaryBrush}"
+                  FontWeight="Bold" Margin="0,0,0,6"/>
       
       <!-- Barre de progression de l'export -->
       <ProgressBar Name="ExportProgressBar"

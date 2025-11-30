@@ -150,12 +150,6 @@
                                 Template="{DynamicResource ExportOptionsTemplate}"/>
               </StackPanel>
             </ScrollViewer>
-            <ToggleButton Grid.Row="1" Name="DarkModeToggle" Margin="16,8,16,16" Height="32" VerticalAlignment="Bottom"
-                          Content="Mode sombre" FontWeight="SemiBold" FontSize="14"
-                          Background="{DynamicResource ControlFillBrush}"
-                          BorderBrush="{DynamicResource ControlBorderBrush}"
-                          BorderThickness="1"
-                          Foreground="{DynamicResource TextPrimaryBrush}"/>
           </Grid>
         </Grid>
       </Border>

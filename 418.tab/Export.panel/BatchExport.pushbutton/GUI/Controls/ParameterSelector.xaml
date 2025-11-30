@@ -65,13 +65,19 @@
                      Visibility="Collapsed"
                      Text="Les trois paramètres doivent être uniques pour activer l'export."/>
             <!-- Section 1: Exportation -->
-            <TextBlock Text="Exportation" Margin="0,0,0,4"/>
+            <TextBlock Text="Exportation" 
+                      Foreground="{DynamicResource TextPrimaryBrush}"
+                      Margin="0,0,0,4"/>
             <ComboBox Name="ExportationCombo" MinWidth="50"/>
             <!-- Section 2: Carnet -->
-            <TextBlock Text="Export PDF compilé" Margin="0,0,0,4"/>
+            <TextBlock Text="Export PDF compilé"
+                      Foreground="{DynamicResource TextPrimaryBrush}"
+                      Margin="0,0,0,4"/>
             <ComboBox Name="CarnetCombo" MinWidth="50"/>
             <!-- Section 3: DWG -->
-            <TextBlock Text="Export en DWG" Margin="0,0,0,4"/>
+            <TextBlock Text="Export en DWG"
+                      Foreground="{DynamicResource TextPrimaryBrush}"
+                      Margin="0,0,0,4"/>
             <ComboBox Name="DWGCombo" MinWidth="50"/>
           </StackPanel>
         </Expander>
