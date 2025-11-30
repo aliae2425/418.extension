@@ -5,8 +5,8 @@
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
         ResizeMode="NoResize"
-        Background="{DynamicResource WindowBackgroundBrush}"
-        BorderBrush="{DynamicResource ControlBorderBrush}"
+        AllowsTransparency="True"
+        Background="Transparent"
         BorderThickness="1">
   
   <Window.Resources>
@@ -15,7 +15,8 @@
     </ResourceDictionary>
   </Window.Resources>
 
-  <Grid>
+  <Border CornerRadius="8" Background="{DynamicResource WindowBackgroundBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1">
+    <Grid>
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
@@ -169,5 +170,6 @@
         </StackPanel>
       </Border>
     </Grid>
-  </Grid>
+    </Grid>
+  </Border>
 </Window>
