@@ -590,11 +590,11 @@ class MainWindowController(object):
         self._merge_and_bind()
         # Detect Revit theme (light/dark)
         try:
-            from pyrevit import EXEC_PARAMS
-            theme = getattr(EXEC_PARAMS, 'theme', 'light')
+            from Autodesk.Revit.UI import UIThemeManager, UITheme
+            theme = UIThemeManager.CurrentTheme
         except Exception:
             theme = 'light'
-        if theme == 'dark':
+        if theme == UITheme.Dark:
             self._on_dark_mode(None, None)
         # Populate UI
         self._load_param_combos()

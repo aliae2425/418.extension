@@ -42,15 +42,16 @@ class PikerWindow(forms.WPFWindow):
         try:
             from System import Uri, UriKind
             from System.Windows import ResourceDictionary
-            
-            naming_path = _get_naming_xaml_path()
-            # naming_path is .../GUI/Views/naming.xaml
-            # we want .../GUI/resources/
-            gui_dir = os.path.dirname(os.path.dirname(naming_path))
-            res_dir = os.path.join(gui_dir, 'resources')
-            
-            for filename in ['Colors.xaml', 'Styles.xaml']:
-                path = os.path.join(res_dir, filename)
+            from Autodesk.Revit.UI import UIThemeManager, UITheme
+            from ...core.AppPaths import AppPaths
+            paths = AppPaths()
+            theme = UIThemeManager.CurrentTheme
+            if theme == UITheme.Dark:
+                files = ['ColorsDark.xaml', 'StylesDark.xaml']
+            else:
+                files = ['Colors.xaml', 'Styles.xaml']
+            for filename in files:
+                path = paths.resource_path(filename)
                 if os.path.exists(path):
                     rd = ResourceDictionary()
                     rd.Source = Uri(path, UriKind.Absolute)
