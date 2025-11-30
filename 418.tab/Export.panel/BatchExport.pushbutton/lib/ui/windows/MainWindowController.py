@@ -70,7 +70,7 @@ class MainWindowController(object):
         hosts = {
             'ParameterSelectorHost': [
                 'CollectionExpander', 'ParamWarningText', 'UniqueErrorText',
-                'ExportationCombo', 'CarnetCombo', 'DWGCombo', 'HelpButton'
+                'ExportationCombo', 'CarnetCombo', 'DWGCombo', 'HelpButton', 'DarkModeToggle'
             ],
             'ExportOptionsHost': [
                 'PDFExpander', 'PDFSetupCombo', 'PDFSeparateCheck', 'PDFCreateButton',
@@ -438,6 +438,38 @@ class MainWindowController(object):
         except Exception:
             pass
 
+    def _wire_dark_mode_toggle(self):
+        try:
+            if hasattr(self._win, 'DarkModeToggle'):
+                self._win.DarkModeToggle.Checked += self._on_dark_mode
+                self._win.DarkModeToggle.Unchecked += self._on_light_mode
+        except Exception:
+            pass
+
+    def _on_dark_mode(self, sender, args):
+        try:
+            from System.Windows import ResourceDictionary
+            from System import Uri, UriKind
+            # Load dark theme resources
+            dark_colors = self._paths.resource_path('ColorsDark.xaml')
+            dark_styles = self._paths.resource_path('StylesDark.xaml')
+            for path in [dark_colors, dark_styles]:
+                rd = ResourceDictionary()
+                rd.Source = Uri(path, UriKind.Absolute)
+                self._win.Resources.MergedDictionaries.Add(rd)
+        except Exception as e:
+            print('[error] Dark mode:', e)
+
+    def _on_light_mode(self, sender, args):
+        try:
+            # Remove dark theme resources (assume last two dictionaries are dark)
+            md = self._win.Resources.MergedDictionaries
+            if len(md) >= 2:
+                md.RemoveAt(md.Count-1)
+                md.RemoveAt(md.Count-1)
+        except Exception as e:
+            print('[error] Light mode:', e)
+
     def _wire_burger_menu(self):
         """Configure le menu burger"""
         try:
@@ -556,6 +588,14 @@ class MainWindowController(object):
     def initialize(self):
         # Build visual tree and bind
         self._merge_and_bind()
+        # Detect Revit theme (light/dark)
+        try:
+            from pyrevit import EXEC_PARAMS
+            theme = getattr(EXEC_PARAMS, 'theme', 'light')
+        except Exception:
+            theme = 'light'
+        if theme == 'dark':
+            self._on_dark_mode(None, None)
         # Populate UI
         self._load_param_combos()
         self._name_comp.refresh_buttons(self._win)
@@ -569,6 +609,7 @@ class MainWindowController(object):
         self._wire_grid_click()
         self._wire_export()
         self._wire_help_button()
+        self._wire_dark_mode_toggle()
         self._wire_burger_menu()
 
     def show(self):

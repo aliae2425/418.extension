@@ -136,15 +136,27 @@
           </Border>
           
           <!-- Contenu du menu -->
-          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="16">
-              <ContentControl x:Name="ParameterSelectorHost"
-                              Template="{DynamicResource ParameterSelectorTemplate}"/>
-              <ContentControl x:Name="ExportOptionsHost"
-                              Margin="0,16,0,0"
-                              Template="{DynamicResource ExportOptionsTemplate}"/>
-            </StackPanel>
-          </ScrollViewer>
+          <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="*"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+              <StackPanel Margin="16">
+                <ContentControl x:Name="ParameterSelectorHost"
+                                Template="{DynamicResource ParameterSelectorTemplate}"/>
+                <ContentControl x:Name="ExportOptionsHost"
+                                Margin="0,16,0,0"
+                                Template="{DynamicResource ExportOptionsTemplate}"/>
+              </StackPanel>
+            </ScrollViewer>
+            <ToggleButton Grid.Row="1" Name="DarkModeToggle" Margin="16,8,16,16" Height="32" VerticalAlignment="Bottom"
+                          Content="Mode sombre" FontWeight="SemiBold" FontSize="14"
+                          Background="{DynamicResource ControlFillBrush}"
+                          BorderBrush="{DynamicResource ControlBorderBrush}"
+                          BorderThickness="1"
+                          Foreground="{DynamicResource TextPrimaryBrush}"/>
+          </Grid>
         </Grid>
       </Border>
 
