@@ -89,6 +89,14 @@
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
 
+      <!-- Overlay for Burger Menu -->
+      <Border Name="BurgerMenuOverlay"
+              Grid.Row="0" Grid.RowSpan="4"
+              Background="#80000000"
+              Panel.ZIndex="999"
+              Visibility="Collapsed"
+              Margin="-12"/>
+
       <!-- Menu burger (panneau coulissant) -->
       <Border Name="BurgerMenu"
               Grid.Row="0" Grid.RowSpan="4"
@@ -99,7 +107,7 @@
               BorderBrush="{DynamicResource ControlBorderBrush}"
               Panel.ZIndex="1000"
               Visibility="Collapsed"
-              Margin="-12,0,0,-12">
+              Margin="-12,-12,0,-12">
         <Border.Effect>
           <DropShadowEffect ShadowDepth="4" BlurRadius="16" Opacity="0.2"/>
         </Border.Effect>

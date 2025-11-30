@@ -70,7 +70,7 @@ class MainWindowController(object):
         hosts = {
             'ParameterSelectorHost': [
                 'CollectionExpander', 'ParamWarningText', 'UniqueErrorText',
-                'ExportationCombo', 'CarnetCombo', 'DWGCombo'
+                'ExportationCombo', 'CarnetCombo', 'DWGCombo', 'HelpButton'
             ],
             'ExportOptionsHost': [
                 'PDFExpander', 'PDFSetupCombo', 'PDFSeparateCheck', 'PDFCreateButton',
@@ -416,6 +416,28 @@ class MainWindowController(object):
         except Exception:
             pass
 
+    def _wire_help_button(self):
+        try:
+            if hasattr(self._win, 'HelpButton'):
+                self._win.HelpButton.Click += self._on_help_click
+        except Exception:
+            pass
+
+    def _on_help_click(self, sender, args):
+        try:
+            from .HelpWindow import show_help
+            content = (
+                "Les paramètres de feuille permettent de contrôler quels jeux de feuilles sont exportés et comment.\n\n"
+                "• Exportation : Paramètre Oui/Non pour activer l'export de la feuille.\n"
+                "• Export PDF compilé : Paramètre Oui/Non pour inclure la feuille dans un carnet PDF unique.\n"
+                "• Export en DWG : Paramètre Oui/Non pour générer également un fichier DWG pour cette feuille.\n\n"
+                "Ces paramètres doivent être créés dans votre projet Revit en tant que paramètres de projet ou partagés, "
+                "appliqués à la catégorie 'Feuilles'."
+            )
+            show_help(content)
+        except Exception:
+            pass
+
     def _wire_burger_menu(self):
         """Configure le menu burger"""
         try:
@@ -423,6 +445,8 @@ class MainWindowController(object):
                 self._win.BurgerButton.Click += self._toggle_burger_menu
             if hasattr(self._win, 'CloseBurgerButton'):
                 self._win.CloseBurgerButton.Click += self._close_burger_menu
+            if hasattr(self._win, 'BurgerMenuOverlay'):
+                self._win.BurgerMenuOverlay.MouseLeftButtonDown += self._close_burger_menu
             
             # Window Chrome
             if hasattr(self._win, 'CloseWindowButton'):
@@ -473,11 +497,15 @@ class MainWindowController(object):
             return
         try:
             menu = getattr(self._win, 'BurgerMenu', None)
+            overlay = getattr(self._win, 'BurgerMenuOverlay', None)
+            
             if menu is not None:
                 if menu.Visibility == Visibility.Visible:
                     menu.Visibility = Visibility.Collapsed
+                    if overlay: overlay.Visibility = Visibility.Collapsed
                 else:
                     menu.Visibility = Visibility.Visible
+                    if overlay: overlay.Visibility = Visibility.Visible
         except Exception:
             pass
 
@@ -489,8 +517,12 @@ class MainWindowController(object):
             return
         try:
             menu = getattr(self._win, 'BurgerMenu', None)
+            overlay = getattr(self._win, 'BurgerMenuOverlay', None)
+            
             if menu is not None:
                 menu.Visibility = Visibility.Collapsed
+            if overlay is not None:
+                overlay.Visibility = Visibility.Collapsed
         except Exception:
             pass
 
@@ -536,6 +568,7 @@ class MainWindowController(object):
         self._wire_naming_buttons()
         self._wire_grid_click()
         self._wire_export()
+        self._wire_help_button()
         self._wire_burger_menu()
 
     def show(self):

@@ -2,14 +2,53 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <ControlTemplate x:Key="ParameterSelectorTemplate" TargetType="ContentControl">
     <StackPanel Orientation="Vertical" Margin="0">
-        <TextBlock Text="Paramètres" FontWeight="Bold" Margin="0,0,0,6"/>
         <!-- Jeu de feuilles / paramètres booléens -->
-        <Expander Header="Jeu de feuilles"
+        <Expander Header="Paramètres du plugin"
                   Name="CollectionExpander"
                   Style="{DynamicResource NavigationExpanderStyle}"
                   IsExpanded="False"
                   ExpandDirection="Down">
           <StackPanel Orientation="Vertical">
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           TextWrapping="Wrap"
+                           FontSize="11"
+                           VerticalAlignment="Center"
+                           Text="Sélectionnez les paramètres Revit (Oui/Non) qui contrôleront les actions d'export des jeux de feuilles."/>
+                <Button Grid.Column="1"
+                        Name="HelpButton"
+                        Content="?"
+                        Width="20" Height="20"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Top"
+                        Background="Transparent"
+                        BorderBrush="{DynamicResource ControlBorderBrush}"
+                        BorderThickness="1"
+                        Foreground="{DynamicResource TextPrimaryBrush}"
+                        Cursor="Hand"
+                        ToolTip="Aide">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}" 
+                                    BorderBrush="{TemplateBinding BorderBrush}" 
+                                    BorderThickness="{TemplateBinding BorderThickness}" 
+                                    CornerRadius="10">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource ControlMouseOverBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </Grid>
             <TextBlock Name="ParamWarningText"
                        Foreground="Red"
                        FontStyle="Italic"
@@ -26,13 +65,13 @@
                      Visibility="Collapsed"
                      Text="Les trois paramètres doivent être uniques pour activer l'export."/>
             <!-- Section 1: Exportation -->
-            <TextBlock Text="Paramètre Exportation" Margin="0,0,0,4"/>
+            <TextBlock Text="Exportation" Margin="0,0,0,4"/>
             <ComboBox Name="ExportationCombo" MinWidth="50"/>
             <!-- Section 2: Carnet -->
-            <TextBlock Text="Paramètre Carnet" Margin="0,0,0,4"/>
+            <TextBlock Text="Export PDF compilé" Margin="0,0,0,4"/>
             <ComboBox Name="CarnetCombo" MinWidth="50"/>
             <!-- Section 3: DWG -->
-            <TextBlock Text="Paramètre DWG" Margin="0,0,0,4"/>
+            <TextBlock Text="Export en DWG" Margin="0,0,0,4"/>
             <ComboBox Name="DWGCombo" MinWidth="50"/>
           </StackPanel>
         </Expander>
