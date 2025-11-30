@@ -3,7 +3,11 @@
         Title="Piker"
         Height="520" Width="840"
         WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource WindowBackgroundBrush}">
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        Background="{DynamicResource WindowBackgroundBrush}"
+        BorderBrush="{DynamicResource ControlBorderBrush}"
+        BorderThickness="1">
   
   <Window.Resources>
     <ResourceDictionary>
@@ -11,114 +15,159 @@
     </ResourceDictionary>
   </Window.Resources>
 
-  <Grid Margin="12">
+  <Grid>
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
-      <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
 
-    <TextBlock Name="TitleText" Text="Configuration du nommage" Style="{DynamicResource HeaderTextBlockStyle}" Margin="0,0,0,12"/>
-
-    <!-- zoneCentrale: gauche = filtres + paramètres; centre = boutons; droite = DataGrid des paramètres choisis -->
-    <Grid Grid.Row="1" Margin="0,0,0,12">
+    <!-- Custom Title Bar -->
+    <Grid Grid.Row="0" Name="TitleBar" Background="Transparent" Margin="0">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="280"/>
-        <ColumnDefinition Width="80"/>
         <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
       </Grid.ColumnDefinitions>
+      
+      <TextBlock Name="TitleText" 
+                 Text="Configuration du nommage" 
+                 Style="{DynamicResource HeaderTextBlockStyle}" 
+                 Margin="16,16,0,0"
+                 VerticalAlignment="Center"/>
 
-      <!-- leftSection refactor: layout fluide sans hauteur fixe -->
-      <Border Grid.Column="0" Style="{DynamicResource CardStyle}" Margin="0,0,8,0">
-        <Grid>
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-          </Grid.RowDefinitions>
-          <TextBlock Grid.Row="0" Text="Source des paramètres" FontWeight="Bold" Margin="0,0,0,8"/>
-          <ComboBox Grid.Row="1" Name="ScopeCombo" Margin="0,0,0,8">
-            <ComboBoxItem Content="Tout" IsSelected="True"/>
-            <ComboBoxItem Content="Projet"/>
-            <ComboBoxItem Content="Collection"/>
-            <ComboBoxItem Content="Feuille"/>
-          </ComboBox>
-          <TextBox Grid.Row="2" Name="SearchBox" Margin="0,0,0,8" ToolTip="Rechercher un paramètre..."/>
-          <TextBlock Grid.Row="3" Text="Paramètres disponibles" FontWeight="Bold" Margin="0,4,0,4"/>
-          <ListBox Grid.Row="4" Name="AvailableParamsList" MouseDoubleClick="AvailableParamsList_DoubleClick" BorderThickness="1" BorderBrush="{DynamicResource ControlBorderBrush}"/>
-        </Grid>
-      </Border>
-
-      <!-- middleButtons: actions ajouter / retirer -->
-      <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center">
-        <Button Name="AddParamButton" Content="Ajouter →" Width="74" Margin="0,0,0,8"/>
-        <Button Name="RemoveParamButton" Content="← Supprimer" Width="74"/>
-      </StackPanel>
-
-      <!-- rightGrid refactor: remplacement DataGrid par ListBox item template, layout fluide -->
-      <Border Grid.Column="2" Style="{DynamicResource CardStyle}">
-        <Grid>
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-          </Grid.RowDefinitions>
-          <TextBlock Grid.Row="0" Text="Paramètres choisis" FontWeight="Bold" Margin="0,0,0,8"/>
-          <ListBox Grid.Row="1" Name="SelectedParamsList" MouseDoubleClick="SelectedParamsList_DoubleClick" BorderThickness="1" BorderBrush="{DynamicResource ControlBorderBrush}">
-            <ListBox.ItemContainerStyle>
-              <Style TargetType="ListBoxItem">
-                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                <Setter Property="Padding" Value="4"/>
-              </Style>
-            </ListBox.ItemContainerStyle>
-            <ListBox.ItemTemplate>
-              <DataTemplate>
-                <Grid Margin="0,2">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                  </Grid.ColumnDefinitions>
-                  <TextBox Grid.Column="0" Margin="0,0,4,0" HorizontalAlignment="Stretch"
-                           Text="{Binding [Prefix], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                           LostFocus="ParamCell_LostFocus"
-                           TextChanged="ParamCell_TextChanged"/>
-                  <TextBlock Grid.Column="1" Text="{Binding [Name]}" VerticalAlignment="Center" Margin="4,0" FontWeight="SemiBold"/>
-                  <TextBox Grid.Column="2" Margin="4,0,0,0" HorizontalAlignment="Stretch"
-                           Text="{Binding [Suffix], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                           LostFocus="ParamCell_LostFocus"
-                           TextChanged="ParamCell_TextChanged"/>
-                </Grid>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-          <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-            <Button Name="MoveTopButton" Content="⏫" Width="40" Margin="0,0,4,0" Click="MoveTopButton_Click" ToolTip="Déplacer tout en haut"/>
-            <Button Name="MoveUpButton" Content="🔼" Width="40" Margin="0,0,4,0" Click="MoveUpButton_Click"/>
-            <Button Name="MoveDownButton" Content="🔽" Width="40" Margin="0,0,4,0" Click="MoveDownButton_Click"/>
-            <Button Name="MoveBottomButton" Content="⏬" Width="40" Click="MoveBottomButton_Click" ToolTip="Déplacer tout en bas"/>
-          </StackPanel>
-        </Grid>
-      </Border>
+      <Button Name="CloseWindowButton" 
+              Grid.Column="1" 
+              Content="✕" 
+              Width="40" Height="40" 
+              Margin="0,4,4,0"
+              VerticalAlignment="Top"
+              Background="Transparent" 
+              BorderThickness="0" 
+              Foreground="{DynamicResource TextPrimaryBrush}"
+              FontSize="16" 
+              Cursor="Hand">
+         <Button.Template>
+             <ControlTemplate TargetType="Button">
+                 <Border x:Name="border" Background="{TemplateBinding Background}">
+                     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                 </Border>
+                 <ControlTemplate.Triggers>
+                     <Trigger Property="IsMouseOver" Value="True">
+                         <Setter TargetName="border" Property="Background" Value="#FFE81123"/>
+                         <Setter Property="Foreground" Value="White"/>
+                     </Trigger>
+                 </ControlTemplate.Triggers>
+             </ControlTemplate>
+         </Button.Template>
+      </Button>
     </Grid>
 
-    <!-- Aperçu du pattern résultant -->
-    <Border Grid.Row="2" Style="{DynamicResource CardStyle}">
-      <StackPanel Orientation="Vertical">
-        <TextBlock Text="Aperçu" FontWeight="Bold" Margin="0,0,0,4"/>
-        <TextBlock Text="Chaque ligne génère: Préfix + {Paramètre} + Suffix. L'ensemble est concaténé." 
-                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
-        <Border Background="{DynamicResource ControlFillBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="8">
-             <TextBlock Name="PatternPreviewText" Text="" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Consolas"/>
+    <!-- Main Content -->
+    <Grid Grid.Row="1" Margin="16,8,16,16">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <!-- zoneCentrale: gauche = filtres + paramètres; centre = boutons; droite = DataGrid des paramètres choisis -->
+      <Grid Grid.Row="0" Margin="0,0,0,12">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="280"/>
+          <ColumnDefinition Width="80"/>
+          <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- leftSection refactor: layout fluide sans hauteur fixe -->
+        <Border Grid.Column="0" Style="{DynamicResource CardStyle}" Margin="0,0,8,0">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="Source des paramètres" FontWeight="Bold" Margin="0,0,0,8"/>
+            <ComboBox Grid.Row="1" Name="ScopeCombo" Margin="0,0,0,8">
+              <ComboBoxItem Content="Tout" IsSelected="True"/>
+              <ComboBoxItem Content="Projet"/>
+              <ComboBoxItem Content="Collection"/>
+              <ComboBoxItem Content="Feuille"/>
+            </ComboBox>
+            <TextBox Grid.Row="2" Name="SearchBox" Margin="0,0,0,8" ToolTip="Rechercher un paramètre..."/>
+            <TextBlock Grid.Row="3" Text="Paramètres disponibles" FontWeight="Bold" Margin="0,4,0,4"/>
+            <ListBox Grid.Row="4" Name="AvailableParamsList" MouseDoubleClick="AvailableParamsList_DoubleClick" BorderThickness="1" BorderBrush="{DynamicResource ControlBorderBrush}"/>
+          </Grid>
         </Border>
-        
-        <DockPanel Margin="0,16,0,0" LastChildFill="False">
-          <Button Name="CancelButton" Content="Annuler" Width="100" Margin="0,0,8,0" />
-          <Button Name="OkButton" Content="OK" Width="100" Style="{DynamicResource PrimaryButtonStyle}"/>
-        </DockPanel>
-      </StackPanel>
-    </Border>
+
+        <!-- middleButtons: actions ajouter / retirer -->
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center">
+          <Button Name="AddParamButton" Content="Ajouter →" Width="74" Margin="0,0,0,8"/>
+          <Button Name="RemoveParamButton" Content="← Supprimer" Width="74"/>
+        </StackPanel>
+
+        <!-- rightGrid refactor: remplacement DataGrid par ListBox item template, layout fluide -->
+        <Border Grid.Column="2" Style="{DynamicResource CardStyle}">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="Paramètres choisis" FontWeight="Bold" Margin="0,0,0,8"/>
+            <ListBox Grid.Row="1" Name="SelectedParamsList" MouseDoubleClick="SelectedParamsList_DoubleClick" BorderThickness="1" BorderBrush="{DynamicResource ControlBorderBrush}">
+              <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                  <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                  <Setter Property="Padding" Value="4"/>
+                </Style>
+              </ListBox.ItemContainerStyle>
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <Grid Margin="0,2">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0" Margin="0,0,4,0" HorizontalAlignment="Stretch"
+                             Text="{Binding [Prefix], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             LostFocus="ParamCell_LostFocus"
+                             TextChanged="ParamCell_TextChanged"/>
+                    <TextBlock Grid.Column="1" Text="{Binding [Name]}" VerticalAlignment="Center" Margin="4,0" FontWeight="SemiBold"/>
+                    <TextBox Grid.Column="2" Margin="4,0,0,0" HorizontalAlignment="Stretch"
+                             Text="{Binding [Suffix], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             LostFocus="ParamCell_LostFocus"
+                             TextChanged="ParamCell_TextChanged"/>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+              <Button Name="MoveTopButton" Content="⏫" Width="40" Margin="0,0,4,0" Click="MoveTopButton_Click" ToolTip="Déplacer tout en haut"/>
+              <Button Name="MoveUpButton" Content="🔼" Width="40" Margin="0,0,4,0" Click="MoveUpButton_Click"/>
+              <Button Name="MoveDownButton" Content="🔽" Width="40" Margin="0,0,4,0" Click="MoveDownButton_Click"/>
+              <Button Name="MoveBottomButton" Content="⏬" Width="40" Click="MoveBottomButton_Click" ToolTip="Déplacer tout en bas"/>
+            </StackPanel>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <!-- Aperçu du pattern résultant -->
+      <Border Grid.Row="1" Style="{DynamicResource CardStyle}">
+        <StackPanel Orientation="Vertical">
+          <TextBlock Text="Aperçu" FontWeight="Bold" Margin="0,0,0,4"/>
+          <TextBlock Text="Chaque ligne génère: Préfix + {Paramètre} + Suffix. L'ensemble est concaténé." 
+                     FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+          <Border Background="{DynamicResource ControlFillBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="8">
+               <TextBlock Name="PatternPreviewText" Text="" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Consolas"/>
+          </Border>
+          
+          <DockPanel Margin="0,16,0,0" LastChildFill="False">
+            <Button Name="CancelButton" Content="Annuler" Width="100" Margin="0,0,8,0" />
+            <Button Name="OkButton" Content="OK" Width="100" Style="{DynamicResource PrimaryButtonStyle}"/>
+          </DockPanel>
+        </StackPanel>
+      </Border>
+    </Grid>
   </Grid>
 </Window>

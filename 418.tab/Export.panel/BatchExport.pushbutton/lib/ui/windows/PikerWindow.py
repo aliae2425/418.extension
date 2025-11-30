@@ -94,6 +94,12 @@ class PikerWindow(forms.WPFWindow):
                 self.ScopeCombo.SelectionChanged += self._on_scope_changed
             if hasattr(self, 'SearchBox'):
                 self.SearchBox.TextChanged += self._on_search_changed
+            
+            # Window Chrome
+            if hasattr(self, 'CloseWindowButton'):
+                self.CloseWindowButton.Click += self._on_close_window
+            if hasattr(self, 'TitleBar'):
+                self.TitleBar.MouseLeftButtonDown += self._on_title_bar_mouse_down
         except Exception:
             pass
         # Load existing rows
@@ -257,6 +263,15 @@ class PikerWindow(forms.WPFWindow):
         self._refresh_preview()
 
     # Internals
+    def _on_close_window(self, sender, args):
+        self.Close()
+
+    def _on_title_bar_mouse_down(self, sender, args):
+        try:
+            self.DragMove()
+        except Exception:
+            pass
+
     def _on_ok(self, sender, args):
         patt = self._build_pattern_from_rows(self._selected_rows)
         _naming_store().save(self._kind, patt, self._selected_rows)

@@ -423,6 +423,45 @@ class MainWindowController(object):
                 self._win.BurgerButton.Click += self._toggle_burger_menu
             if hasattr(self._win, 'CloseBurgerButton'):
                 self._win.CloseBurgerButton.Click += self._close_burger_menu
+            
+            # Window Chrome
+            if hasattr(self._win, 'CloseWindowButton'):
+                self._win.CloseWindowButton.Click += self._on_close_window
+            if hasattr(self._win, 'TitleBar'):
+                self._win.TitleBar.MouseLeftButtonDown += self._on_title_bar_mouse_down
+            
+            # Accordion behavior
+            self._wire_accordion()
+        except Exception:
+            pass
+
+    def _wire_accordion(self):
+        """Wire expanders to behave like an accordion (one open at a time)"""
+        expanders = []
+        for name in ['CollectionExpander', 'PDFExpander', 'DWGExpander']:
+            if hasattr(self._win, name):
+                expanders.append(getattr(self._win, name))
+        
+        def _on_expanded(sender, args):
+            for exp in expanders:
+                if exp != sender and exp.IsExpanded:
+                    exp.IsExpanded = False
+        
+        for exp in expanders:
+            try:
+                exp.Expanded += _on_expanded
+            except Exception:
+                pass
+
+    def _on_close_window(self, sender, args):
+        try:
+            self._win.Close()
+        except Exception:
+            pass
+
+    def _on_title_bar_mouse_down(self, sender, args):
+        try:
+            self._win.DragMove()
         except Exception:
             pass
 

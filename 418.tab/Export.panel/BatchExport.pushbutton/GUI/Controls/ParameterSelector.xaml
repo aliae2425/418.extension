@@ -6,9 +6,9 @@
         <!-- Jeu de feuilles / paramètres booléens -->
         <Expander Header="Jeu de feuilles"
                   Name="CollectionExpander"
+                  Style="{DynamicResource NavigationExpanderStyle}"
                   IsExpanded="False"
-                  ExpandDirection="Down"
-                  Margin="0,0,8,0">
+                  ExpandDirection="Down">
           <StackPanel Orientation="Vertical">
             <TextBlock Name="ParamWarningText"
                        Foreground="Red"

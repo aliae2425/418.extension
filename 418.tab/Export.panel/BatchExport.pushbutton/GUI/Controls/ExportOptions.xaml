@@ -5,9 +5,9 @@
       <!-- PDF options -->
       <Expander Header="PDF"
                 Name="PDFExpander"
+                Style="{DynamicResource NavigationExpanderStyle}"
                 IsExpanded="False"
-                ExpandDirection="Down"
-                Margin="0,0,8,0">
+                ExpandDirection="Down">
         <StackPanel Orientation="Vertical">
           <TextBlock Text="Réglage PDF" Margin="0,0,0,4"/>
           <DockPanel LastChildFill="True">
@@ -20,9 +20,9 @@
       <!-- DWG options -->
       <Expander Header="DWG"
                 Name="DWGExpander"
+                Style="{DynamicResource NavigationExpanderStyle}"
                 IsExpanded="False"
-                ExpandDirection="Down"
-                Margin="0,0,8,0">
+                ExpandDirection="Down">
         <StackPanel Orientation="Vertical">
           <TextBlock Text="Réglage DWG" Margin="0,0,0,4"/>
           <DockPanel LastChildFill="True">
