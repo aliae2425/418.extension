@@ -139,12 +139,11 @@
                 <ControlTemplate TargetType="ComboBox">
                     <Grid>
                         <Border x:Name="border"
-                                Padding="10,10"
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="8">
-                            <Grid>
+                            <Grid Margin="10,10">
                                 <ContentPresenter x:Name="contentPresenter"
                                                   Content="{TemplateBinding SelectionBoxItem}"
                                                   ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
@@ -152,14 +151,20 @@
                                                   Margin="4,0,19,0"
                                                   VerticalAlignment="Center"/>
                                 <ToggleButton x:Name="toggleButton"
-                                              Width="15"
-                                              HorizontalAlignment="Right"
+                                              HorizontalAlignment="Stretch"
                                               VerticalAlignment="Stretch"
                                               Focusable="False"
                                               IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
                                               ClickMode="Press"
                                               Background="Transparent"
                                               BorderThickness="0">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="Transparent">
+                                                <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
                                     <Path Data="M 0 0 L 7.5 7.5 L 15 0 Z"
                                           Fill="{DynamicResource TextPrimaryBrush}"
                                           Width="15" Height="7.5" HorizontalAlignment="Center" VerticalAlignment="Center"/>
