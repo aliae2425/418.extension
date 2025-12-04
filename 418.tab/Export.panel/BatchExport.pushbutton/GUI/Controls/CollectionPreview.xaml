@@ -25,7 +25,7 @@
           <!-- Compteur de collections et éléments -->
           <TextBlock Name="PreviewCounterText"
                      Margin="0,0,0,6"
-                     Foreground="Gray"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
                      Text="Collections: 0 • Éléments: 0"/>
           
           <!-- ListView avec GridView (style tableau) -->
@@ -34,7 +34,7 @@
                     ScrollViewer.VerticalScrollBarVisibility="Auto"
                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
                     BorderThickness="1"
-                    BorderBrush="LightGray">
+                    BorderBrush="{DynamicResource ControlBorderBrush}">
             <ListView.GroupStyle>
               <GroupStyle>
                 <GroupStyle.ContainerStyle>
@@ -42,7 +42,7 @@
                     <Setter Property="Template">
                       <Setter.Value>
                         <ControlTemplate TargetType="{x:Type GroupItem}">
-                          <Expander IsExpanded="False" BorderThickness="0,0,0,1" BorderBrush="LightGray"
+                          <Expander IsExpanded="False" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource ControlBorderBrush}"
                                     IsEnabled="{Binding Items[0][CollectionIsExported]}">
                             <Expander.Header>
                                 <Grid Height="25" Width="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ListView}}, Path=ActualWidth}">
@@ -57,11 +57,11 @@
                                     <TextBlock Grid.Column="0" Text="{Binding Name}"
                                               FontStyle="Italic" VerticalAlignment="Center" Margin="5,0"/>
                                     <TextBlock Grid.Column="1" Text="{Binding Items[0][CollectionPreviewName]}" 
-                                              FontWeight="Bold" VerticalAlignment="Center" Margin="5,0" Foreground="#555"/>
+                                              FontWeight="Bold" VerticalAlignment="Center" Margin="5,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     <TextBlock Grid.Column="2" Text="{Binding Items[0][SheetCount], StringFormat='{}{0} feuilles'}"
                                               FontStyle="Italic"  VerticalAlignment="Center" Margin="5,0"/>
                                     <TextBlock Grid.Column="3" Text="{Binding Items[0][CollectionExportInfo]}" 
-                                              FontSize="10" VerticalAlignment="Center" Margin="5,0" Foreground="#555"/>
+                                              FontSize="10" VerticalAlignment="Center" Margin="5,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 </Grid>
                             </Expander.Header>
                             <ItemsPresenter />
