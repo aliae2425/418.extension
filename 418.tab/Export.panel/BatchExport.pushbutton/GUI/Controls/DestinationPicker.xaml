@@ -15,6 +15,7 @@
                 Padding="12,4"/>
         <TextBox Name="PathTextBox"
                  Text=""
+                 Style="{DynamicResource {x:Type TextBox}}"
                  HorizontalAlignment="Stretch"
                  ToolTip="Sélectionne un dossier de sortie"/>
       </DockPanel>

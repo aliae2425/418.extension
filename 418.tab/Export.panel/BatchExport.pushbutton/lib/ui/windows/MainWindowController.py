@@ -225,20 +225,24 @@ class MainWindowController(object):
     def _init_destination(self):
         try:
             from System.Windows.Media import Brushes
+            from System.Windows.Controls import Control
         except Exception:
             Brushes = None
+            Control = None
         # Set initial
         self._dest_comp.init_controls(self._win)
         # Validate & create
         ok, err = self._dest_comp.validate(self._win, create=True)
         self._win._dest_valid = bool(ok)
         try:
-            if Brushes is not None and hasattr(self._win, 'PathTextBox'):
+            if hasattr(self._win, 'PathTextBox'):
                 if ok:
-                    self._win.PathTextBox.BorderBrush = Brushes.Gray
-                    self._win.PathTextBox.Background = Brushes.White
+                    if Control:
+                        self._win.PathTextBox.ClearValue(Control.BorderBrushProperty)
+                        self._win.PathTextBox.ClearValue(Control.BackgroundProperty)
                 else:
-                    self._win.PathTextBox.BorderBrush = Brushes.Red
+                    if Brushes:
+                        self._win.PathTextBox.BorderBrush = Brushes.Red
         except Exception:
             pass
         # Wire events
@@ -285,8 +289,28 @@ class MainWindowController(object):
             self._on_path_changed(None, None)
 
     def _on_path_changed(self, sender, args):
+        try:
+            from System.Windows.Media import Brushes
+            from System.Windows.Controls import Control
+        except Exception:
+            Brushes = None
+            Control = None
+
         ok, err = self._dest_comp.validate(self._win, create=False)
         self._win._dest_valid = bool(ok)
+
+        try:
+            if hasattr(self._win, 'PathTextBox'):
+                if ok:
+                    if Control:
+                        self._win.PathTextBox.ClearValue(Control.BorderBrushProperty)
+                        self._win.PathTextBox.ClearValue(Control.BackgroundProperty)
+                else:
+                    if Brushes:
+                        self._win.PathTextBox.BorderBrush = Brushes.Red
+        except Exception:
+            pass
+
         self._update_export_button_state()
 
     def _init_pdf_dwg(self):
