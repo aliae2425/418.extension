@@ -1,0 +1,39 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Import Cadastre DXF" Height="600" Width="900">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*"/>
+            <ColumnDefinition Width="1*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Bouton pour ouvrir la carte dans le navigateur externe -->
+        <StackPanel Grid.Row="0" Grid.Column="0" Margin="10">
+            <Button Name="OpenMapButton" Content="Ouvrir la carte cadastre" Height="40" Margin="0,0,0,10"/>
+            <TextBlock Text="ID feuille sélectionnée :" FontWeight="Bold"/>
+            <TextBox Name="SheetIdBox" Margin="0,5,0,10"/>
+        </StackPanel>
+
+        <!-- Controls -->
+        <StackPanel Grid.Row="0" Grid.Column="1" Margin="10">
+            <TextBlock Text="Feuille sélectionnée:" FontWeight="Bold"/>
+            <TextBox Name="SheetIdBox" IsReadOnly="True" Margin="0,5,0,10"/>
+            <Button Name="PickFolderButton" Content="Choisir dossier DXF" Margin="0,5,0,10"/>
+            <TextBox Name="FolderPathBox" IsReadOnly="True" Margin="0,5,0,10"/>
+            <TextBlock Text="Vue Revit cible:" FontWeight="Bold"/>
+            <ComboBox Name="ViewComboBox" Margin="0,5,0,10"/>
+            <Button Name="ImportButton" Content="Importer DXF" IsEnabled="False" Margin="0,20,0,0" Height="40"/>
+        </StackPanel>
+
+        <!-- Status bar -->
+        <StatusBar Grid.Row="1" Grid.ColumnSpan="2">
+            <StatusBarItem>
+                <TextBlock Name="StatusText" Text="Prêt."/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>

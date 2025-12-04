@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 __title__ = "Import cadastre"
 __doc__ = """
     Version : -
@@ -16,4 +17,6 @@ __author__ = 'Aliae'
 __min_revit_ver__ = 2026       
 
 if __name__ == "__main__":
-    print("Cette fonctionnalité sera bientôt disponible")
+    from lib.MainWindowController import MainWindowController
+    ctrl = MainWindowController()
+    ctrl.show()
