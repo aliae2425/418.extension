@@ -32,8 +32,8 @@ class NamingPatternStore(object):
             return False
         try:
             self._cfg.set(kpat, pattern or '')
-        except Exception:
-            pass
+        except Exception as e:
+            print("NamingPatternStore: Error saving pattern '{}': {}".format(kpat, e))
         try:
             safe_rows = []
             for r in rows or []:
@@ -45,8 +45,8 @@ class NamingPatternStore(object):
                     'Suffix': r.get('Suffix', ''),
                 })
             self._cfg.set(krows, json.dumps(safe_rows))
-        except Exception:
-            pass
+        except Exception as e:
+            print("NamingPatternStore: Error saving rows '{}': {}".format(krows, e))
         return True
 
     def load(self, kind):

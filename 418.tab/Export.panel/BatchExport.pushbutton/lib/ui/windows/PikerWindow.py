@@ -387,13 +387,20 @@ class PikerWindow(forms.WPFWindow):
             pass
 
 
-def open_modal(kind='sheet', title=u"Piker"):
+def open_modal(kind='sheet', title=u"Piker", on_close=None):
     try:
         win = PikerWindow(kind=kind, title=title)
         try:
             win.load_params()
         except Exception:
             pass
+        
+        if on_close:
+            try:
+                win.Closed += on_close
+            except Exception:
+                pass
+
         try:
             win.ShowDialog()
         except Exception:

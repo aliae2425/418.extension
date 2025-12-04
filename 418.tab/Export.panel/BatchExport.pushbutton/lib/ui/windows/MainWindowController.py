@@ -378,18 +378,30 @@ class MainWindowController(object):
     def _on_open_sheet_naming(self, s,a):
         try:
             from ..windows.PikerWindow import open_modal
-            open_modal(kind='sheet', title=u"Nommage des feuilles")
-            self._name_comp.refresh_buttons(self._win)
-            self._grid_comp.populate(self._win, self._get_selected_values())
+            def _refresh(sender, args):
+                try:
+                    self._name_comp.refresh_buttons(self._win)
+                    self._grid_comp.populate(self._win, self._get_selected_values())
+                except Exception:
+                    pass
+
+            open_modal(kind='sheet', title=u"Nommage des feuilles", on_close=_refresh)
+            _refresh(None, None)
         except Exception:
             pass
 
     def _on_open_set_naming(self, s,a):
         try:
             from ..windows.PikerWindow import open_modal
-            open_modal(kind='set', title=u"Nommage des carnets")
-            self._name_comp.refresh_buttons(self._win)
-            self._grid_comp.populate(self._win, self._get_selected_values())
+            def _refresh(sender, args):
+                try:
+                    self._name_comp.refresh_buttons(self._win)
+                    self._grid_comp.populate(self._win, self._get_selected_values())
+                except Exception:
+                    pass
+
+            open_modal(kind='set', title=u"Nommage des carnets", on_close=_refresh)
+            _refresh(None, None)
         except Exception:
             pass
 
