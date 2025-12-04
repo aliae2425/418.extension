@@ -335,22 +335,25 @@
                                             CornerRadius="8">
                                         <Grid Margin="{TemplateBinding Padding}">
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <ContentPresenter Grid.Column="0" Content="{TemplateBinding Content}" VerticalAlignment="Center"/>
-                                            <!-- Chevron -->
+                                            
+                                            <!-- Chevron (Left Aligned) -->
                                             <Path x:Name="arrow" 
-                                                  Grid.Column="1" 
-                                                  Data="M0,0 L5,5 L10,0" 
+                                                  Grid.Column="0" 
+                                                  Data="M 0 0 L 4 4 L 0 8" 
                                                   Stroke="{TemplateBinding Foreground}" 
                                                   StrokeThickness="1.5" 
                                                   VerticalAlignment="Center"
+                                                  Margin="0,0,12,0"
                                                   RenderTransformOrigin="0.5,0.5">
                                                 <Path.RenderTransform>
                                                     <RotateTransform Angle="0"/>
                                                 </Path.RenderTransform>
                                             </Path>
+
+                                            <ContentPresenter Grid.Column="1" Content="{TemplateBinding Content}" VerticalAlignment="Center"/>
                                         </Grid>
                                     </Border>
                                     <ControlTemplate.Triggers>
@@ -360,7 +363,7 @@
                                         <Trigger Property="IsChecked" Value="True">
                                             <Setter TargetName="arrow" Property="RenderTransform">
                                                 <Setter.Value>
-                                                    <RotateTransform Angle="180"/>
+                                                    <RotateTransform Angle="90"/>
                                                 </Setter.Value>
                                             </Setter>
                                             <Setter TargetName="border" Property="Background" Value="Transparent"/>
