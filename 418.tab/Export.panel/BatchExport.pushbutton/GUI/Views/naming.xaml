@@ -48,7 +48,7 @@
               Cursor="Hand">
          <Button.Template>
              <ControlTemplate TargetType="Button">
-                 <Border x:Name="border" Background="{TemplateBinding Background}">
+                 <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8">
                      <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                  </Border>
                  <ControlTemplate.Triggers>
@@ -94,7 +94,16 @@
               <ComboBoxItem Content="Collection"/>
               <ComboBoxItem Content="Feuille"/>
             </ComboBox>
-            <TextBox Grid.Row="2" Name="SearchBox" Margin="0,0,0,8" ToolTip="Rechercher un paramètre..."/>
+            <Grid Grid.Row="2" Margin="0,0,0,8">
+                <TextBox Name="SearchBox" ToolTip="Rechercher un paramètre..." Padding="2,0,24,0"/>
+                <Path Data="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" 
+                      Fill="{DynamicResource TextSecondaryBrush}" 
+                      Stretch="Uniform" 
+                      Width="14" Height="14" 
+                      HorizontalAlignment="Right" 
+                      Margin="0,0,8,0"
+                      IsHitTestVisible="False"/>
+            </Grid>
             <TextBlock Grid.Row="3" Text="Paramètres disponibles" FontWeight="Bold" Margin="0,4,0,4"/>
             <ListBox Grid.Row="4" Name="AvailableParamsList" MouseDoubleClick="AvailableParamsList_DoubleClick" BorderThickness="1" BorderBrush="{DynamicResource ControlBorderBrush}"/>
           </Grid>
@@ -159,7 +168,7 @@
           <TextBlock Text="Aperçu" FontWeight="Bold" Margin="0,0,0,4"/>
           <TextBlock Text="Chaque ligne génère: Préfix + {Paramètre} + Suffix. L'ensemble est concaténé." 
                      FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
-          <Border Background="{DynamicResource ControlFillBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="8">
+          <Border Background="{DynamicResource ControlFillBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="8">
                <TextBlock Name="PatternPreviewText" Text="" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Consolas"/>
           </Border>
           
