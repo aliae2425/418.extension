@@ -22,6 +22,21 @@ class NamingPatternStore(object):
         self._PATTERN_KEY = {'sheet': 'pattern_sheet', 'set': 'pattern_set'}
         self._ROWS_KEY = {'sheet': 'pattern_sheet_rows', 'set': 'pattern_set_rows'}
 
+    def _to_unicode(self, val):
+        if val is None:
+            return u""
+        if isinstance(val, unicode):
+            return val
+        if isinstance(val, str):
+            try:
+                return val.decode('utf-8')
+            except Exception:
+                try:
+                    return val.decode('mbcs')
+                except Exception:
+                    return val.decode('latin-1')
+        return unicode(val)
+
     def save(self, kind, pattern, rows):
         """Persist pattern + rows (liste de dicts Name/Prefix/Suffix)."""
         if self._cfg is None:
@@ -40,9 +55,9 @@ class NamingPatternStore(object):
                 if not isinstance(r, dict):
                     continue
                 safe_rows.append({
-                    'Name': r.get('Name', ''),
-                    'Prefix': r.get('Prefix', ''),
-                    'Suffix': r.get('Suffix', ''),
+                    'Name': self._to_unicode(r.get('Name', '')),
+                    'Prefix': self._to_unicode(r.get('Prefix', '')),
+                    'Suffix': self._to_unicode(r.get('Suffix', '')),
                 })
             self._cfg.set(krows, json.dumps(safe_rows))
         except Exception as e:
