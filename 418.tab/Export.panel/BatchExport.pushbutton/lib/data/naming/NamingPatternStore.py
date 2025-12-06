@@ -46,7 +46,9 @@ class NamingPatternStore(object):
         if not kpat or not krows:
             return False
         try:
-            self._cfg.set(kpat, pattern or '')
+            # Ensure pattern is unicode before saving (UserConfig will encode it to utf-8)
+            safe_pattern = self._to_unicode(pattern)
+            self._cfg.set(kpat, safe_pattern)
         except Exception as e:
             print("NamingPatternStore: Error saving pattern '{}': {}".format(kpat, e))
         try:
@@ -59,7 +61,8 @@ class NamingPatternStore(object):
                     'Prefix': self._to_unicode(r.get('Prefix', '')),
                     'Suffix': self._to_unicode(r.get('Suffix', '')),
                 })
-            self._cfg.set(krows, json.dumps(safe_rows))
+            # ensure_ascii=True produces ASCII string with \u escapes, safe for any config parser
+            self._cfg.set(krows, json.dumps(safe_rows, ensure_ascii=True))
         except Exception as e:
             print("NamingPatternStore: Error saving rows '{}': {}".format(krows, e))
         return True

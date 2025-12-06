@@ -49,12 +49,33 @@ class UserConfig(object):
         if sec is None:
             print("UserConfig: Section is None, cannot set '{}'".format(key))
             return False
-        try:
-            sval = u"{}".format(value)
-        except Exception:
-            sval = value
         
-        print("UserConfig: Setting '{}' to '{}'".format(key, sval))
+        # Prepare value: ensure it is a utf-8 encoded byte string for ConfigParser
+        try:
+            # 1. Convert to unicode
+            if isinstance(value, unicode):
+                uval = value
+            elif isinstance(value, str):
+                try:
+                    uval = value.decode('utf-8')
+                except Exception:
+                    try:
+                        uval = value.decode('mbcs')
+                    except Exception:
+                        uval = value.decode('latin-1')
+            else:
+                uval = unicode(value)
+            
+            # 2. Encode to utf-8 bytes
+            sval = uval.encode('utf-8')
+        except Exception as e:
+            print("UserConfig: Error preparing value for '{}': {}".format(key, e))
+            sval = value
+
+        try:
+            print("UserConfig: Setting '{}' to '{}'".format(key, sval))
+        except Exception:
+            print("UserConfig: Setting '{}' (value not printable)".format(key))
         
         success = False
         # 1. Try set_option (pyRevit standard)
