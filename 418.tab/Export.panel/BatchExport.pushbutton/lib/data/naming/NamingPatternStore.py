@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 
 import json
 
+
 class NamingPatternStore(object):
     """Gère la sauvegarde/lecture des patterns et de leurs rows (JSON).
 
@@ -22,20 +23,6 @@ class NamingPatternStore(object):
         self._PATTERN_KEY = {'sheet': 'pattern_sheet', 'set': 'pattern_set'}
         self._ROWS_KEY = {'sheet': 'pattern_sheet_rows', 'set': 'pattern_set_rows'}
 
-    def _to_unicode(self, val):
-        if val is None:
-            return u""
-        if isinstance(val, unicode):
-            return val
-        if isinstance(val, str):
-            try:
-                return val.decode('utf-8')
-            except Exception:
-                try:
-                    return val.decode('mbcs')
-                except Exception:
-                    return val.decode('latin-1')
-        return unicode(val)
 
     def save(self, kind, pattern, rows):
         """Persist pattern + rows (liste de dicts Name/Prefix/Suffix)."""
@@ -48,20 +35,19 @@ class NamingPatternStore(object):
         try:
             self._cfg.set(kpat, pattern or '')
         except Exception as e:
-            print("NamingPatternStore: Error saving pattern '{}': {}".format(kpat, e))
+            print("NamingPatternStore [001]: Error saving pattern '{}': {}".format(kpat, e))
         try:
             safe_rows = []
             for r in rows or []:
-                if not isinstance(r, dict):
-                    continue
                 safe_rows.append({
-                    'Name': self._to_unicode(r.get('Name', '')),
-                    'Prefix': self._to_unicode(r.get('Prefix', '')),
-                    'Suffix': self._to_unicode(r.get('Suffix', '')),
+                    'Name': r.get('Name', ''),
+                    'Prefix': r.get('Prefix', ''),
+                    'Suffix': r.get('Suffix', ''),
                 })
-            self._cfg.set(krows, json.dumps(safe_rows))
+            print("sage_rows:", u"{}".format(safe_rows))
+            self._cfg.set(krows, u"{}".format(safe_rows))
         except Exception as e:
-            print("NamingPatternStore: Error saving rows '{}': {}".format(krows, e))
+            print("NamingPatternStore [002]: Error saving rows '{}': {}".format(krows, e))
         return True
 
     def load(self, kind):
@@ -79,6 +65,7 @@ class NamingPatternStore(object):
         rows = []
         try:
             raw = self._cfg.get(krows, '')
+            print("namminingpatternstore load rows raw:", raw)
             if raw:
                 rows = json.loads(raw)
                 if not isinstance(rows, list):
