@@ -25,7 +25,7 @@ class NamingPatternStore(object):
 
 
     def save(self, kind, pattern, rows):
-        """Persist pattern + rows (liste de dicts Name/Prefix/Suffix)."""
+        """Persist pattern + rows (sous forme de chaîne custom)."""
         if self._cfg is None:
             return False
         kpat = self._PATTERN_KEY.get(kind)
@@ -37,15 +37,16 @@ class NamingPatternStore(object):
         except Exception as e:
             print("NamingPatternStore [001]: Error saving pattern '{}': {}".format(kpat, e))
         try:
-            safe_rows = []
+            # Construction de la chaîne custom
+            row_strs = []
             for r in rows or []:
-                safe_rows.append({
-                    'Name': r.get('Name', ''),
-                    'Prefix': r.get('Prefix', ''),
-                    'Suffix': r.get('Suffix', ''),
-                })
-            print("sage_rows:", u"{}".format(safe_rows))
-            self._cfg.set(krows, u"{}".format(safe_rows))
+                name = r.get('Name', '')
+                prefix = r.get('Prefix', '')
+                suffix = r.get('Suffix', '')
+                row_strs.append(u'[ "name": "{}", "prefixe": "{}", "suffixe": "{}" ]'.format(name, prefix, suffix))
+            final_rows_str = u'[' + u', '.join(row_strs) + u']'
+            # print("rows_string:", final_rows_str)
+            self._cfg.set(krows, final_rows_str)
         except Exception as e:
             print("NamingPatternStore [002]: Error saving rows '{}': {}".format(krows, e))
         return True
