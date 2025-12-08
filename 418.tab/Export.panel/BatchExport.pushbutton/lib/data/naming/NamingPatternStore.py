@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 # Persistance des patterns de nommage (pattern + rows)
 
@@ -22,6 +23,23 @@ class NamingPatternStore(object):
         self._cfg = UserConfig(namespace) if UserConfig is not None else None
         self._PATTERN_KEY = {'sheet': 'pattern_sheet', 'set': 'pattern_set'}
         self._ROWS_KEY = {'sheet': 'pattern_sheet_rows', 'set': 'pattern_set_rows'}
+
+    def _parse_rows_string(self, raw):
+        # Expects: [ "name": "...", "prefixe": "...", "suffixe": "..." ]
+        import re
+        if not raw:
+            return []
+        # Find all blocks: [ "name": "...", "prefixe": "...", "suffixe": "..." ]
+        pattern = r'\[\s*"name"\s*:\s*"(.*?)",\s*"prefixe"\s*:\s*"(.*?)",\s*"suffixe"\s*:\s*"(.*?)"\s*\]'
+        matches = re.findall(pattern, raw)
+        result = []
+        for name, prefixe, suffixe in matches:
+            result.append({
+                'Name': name,
+                'Prefix': prefixe,
+                'Suffix': suffixe
+            })
+        return result
 
 
     def save(self, kind, pattern, rows):
@@ -66,23 +84,12 @@ class NamingPatternStore(object):
         rows = []
         try:
             raw = self._cfg.get(krows, '')
-            print("namminingpatternstore load rows raw:", raw)
-            if raw:
-                rows = json.loads(raw)
-                if not isinstance(rows, list):
-                    rows = []
-        except Exception:
+            print("NamingPatternStore load rows raw:", raw)
+            rows = self._parse_rows_string(raw)
+        except Exception as e:
+            print("NamingPatternStore: Error parsing rows string:", e)
             rows = []
-        cleaned = []
-        for r in rows:
-            if not isinstance(r, dict):
-                continue
-            cleaned.append({
-                'Name': r.get('Name', ''),
-                'Prefix': r.get('Prefix', ''),
-                'Suffix': r.get('Suffix', ''),
-            })
-        return (patt, cleaned)
+        return (patt, rows)
 
     def has_saved(self, kind):
         patt, rows = self.load(kind)
