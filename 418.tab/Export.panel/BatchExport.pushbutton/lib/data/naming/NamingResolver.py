@@ -148,27 +148,29 @@ class NamingResolver(object):
     # Construit une chaîne résolue pour un élément
     def resolve_for_element(self, elem, rows, empty_fallback=True):
         parts = []
+        # Accept both dict and custom string format (already parsed by NamingPatternStore.load)
         for r in rows or []:
-            token = (r.get('Name', '') or '').strip()
+            name = r.get('Name', '') if isinstance(r, dict) else r.get('name', '')
+            prefix = r.get('Prefix', '') if isinstance(r, dict) else r.get('prefixe', '')
+            suffix = r.get('Suffix', '') if isinstance(r, dict) else r.get('suffixe', '')
+            token = (name or '').strip()
             if not token:
                 continue
-            pf = r.get('Prefix', '') or ''
-            sf = r.get('Suffix', '') or ''
             val = self._get_param_value(elem, token)
-            # Si valeur vide: utiliser chaîne vide (pas de fallback vers token)
             if not val:
                 val = ''
-            parts.append(u"{}{}{}".format(pf, val, sf))
+            parts.append(u"{}{}{}".format(prefix, val, suffix))
         return u''.join(parts)
 
     # Construit un pattern à partir des rows
     def build_pattern(self, rows):
         parts = []
         for r in rows or []:
-            name = r.get('Name', '').strip()
+            name = r.get('Name', '') if isinstance(r, dict) else r.get('name', '')
+            pf = r.get('Prefix', '') if isinstance(r, dict) else r.get('prefixe', '')
+            sf = r.get('Suffix', '') if isinstance(r, dict) else r.get('suffixe', '')
+            name = name.strip()
             if not name:
                 continue
-            pf = r.get('Prefix', '') or ''
-            sf = r.get('Suffix', '') or ''
             parts.append(pf + '{' + name + '}' + sf)
         return ''.join(parts)
