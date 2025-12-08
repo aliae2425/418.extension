@@ -2,15 +2,21 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <ControlTemplate x:Key="NamingConfigTemplate" TargetType="ContentControl">
     <StackPanel>
-      <TextBlock Text="Nommage" FontWeight="Bold" Margin="0,0,0,6"/>
+      <TextBlock Text="Nommage" 
+                Foreground="{DynamicResource TextPrimaryBrush}"
+                FontWeight="Bold" Margin="0,0,0,6"/>
       <DockPanel LastChildFill="True" Margin="0,4,0,0">
-        <TextBlock Text="Feuilles : " MinWidth="100" VerticalAlignment="Center"/>
+        <TextBlock Text="Feuilles : " 
+                Foreground="{DynamicResource TextPrimaryBrush}"
+                MinWidth="100" VerticalAlignment="Center"/>
         <Button Name="SheetNamingButton" Content="..."
           Background="{DynamicResource LightGrayBrush}"
                 HorizontalAlignment="Stretch" />
       </DockPanel>
       <DockPanel LastChildFill="True" Margin="0,4,0,0">
-        <TextBlock Text="Carnets : " MinWidth="100"  VerticalAlignment="Center"/>
+        <TextBlock Text="Carnets : "
+                  Foreground="{DynamicResource TextPrimaryBrush}"
+                  MinWidth="100"  VerticalAlignment="Center"/>
         <Button Name="SetNamingButton" Content="..."
           Background="{DynamicResource LightGrayBrush}"
                 HorizontalAlignment="Stretch"/>

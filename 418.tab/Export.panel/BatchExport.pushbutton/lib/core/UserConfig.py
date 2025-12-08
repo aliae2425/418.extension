@@ -15,6 +15,7 @@ class UserConfig(object):
     def _section(self):
         uc = _UC
         if uc is None:
+            print("UserConfig: _UC is None")
             return None
         # S'assurer que la section existe si possible
         try:
@@ -23,7 +24,8 @@ class UserConfig(object):
             pass
         try:
             return uc.batch_export
-        except Exception:
+        except Exception as e:
+            print("UserConfig: Could not access uc.batch_export: {}".format(e))
             return None
 
     # Lit une valeur (str)
@@ -45,22 +47,41 @@ class UserConfig(object):
     def set(self, key, value):
         sec = self._section()
         if sec is None:
+            print("UserConfig: Section is None, cannot set '{}'".format(key))
             return False
         try:
             sval = u"{}".format(value)
         except Exception:
             sval = value
-        try:
-            # Affectation générique par attribut
-            setattr(sec, key, sval)
+        
+        print("UserConfig: Setting '{}' to '{}'".format(key, sval))
+        
+        success = False
+        # 1. Try set_option (pyRevit standard)
+        if hasattr(sec, 'set_option'):
+            try:
+                sec.set_option(key, sval)
+                success = True
+            except Exception as e:
+                print("UserConfig: Failed to set_option '{}': {}".format(key, e))
+        
+        # 2. Try setattr (fallback)
+        if not success:
+            try:
+                setattr(sec, key, sval)
+                success = True
+            except Exception as e:
+                print("UserConfig: Failed to setattr '{}': {}".format(key, e))
+
+        if success:
             # Sauvegarde si API dispo
             try:
                 _UC.save_changes()
-            except Exception:
-                pass
+                print("UserConfig: Saved changes successfully.")
+            except Exception as e:
+                print("UserConfig: Failed to save_changes: {}".format(e))
             return True
-        except Exception:
-            return False
+        return False
 
     # Liste -> [str]
     def get_list(self, key, default=None):

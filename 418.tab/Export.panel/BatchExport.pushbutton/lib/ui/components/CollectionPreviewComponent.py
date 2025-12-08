@@ -125,20 +125,39 @@ class CollectionPreviewComponent(object):
             return default
 
         # Récup rows de nommage pour aperçu
+        nstore = None
+        nres = None
+        dest = None
+        sheet_rows = []
+        set_rows = []
+
         try:
             from ...data.naming.NamingPatternStore import NamingPatternStore
-            from ...data.naming.NamingResolver import NamingResolver
-            from ...data.destination.DestinationStore import DestinationStore
             nstore = NamingPatternStore()
-            nres = NamingResolver(doc)
-            dest = DestinationStore()
-            _, sheet_rows = nstore.load('sheet')
-            _, set_rows = nstore.load('set')
         except Exception:
-            sheet_rows = []
-            set_rows = []
-            nres = None
-            dest = None
+            pass
+
+        try:
+            from ...data.naming.NamingResolver import NamingResolver
+            nres = NamingResolver(doc)
+        except Exception:
+            pass
+
+        try:
+            from ...data.destination.DestinationStore import DestinationStore
+            dest = DestinationStore()
+        except Exception:
+            pass
+
+        if nstore:
+            try:
+                _, sheet_rows = nstore.load('sheet')
+            except Exception:
+                sheet_rows = []
+            try:
+                _, set_rows = nstore.load('set')
+            except Exception:
+                set_rows = []
 
         def _name_for_sheet(viewsheet):
             """Retourne le nom projeté d'une feuille selon les règles de nommage"""

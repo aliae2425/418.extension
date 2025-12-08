@@ -37,6 +37,28 @@ def _get_naming_xaml_path():
 class PikerWindow(forms.WPFWindow):
     def __init__(self, kind='sheet', title=u"Piker"):
         forms.WPFWindow.__init__(self, _get_naming_xaml_path())
+
+        # Inject resources manually to avoid relative path issues in XAML
+        try:
+            from System import Uri, UriKind
+            from System.Windows import ResourceDictionary
+            from Autodesk.Revit.UI import UIThemeManager, UITheme
+            from ...core.AppPaths import AppPaths
+            paths = AppPaths()
+            theme = UIThemeManager.CurrentTheme
+            if theme == UITheme.Dark:
+                files = ['ColorsDark.xaml', 'StylesDark.xaml']
+            else:
+                files = ['Colors.xaml', 'Styles.xaml']
+            for filename in files:
+                path = paths.resource_path(filename)
+                if os.path.exists(path):
+                    rd = ResourceDictionary()
+                    rd.Source = Uri(path, UriKind.Absolute)
+                    self.Resources.MergedDictionaries.Add(rd)
+        except Exception as e:
+            print('[warning] Could not load resources:', e)
+
         self._kind = kind  # 'sheet' | 'set'
         try:
             self.Title = title
@@ -60,6 +82,14 @@ class PikerWindow(forms.WPFWindow):
                 self.RemoveParamButton.Click += self._on_remove_param
             if hasattr(self, 'ScopeCombo'):
                 self.ScopeCombo.SelectionChanged += self._on_scope_changed
+            if hasattr(self, 'SearchBox'):
+                self.SearchBox.TextChanged += self._on_search_changed
+            
+            # Window Chrome
+            if hasattr(self, 'CloseWindowButton'):
+                self.CloseWindowButton.Click += self._on_close_window
+            if hasattr(self, 'TitleBar'):
+                self.TitleBar.MouseLeftButtonDown += self._on_title_bar_mouse_down
         except Exception:
             pass
         # Load existing rows
@@ -145,6 +175,125 @@ class PikerWindow(forms.WPFWindow):
             pass
         self._refresh_preview()
 
+    def SelectedParamsList_DoubleClick(self, sender, args):
+        try:
+            lst = self.SelectedParamsList
+            sel = getattr(lst, 'SelectedItem', None)
+            if sel and isinstance(sel, dict):
+                name = sel.get('Name')
+                self._selected_rows = [r for r in self._selected_rows if r.get('Name') != name]
+                self._reload_selected_list()
+        except Exception:
+            pass
+        self._refresh_preview()
+
+    def MoveUpButton_Click(self, sender, args):
+        try:
+            lst = self.SelectedParamsList
+            sel = getattr(lst, 'SelectedItem', None)
+            if not(sel and isinstance(sel, dict)):
+                return
+            name = sel.get('Name')
+            idx = next((i for i,r in enumerate(self._selected_rows) if r.get('Name')==name), None)
+            if idx is None or idx <= 0:
+                return
+            self._selected_rows[idx-1], self._selected_rows[idx] = self._selected_rows[idx], self._selected_rows[idx-1]
+            self._reload_selected_list()
+            try:
+                lst.SelectedIndex = idx-1
+            except Exception:
+                pass
+        except Exception:
+            pass
+        self._refresh_preview()
+
+    def MoveDownButton_Click(self, sender, args):
+        try:
+            lst = self.SelectedParamsList
+            sel = getattr(lst, 'SelectedItem', None)
+            if not(sel and isinstance(sel, dict)):
+                return
+            name = sel.get('Name')
+            idx = next((i for i,r in enumerate(self._selected_rows) if r.get('Name')==name), None)
+            if idx is None or idx >= len(self._selected_rows)-1:
+                return
+            self._selected_rows[idx+1], self._selected_rows[idx] = self._selected_rows[idx], self._selected_rows[idx+1]
+            self._reload_selected_list()
+            try:
+                lst.SelectedIndex = idx+1
+            except Exception:
+                pass
+        except Exception:
+            pass
+        self._refresh_preview()
+
+    def MoveTopButton_Click(self, sender, args):
+        try:
+            lst = self.SelectedParamsList
+            sel = getattr(lst, 'SelectedItem', None)
+            if not(sel and isinstance(sel, dict)):
+                return
+            name = sel.get('Name')
+            idx = next((i for i,r in enumerate(self._selected_rows) if r.get('Name')==name), None)
+            if idx is None or idx <= 0:
+                return
+            row = self._selected_rows.pop(idx)
+            self._selected_rows.insert(0, row)
+            self._reload_selected_list()
+            try:
+                lst.SelectedIndex = 0
+            except Exception:
+                pass
+        except Exception:
+            pass
+        self._refresh_preview()
+
+    def MoveBottomButton_Click(self, sender, args):
+        try:
+            lst = self.SelectedParamsList
+            sel = getattr(lst, 'SelectedItem', None)
+            if not(sel and isinstance(sel, dict)):
+                return
+            name = sel.get('Name')
+            idx = next((i for i,r in enumerate(self._selected_rows) if r.get('Name')==name), None)
+            last_index = len(self._selected_rows)-1
+            if idx is None or idx >= last_index:
+                return
+            row = self._selected_rows.pop(idx)
+            self._selected_rows.append(row)
+            self._reload_selected_list()
+            try:
+                lst.SelectedIndex = last_index
+            except Exception:
+                pass
+        except Exception:
+            pass
+        self._refresh_preview()
+
+    # Internals
+    def _on_close_window(self, sender, args):
+        self.Close()
+
+    def _on_title_bar_mouse_down(self, sender, args):
+        try:
+            self.DragMove()
+        except Exception:
+            pass
+
+    def _on_ok(self, sender, args):
+        patt = self._build_pattern_from_rows(self._selected_rows)
+        _naming_store().save(self._kind, patt, self._selected_rows)
+        try:
+            self.Close()
+        except Exception:
+            pass
+
+    def _on_cancel(self, sender, args):
+        try:
+            self.Close()
+        except Exception:
+            pass
+
     def _apply_scope_filter(self):
         scope = 'Tout'
         try:
@@ -162,6 +311,19 @@ class PikerWindow(forms.WPFWindow):
             filtered = list(self._available_sheet or [])
         else:
             filtered = list(self._available_all or [])
+
+        # Apply search filter
+        search_text = ''
+        try:
+            if hasattr(self, 'SearchBox'):
+                search_text = self.SearchBox.Text
+        except Exception:
+            pass
+        
+        if search_text:
+            search_text = search_text.lower()
+            filtered = [n for n in filtered if search_text in n.lower()]
+
         try:
             self._available_filtered = sorted(filtered, key=lambda s: s['Name'].lower())
         except Exception:
@@ -174,6 +336,13 @@ class PikerWindow(forms.WPFWindow):
                     self.AvailableParamsList.Items.Add(n)
             except Exception:
                 pass
+
+    def _on_scope_changed(self, sender, args):
+        self._apply_scope_filter()
+        self._refresh_preview()
+
+    def _on_search_changed(self, sender, args):
+        self._apply_scope_filter()
 
     def _on_add_param(self, sender, args):
         try:
@@ -229,13 +398,20 @@ class PikerWindow(forms.WPFWindow):
             pass
 
 
-def open_modal(kind='sheet', title=u"Piker"):
+def open_modal(kind='sheet', title=u"Piker", on_close=None):
     try:
         win = PikerWindow(kind=kind, title=title)
         try:
             win.load_params()
         except Exception:
             pass
+        
+        if on_close:
+            try:
+                win.Closed += on_close
+            except Exception:
+                pass
+
         try:
             win.ShowDialog()
         except Exception:
