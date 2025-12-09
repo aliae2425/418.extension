@@ -11,6 +11,8 @@ __doc__ = """
     - choix predefinis de couleurs
     - rework UI
     - sauvegarde des parametres entre sessions
+    - color picker suport hexadecimal input
+    - appliquer couleur a plusieurs categories en meme temps
     _____________________________________________
 """
 __author__ = 'Aliae'                               
