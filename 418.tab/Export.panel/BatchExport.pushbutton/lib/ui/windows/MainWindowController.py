@@ -65,7 +65,7 @@ class MainWindowController(object):
         # Merge resources
         merge_ok = self._res_loader_cls(self._win, self._paths).merge_all()
         if not merge_ok and _verbose:
-            print('[warning] Resource loading may have failed')
+            pass
         # Bind template children
         hosts = {
             'ParameterSelectorHost': [
@@ -90,9 +90,9 @@ class MainWindowController(object):
         # Debug: verify ParameterSelectorHost is bound
         if _verbose:
             if not hasattr(self._win, 'CollectionExpander'):
-                print('[warning] CollectionExpander not found - ParameterSelector template may not be loaded')
+                pass
             if not hasattr(self._win, 'ExportationCombo'):
-                print('[warning] ExportationCombo not found - check template binding')
+                pass
 
     def _load_param_combos(self):
         # Collect available parameters
@@ -494,7 +494,7 @@ class MainWindowController(object):
                 rd.Source = Uri(path, UriKind.Absolute)
                 self._win.Resources.MergedDictionaries.Add(rd)
         except Exception as e:
-            print('[error] Dark mode:', e)
+            print('MainWindowController [001]: Dark mode error: {}'.format(e))
 
     def _on_light_mode(self, sender, args):
         try:
@@ -504,7 +504,7 @@ class MainWindowController(object):
                 md.RemoveAt(md.Count-1)
                 md.RemoveAt(md.Count-1)
         except Exception as e:
-            print('[error] Light mode:', e)
+            print('MainWindowController [002]: Light mode error: {}'.format(e))
 
     def _wire_burger_menu(self):
         """Configure le menu burger"""
@@ -612,14 +612,14 @@ class MainWindowController(object):
                 except Exception:
                     pass
                 if text:
-                    print('[info]', text)
+                    pass
             def _log(msg):
-                print('[info]', msg)
+                pass
             def _get_ctrl(name):
                 return getattr(self._win, name, None)
             orch.run(doc, _get_ctrl, progress_cb=_progress, log_cb=_log, ui_win=self._win)
         except Exception as e:
-            print('[info] Erreur export:', e)
+            print('MainWindowController [003]: Export error: {}'.format(e))
 
     def initialize(self):
         # Build visual tree and bind

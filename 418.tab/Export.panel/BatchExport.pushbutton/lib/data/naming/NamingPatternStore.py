@@ -84,10 +84,9 @@ class NamingPatternStore(object):
         rows = []
         try:
             raw = self._cfg.get(krows, '')
-            print("NamingPatternStore load rows raw:", raw)
             rows = self._parse_rows_string(raw)
         except Exception as e:
-            print("NamingPatternStore: Error parsing rows string:", e)
+            print("NamingPatternStore [003]: Error parsing rows string: {}".format(e))
             rows = []
         return (patt, rows)
 

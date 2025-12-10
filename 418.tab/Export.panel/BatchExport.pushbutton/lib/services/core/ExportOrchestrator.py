@@ -252,29 +252,7 @@ class ExportOrchestrator(object):
         if progress_cb:
             progress_cb(0, max(total, 1), 'Préparation...')
 
-        # --- LOG RECAP ---
-        if log_cb:
-            try:
-                log_cb("=== RÉCAPITULATIF EXPORT ===")
-                log_cb("Dossier destination: {}".format(self._dest.get()))
-                log_cb("Sous-dossiers par collection: {}".format("OUI" if self._dest.get_create_subfolders() else "NON"))
-                log_cb("Dossiers séparés par format: {}".format("OUI" if self._dest.get_separate_formats() else "NON"))
-                log_cb("Setup PDF: {}".format(self._pdf.get_saved_setup() or "(aucun)"))
-                log_cb("Setup DWG: {}".format(self._dwg.get_saved_setup() or "(aucun)"))
-                log_cb("--- Collections ---")
-                for p in plans:
-                    if p.do_export:
-                        mode = "Carnet" if not p.per_sheet else "Feuilles séparées"
-                        fmts = []
-                        if p.do_pdf: fmts.append("PDF")
-                        if p.do_dwg: fmts.append("DWG")
-                        log_cb("- {}: {} [{}]".format(p.collection_name, mode, ", ".join(fmts)))
-                    else:
-                        log_cb("- {}: (Ignoré)".format(p.collection_name))
-                log_cb("============================")
-            except Exception:
-                pass
-        # -----------------
+        # Remove non-error logs
 
         pdf_sep = self._pdf.get_separate(False) if self._pdf is not None else False
         dwg_sep = self._dwg.get_separate(False) if self._dwg is not None else False
@@ -285,8 +263,6 @@ class ExportOrchestrator(object):
             if progress_cb:
                 progress_cb(i, total, 'Collection: {}'.format(plan.collection_name))
             if not plan.do_export:
-                if log_cb:
-                    log_cb(u"Ignoré: {} (Export=0)".format(plan.collection_name))
                 continue
             try:
                 if ui_win is not None and ui_comp is not None:
@@ -318,6 +294,11 @@ class ExportOrchestrator(object):
                                 ui_comp.refresh_grid(ui_win)
                         except Exception:
                             pass
+                        if log_cb and not ok:
+                            try:
+                                log_cb(u"Erreur export PDF: {}".format(self._safe_sheet_name(sh)))
+                            except Exception:
+                                pass
                     if plan.do_dwg and base_dwg:
                         try:
                             if ui_win is not None and ui_comp is not None:
@@ -333,6 +314,11 @@ class ExportOrchestrator(object):
                                 ui_comp.refresh_grid(ui_win)
                         except Exception:
                             pass
+                        if log_cb and not ok:
+                            try:
+                                log_cb(u"Erreur export DWG: {}".format(self._safe_sheet_name(sh)))
+                            except Exception:
+                                pass
             else:
                 # Utiliser le pattern 'set' (carnet) s'il existe, sinon fallback sur sheet/default
                 rows = self._get_rows_for_set()
@@ -356,6 +342,11 @@ class ExportOrchestrator(object):
                             ui_comp.refresh_grid(ui_win)
                     except Exception:
                         pass
+                    if log_cb and not ok:
+                        try:
+                            log_cb(u"Erreur export PDF combiné: {}".format(plan.collection_name))
+                        except Exception:
+                            pass
                 if plan.do_dwg and base_dwg:
                     for sh in sheets:
                         rows_sh = self._get_rows_for_sheet(sh)
@@ -373,6 +364,11 @@ class ExportOrchestrator(object):
                                 ui_comp.refresh_grid(ui_win)
                         except Exception:
                             pass
+                        if log_cb and not ok:
+                            try:
+                                log_cb(u"Erreur export DWG: {}".format(self._safe_sheet_name(sh)))
+                            except Exception:
+                                pass
 
                 try:
                     if ui_win is not None and ui_comp is not None:
@@ -526,10 +522,20 @@ class ExportOrchestrator(object):
             ok = False
         try:
             if ok:
-                cands = [os.path.join(tmp_dir, f) for f in os.listdir(tmp_dir) if f.lower().endswith('.dwg')]
-                if cands:
-                    cands.sort(key=lambda p: os.path.getmtime(p), reverse=True)
-                    exported_file = cands[0]
+                # Prioritize the main file "export.dwg"
+                exported_file = None
+                expected_main = os.path.join(tmp_dir, "export.dwg")
+
+                if os.path.exists(expected_main):
+                    exported_file = expected_main
+                else:
+                    # Fallback: pick the most recent DWG
+                    cands = [os.path.join(tmp_dir, f) for f in os.listdir(tmp_dir) if f.lower().endswith('.dwg')]
+                    if cands:
+                        cands.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+                        exported_file = cands[0]
+
+                if exported_file:
                     try:
                         os.rename(exported_file, final_path)
                     except Exception:
@@ -539,6 +545,32 @@ class ExportOrchestrator(object):
                             os.remove(exported_file)
                         except Exception:
                             pass
+
+                    # Copy referenced raster files from tmp to final folder to preserve XREFs
+                    try:
+                        import shutil
+                        exts = {'.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.gif'}
+                        for root, dirs, files in os.walk(tmp_dir):
+                            rel = os.path.relpath(root, tmp_dir)
+                            dest_root = base_folder if rel == '.' else os.path.join(base_folder, rel)
+                            try:
+                                self._dest.ensure(dest_root)
+                            except Exception:
+                                pass
+                            for fn in files:
+                                ext = os.path.splitext(fn)[1].lower()
+                                if ext in exts:
+                                    src = os.path.join(root, fn)
+                                    dst = os.path.join(dest_root, fn)
+                                    try:
+                                        shutil.copy2(src, dst)
+                                    except Exception:
+                                        try:
+                                            shutil.copy(src, dst)
+                                        except Exception:
+                                            pass
+                    except Exception:
+                        pass
         except Exception:
             ok = False
         try:
