@@ -24,7 +24,7 @@ class TutorialWindow(forms.WPFWindow):
                     rd.Source = Uri(path, UriKind.Absolute)
                     self.Resources.MergedDictionaries.Add(rd)
         except Exception as e:
-            print('[warning] Could not load resources:', e)
+            print('TutorialWindow [001]: Error loading resources: {}'.format(e))
         if hasattr(self, 'CloseButton'):
             self.CloseButton.Click += self._on_close
 

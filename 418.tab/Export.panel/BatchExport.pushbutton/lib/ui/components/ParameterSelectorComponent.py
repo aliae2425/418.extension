@@ -21,17 +21,17 @@ class ParameterSelectorComponent(object):
         try:
             names = self._repo.collect_for_collections(doc)
             if _verbose:
-                print('[debug] Found {} boolean parameters for collections'.format(len(names)))
+                pass
                 if names:
-                    print('[debug] Parameters:', ', '.join(names[:5]) + ('...' if len(names) > 5 else ''))
+                    pass
         except Exception as e:
-            print('[error] Failed to collect parameters:', e)
+            print('ParameterSelectorComponent [001]: Failed to collect parameters: {}'.format(e))
             names = []
         for cname in ("ExportationCombo", "CarnetCombo", "DWGCombo"):
             ctrl = getattr(win, cname, None)
             if ctrl is None:
                 if _verbose:
-                    print('[warning] Control {} not found in window'.format(cname))
+                    pass
                 continue
             try:
                 ctrl.Items.Clear()
@@ -40,7 +40,7 @@ class ParameterSelectorComponent(object):
                 if ctrl.Items.Count > 0:
                     ctrl.SelectedIndex = 0
                 if _verbose:
-                    print('[debug] Populated {} with {} items'.format(cname, ctrl.Items.Count))
+                    pass
             except Exception as e:
-                print('[error] Failed to populate {}: {}'.format(cname, e))
+                print('ParameterSelectorComponent [002]: Failed to populate {}: {}'.format(cname, e))
                 pass

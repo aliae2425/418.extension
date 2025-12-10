@@ -18,18 +18,18 @@ class UITemplateBinder(object):
             try:
                 host = getattr(self._win, host_name, None)
             except Exception as e:
-                print('[error] Failed to get host {}: {}'.format(host_name, e))
+                print('UITemplateBinder [001]: Failed to get host {}: {}'.format(host_name, e))
                 host = None
             if host is None:
                 if _verbose:
-                    print('[warning] Host {} not found in window'.format(host_name))
+                    pass
                 continue
             try:
                 host.ApplyTemplate()
                 if _verbose:
-                    print('[debug] Applied template to {}'.format(host_name))
+                    pass
             except Exception as e:
-                print('[error] Failed to apply template to {}: {}'.format(host_name, e))
+                print('UITemplateBinder [002]: Failed to apply template to {}: {}'.format(host_name, e))
                 pass
             for cname in child_names:
                 ctrl = None
@@ -39,18 +39,18 @@ class UITemplateBinder(object):
                         ctrl = tmpl.FindName(cname, host)
                     else:
                         if _verbose:
-                            print('[warning] No template found for {}'.format(host_name))
+                            pass
                 except Exception as e:
-                    print('[error] Failed to find {} in {}: {}'.format(cname, host_name, e))
+                    print('UITemplateBinder [003]: Failed to find {} in {}: {}'.format(cname, host_name, e))
                     ctrl = None
                 if ctrl is not None:
                     try:
                         setattr(self._win, cname, ctrl)
                         if _verbose:
-                            print('[debug] Bound {} from {}'.format(cname, host_name))
+                            pass
                     except Exception as e:
-                        print('[error] Failed to bind {}: {}'.format(cname, e))
+                        print('UITemplateBinder [004]: Failed to bind {}: {}'.format(cname, e))
                         pass
                 else:
                     if _verbose:
-                        print('[warning] Control {} not found in template of {}'.format(cname, host_name))
+                        pass
