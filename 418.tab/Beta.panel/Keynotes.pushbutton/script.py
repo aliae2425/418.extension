@@ -8,5 +8,4 @@ __doc__ = """
 from lib.ui.windows.MainWindowController import MainWindowController
 
 if __name__ == "__main__":
-    ctrl = MainWindowController()
-    ctrl.show()
+
