@@ -26,37 +26,37 @@ class UIResourceLoader(object):
             from System import Uri, UriKind
             from System.Windows import ResourceDictionary as WResourceDictionary
         except Exception as e:
-            print('[error] Failed to import WPF types:', e)
+            print('UIResourceLoader [001]: Failed to import WPF types: {}'.format(e))
             return False
         if self._paths is None:
-            print('[error] AppPaths is None')
+            print('UIResourceLoader [002]: AppPaths is None')
             return False
         # windows.xaml
         win_path = self._paths.windows_xaml()
         if _verbose:
-            print('[debug] Loading windows.xaml from:', win_path)
+            pass
         if not os.path.exists(win_path):
-            print('[error] windows.xaml not found at:', win_path)
+            print('UIResourceLoader [003]: windows.xaml not found at: {}'.format(win_path))
         try:
             d0 = WResourceDictionary()
             u0 = Uri('file:///' + win_path.replace('\\', '/').replace(':', ':/'), UriKind.Absolute)
             d0.Source = u0
             self._win.Resources.MergedDictionaries.Add(d0)
             if _verbose:
-                print('[debug] windows.xaml loaded successfully')
+                pass
         except Exception as e:
-            print('[error] Failed to load windows.xaml:', e)
+            print('UIResourceLoader [004]: Failed to load windows.xaml: {}'.format(e))
             pass
         # Controls
         ctrl_dir = self._paths.controls_dir()
         if _verbose:
-            print('[debug] Loading controls from:', ctrl_dir)
+            pass
         names = ['ParameterSelector.xaml','ExportOptions.xaml','DestinationPicker.xaml','NamingConfig.xaml','CollectionPreview.xaml']
         for n in names:
             path = os.path.join(ctrl_dir, n)
             if not os.path.exists(path):
                 if _verbose:
-                    print('[warning] Control file not found:', path)
+                    print('UIResourceLoader [005]: Control file not found: {}'.format(path))
                 continue
             try:
                 d = WResourceDictionary()
@@ -64,8 +64,8 @@ class UIResourceLoader(object):
                 d.Source = u
                 self._win.Resources.MergedDictionaries.Add(d)
                 if _verbose:
-                    print('[debug] Loaded control:', n)
+                    pass
             except Exception as e:
-                print('[error] Failed to load {}: {}'.format(n, e))
+                print('UIResourceLoader [006]: Failed to load {}: {}'.format(n, e))
                 pass
         return True

@@ -57,7 +57,7 @@ class PikerWindow(forms.WPFWindow):
                     rd.Source = Uri(path, UriKind.Absolute)
                     self.Resources.MergedDictionaries.Add(rd)
         except Exception as e:
-            print('[warning] Could not load resources:', e)
+            print('PikerWindow [001]: Error loading resources: {}'.format(e))
 
         self._kind = kind  # 'sheet' | 'set'
         try:
@@ -407,5 +407,5 @@ def open_modal(kind='sheet', title=u"Piker", on_close=None):
             win.show()
         return True
     except Exception as e:
-        print('[info] Erreur PikerWindow:', e)
+        print('PikerWindow [002]: Error: {}'.format(e))
         return False

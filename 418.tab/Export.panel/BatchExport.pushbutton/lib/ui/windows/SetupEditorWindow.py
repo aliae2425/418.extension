@@ -78,7 +78,7 @@ class SetupEditorWindow(forms.WPFWindow):
                     rd.Source = Uri(path, UriKind.Absolute)
                     self.Resources.MergedDictionaries.Add(rd)
         except Exception as e:
-            print('[warning] Could not load resources:', e)
+            print('SetupEditorWindow [001]: Error loading resources: {}'.format(e))
         self._kind = (kind or 'pdf').lower()
         self._saved = False
         try:
@@ -198,7 +198,7 @@ def open_setup_editor(kind=None):
             win.show()
         return win._saved
     except Exception as e:
-        print('[info] Erreur SetupEditorWindow:', e)
+        print('SetupEditorWindow [002]: Error: {}'.format(e))
         return False
 
 

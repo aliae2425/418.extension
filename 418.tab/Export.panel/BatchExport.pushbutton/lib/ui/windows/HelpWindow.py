@@ -32,7 +32,7 @@ class HelpWindow(forms.WPFWindow):
                     rd.Source = Uri(path, UriKind.Absolute)
                     self.Resources.MergedDictionaries.Add(rd)
         except Exception as e:
-            print('[warning] Could not load resources:', e)
+            print('HelpWindow [001]: Error loading resources: {}'.format(e))
 
         if content and hasattr(self, 'HelpContentText'):
             self.HelpContentText.Text = content
