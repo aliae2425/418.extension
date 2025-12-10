@@ -526,10 +526,20 @@ class ExportOrchestrator(object):
             ok = False
         try:
             if ok:
-                cands = [os.path.join(tmp_dir, f) for f in os.listdir(tmp_dir) if f.lower().endswith('.dwg')]
-                if cands:
-                    cands.sort(key=lambda p: os.path.getmtime(p), reverse=True)
-                    exported_file = cands[0]
+                # Prioritize the main file "export.dwg"
+                exported_file = None
+                expected_main = os.path.join(tmp_dir, "export.dwg")
+
+                if os.path.exists(expected_main):
+                    exported_file = expected_main
+                else:
+                    # Fallback: pick the most recent DWG
+                    cands = [os.path.join(tmp_dir, f) for f in os.listdir(tmp_dir) if f.lower().endswith('.dwg')]
+                    if cands:
+                        cands.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+                        exported_file = cands[0]
+
+                if exported_file:
                     try:
                         os.rename(exported_file, final_path)
                     except Exception:
@@ -539,6 +549,32 @@ class ExportOrchestrator(object):
                             os.remove(exported_file)
                         except Exception:
                             pass
+
+                    # Copy referenced raster files from tmp to final folder to preserve XREFs
+                    try:
+                        import shutil
+                        exts = {'.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.gif'}
+                        for root, dirs, files in os.walk(tmp_dir):
+                            rel = os.path.relpath(root, tmp_dir)
+                            dest_root = base_folder if rel == '.' else os.path.join(base_folder, rel)
+                            try:
+                                self._dest.ensure(dest_root)
+                            except Exception:
+                                pass
+                            for fn in files:
+                                ext = os.path.splitext(fn)[1].lower()
+                                if ext in exts:
+                                    src = os.path.join(root, fn)
+                                    dst = os.path.join(dest_root, fn)
+                                    try:
+                                        shutil.copy2(src, dst)
+                                    except Exception:
+                                        try:
+                                            shutil.copy(src, dst)
+                                        except Exception:
+                                            pass
+                    except Exception:
+                        pass
         except Exception:
             ok = False
         try:
