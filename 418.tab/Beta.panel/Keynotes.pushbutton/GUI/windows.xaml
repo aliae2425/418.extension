@@ -3,5 +3,6 @@
   <ResourceDictionary.MergedDictionaries>
     <ResourceDictionary Source="resources/Colors.xaml"/>
     <ResourceDictionary Source="resources/Styles.xaml"/>
+    <ResourceDictionary Source="resources/Templates.xaml"/>
   </ResourceDictionary.MergedDictionaries>
 </ResourceDictionary>

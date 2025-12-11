@@ -1,0 +1,11 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    
+    <HierarchicalDataTemplate x:Key="KeynoteItemTemplate" ItemsSource="{Binding Children}">
+        <StackPanel Orientation="Horizontal">
+            <TextBlock Text="{Binding Key}" FontWeight="Bold" Margin="0,0,8,0" Foreground="{DynamicResource TextPrimaryBrush}"/>
+            <TextBlock Text="{Binding Description}" Foreground="{DynamicResource TextPrimaryBrush}"/>
+        </StackPanel>
+    </HierarchicalDataTemplate>
+
+</ResourceDictionary>

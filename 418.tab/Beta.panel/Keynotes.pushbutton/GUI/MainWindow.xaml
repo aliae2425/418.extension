@@ -93,7 +93,7 @@
                   <RowDefinition Height="*"/>
               </Grid.RowDefinitions>
               <TextBlock Text="Keynotes Tree" Style="{DynamicResource SubHeaderTextBlockStyle}" Margin="0,0,0,8"/>
-              <TreeView Name="MainTreeView" Grid.Row="1" BorderThickness="0" Background="Transparent"/>
+              <TreeView Name="MainTreeView" Grid.Row="1" BorderThickness="0" Background="Transparent" ItemTemplate="{DynamicResource KeynoteItemTemplate}"/>
           </Grid>
       </Border>
 
@@ -173,7 +173,15 @@
           <!-- Contenu du menu -->
           <Grid Grid.Row="1">
              <StackPanel Margin="16">
-                 <!-- Options will go here -->
+                 <TextBlock Text="Fichier Keynotes" Style="{DynamicResource BodyTextBlockStyle}" Margin="0,0,0,8"/>
+                 <Button Name="LoadKeynoteButton" Content="Charger un fichier..." HorizontalAlignment="Stretch"/>
+                 <TextBlock Name="CurrentKeynotePath" 
+                            Text="Aucun fichier chargé" 
+                            Style="{DynamicResource BodyTextBlockStyle}" 
+                            FontSize="12" 
+                            Foreground="{DynamicResource TextSecondaryBrush}" 
+                            TextWrapping="Wrap" 
+                            Margin="0,8,0,0"/>
              </StackPanel>
           </Grid>
         </Grid>

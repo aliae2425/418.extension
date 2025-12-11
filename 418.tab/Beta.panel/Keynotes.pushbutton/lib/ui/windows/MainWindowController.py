@@ -20,7 +20,9 @@ class MainWindowController(object):
         self._bind_events()
         self._wire_burger_menu()
         self._wire_dark_mode()
+        self._wire_load_keynote()
         self._check_revit_theme()
+        self._init_current_keynote()
 
     def _bind_events(self):
         # Title Bar events
@@ -93,6 +95,52 @@ class MainWindowController(object):
                 self._win.DarkModeToggle.Unchecked += self._on_light_mode
         except Exception:
             pass
+
+    def _wire_load_keynote(self):
+        try:
+            if hasattr(self._win, 'LoadKeynoteButton'):
+                self._win.LoadKeynoteButton.Click += self._on_load_keynote
+        except Exception:
+            pass
+
+    def _on_load_keynote(self, sender, args):
+        try:
+            path = forms.pick_file(file_ext='txt', title="Sélectionner un fichier Keynotes")
+            if path:
+                self._update_path_display(path)
+                self._load_keynotes(path)
+        except Exception:
+            pass
+
+    def _init_current_keynote(self):
+        try:
+            doc = __revit__.ActiveUIDocument.Document
+            from Autodesk.Revit.DB import KeynoteTable, ModelPathUtils
+            table = KeynoteTable.GetKeynoteTable(doc)
+            if table:
+                ref = table.GetExternalFileReference()
+                if ref:
+                    path = ref.GetPath()
+                    user_path = ModelPathUtils.ConvertModelPathToUserVisiblePath(path)
+                    self._update_path_display(user_path)
+                    self._load_keynotes(user_path)
+        except Exception:
+            pass
+
+    def _load_keynotes(self, path):
+        try:
+            from ...data.KeynoteParser import KeynoteParser
+            parser = KeynoteParser()
+            items = parser.parse(path)
+            if hasattr(self._win, 'MainTreeView'):
+                self._win.MainTreeView.ItemsSource = items
+        except Exception as e:
+            print('Error loading keynotes: {}'.format(e))
+
+    def _update_path_display(self, path):
+        if hasattr(self._win, 'CurrentKeynotePath'):
+            self._win.CurrentKeynotePath.Text = path
+            self._win.CurrentKeynotePath.ToolTip = path
 
     def _check_revit_theme(self):
         try:
