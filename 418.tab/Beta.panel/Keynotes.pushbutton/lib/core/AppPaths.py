@@ -13,3 +13,6 @@ class AppPaths(object):
 
     def windows_xaml(self):
         return os.path.join(self.gui_root(), 'windows.xaml')
+
+    def resource_path(self, filename):
+        return os.path.join(self.gui_root(), 'resources', filename)

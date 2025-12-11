@@ -19,6 +19,8 @@ class MainWindowController(object):
         # Bind events
         self._bind_events()
         self._wire_burger_menu()
+        self._wire_dark_mode()
+        self._check_revit_theme()
 
     def _bind_events(self):
         # Title Bar events
@@ -83,6 +85,52 @@ class MainWindowController(object):
                 overlay.Visibility = Visibility.Collapsed
         except Exception:
             pass
+
+    def _wire_dark_mode(self):
+        try:
+            if hasattr(self._win, 'DarkModeToggle'):
+                self._win.DarkModeToggle.Checked += self._on_dark_mode
+                self._win.DarkModeToggle.Unchecked += self._on_light_mode
+        except Exception:
+            pass
+
+    def _check_revit_theme(self):
+        try:
+            from Autodesk.Revit.UI import UIThemeManager, UITheme
+            theme = UIThemeManager.CurrentTheme
+            if theme == UITheme.Dark:
+                if hasattr(self._win, 'DarkModeToggle'):
+                    self._win.DarkModeToggle.IsChecked = True
+                else:
+                    self._on_dark_mode(None, None)
+        except Exception:
+            pass
+
+    def _on_dark_mode(self, sender, args):
+        try:
+            from System.Windows import ResourceDictionary
+            from System import Uri, UriKind
+            # Load dark theme resources
+            dark_colors = self._paths.resource_path('ColorsDark.xaml')
+            dark_styles = self._paths.resource_path('StylesDark.xaml')
+            for path in [dark_colors, dark_styles]:
+                rd = ResourceDictionary()
+                rd.Source = Uri(path, UriKind.Absolute)
+                self._win.Resources.MergedDictionaries.Add(rd)
+        except Exception as e:
+            print('MainWindowController: Dark mode error: {}'.format(e))
+
+    def _on_light_mode(self, sender, args):
+        try:
+            # Remove dark theme resources (assume last two dictionaries are dark)
+            md = self._win.Resources.MergedDictionaries
+            # We expect at least 2 base dictionaries (Colors, Styles) + potentially others
+            # If we added 2 for dark mode, we remove the last 2
+            if len(md) >= 4: # Base Colors, Styles + Dark Colors, Styles
+                md.RemoveAt(md.Count-1)
+                md.RemoveAt(md.Count-1)
+        except Exception as e:
+            print('MainWindowController: Light mode error: {}'.format(e))
 
     def _close_window(self, sender, args):
         self._win.Close()

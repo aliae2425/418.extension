@@ -172,7 +172,9 @@
           
           <!-- Contenu du menu -->
           <Grid Grid.Row="1">
-             <TextBlock Text="Options will go here..." Margin="16" Foreground="{DynamicResource TextSecondaryBrush}"/>
+             <StackPanel Margin="16">
+                 <!-- Options will go here -->
+             </StackPanel>
           </Grid>
         </Grid>
       </Border>
