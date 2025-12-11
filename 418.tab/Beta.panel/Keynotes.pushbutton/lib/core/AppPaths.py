@@ -1,17 +1,15 @@
 # -*- coding: utf-8 -*-
-# Centralisation des chemins vers les fichiers XAML et ressources
-
 import os
 
 class AppPaths(object):
     def __init__(self, base_dir=None):
-        # base_dir = dossier lib/core (celui-ci)
         self._base = base_dir or os.path.dirname(__file__)
 
-    # Retourne le chemin absolu vers windows.xaml
     def main_xaml(self):
-        return os.path.normpath(os.path.join(self._base, '..', '..', 'GUI', 'windows.xaml'))
+        return os.path.normpath(os.path.join(self._base, '..', '..', 'GUI', 'MainWindow.xaml'))
 
-    # Retourne la racine GUI
     def gui_root(self):
         return os.path.normpath(os.path.join(self._base, '..', '..', 'GUI'))
+
+    def windows_xaml(self):
+        return os.path.join(self.gui_root(), 'windows.xaml')
