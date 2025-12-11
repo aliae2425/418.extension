@@ -86,28 +86,10 @@
       </Grid.ColumnDefinitions>
 
       <!-- Col 1: TreeView -->
-      <Border Grid.Column="0" Style="{DynamicResource CardStyle}" Margin="0,0,6,0">
-          <Grid>
-              <Grid.RowDefinitions>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="*"/>
-              </Grid.RowDefinitions>
-              <TextBlock Text="Keynotes Tree" Style="{DynamicResource SubHeaderTextBlockStyle}" Margin="0,0,0,8"/>
-              <TreeView Name="MainTreeView" Grid.Row="1" BorderThickness="0" Background="Transparent" ItemTemplate="{DynamicResource KeynoteItemTemplate}"/>
-          </Grid>
-      </Border>
+      <ContentControl Name="KeynoteTreeHost" Grid.Column="0" Template="{DynamicResource KeynoteTreeTemplate}"/>
 
       <!-- Col 2: ListView -->
-      <Border Grid.Column="1" Style="{DynamicResource CardStyle}" Margin="6,0,0,0">
-          <Grid>
-              <Grid.RowDefinitions>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="*"/>
-              </Grid.RowDefinitions>
-              <TextBlock Text="Details" Style="{DynamicResource SubHeaderTextBlockStyle}" Margin="0,0,0,8"/>
-              <ListView Name="MainListView" Grid.Row="1" BorderThickness="0" Background="Transparent"/>
-          </Grid>
-      </Border>
+      <ContentControl Name="KeynoteDetailsHost" Grid.Column="1" Template="{DynamicResource KeynoteDetailsTemplate}"/>
     </Grid>
 
     <!-- Footer -->
@@ -148,43 +130,7 @@
           <DropShadowEffect ShadowDepth="4" BlurRadius="16" Opacity="0.2"/>
         </Border.Effect>
         
-        <Grid>
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-          </Grid.RowDefinitions>
-          
-          <!-- En-tête du menu -->
-          <Border Grid.Row="0" Background="{DynamicResource MicaBackgroundBrush}" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource ControlBorderBrush}" Padding="16">
-            <Grid>
-              <TextBlock Text="Paramètres" Style="{DynamicResource SubHeaderTextBlockStyle}" VerticalAlignment="Center"/>
-              <Button Name="CloseBurgerButton" 
-                      Content="×" 
-                      FontSize="24"
-                      Width="32" Height="32"
-                      HorizontalAlignment="Right"
-                      Background="Transparent"
-                      BorderThickness="0"
-                      Cursor="Hand"
-                      Foreground="{DynamicResource TextPrimaryBrush}"/>
-            </Grid>
-          </Border>
-          
-          <!-- Contenu du menu -->
-          <Grid Grid.Row="1">
-             <StackPanel Margin="16">
-                 <TextBlock Text="Fichier Keynotes" Style="{DynamicResource BodyTextBlockStyle}" Margin="0,0,0,8"/>
-                 <Button Name="LoadKeynoteButton" Content="Charger un fichier..." HorizontalAlignment="Stretch"/>
-                 <TextBlock Name="CurrentKeynotePath" 
-                            Text="Aucun fichier chargé" 
-                            Style="{DynamicResource BodyTextBlockStyle}" 
-                            FontSize="12" 
-                            Foreground="{DynamicResource TextSecondaryBrush}" 
-                            TextWrapping="Wrap" 
-                            Margin="0,8,0,0"/>
-             </StackPanel>
-          </Grid>
-        </Grid>
+        <ContentControl Name="BurgerMenuHost" Template="{DynamicResource BurgerMenuTemplate}"/>
       </Border>
 
     </Grid>

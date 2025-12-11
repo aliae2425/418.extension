@@ -6,3 +6,10 @@ class KeynoteItem(object):
         self.Description = description
         self.ParentKey = parent_key
         self.Children = []
+        self.Count = 0
+
+    @property
+    def DisplayText(self):
+        if self.Count > 0:
+            return "{} ({})".format(self.Description, self.Count)
+        return self.Description

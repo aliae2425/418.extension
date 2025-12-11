@@ -4,7 +4,7 @@
     <HierarchicalDataTemplate x:Key="KeynoteItemTemplate" ItemsSource="{Binding Children}">
         <StackPanel Orientation="Horizontal">
             <TextBlock Text="{Binding Key}" FontWeight="Bold" Margin="0,0,8,0" Foreground="{DynamicResource TextPrimaryBrush}"/>
-            <TextBlock Text="{Binding Description}" Foreground="{DynamicResource TextPrimaryBrush}"/>
+            <TextBlock Text="{Binding DisplayText}" Foreground="{DynamicResource TextPrimaryBrush}"/>
         </StackPanel>
     </HierarchicalDataTemplate>
 

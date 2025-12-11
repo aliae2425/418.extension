@@ -4,5 +4,8 @@
     <ResourceDictionary Source="resources/Colors.xaml"/>
     <ResourceDictionary Source="resources/Styles.xaml"/>
     <ResourceDictionary Source="resources/Templates.xaml"/>
+    <ResourceDictionary Source="Controls/BurgerMenu.xaml"/>
+    <ResourceDictionary Source="Controls/KeynoteTree.xaml"/>
+    <ResourceDictionary Source="Controls/KeynoteDetails.xaml"/>
   </ResourceDictionary.MergedDictionaries>
 </ResourceDictionary>
