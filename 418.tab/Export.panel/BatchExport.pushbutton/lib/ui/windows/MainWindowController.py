@@ -539,8 +539,29 @@ class MainWindowController(object):
             from .ConfigManagerWindow import ConfigManagerWindow
             win = ConfigManagerWindow()
             win.show(owner=self._win)
+            # Refresh UI after modal closes
+            self._refresh_ui()
         except Exception as e:
             print('MainWindowController [004]: Profile settings error: {}'.format(e))
+
+    def _refresh_ui(self):
+        """Refreshes the UI from current configuration."""
+        try:
+            # Reload combos selection
+            self._apply_saved_selection()
+            # Refresh naming buttons
+            self._name_comp.refresh_buttons(self._win)
+            # Refresh destination
+            self._init_destination()
+            # Refresh PDF/DWG options
+            self._init_pdf_dwg()
+            # Refresh grid
+            self._grid_comp.populate(self._win, self._get_selected_values())
+            # Check warnings
+            self._check_and_warn_insufficient()
+            self._update_export_button_state()
+        except Exception as e:
+            print('MainWindowController [005]: Refresh UI error: {}'.format(e))
 
     def _wire_accordion(self):
         """Wire expanders to behave like an accordion (one open at a time)"""

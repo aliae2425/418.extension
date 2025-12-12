@@ -16,9 +16,76 @@ class ConfigManagerWindow(forms.WPFWindow):
         # Apply theme
         self._apply_theme()
         
-        # Bind Close button
+        # Service
+        from ...services.ConfigManagerService import ConfigManagerService
+        self._service = ConfigManagerService()
+        
+        # Init UI
+        self._refresh_list()
+        
+        # Bind events
         if hasattr(self, 'CloseButton'):
             self.CloseButton.Click += self._close_click
+        if hasattr(self, 'LoadConfigButton'):
+            self.LoadConfigButton.Click += self._on_load
+        if hasattr(self, 'SaveConfigButton'):
+            self.SaveConfigButton.Click += self._on_save
+        if hasattr(self, 'ImportConfigButton'):
+            self.ImportConfigButton.Click += self._on_import
+        if hasattr(self, 'ExportConfigButton'):
+            self.ExportConfigButton.Click += self._on_export
+        if hasattr(self, 'ConfigsList'):
+            self.ConfigsList.SelectionChanged += self._on_selection_changed
+
+    def _refresh_list(self):
+        if hasattr(self, 'ConfigsList'):
+            self.ConfigsList.Items.Clear()
+            profiles = self._service.get_profiles()
+            for name in sorted(profiles.keys()):
+                self.ConfigsList.Items.Add(name)
+
+    def _on_selection_changed(self, sender, args):
+        sel = self.ConfigsList.SelectedItem
+        if sel and hasattr(self, 'ProfileNameBox'):
+            self.ProfileNameBox.Text = sel
+
+    def _on_load(self, sender, args):
+        sel = self.ConfigsList.SelectedItem
+        if sel:
+            if self._service.load_profile(sel):
+                self.Close()
+            else:
+                forms.alert("Erreur lors du chargement.", title="Erreur")
+
+    def _on_save(self, sender, args):
+        name = None
+        if hasattr(self, 'ProfileNameBox'):
+            name = self.ProfileNameBox.Text
+        
+        if not name:
+            name = forms.ask_for_string(prompt="Nom de la configuration:", title="Enregistrer sous")
+        
+        if name:
+            self._service.save_profile(name)
+            self._refresh_list()
+            # Reselect the saved item
+            if hasattr(self, 'ConfigsList'):
+                self.ConfigsList.SelectedItem = name
+
+    def _on_import(self, sender, args):
+        path = forms.pick_file(file_ext='json')
+        if path:
+            if self._service.import_profile_from_file(path):
+                self._refresh_list()
+                forms.alert("Importe avec succes.", title="Succes")
+
+    def _on_export(self, sender, args):
+        sel = self.ConfigsList.SelectedItem
+        if sel:
+            path = forms.save_file(file_ext='json', default_name=sel)
+            if path:
+                self._service.export_profile_to_file(sel, path)
+                forms.alert("Exporte avec succes.", title="Succes")
 
     def _apply_theme(self):
         try:
