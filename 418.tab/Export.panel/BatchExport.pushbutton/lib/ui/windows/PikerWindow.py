@@ -75,6 +75,22 @@ class PikerWindow(forms.WPFWindow):
         except Exception:
             pass
 
+        # Filter ScopeCombo items based on kind
+        try:
+            if hasattr(self, 'ScopeCombo'):
+                items_to_remove = []
+                for item in self.ScopeCombo.Items:
+                    content = getattr(item, 'Content', '')
+                    if self._kind == 'sheet' and content == 'Collection':
+                        items_to_remove.append(item)
+                    elif self._kind == 'set' and content == 'Feuille':
+                        items_to_remove.append(item)
+                
+                for item in items_to_remove:
+                    self.ScopeCombo.Items.Remove(item)
+        except Exception:
+            pass
+
         self._available_all = []
         self._available_filtered = []
         self._available_project = []
@@ -137,7 +153,21 @@ class PikerWindow(forms.WPFWindow):
             self._available_sheet = []
         # Union
         all_union = set()
-        for lst in (self._available_project, self._available_collection, self._available_sheet):
+        
+        # Determine sources based on kind
+        sources = [self._available_project]
+        if self._kind == 'sheet':
+            # For individual sheets: Sheet params + Project params
+            sources.append(self._available_sheet)
+        elif self._kind == 'set':
+            # For sets: Collection params + Project params
+            sources.append(self._available_collection)
+        else:
+            # Fallback
+            sources.append(self._available_collection)
+            sources.append(self._available_sheet)
+
+        for lst in sources:
             for n in lst:
                 if n:
                     try:
@@ -296,13 +326,23 @@ class PikerWindow(forms.WPFWindow):
                     scope = getattr(sel, 'Content', 'Tout')
         except Exception:
             scope = 'Tout'
+        
         if scope == 'Projet':
             filtered = list(self._available_project or [])
         elif scope == 'Collection':
-            filtered = list(self._available_collection or [])
+            # Only show collection params if we are in 'set' mode
+            if self._kind == 'set':
+                filtered = list(self._available_collection or [])
+            else:
+                filtered = []
         elif scope == 'Feuille':
-            filtered = list(self._available_sheet or [])
+            # Only show sheet params if we are in 'sheet' mode
+            if self._kind == 'sheet':
+                filtered = list(self._available_sheet or [])
+            else:
+                filtered = []
         else:
+            # 'Tout' case: use the pre-calculated union which respects the kind
             filtered = list(self._available_all or [])
 
         # Apply search filter
