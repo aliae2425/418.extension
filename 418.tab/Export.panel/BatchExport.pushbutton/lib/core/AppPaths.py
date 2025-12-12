@@ -24,6 +24,10 @@ class AppPaths(object):
     def windows_xaml(self):
         return os.path.join(self.gui_root(), 'windows.xaml')
 
+    # Retourne ConfigManager.xaml
+    def config_manager_xaml(self):
+        return os.path.join(self.gui_root(), 'Modals', 'ConfigManager.xaml')
+
     # Retourne le chemin absolu d'une ressource XAML (Colors.xaml, Styles.xaml, etc)
     def resource_path(self, filename):
         return os.path.join(self.gui_root(), 'resources', filename)

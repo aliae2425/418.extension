@@ -527,6 +527,21 @@ class MainWindowController(object):
         except Exception:
             pass
 
+    def _wire_profile_settings(self):
+        try:
+            if hasattr(self._win, 'ProfileSettingsButton'):
+                self._win.ProfileSettingsButton.Click += self._on_profile_settings_click
+        except Exception:
+            pass
+
+    def _on_profile_settings_click(self, sender, args):
+        try:
+            from .ConfigManagerWindow import ConfigManagerWindow
+            win = ConfigManagerWindow()
+            win.show(owner=self._win)
+        except Exception as e:
+            print('MainWindowController [004]: Profile settings error: {}'.format(e))
+
     def _wire_accordion(self):
         """Wire expanders to behave like an accordion (one open at a time)"""
         expanders = []
@@ -647,6 +662,7 @@ class MainWindowController(object):
         self._wire_help_button()
         self._wire_dark_mode_toggle()
         self._wire_burger_menu()
+        self._wire_profile_settings()
 
     def show(self):
         self.initialize()

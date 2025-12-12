@@ -1,0 +1,81 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Gestion des configurations"
+        Height="450" Width="600"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent">
+
+    <Window.Resources>
+        <ResourceDictionary>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Border CornerRadius="8" Background="{DynamicResource WindowBackgroundBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1">
+        <Grid Margin="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <Grid Grid.Row="0" Margin="0,0,0,16">
+                <TextBlock Text="Gestion des configurations" Style="{DynamicResource HeaderTextBlockStyle}" VerticalAlignment="Center"/>
+                <Button Name="CloseButton" 
+                        Content="✕" 
+                        Width="32" Height="32"
+                        HorizontalAlignment="Right"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Cursor="Hand"
+                        Foreground="{DynamicResource TextPrimaryBrush}"/>
+            </Grid>
+
+            <!-- Content -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="200"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- List of configs -->
+                <Border Grid.Column="0" Margin="0,0,16,0" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="4" Background="{DynamicResource ControlFillBrush}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Configurations enregistrées" Margin="8" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <ListBox Name="ConfigsList" Grid.Row="1" Margin="4" BorderThickness="0" Background="Transparent">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="8,4"/>
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+                    </Grid>
+                </Border>
+
+                <!-- Actions -->
+                <StackPanel Grid.Column="1">
+                    <StackPanel Margin="0,0,0,16">
+                        <TextBlock Text="Actions" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <Button Name="LoadConfigButton" Content="Charger" Margin="0,0,0,8" Height="32" Background="{DynamicResource AccentBrush}" Foreground="{DynamicResource TextOnAccentBrush}" BorderThickness="0"/>
+                        <Button Name="SaveConfigButton" Content="Enregistrer sous..." Margin="0,0,0,8" Height="32" Background="{DynamicResource ControlFillBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1"/>
+                        <Button Name="DeleteConfigButton" Content="Supprimer" Margin="0,0,0,8" Height="32" Background="Transparent" BorderBrush="#E81123" BorderThickness="1" Foreground="#E81123"/>
+                    </StackPanel>
+
+                    <StackPanel>
+                        <TextBlock Text="Fichier" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <Button Name="ImportConfigButton" Content="Importer..." Margin="0,0,0,8" Height="32" Background="{DynamicResource ControlFillBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1"/>
+                        <Button Name="ExportConfigButton" Content="Exporter..." Height="32" Background="{DynamicResource ControlFillBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1"/>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

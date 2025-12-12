@@ -150,6 +150,55 @@
                                 Template="{DynamicResource ExportOptionsTemplate}"/>
               </StackPanel>
             </ScrollViewer>
+
+            <!-- Section Profil -->
+            <Border Grid.Row="1" 
+                    Background="{DynamicResource MicaBackgroundBrush}" 
+                    BorderThickness="0,1,0,0" 
+                    BorderBrush="{DynamicResource ControlBorderBrush}" 
+                    Padding="16">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- Avatar / Icon -->
+                    <Border Grid.Column="0" 
+                            Width="32" Height="32" 
+                            CornerRadius="16" 
+                            Background="{DynamicResource AccentBrush}" 
+                            Margin="0,0,12,0">
+                        <TextBlock Text="P" 
+                                   HorizontalAlignment="Center" 
+                                   VerticalAlignment="Center" 
+                                   Foreground="{DynamicResource TextOnAccentBrush}" 
+                                   FontWeight="Bold"/>
+                    </Border>
+                    
+                    <!-- Info -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Name="ProfileNameText"
+                                   Text="Profil" 
+                                   FontWeight="SemiBold" 
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Configuration" 
+                                   FontSize="12" 
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                    
+                    <!-- Settings / More button -->
+                    <Button Name="ProfileSettingsButton"
+                            Grid.Column="2"
+                            Content="⚙"
+                            Width="32" Height="32"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Foreground="{DynamicResource TextSecondaryBrush}"
+                            Cursor="Hand"/>
+                </Grid>
+            </Border>
           </Grid>
         </Grid>
       </Border>
