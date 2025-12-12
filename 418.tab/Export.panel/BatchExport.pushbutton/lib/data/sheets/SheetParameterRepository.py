@@ -115,11 +115,17 @@ class SheetParameterRepository(object):
             if proj_info and len(proj_info) > 0:
                 for param in proj_info[0].GetOrderedParameters():
                     try:
-                        out.append(param.Definition.Name)
+                        pname = param.Definition.Name
+                        if pname and pname.strip():
+                            out.append(pname.strip())
                     except Exception:
                         continue
         except Exception:
             out = []
+        
+        # Apply filter like other methods
+        out = self.filter_param_names(out)
+        
         try:
             out.sort(key=lambda s: s.lower())
         except Exception:
