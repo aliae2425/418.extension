@@ -96,6 +96,7 @@ class PikerWindow(forms.WPFWindow):
         self._available_project = []
         self._available_collection = []
         self._available_sheet = []
+        self._available_system = ['Date: Jour', 'Date: Mois', 'Date: Année']
         self._selected_rows = []
         # Buttons
         try:
@@ -155,12 +156,12 @@ class PikerWindow(forms.WPFWindow):
         all_union = set()
         
         # Determine sources based on kind
-        sources = [self._available_project]
+        sources = [self._available_project, self._available_system]
         if self._kind == 'sheet':
-            # For individual sheets: Sheet params + Project params
+            # For individual sheets: Sheet params + Project params + System
             sources.append(self._available_sheet)
         elif self._kind == 'set':
-            # For sets: Collection params + Project params
+            # For sets: Collection params + Project params + System
             sources.append(self._available_collection)
         else:
             # Fallback
@@ -341,6 +342,8 @@ class PikerWindow(forms.WPFWindow):
                 filtered = list(self._available_sheet or [])
             else:
                 filtered = []
+        elif scope == 'System':
+            filtered = list(self._available_system or [])
         else:
             # 'Tout' case: use the pre-calculated union which respects the kind
             filtered = list(self._available_all or [])

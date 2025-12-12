@@ -102,8 +102,28 @@ class NamingResolver(object):
             
         return ''
 
+    def _get_system_param_value(self, param_name):
+        """Retourne la valeur d'un paramètre système (Date)."""
+        try:
+            from datetime import datetime
+            now = datetime.now()
+            if param_name == 'Date: Jour':
+                return now.strftime('%d')
+            elif param_name == 'Date: Mois':
+                return now.strftime('%m')
+            elif param_name == 'Date: Année':
+                return now.strftime('%Y')
+        except Exception:
+            pass
+        return None
+
     def _get_param_value(self, elem, param_name):
         """Retourne une représentation chaîne du paramètre nommé sur l'élément, si trouvé."""
+        # 0. Paramètres système
+        sys_val = self._get_system_param_value(param_name)
+        if sys_val is not None:
+            return sys_val
+
         val = ''
         
         # 1. Essayer LookupParameter (plus fiable et rapide)
