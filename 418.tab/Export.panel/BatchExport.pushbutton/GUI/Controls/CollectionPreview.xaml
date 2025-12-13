@@ -178,9 +178,6 @@
                 
                 <!-- Colonne 2: View/Sheet Number -->
                 <GridViewColumn Header="numéro" Width="60" DisplayMemberBinding="{Binding [SheetNumber]}"/>
-                
-                <!-- Colonne 3: View / Sheet Name -->
-                <GridViewColumn Header="nom" Width="100" DisplayMemberBinding="{Binding [SheetName]}"/>
 
                 <!-- Colonne 3b: Preview Name -->
                 <GridViewColumn Header="nom d'export" Width="320" DisplayMemberBinding="{Binding [PreviewNom]}"/>
