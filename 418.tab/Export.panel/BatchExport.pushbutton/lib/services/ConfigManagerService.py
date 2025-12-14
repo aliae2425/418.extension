@@ -2,9 +2,23 @@
 from __future__ import unicode_literals
 import json
 import os
+import csv
+import io
+import sys
+
+class Profile(object):
+    def __init__(self, name, data=None):
+        self.name = name
+        self.data = data if data else {}
+
+    def to_json(self):
+        return self.data
+
+    @classmethod
+    def from_json(cls, name, data):
+        return cls(name, data)
 
 class ConfigManagerService(object):
-    # List of keys to include in a profile
     KEYS = [
         'sheet_param_ExportationCombo',
         'sheet_param_CarnetCombo',
@@ -61,8 +75,10 @@ class ConfigManagerService(object):
         if data is None:
             data = self.get_current_config()
         
+        profile = Profile(name, data)
+        
         profiles = self.get_profiles()
-        profiles[name] = data
+        profiles[name] = profile.to_json()
         self._cfg.set(self.PROFILES_KEY, json.dumps(profiles))
         return True
 
@@ -79,16 +95,17 @@ class ConfigManagerService(object):
         """Loads a profile by name and applies it."""
         profiles = self.get_profiles()
         if name in profiles:
-            return self.apply_config(profiles[name])
+            profile = Profile.from_json(name, profiles[name])
+            return self.apply_config(profile.data)
         return False
 
     def export_profile_to_file(self, name, filepath):
         """Exports a specific profile to a JSON file."""
         profiles = self.get_profiles()
         if name in profiles:
-            data = profiles[name]
+            profile = Profile.from_json(name, profiles[name])
             with open(filepath, 'w') as f:
-                json.dump(data, f, indent=2)
+                json.dump(profile.to_json(), f, indent=2)
             return True
         return False
 
@@ -108,5 +125,81 @@ class ConfigManagerService(object):
                 name = os.path.splitext(os.path.basename(filepath))[0]
             
             return self.save_profile(name, data)
+        except Exception:
+            return False
+
+    def export_current_config_to_csv(self, filepath):
+        """Exports current configuration to a CSV file."""
+        data = self.get_current_config()
+        try:
+            if sys.version_info.major < 3:
+                mode = 'wb'
+                f = open(filepath, mode)
+            else:
+                mode = 'w'
+                f = open(filepath, mode, newline='', encoding='utf-8')
+            
+            with f:
+                writer = csv.writer(f)
+                writer.writerow(['Key', 'Value'])
+                for key, val in data.items():
+                    if isinstance(val, (dict, list)):
+                        val = json.dumps(val)
+                    
+                    if sys.version_info.major < 3:
+                        k = key.encode('utf-8') if isinstance(key, unicode) else key
+                        v = val.encode('utf-8') if isinstance(val, unicode) else val
+                        writer.writerow([k, v])
+                    else:
+                        writer.writerow([key, val])
+            return True
+        except Exception:
+            return False
+
+    def import_config_from_csv(self, filepath):
+        """Imports configuration from a CSV file and applies it."""
+        if not os.path.exists(filepath):
+            return False
+        
+        data = {}
+        try:
+            if sys.version_info.major < 3:
+                f = open(filepath, 'rb')
+            else:
+                f = open(filepath, 'r', newline='', encoding='utf-8')
+                
+            with f:
+                # skipinitialspace=True allows ignoring whitespace after the comma
+                reader = csv.reader(f, skipinitialspace=True)
+                try:
+                    header = next(reader)
+                except StopIteration:
+                    return False
+                
+                for row in reader:
+                    if len(row) >= 2:
+                        key = row[0].strip()
+                        val = row[1]
+                        
+                        if sys.version_info.major < 3:
+                            key = key.decode('utf-8')
+                            val = val.decode('utf-8')
+                        
+                        # Attempt to restore types
+                        # Handle boolean strings 'True'/'False' by converting to '1'/'0'
+                        # as this application typically uses '1'/'0' for booleans in config.
+                        if val.lower() == 'true':
+                            val = '1'
+                        elif val.lower() == 'false':
+                            val = '0'
+                        elif val.startswith('{') or val.startswith('['):
+                            try:
+                                val = json.loads(val)
+                            except:
+                                pass
+                        
+                        data[key] = val
+            
+            return self.apply_config(data)
         except Exception:
             return False

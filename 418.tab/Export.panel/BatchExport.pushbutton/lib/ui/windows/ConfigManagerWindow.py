@@ -73,19 +73,21 @@ class ConfigManagerWindow(forms.WPFWindow):
                 self.ConfigsList.SelectedItem = name
 
     def _on_import(self, sender, args):
-        path = forms.pick_file(file_ext='json')
+        path = forms.pick_file(file_ext='csv')
         if path:
-            if self._service.import_profile_from_file(path):
-                self._refresh_list()
-                forms.alert("Importe avec succes.", title="Succes")
+            if self._service.import_config_from_csv(path):
+                forms.alert("Configuration chargée avec succès.", title="Succès")
+                self.Close()
+            else:
+                forms.alert("Erreur lors de l'importation.", title="Erreur")
 
     def _on_export(self, sender, args):
-        sel = self.ConfigsList.SelectedItem
-        if sel:
-            path = forms.save_file(file_ext='json', default_name=sel)
-            if path:
-                self._service.export_profile_to_file(sel, path)
-                forms.alert("Exporte avec succes.", title="Succes")
+        path = forms.save_file(file_ext='csv', default_name='config_export')
+        if path:
+            if self._service.export_current_config_to_csv(path):
+                forms.alert("Configuration exportée avec succès.", title="Succès")
+            else:
+                forms.alert("Erreur lors de l'exportation.", title="Erreur")
 
     def _apply_theme(self):
         try:
