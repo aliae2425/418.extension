@@ -185,6 +185,11 @@ class ExportOrchestrator(object):
             
             collection = self._find_collection_by_name(doc, plan.collection_name)
             sheets = self._get_collection_sheets(doc, collection) if collection else []
+            # Tri des feuilles par numéro croissant
+            try:
+                sheets = sorted(sheets, key=lambda sh: getattr(sh, 'SheetNumber', ''))
+            except Exception:
+                pass
             
             base_pdf = self._get_destination_base('PDF', plan.collection_name) if plan.do_pdf else None
             base_dwg = self._get_destination_base('DWG', plan.collection_name) if plan.do_dwg else None
@@ -273,6 +278,11 @@ class ExportOrchestrator(object):
 
             collection = self._find_collection_by_name(doc, plan.collection_name)
             sheets = self._get_collection_sheets(doc, collection) if collection is not None else []
+            # Tri des feuilles par numéro croissant
+            try:
+                sheets = sorted(sheets, key=lambda sh: getattr(sh, 'SheetNumber', ''))
+            except Exception:
+                pass
             base_pdf = self._get_destination_base('PDF', plan.collection_name) if plan.do_pdf else None
             base_dwg = self._get_destination_base('DWG', plan.collection_name) if plan.do_dwg else None
 
