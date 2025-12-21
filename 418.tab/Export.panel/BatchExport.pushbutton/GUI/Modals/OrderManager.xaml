@@ -44,10 +44,14 @@
 
         <!-- Controls -->
         <StackPanel Grid.Row="1" Grid.Column="1" VerticalAlignment="Center">
+            <Button Name="TopButton" Content="⏫" Width="40" Height="40" Margin="0,0,0,10" Click="OnTopClick"
+                ToolTip="Tout en haut"/>
             <Button Name="UpButton" Content="▲" Width="40" Height="40" Margin="0,0,0,10" Click="OnUpClick"
-                    ToolTip="Monter"/>
-            <Button Name="DownButton" Content="▼" Width="40" Height="40" Click="OnDownClick"
-                    ToolTip="Descendre"/>
+                ToolTip="Monter"/>
+            <Button Name="DownButton" Content="▼" Width="40" Height="40" Margin="0,0,0,10" Click="OnDownClick"
+                ToolTip="Descendre"/>
+            <Button Name="BottomButton" Content="⏬" Width="40" Height="40" Click="OnBottomClick"
+                ToolTip="Tout en bas"/>
         </StackPanel>
 
         <!-- Footer Actions -->

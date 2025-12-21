@@ -178,13 +178,13 @@
                             
                             <!-- EN-TÊTE DU GROUPE (Ligne de la Collection) -->
                             <Expander.Header>
-                                <Grid Height="25" Width="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ListView}}, Path=ActualWidth}">
+                                <Grid Height="25" Width="850">
                                     <Grid.ColumnDefinitions>
-                                      <ColumnDefinition Width="100"/> <!-- Nom de la collection -->
-                                      <ColumnDefinition Width="350"/> <!-- Nom du fichier de sortie (preview) -->
-                                      <ColumnDefinition Width="100"/> <!-- Nombre de feuilles -->
-                                      <ColumnDefinition Width="*"/>   <!-- Infos d'export -->
-                                      <ColumnDefinition Width="80"/>  <!-- Bouton d'ordre -->
+                                      <ColumnDefinition Width="150"/>   <!-- Nom de la collection -->
+                                      <ColumnDefinition Width="350"/>  <!-- Nom du fichier de sortie (preview) -->
+                                      <ColumnDefinition Width="70"/>   <!-- Nombre de feuilles -->
+                                      <ColumnDefinition Width="200"/>    <!-- Infos d'export -->
+                                      <ColumnDefinition Width="30"/>   <!-- Bouton d'ordre -->
                                     </Grid.ColumnDefinitions>
                                     
                                     <!-- Colonne 1 : Nom de la collection -->
@@ -204,7 +204,7 @@
                                               FontSize="10" VerticalAlignment="Center" Margin="5,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     
                                     <!-- Colonne 5 : Bouton pour gérer l'ordre (visible uniquement si combiné) -->
-                                    <Button Grid.Column="4" Content="🔃" Width="60" Height="20" 
+                                    <Button Grid.Column="4" Content="🔃" Width="20" Height="20" 
                                               Visibility="{Binding Items[0][IsCombined], Converter={StaticResource BoolToVisibilityConverter}}"
                                               Command="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=ManageOrderCommand}"
                                             CommandParameter="{Binding Name}"/>
@@ -222,25 +222,19 @@
             
             <!-- DÉFINITION DES COLONNES (FEUILLES INDIVIDUELLES) -->
             <ListView.View>
-              <GridView AllowsColumnReorder="False">
-                
+              <GridView AllowsColumnReorder="True">
                 <!-- Colonne 1 : Numéro de la feuille -->
-                <GridViewColumn Header="numéro" Width="60" DisplayMemberBinding="{Binding [SheetNumber]}"/>
-
+                <GridViewColumn Header="numéro" Width="100" DisplayMemberBinding="{Binding [SheetNumber]}"/>
                 <!-- Colonne 2 : Nom du fichier généré pour cette feuille -->
-                <GridViewColumn Header="nom d'export" Width="320" DisplayMemberBinding="{Binding [PreviewNom]}"/>
-                
+                <GridViewColumn Header="nom d'export" Width="400" DisplayMemberBinding="{Binding [PreviewNom]}"/>
                 <!-- Colonne 3 : Format de papier -->
-                <GridViewColumn Header="Format" Width="60" DisplayMemberBinding="{Binding [Format]}"/>
-                
+                <GridViewColumn Header="Format" Width="70" DisplayMemberBinding="{Binding [Format]}"/>
                 <!-- Colonne 4 : Dimensions -->
-                <GridViewColumn Header="Taille" Width="50" DisplayMemberBinding="{Binding [Size]}"/>
-                
+                <GridViewColumn Header="Taille" Width="70" DisplayMemberBinding="{Binding [Size]}"/>
                 <!-- Colonne 5 : Orientation (Portrait/Paysage) -->
-                <GridViewColumn Header="Orientation" Width="80" DisplayMemberBinding="{Binding [Orientation]}"/>
-
+                <GridViewColumn Header="Orientation" Width="700" DisplayMemberBinding="{Binding [Orientation]}"/>
                 <!-- Colonne 6 : Statut de progression de l'export -->
-                <GridViewColumn Header="Progress" Width="120">
+                <GridViewColumn Header="Progress" Width="70">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate>
                       <TextBlock Text="{Binding [Progress]}" 

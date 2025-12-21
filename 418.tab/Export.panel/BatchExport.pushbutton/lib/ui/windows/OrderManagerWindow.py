@@ -61,3 +61,21 @@ class OrderManagerWindow(forms.WPFWindow):
 
     def OnCancelClick(self, sender, args):
         self.Close()
+
+    def OnTopClick(self, sender, args):
+        idx = self.ItemsList.SelectedIndex
+        if idx > 0:
+            item = self._items.pop(idx)
+            self._items.insert(0, item)
+            self._update_orders()
+            self.ItemsList.Items.Refresh()
+            self.ItemsList.SelectedIndex = 0
+
+    def OnBottomClick(self, sender, args):
+        idx = self.ItemsList.SelectedIndex
+        if idx < len(self._items) - 1 and idx != -1:
+            item = self._items.pop(idx)
+            self._items.append(item)
+            self._update_orders()
+            self.ItemsList.Items.Refresh()
+            self.ItemsList.SelectedIndex = len(self._items) - 1
