@@ -12,9 +12,63 @@ try:
 except Exception:
     _verbose = False
 
+from System.Windows.Input import ICommand
+
+class RelayCommand(ICommand):
+    def __init__(self, execute, can_execute=None):
+        self._execute = execute
+        self._can_execute = can_execute
+
+    def CanExecute(self, parameter):
+        return self._can_execute(parameter) if self._can_execute else True
+
+    def Execute(self, parameter):
+        self._execute(parameter)
+
+    def add_CanExecuteChanged(self, handler):
+        pass
+    def remove_CanExecuteChanged(self, handler):
+        pass
+
 class MainWindow(forms.WPFWindow):
     def __init__(self, xaml_path):
         forms.WPFWindow.__init__(self, xaml_path)
+        self.ManageOrderCommand = RelayCommand(self.OnManageOrder)
+
+    def OnManageOrder(self, collection_name):
+        if not hasattr(self, '_preview_items') or not self._preview_items:
+            return
+
+        # Find items
+        indices = []
+        coll_items = []
+        for i, item in enumerate(self._preview_items):
+            if item['CollectionName'] == collection_name:
+                indices.append(i)
+                coll_items.append(item)
+        
+        if not coll_items:
+            return
+
+        # Get XAML path
+        import os
+        from ...core.AppPaths import AppPaths
+        paths = AppPaths()
+        xaml_path = os.path.join(paths.gui_root(), 'Modals', 'OrderManager.xaml')
+        
+        from .OrderManagerWindow import OrderManagerWindow
+        wm = OrderManagerWindow(xaml_path, coll_items)
+        wm.ShowDialog()
+        
+        if wm.response:
+            # Update _preview_items
+            start_idx = indices[0]
+            for k, new_item in enumerate(wm.response):
+                self._preview_items[start_idx + k] = new_item
+            
+            # Refresh ListView
+            if hasattr(self, 'CollectionGrid') and self.CollectionGrid.ItemsSource:
+                self.CollectionGrid.ItemsSource.Refresh()
 
 class MainWindowController(object):
     def __init__(self):
