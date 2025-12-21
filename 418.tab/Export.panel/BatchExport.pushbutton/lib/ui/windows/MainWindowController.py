@@ -50,6 +50,11 @@ class MainWindow(forms.WPFWindow):
         if not coll_items:
             return
 
+        # Check dark mode
+        is_dark = False
+        if hasattr(self, 'DarkModeToggle'):
+            is_dark = self.DarkModeToggle.IsChecked == True
+
         # Get XAML path
         import os
         from ...core.AppPaths import AppPaths
@@ -57,7 +62,7 @@ class MainWindow(forms.WPFWindow):
         xaml_path = os.path.join(paths.gui_root(), 'Modals', 'OrderManager.xaml')
         
         from .OrderManagerWindow import OrderManagerWindow
-        wm = OrderManagerWindow(xaml_path, coll_items)
+        wm = OrderManagerWindow(xaml_path, coll_items, is_dark_mode=is_dark)
         wm.ShowDialog()
         
         if wm.response:
