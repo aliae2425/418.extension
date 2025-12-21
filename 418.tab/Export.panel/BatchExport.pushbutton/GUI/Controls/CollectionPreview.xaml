@@ -107,7 +107,8 @@
                                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               Margin="{TemplateBinding Padding}"
                                               Visibility="Collapsed"
-                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Width="850"/>
                         </DockPanel>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -153,15 +154,16 @@
                      Text="Collections: 0 • Éléments: 0"/>
           
           <!-- 
-               LISTVIEW PRINCIPALE
-               Affiche les feuilles regroupées par Collection.
-          -->
-          <ListView Name="CollectionGrid"
-                    Height="200"
-                    ScrollViewer.VerticalScrollBarVisibility="Auto"
-                    ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                    BorderThickness="1"
-                    BorderBrush="{DynamicResource ControlBorderBrush}">
+              LISTVIEW PRINCIPALE
+              Affiche les feuilles regroupées par Collection.
+            -->
+            <ListView Name="CollectionGrid"
+                Height="200"
+                Width="850"
+                ScrollViewer.VerticalScrollBarVisibility="Auto"
+                ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource ControlBorderBrush}">
             
             <!-- DÉFINITION DES GROUPES (COLLECTIONS) -->
             <ListView.GroupStyle>
