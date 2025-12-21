@@ -25,6 +25,11 @@
     <SolidColorBrush x:Key="ControlFillPressedBrush" Color="#F0F0F0"/>
     <SolidColorBrush x:Key="ControlBorderBrush" Color="#E0E0E0"/>
     <SolidColorBrush x:Key="ControlBorderHoverBrush" Color="#C0C0C0"/>
+
+    <!-- Aliases / UI states -->
+    <SolidColorBrush x:Key="ControlMouseOverBrush" Color="#F9F9F9"/>
+    <SolidColorBrush x:Key="ModalOverlayBrush" Color="#80000000"/>
+    <SolidColorBrush x:Key="CloseButtonHoverBrush" Color="#FFE81123"/>
     
     <!-- Legacy/Existing keys mapped to new ones -->
     <SolidColorBrush x:Key="LightGrayBrush" Color="#F3F3F3"/>
