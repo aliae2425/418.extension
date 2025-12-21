@@ -26,7 +26,7 @@
                         Width="20" Height="20"
                         Margin="8,0,0,0"
                         VerticalAlignment="Top"
-                        Background="Transparent"
+                        Background="{DynamicResource TransparentBrush}"
                         BorderBrush="{DynamicResource ControlBorderBrush}"
                         BorderThickness="1"
                         Foreground="{DynamicResource TextPrimaryBrush}"
@@ -50,7 +50,7 @@
                 </Button>
             </Grid>
             <TextBlock Name="ParamWarningText"
-                       Foreground="Red"
+                       Foreground="{DynamicResource ErrorBrush}"
                        FontStyle="Italic"
                        Margin="0,6,0,0"
                        Visibility="Collapsed"
@@ -58,8 +58,8 @@
             <!-- Erreur d'unicité des sélections -->
             <TextBox Name="UniqueErrorText"
                      IsReadOnly="True"
-                     Foreground="Red"
-                     BorderBrush="Red"
+                     Foreground="{DynamicResource ErrorBrush}"
+                     BorderBrush="{DynamicResource ErrorBrush}"
                      Background="{DynamicResource LightGrayBrush}"
                      Margin="0,6,0,0"
                      Visibility="Collapsed"

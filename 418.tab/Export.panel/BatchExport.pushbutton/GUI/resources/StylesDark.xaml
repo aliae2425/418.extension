@@ -29,7 +29,7 @@
         <Setter Property="Margin" Value="0,0,0,12"/>
         <Setter Property="Effect">
             <Setter.Value>
-                <DropShadowEffect BlurRadius="8" ShadowDepth="2" Direction="270" Color="#000000" Opacity="0.10"/>
+                <DropShadowEffect BlurRadius="8" ShadowDepth="2" Direction="270" Color="{DynamicResource ShadowColor}" Opacity="0.10"/>
             </Setter.Value>
         </Setter>
     </Style>
@@ -184,11 +184,11 @@
                                               Focusable="False"
                                               IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
                                               ClickMode="Press"
-                                              Background="Transparent"
+                                              Background="{DynamicResource TransparentBrush}"
                                               BorderThickness="0">
                                     <ToggleButton.Template>
                                         <ControlTemplate TargetType="ToggleButton">
-                                            <Border Background="Transparent">
+                                            <Border Background="{DynamicResource TransparentBrush}">
                                                 <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Right"/>
                                             </Border>
                                         </ControlTemplate>
@@ -226,7 +226,7 @@
                         </Trigger> -->
                         <!-- Nouveau hover sur toute la ComboBox -->
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="#495160"/>
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource ControlFillHoverBrush}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -280,10 +280,10 @@
                                IsDirectionReversed="true"
                                IsEnabled="{TemplateBinding IsEnabled}">
                             <Track.DecreaseRepeatButton>
-                                <RepeatButton Command="{x:Static ScrollBar.LineUpCommand}" Opacity="0" Focusable="false" Background="Transparent" BorderThickness="0"/>
+                                <RepeatButton Command="{x:Static ScrollBar.LineUpCommand}" Opacity="0" Focusable="false" Background="{DynamicResource TransparentBrush}" BorderThickness="0"/>
                             </Track.DecreaseRepeatButton>
                             <Track.IncreaseRepeatButton>
-                                <RepeatButton Command="{x:Static ScrollBar.LineDownCommand}" Opacity="0" Focusable="false" Background="Transparent" BorderThickness="0"/>
+                                <RepeatButton Command="{x:Static ScrollBar.LineDownCommand}" Opacity="0" Focusable="false" Background="{DynamicResource TransparentBrush}" BorderThickness="0"/>
                             </Track.IncreaseRepeatButton>
                             <Track.Thumb>
                                 <Thumb Style="{StaticResource ScrollBarThumb}" Margin="1"/>
@@ -330,8 +330,8 @@
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="ToggleButton">
                                     <Border x:Name="border" 
-                                            Background="Transparent" 
-                                            BorderBrush="Transparent" 
+                                            Background="{DynamicResource TransparentBrush}" 
+                                            BorderBrush="{DynamicResource TransparentBrush}" 
                                             BorderThickness="0"
                                             CornerRadius="8">
                                         <Grid Margin="{TemplateBinding Padding}">

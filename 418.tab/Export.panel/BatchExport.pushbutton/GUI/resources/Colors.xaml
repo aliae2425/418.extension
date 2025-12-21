@@ -30,6 +30,12 @@
     <SolidColorBrush x:Key="ControlMouseOverBrush" Color="#F9F9F9"/>
     <SolidColorBrush x:Key="ModalOverlayBrush" Color="#80000000"/>
     <SolidColorBrush x:Key="CloseButtonHoverBrush" Color="#FFE81123"/>
+    <SolidColorBrush x:Key="TransparentBrush" Color="Transparent"/>
+    <SolidColorBrush x:Key="ErrorBrush" Color="#D13438"/>
+    <SolidColorBrush x:Key="TextOnDangerBrush" Color="#FFFFFF"/>
+
+    <!-- Non-brush color resources (for properties expecting Color) -->
+    <Color x:Key="ShadowColor">#000000</Color>
     
     <!-- Legacy/Existing keys mapped to new ones -->
     <SolidColorBrush x:Key="LightGrayBrush" Color="#F3F3F3"/>

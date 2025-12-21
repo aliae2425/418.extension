@@ -6,7 +6,7 @@
         ResizeMode="NoResize"
         WindowStyle="None"
         AllowsTransparency="True"
-        Background="Transparent">
+        Background="{DynamicResource TransparentBrush}">
 
     <Window.Resources>
         <ResourceDictionary>
@@ -28,7 +28,7 @@
                         Content="✕" 
                         Width="32" Height="32"
                         HorizontalAlignment="Right"
-                        Background="Transparent"
+                        Background="{DynamicResource TransparentBrush}"
                         BorderThickness="0"
                         Cursor="Hand"
                         Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -51,7 +51,7 @@
                         </Grid.RowDefinitions>
                         <TextBlock Text="Profils enregistres" Margin="8" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         <TextBox Name="ProfileNameBox" Grid.Row="1" Margin="8,0,8,8" Height="32" VerticalContentAlignment="Center" Padding="4,0"/>
-                        <ListBox Name="ConfigsList" Grid.Row="2" Margin="4" BorderThickness="0" Background="Transparent">
+                        <ListBox Name="ConfigsList" Grid.Row="2" Margin="4" BorderThickness="0" Background="{DynamicResource TransparentBrush}">
                             <ListBox.ItemContainerStyle>
                                 <Style TargetType="ListBoxItem">
                                     <Setter Property="Padding" Value="8,4"/>

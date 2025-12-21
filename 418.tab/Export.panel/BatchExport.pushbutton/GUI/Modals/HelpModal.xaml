@@ -4,7 +4,7 @@
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         WindowStyle="None"
         AllowsTransparency="True"
-        Background="Transparent">
+        Background="{DynamicResource TransparentBrush}">
     
     <Window.Resources>
         <ResourceDictionary>
@@ -24,7 +24,7 @@
             </Grid.RowDefinitions>
 
             <!-- Header -->
-            <Grid Grid.Row="0" Margin="0,0,0,20" Name="TitleBar" Background="Transparent">
+            <Grid Grid.Row="0" Margin="0,0,0,20" Name="TitleBar" Background="{DynamicResource TransparentBrush}">
                 <TextBlock Text="Aide" 
                            Style="{DynamicResource HeaderTextBlockStyle}"
                            VerticalAlignment="Center"/>
@@ -33,7 +33,7 @@
                         Width="30" Height="30" 
                         HorizontalAlignment="Right"
                         VerticalAlignment="Top"
-                        Background="Transparent" 
+                        Background="{DynamicResource TransparentBrush}" 
                         BorderThickness="0" 
                         Foreground="{DynamicResource TextPrimaryBrush}"
                         Cursor="Hand"/>

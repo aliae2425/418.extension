@@ -7,13 +7,11 @@
         WindowStyle="None"
         ResizeMode="NoResize"
         AllowsTransparency="True"
-        Background="Transparent"
+        Background="{DynamicResource TransparentBrush}"
         BorderThickness="1">
 
   <Window.Resources>
     <ResourceDictionary>
-      <!-- Convertisseur pour la visibilité -->
-      <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
     </ResourceDictionary>
   </Window.Resources>
 
@@ -25,7 +23,7 @@
     </Grid.RowDefinitions>
 
     <!-- Custom Title Bar -->
-    <Grid Grid.Row="0" Name="TitleBar" Background="Transparent" Margin="0">
+    <Grid Grid.Row="0" Name="TitleBar" Background="{DynamicResource TransparentBrush}" Margin="0">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="*"/>
@@ -37,7 +35,7 @@
               Grid.Column="0"
               Width="40" Height="40"
               Margin="4,4,0,0"
-              Background="Transparent"
+              Background="{DynamicResource TransparentBrush}"
               BorderThickness="0"
               Cursor="Hand"
               ToolTip="Paramètres et options d'export">
@@ -56,7 +54,7 @@
               Width="40" Height="40" 
               Margin="0,4,4,0"
               VerticalAlignment="Top"
-              Background="Transparent" 
+              Background="{DynamicResource TransparentBrush}" 
               BorderThickness="0" 
               Foreground="{DynamicResource TextPrimaryBrush}"
               FontSize="16" 
@@ -68,8 +66,8 @@
                  </Border>
                  <ControlTemplate.Triggers>
                      <Trigger Property="IsMouseOver" Value="True">
-                         <Setter TargetName="border" Property="Background" Value="#FFE81123"/>
-                         <Setter Property="Foreground" Value="White"/>
+                     <Setter TargetName="border" Property="Background" Value="{DynamicResource CloseButtonHoverBrush}"/>
+                     <Setter Property="Foreground" Value="{DynamicResource TextOnDangerBrush}"/>
                      </Trigger>
                  </ControlTemplate.Triggers>
              </ControlTemplate>
@@ -93,7 +91,7 @@
       <!-- Overlay for Burger Menu -->
       <Border Name="BurgerMenuOverlay"
               Grid.Row="0" Grid.RowSpan="4"
-              Background="#80000000"
+              Background="{DynamicResource ModalOverlayBrush}"
               Panel.ZIndex="999"
               Visibility="Collapsed"
               Margin="-12"/>
@@ -128,7 +126,7 @@
                       FontSize="24"
                       Width="32" Height="32"
                       HorizontalAlignment="Right"
-                      Background="Transparent"
+                      Background="{DynamicResource TransparentBrush}"
                       BorderThickness="0"
                       Cursor="Hand"
                       Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -193,7 +191,7 @@
                             Grid.Column="2"
                             Content="⚙"
                             Width="32" Height="32"
-                            Background="Transparent"
+                          Background="{DynamicResource TransparentBrush}"
                             BorderThickness="0"
                             Foreground="{DynamicResource TextSecondaryBrush}"
                             Cursor="Hand"/>

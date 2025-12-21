@@ -31,7 +31,7 @@
             <ListView Name="ItemsList" 
                       SelectionMode="Single" 
                       BorderThickness="0"
-                      Background="Transparent">
+                      Background="{DynamicResource TransparentBrush}">
                 <ListView.View>
                     <GridView>
                         <GridViewColumn Header="Ordre" Width="60" DisplayMemberBinding="{Binding [Order]}"/>

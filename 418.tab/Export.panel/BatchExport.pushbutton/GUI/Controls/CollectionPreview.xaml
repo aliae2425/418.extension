@@ -16,7 +16,7 @@
            Il remplace le style par défaut pour avoir un look plus "Fluent" / moderne.
       -->
       <Style x:Key="FluentGroupExpanderStyle" TargetType="{x:Type Expander}">
-        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Background" Value="{DynamicResource TransparentBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
         <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
@@ -35,7 +35,7 @@
                             -->
                             <ToggleButton x:Name="HeaderSite"
                                           DockPanel.Dock="Top"
-                                          Background="Transparent"
+                                          Background="{DynamicResource TransparentBrush}"
                                           Content="{TemplateBinding Header}"
                                           ContentTemplate="{TemplateBinding HeaderTemplate}"
                                           ContentTemplateSelector="{TemplateBinding HeaderTemplateSelector}"
@@ -57,7 +57,7 @@
                                                 </Grid.ColumnDefinitions>
                                                 
                                                 <!-- Icône de flèche (Chevron) qui tourne quand le groupe est ouvert -->
-                                                <Border Width="24" Height="24" Background="Transparent">
+                                                <Border Width="24" Height="24" Background="{DynamicResource TransparentBrush}">
                                                     <Path x:Name="arrow"
                                                           Data="M 0 0 L 4 4 L 0 8"
                                                           Stroke="{TemplateBinding Foreground}"
@@ -123,7 +123,7 @@
         <Style.Triggers>
             <!-- Apparence quand le groupe est désactivé -->
             <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Background" Value="#3f4655"/>
+              <Setter Property="Background" Value="{DynamicResource ControlFillPressedBrush}"/>
             </Trigger>
         </Style.Triggers>
       </Style>
@@ -261,7 +261,7 @@
                    TextWrapping="Wrap"
                    Width="Auto"
                    DockPanel.Dock="Left"
-                   Foreground="Red"
+                   Foreground="{DynamicResource ErrorBrush}"
                    Text="Sélectionnez un dossier de destination valide."/>
         
         <!-- Bouton principal pour lancer l'exportation -->
