@@ -5,31 +5,38 @@ from ..helpers.UIResourceLoader import UIResourceLoader
 class OrderManagerWindow(forms.WPFWindow):
     def __init__(self, xaml_path, items, is_dark_mode=False):
         forms.WPFWindow.__init__(self, xaml_path)
-        
-        # Load resources (styles, colors)
-        UIResourceLoader(self).merge_all()
-        
-        # Apply dark mode if needed
-        if is_dark_mode:
-            try:
-                from ...core.AppPaths import AppPaths
-                paths = AppPaths()
-                from System.Windows import ResourceDictionary
-                from System import Uri, UriKind
+
+        # Fusionne windows.xaml (qui inclut toutes les ressources de couleurs/styles, y compris darkmode)
+        try:
+            from ...core.AppPaths import AppPaths
+            from System.Windows import ResourceDictionary
+            from System import Uri, UriKind
+            paths = AppPaths()
+            
+            # Load windows.xaml (Light theme base)
+            winres = ResourceDictionary()
+            winres.Source = Uri('file:///' + paths.windows_xaml().replace('\\', '/').replace(':', ':/'), UriKind.Absolute)
+            self.Resources.MergedDictionaries.Add(winres)
+
+            # If dark mode, load dark resources
+            if is_dark_mode:
+                dark_colors_path = paths.resource_path('ColorsDark.xaml')
+                dark_styles_path = paths.resource_path('StylesDark.xaml')
                 
-                dark_colors = paths.resource_path('ColorsDark.xaml')
-                dark_styles = paths.resource_path('StylesDark.xaml')
+                d_colors = ResourceDictionary()
+                d_colors.Source = Uri('file:///' + dark_colors_path.replace('\\', '/').replace(':', ':/'), UriKind.Absolute)
+                self.Resources.MergedDictionaries.Add(d_colors)
                 
-                for path in [dark_colors, dark_styles]:
-                    rd = ResourceDictionary()
-                    rd.Source = Uri(path, UriKind.Absolute)
-                    self.Resources.MergedDictionaries.Add(rd)
-            except Exception:
-                pass
-        
+                d_styles = ResourceDictionary()
+                d_styles.Source = Uri('file:///' + dark_styles_path.replace('\\', '/').replace(':', ':/'), UriKind.Absolute)
+                self.Resources.MergedDictionaries.Add(d_styles)
+
+        except Exception:
+            pass
+
         self._items = list(items) # Copy list
         self._update_orders()
-        
+
         self.ItemsList.ItemsSource = self._items
         self.response = None
 
