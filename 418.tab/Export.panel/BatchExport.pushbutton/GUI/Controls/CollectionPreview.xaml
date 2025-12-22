@@ -1,5 +1,29 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    CollectionPreviewTemplate
+
+    Où c'est utilisé
+    - Hébergé par CollectionPreviewHost dans Views/index.xaml.
+
+    Rôle
+    - Afficher un récapitulatif des collections + feuilles à exporter.
+    - Fournir la barre de progression, l'état, et le bouton "Exporter".
+
+    Nommage attendu (utilisé côté Python)
+    - ExportProgressBar : progression globale.
+    - PreviewCounterText : compteur collections/éléments.
+    - CollectionGrid : ListView groupée (GroupStyle/Expander).
+    - ExportStatusText : message d'état (erreur/warn/succès).
+    - ExportButton : action principale (activée/désactivée côté code).
+
+    Bindings importants
+    - Group Header bouton "🔃" : appelle ManageOrderCommand exposé par la Window
+      (RelativeSource AncestorType=Window).
+    - Les Items (dictionnaires) sont attendus avec des clés comme:
+      [CollectionIsExported], [CollectionPreviewName], [SheetCount], [CollectionExportInfo],
+      [IsCombined], [SheetNumber], [PreviewNom], [Format], [Size], [Orientation], [Progress], [ProgressColor].
+  -->
   <!-- 
        TEMPLATE PRINCIPAL : CollectionPreviewTemplate
        Ce template définit l'interface utilisateur pour la prévisualisation des collections à exporter.

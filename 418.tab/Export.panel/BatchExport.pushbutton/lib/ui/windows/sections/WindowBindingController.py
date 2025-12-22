@@ -32,7 +32,7 @@ class WindowBindingController(object):
                 'BrowseButton', 'PathTextBox', 'CreateSubfoldersCheck', 'SeparateByFormatCheck'
             ],
             'NamingConfigHost': [
-                'SheetNamingButton', 'SetNamingButton'
+                'NamingExpander', 'SheetNamingButton', 'SetNamingButton'
             ],
             'CollectionPreviewHost': [
                 'ExportProgressBar', 'PreviewCounterText', 'CollectionGrid', 'ExportStatusText', 'ExportButton'

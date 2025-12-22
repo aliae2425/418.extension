@@ -10,7 +10,28 @@
         Background="{DynamicResource TransparentBrush}"
         BorderThickness="1">
 
+  <!--
+    Fenêtre principale BatchExport
+
+    Objectif
+    - Fournir une UI unique (TitleBar custom + contenu principal).
+    - Centraliser l'accès aux paramètres via un burger menu (panneau latéral).
+
+    Ressources / styles
+    - Les styles/couleurs (light/dark) ne sont pas définis ici.
+    - Elles sont mergées au runtime (windows.xaml + éventuellement ColorsDark/StylesDark)
+      par le code Python (UIResourceLoader / fenêtres).
+
+    Templates
+    - Les ContentControl ci-dessous consomment des ControlTemplate (…Template)
+      définis dans GUI/Controls/*.xaml et injectés dans Resources par UIResourceLoader.
+  -->
+
   <Window.Resources>
+    <!--
+      Dictionnaire volontairement vide côté XAML.
+      Les dictionnaires de ressources sont ajoutés par Python.
+    -->
     <ResourceDictionary>
     </ResourceDictionary>
   </Window.Resources>
@@ -22,7 +43,12 @@
       <RowDefinition Height="*"/>
     </Grid.RowDefinitions>
 
-    <!-- Custom Title Bar -->
+    <!--
+      TitleBar custom
+      - BurgerButton : ouvre/ferme le panneau latéral.
+      - CloseWindowButton : ferme la fenêtre.
+      - TitleBar est utilisé côté Python pour permettre DragMove().
+    -->
     <Grid Grid.Row="0" Name="TitleBar" Background="{DynamicResource TransparentBrush}" Margin="0">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto"/>
@@ -80,7 +106,7 @@
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/>
         <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
         <RowDefinition Height="*"/>
       </Grid.RowDefinitions>
 
@@ -88,7 +114,10 @@
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
 
-      <!-- Overlay for Burger Menu -->
+      <!--
+        Overlay plein écran derrière le burger menu
+        - Sert à "modaliser" le panneau (click-outside, focus) côté code.
+      -->
       <Border Name="BurgerMenuOverlay"
               Grid.Row="0" Grid.RowSpan="4"
               Background="{DynamicResource ModalOverlayBrush}"
@@ -96,7 +125,14 @@
               Visibility="Collapsed"
               Margin="-12"/>
 
-      <!-- Menu burger (panneau coulissant) -->
+      <!--
+        BurgerMenu (panneau latéral)
+        Contient :
+        - ParameterSelectorHost : choix des paramètres et règles d'export.
+        - ExportOptionsHost : réglages PDF/DWG.
+        - NamingConfigHost : configuration du nommage (déplacé ici).
+        - Section profil : accès aux profils (gestion pilotée par code Python).
+      -->
       <Border Name="BurgerMenu"
               Grid.Row="0" Grid.RowSpan="4"
               Width="320"
@@ -133,7 +169,7 @@
             </Grid>
           </Border>
           
-          <!-- Contenu du menu -->
+            <!-- Contenu du menu (scrollable) -->
           <Grid Grid.Row="1">
             <Grid.RowDefinitions>
               <RowDefinition Height="*"/>
@@ -143,6 +179,8 @@
               <StackPanel Margin="16">
                 <ContentControl x:Name="ParameterSelectorHost"
                                 Template="{DynamicResource ParameterSelectorTemplate}"/>
+                <ContentControl x:Name="NamingConfigHost"
+                                  Template="{DynamicResource NamingConfigTemplate}"/>
                 <ContentControl x:Name="ExportOptionsHost"
                                 Margin="0,16,0,0"
                                 Template="{DynamicResource ExportOptionsTemplate}"/>
@@ -201,23 +239,25 @@
         </Grid>
       </Border>
 
-      <!-- Zone de destination -->
+      <!--
+        Zone "Destination"
+        - Visible en permanence dans le contenu principal.
+        - Le code Python lit/écrit BrowseButton, PathTextBox, etc.
+      -->
       <Border Style="{DynamicResource StyledBorder}"
               Grid.Row="1">
         <ContentControl x:Name="DestinationPickerHost"
                         Template="{DynamicResource DestinationPickerTemplate}"/>
       </Border>
 
-      <!-- Zone de nommage -->
+      <!--
+        Zone "Preview" (récapitulatif + progression)
+        - Occupe les deux lignes du bas pour maximiser la place.
+        - Contient la ListView groupée des collections + contrôles d'export.
+      -->
       <Border Style="{DynamicResource StyledBorder}"
-              Grid.Row="2">
-        <ContentControl x:Name="NamingConfigHost"
-                        Template="{DynamicResource NamingConfigTemplate}"/>
-      </Border>
-
-      <!-- Zone recapitulatif + progression -->
-      <Border Style="{DynamicResource StyledBorder}"
-              Grid.Row="3"
+              Grid.Row="2"
+              Grid.RowSpan="2"
               Margin="0,0,0,0">
         <ContentControl x:Name="CollectionPreviewHost"
                         Template="{DynamicResource CollectionPreviewTemplate}"/>

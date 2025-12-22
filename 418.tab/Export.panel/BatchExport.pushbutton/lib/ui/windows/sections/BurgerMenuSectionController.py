@@ -25,7 +25,7 @@ class BurgerMenuSectionController(object):
 
     def _wire_accordion(self):
         expanders = []
-        for name in ['CollectionExpander', 'PDFExpander', 'DWGExpander']:
+        for name in ['CollectionExpander', 'PDFExpander', 'DWGExpander', 'NamingExpander']:
             if hasattr(self._win, name):
                 expanders.append(getattr(self._win, name))
 
