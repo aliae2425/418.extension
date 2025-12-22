@@ -9,6 +9,22 @@ class HelpSectionController(object):
         try:
             if hasattr(self._win, 'HelpButton'):
                 self._win.HelpButton.Click += self._on_help_click
+                self._win.HelpButton.MouseEnter += self._on_help_hover_enter
+                self._win.HelpButton.MouseLeave += self._on_help_hover_leave
+        except Exception:
+            pass
+
+    def _on_help_hover_enter(self, sender, args):
+        try:
+            from ...helpers.HoverOverlay import set_hover_text
+            set_hover_text(self._win, u"Aide : paramètres d'export (cliquez pour ouvrir)")
+        except Exception:
+            pass
+
+    def _on_help_hover_leave(self, sender, args):
+        try:
+            from ...helpers.HoverOverlay import set_hover_text
+            set_hover_text(self._win, '')
         except Exception:
             pass
 

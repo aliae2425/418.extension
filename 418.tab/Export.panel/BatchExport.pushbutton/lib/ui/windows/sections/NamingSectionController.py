@@ -20,10 +20,52 @@ class NamingSectionController(object):
         try:
             if hasattr(self._win, 'SheetNamingButton'):
                 self._win.SheetNamingButton.Click += self._on_open_sheet_naming
+                self._win.SheetNamingButton.MouseEnter += self._on_sheet_hover_enter
+                self._win.SheetNamingButton.MouseLeave += self._on_sheet_hover_leave
             if hasattr(self._win, 'SetNamingButton'):
                 self._win.SetNamingButton.Click += self._on_open_set_naming
+                self._win.SetNamingButton.MouseEnter += self._on_set_hover_enter
+                self._win.SetNamingButton.MouseLeave += self._on_set_hover_leave
         except Exception:
             pass
+
+    def _set_hover_text(self, text):
+        try:
+            from ...helpers.HoverOverlay import set_hover_text
+            set_hover_text(self._win, text)
+        except Exception:
+            pass
+
+    def _pattern_from_button(self, btn):
+        try:
+            model = getattr(btn, 'Tag', None)
+            if isinstance(model, dict):
+                patt = model.get('pattern', '')
+            else:
+                patt = ''
+        except Exception:
+            patt = ''
+        return patt or '...'
+
+    def _on_sheet_hover_enter(self, s, a):
+        try:
+            patt = self._pattern_from_button(s)
+            self._set_hover_text(u"Feuilles : {}".format(patt))
+        except Exception:
+            pass
+
+    def _on_sheet_hover_leave(self, s, a):
+        self._set_hover_text('')
+
+    def _on_set_hover_enter(self, s, a):
+        try:
+            patt = self._pattern_from_button(s)
+            self._set_hover_text(u"Carnets : {}".format(patt))
+        except Exception:
+            pass
+
+    def _on_set_hover_leave(self, s, a):
+        self._set_hover_text('')
 
     def _refresh(self, sender=None, args=None):
         try:

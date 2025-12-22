@@ -126,6 +126,33 @@
               Margin="-12"/>
 
       <!--
+        Hover Layer (au-dessus de l'overlay sombre)
+        - Zone dédiée "devant" l'overlay, pour afficher des infos contextuelles.
+        - Marge 36px et bordure transparente (container réutilisable).
+        - IsHitTestVisible="False" pour ne pas casser le click-outside-to-close.
+      -->
+      <Border Name="BurgerMenuHoverLayer"
+              Grid.Row="0" Grid.RowSpan="4"
+              Panel.ZIndex="1000"
+              Background="{DynamicResource TransparentBrush}"
+              IsHitTestVisible="False"
+              Margin="-12">
+        <Border BorderBrush="{DynamicResource TransparentBrush}"
+                BorderThickness="1"
+                Background="{DynamicResource TransparentBrush}"
+                Margin="356,36,36,36"
+                Padding="0">
+          <TextBlock Name="BurgerMenuHoverText"
+                     Visibility="Collapsed"
+                     Text=""
+                     Foreground="{DynamicResource TextOnAccentBrush}"
+                     FontSize="13"
+                     TextWrapping="Wrap"
+                     MaxWidth="520"/>
+        </Border>
+      </Border>
+
+      <!--
         BurgerMenu (panneau latéral)
         Contient :
         - ParameterSelectorHost : choix des paramètres et règles d'export.

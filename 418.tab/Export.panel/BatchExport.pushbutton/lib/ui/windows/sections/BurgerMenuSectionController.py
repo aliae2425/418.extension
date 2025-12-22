@@ -60,12 +60,18 @@ class BurgerMenuSectionController(object):
         try:
             menu = getattr(self._win, 'BurgerMenu', None)
             overlay = getattr(self._win, 'BurgerMenuOverlay', None)
+            try:
+                from ...helpers.HoverOverlay import set_hover_text
+            except Exception:
+                set_hover_text = None
 
             if menu is not None:
                 if menu.Visibility == Visibility.Visible:
                     menu.Visibility = Visibility.Collapsed
                     if overlay:
                         overlay.Visibility = Visibility.Collapsed
+                    if set_hover_text is not None:
+                        set_hover_text(self._win, '')
                 else:
                     menu.Visibility = Visibility.Visible
                     if overlay:
@@ -81,10 +87,16 @@ class BurgerMenuSectionController(object):
         try:
             menu = getattr(self._win, 'BurgerMenu', None)
             overlay = getattr(self._win, 'BurgerMenuOverlay', None)
+            try:
+                from ...helpers.HoverOverlay import set_hover_text
+            except Exception:
+                set_hover_text = None
 
             if menu is not None:
                 menu.Visibility = Visibility.Collapsed
             if overlay is not None:
                 overlay.Visibility = Visibility.Collapsed
+            if set_hover_text is not None:
+                set_hover_text(self._win, '')
         except Exception:
             pass
