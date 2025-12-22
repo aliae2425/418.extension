@@ -48,7 +48,12 @@
                 <ListView Name="ItemsList"
                           SelectionMode="Single"
                           BorderThickness="0"
-                          Background="{DynamicResource TransparentBrush}">
+                          Background="{DynamicResource TransparentBrush}"
+                          AllowDrop="True"
+                          PreviewMouseLeftButtonDown="OnListPreviewMouseLeftButtonDown"
+                          PreviewMouseMove="OnListPreviewMouseMove"
+                          DragOver="OnListDragOver"
+                          Drop="OnListDrop">
                     <ListView.View>
                         <GridView>
                             <GridViewColumn Header="Ordre" Width="60" DisplayMemberBinding="{Binding [Order]}"/>
