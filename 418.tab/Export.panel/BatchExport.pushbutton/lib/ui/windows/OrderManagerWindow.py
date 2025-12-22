@@ -1,36 +1,38 @@
 # -*- coding: utf-8 -*-
 from pyrevit import forms
-from ..helpers.UIResourceLoader import UIResourceLoader
 
 class OrderManagerWindow(forms.WPFWindow):
     def __init__(self, xaml_path, items, is_dark_mode=False):
         forms.WPFWindow.__init__(self, xaml_path)
 
-        # Fusionne windows.xaml (qui inclut toutes les ressources de couleurs/styles, y compris darkmode)
+        # Charge les ressources (même base que UIResourceLoader)
         try:
             from ...core.AppPaths import AppPaths
             from System.Windows import ResourceDictionary
             from System import Uri, UriKind
             paths = AppPaths()
-            
-            # Load windows.xaml (Light theme base)
+
+            # Base resources (light) via windows.xaml
             winres = ResourceDictionary()
             winres.Source = Uri('file:///' + paths.windows_xaml().replace('\\', '/').replace(':', ':/'), UriKind.Absolute)
             self.Resources.MergedDictionaries.Add(winres)
 
-            # If dark mode, load dark resources
+            # Dark overrides
             if is_dark_mode:
-                dark_colors_path = paths.resource_path('ColorsDark.xaml')
-                dark_styles_path = paths.resource_path('StylesDark.xaml')
-                
-                d_colors = ResourceDictionary()
-                d_colors.Source = Uri('file:///' + dark_colors_path.replace('\\', '/').replace(':', ':/'), UriKind.Absolute)
-                self.Resources.MergedDictionaries.Add(d_colors)
-                
-                d_styles = ResourceDictionary()
-                d_styles.Source = Uri('file:///' + dark_styles_path.replace('\\', '/').replace(':', ':/'), UriKind.Absolute)
-                self.Resources.MergedDictionaries.Add(d_styles)
+                for filename in ('ColorsDark.xaml', 'StylesDark.xaml'):
+                    path = paths.resource_path(filename)
+                    rd = ResourceDictionary()
+                    rd.Source = Uri('file:///' + path.replace('\\', '/').replace(':', ':/'), UriKind.Absolute)
+                    self.Resources.MergedDictionaries.Add(rd)
 
+        except Exception as e:
+            print('OrderManagerWindow [001]: Error loading resources: {}'.format(e))
+
+        try:
+            if hasattr(self, 'CloseButton'):
+                self.CloseButton.Click += self.OnCancelClick
+            if hasattr(self, 'TitleBar'):
+                self.TitleBar.MouseLeftButtonDown += self._on_title_bar_mouse_down
         except Exception:
             pass
 
@@ -39,6 +41,12 @@ class OrderManagerWindow(forms.WPFWindow):
 
         self.ItemsList.ItemsSource = self._items
         self.response = None
+
+    def _on_title_bar_mouse_down(self, sender, args):
+        try:
+            self.DragMove()
+        except Exception:
+            pass
 
     def _update_orders(self):
         for i, item in enumerate(self._items):

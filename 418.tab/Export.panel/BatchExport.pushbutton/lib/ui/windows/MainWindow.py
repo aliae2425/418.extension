@@ -25,9 +25,20 @@ class MainWindow(forms.WPFWindow):
         if not coll_items:
             return
 
+        # Default to Revit theme (so modals follow Revit UI)
         is_dark = False
-        if hasattr(self, 'DarkModeToggle'):
-            is_dark = self.DarkModeToggle.IsChecked == True
+        try:
+            from Autodesk.Revit.UI import UIThemeManager, UITheme
+            is_dark = UIThemeManager.CurrentTheme == UITheme.Dark
+        except Exception:
+            pass
+
+        # If there is an in-app toggle, allow it to force dark
+        try:
+            if hasattr(self, 'DarkModeToggle') and self.DarkModeToggle.IsChecked == True:
+                is_dark = True
+        except Exception:
+            pass
 
         from ...core.AppPaths import AppPaths
         paths = AppPaths()
