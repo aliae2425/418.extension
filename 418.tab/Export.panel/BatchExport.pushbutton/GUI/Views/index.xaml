@@ -121,7 +121,7 @@
       <Border Name="BurgerMenuOverlay"
               Grid.Row="0" Grid.RowSpan="4"
               Background="{DynamicResource ModalOverlayBrush}"
-              Panel.ZIndex="999"
+              Panel.ZIndex="1000"
               Visibility="Collapsed"
               Margin="-12"/>
 
@@ -133,9 +133,10 @@
       -->
       <Border Name="BurgerMenuHoverLayer"
               Grid.Row="0" Grid.RowSpan="4"
-              Panel.ZIndex="1000"
+              Panel.ZIndex="1100"
               Background="{DynamicResource TransparentBrush}"
               IsHitTestVisible="False"
+              Visibility="Collapsed"
               Margin="-12">
         <Border BorderBrush="{DynamicResource TransparentBrush}"
                 BorderThickness="1"
@@ -145,7 +146,7 @@
           <TextBlock Name="BurgerMenuHoverText"
                      Visibility="Collapsed"
                      Text=""
-                     Foreground="{DynamicResource TextOnAccentBrush}"
+                     Foreground="{DynamicResource HoverTextBrush}"
                      FontSize="13"
                      TextWrapping="Wrap"
                      MaxWidth="520"/>
@@ -167,7 +168,7 @@
               Background="{DynamicResource CardBackgroundBrush}"
               BorderThickness="0,0,1,0"
               BorderBrush="{DynamicResource ControlBorderBrush}"
-              Panel.ZIndex="1000"
+              Panel.ZIndex="1050"
               Visibility="Collapsed"
               Margin="-12,-12,0,-12">
         <Border.Effect>

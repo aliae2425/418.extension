@@ -60,6 +60,12 @@ class BurgerMenuSectionController(object):
         try:
             menu = getattr(self._win, 'BurgerMenu', None)
             overlay = getattr(self._win, 'BurgerMenuOverlay', None)
+            hover_layer = getattr(self._win, 'BurgerMenuHoverLayer', None)
+            if hover_layer is None and hasattr(self._win, 'FindName'):
+                try:
+                    hover_layer = self._win.FindName('BurgerMenuHoverLayer')
+                except Exception:
+                    hover_layer = None
             try:
                 from ...helpers.HoverOverlay import set_hover_text
             except Exception:
@@ -70,12 +76,22 @@ class BurgerMenuSectionController(object):
                     menu.Visibility = Visibility.Collapsed
                     if overlay:
                         overlay.Visibility = Visibility.Collapsed
+                    if hover_layer is not None:
+                        try:
+                            hover_layer.Visibility = Visibility.Collapsed
+                        except Exception:
+                            pass
                     if set_hover_text is not None:
                         set_hover_text(self._win, '')
                 else:
                     menu.Visibility = Visibility.Visible
                     if overlay:
                         overlay.Visibility = Visibility.Visible
+                    if hover_layer is not None:
+                        try:
+                            hover_layer.Visibility = Visibility.Visible
+                        except Exception:
+                            pass
         except Exception:
             pass
 
@@ -87,6 +103,12 @@ class BurgerMenuSectionController(object):
         try:
             menu = getattr(self._win, 'BurgerMenu', None)
             overlay = getattr(self._win, 'BurgerMenuOverlay', None)
+            hover_layer = getattr(self._win, 'BurgerMenuHoverLayer', None)
+            if hover_layer is None and hasattr(self._win, 'FindName'):
+                try:
+                    hover_layer = self._win.FindName('BurgerMenuHoverLayer')
+                except Exception:
+                    hover_layer = None
             try:
                 from ...helpers.HoverOverlay import set_hover_text
             except Exception:
@@ -96,6 +118,11 @@ class BurgerMenuSectionController(object):
                 menu.Visibility = Visibility.Collapsed
             if overlay is not None:
                 overlay.Visibility = Visibility.Collapsed
+            if hover_layer is not None:
+                try:
+                    hover_layer.Visibility = Visibility.Collapsed
+                except Exception:
+                    pass
             if set_hover_text is not None:
                 set_hover_text(self._win, '')
         except Exception:

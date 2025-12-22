@@ -9,6 +9,8 @@
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#B0B0B0"/>
     <SolidColorBrush x:Key="TextDisabledBrush" Color="#5D5D5D"/>
     <SolidColorBrush x:Key="TextOnAccentBrush" Color="#23272F"/>
+    <!-- Hover overlay text must be forced to white (light/dark) -->
+    <SolidColorBrush x:Key="HoverTextBrush" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="AccentBrush" Color="#0078D4"/>
     <SolidColorBrush x:Key="AccentHoverBrush" Color="#3399FF"/>
     <SolidColorBrush x:Key="AccentPressedBrush" Color="#005A9E"/>
