@@ -173,34 +173,73 @@ def set_hover_xaml_path(win, xaml_path):
     except Exception:
         return False
 
+    # XAML parsing types (IronPython sometimes needs explicit references)
+    XamlReader = None
     try:
-        from System.IO import File
-        from System.Xml import XmlReader
-        from System.Windows.Markup import XamlReader
+        from System.Windows.Markup import XamlReader  # noqa: F401
     except Exception:
+        try:
+            import clr
+            try:
+                clr.AddReference('PresentationFramework')
+                clr.AddReference('PresentationCore')
+                clr.AddReference('WindowsBase')
+            except Exception:
+                pass
+            try:
+                clr.AddReference('System.Xaml')
+            except Exception:
+                pass
+            from System.Windows.Markup import XamlReader  # noqa: F401
+        except Exception:
+            XamlReader = None
+
+    if XamlReader is None:
         return False
 
-    fs = None
-    xr = None
+    # Prefer Parse(string) to avoid System.Xml dependency issues.
     try:
-        fs = File.OpenRead(xaml_path)
-        xr = XmlReader.Create(fs)
-        element = XamlReader.Load(xr)
+        with open(xaml_path, 'r') as fp:
+            xaml_text = fp.read()
+        element = XamlReader.Parse(xaml_text)
         return bool(set_hover_content(win, element))
-    except Exception:
-        return False
-    finally:
+    except Exception as e_parse:
+        # Fallback: stream-based load
         try:
-            if xr is not None:
-                xr.Close()
+            from System.IO import File
+            from System.Xml import XmlReader
         except Exception:
-            pass
+            # As last resort, keep the hover disabled.
+            try:
+                print('HoverOverlay [001]: Failed to load hover XAML (no System.Xml): {}'.format(e_parse))
+            except Exception:
+                pass
+            return False
 
+        fs = None
+        xr = None
         try:
-            if fs is not None:
-                fs.Close()
-        except Exception:
-            pass
+            fs = File.OpenRead(xaml_path)
+            xr = XmlReader.Create(fs)
+            element = XamlReader.Load(xr)
+            return bool(set_hover_content(win, element))
+        except Exception as e_load:
+            try:
+                print('HoverOverlay [002]: Failed to load hover XAML: {}'.format(e_load))
+            except Exception:
+                pass
+            return False
+        finally:
+            try:
+                if xr is not None:
+                    xr.Close()
+            except Exception:
+                pass
+            try:
+                if fs is not None:
+                    fs.Close()
+            except Exception:
+                pass
 
 
 def set_hover_xaml(win, path_or_rel):
