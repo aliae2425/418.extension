@@ -143,13 +143,20 @@
                 Background="{DynamicResource TransparentBrush}"
                 Margin="356,36,36,36"
                 Padding="0">
-          <TextBlock Name="BurgerMenuHoverText"
-                     Visibility="Collapsed"
-                     Text=""
-                     Foreground="{DynamicResource HoverTextBrush}"
-                     FontSize="13"
-                     TextWrapping="Wrap"
-                     MaxWidth="520"/>
+          <Grid>
+            <!-- Affichage texte simple (cas par défaut) -->
+            <TextBlock Name="BurgerMenuHoverText"
+                       Visibility="Collapsed"
+                       Text=""
+                       Foreground="{DynamicResource HoverTextBrush}"
+                       FontSize="13"
+                       TextWrapping="Wrap"
+                       MaxWidth="520"/>
+
+            <!-- Affichage avancé : un UIElement chargé depuis un XAML -->
+            <ContentControl Name="BurgerMenuHoverContent"
+                            Visibility="Collapsed"/>
+          </Grid>
         </Border>
       </Border>
 

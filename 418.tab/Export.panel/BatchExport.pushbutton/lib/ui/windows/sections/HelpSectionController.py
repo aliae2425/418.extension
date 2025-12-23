@@ -8,7 +8,6 @@ class HelpSectionController(object):
     def wire(self):
         try:
             if hasattr(self._win, 'HelpButton'):
-                self._win.HelpButton.Click += self._on_help_click
                 self._win.HelpButton.MouseEnter += self._on_help_hover_enter
                 self._win.HelpButton.MouseLeave += self._on_help_hover_leave
         except Exception:
@@ -16,29 +15,18 @@ class HelpSectionController(object):
 
     def _on_help_hover_enter(self, sender, args):
         try:
-            from ...helpers.HoverOverlay import set_hover_text
-            set_hover_text(self._win, u"Aide : paramètres d'export (cliquez pour ouvrir)")
+            from ...helpers.HoverOverlay import set_hover_xaml, set_hover_text
+            ok = set_hover_xaml(self._win, 'hover/HelpHover.xaml')
+            if not ok:
+                set_hover_text(self._win, u"Aide : paramètres d'export")
         except Exception:
             pass
 
     def _on_help_hover_leave(self, sender, args):
         try:
-            from ...helpers.HoverOverlay import set_hover_text
-            set_hover_text(self._win, '')
+            from ...helpers.HoverOverlay import clear_hover
+            clear_hover(self._win)
         except Exception:
             pass
 
-    def _on_help_click(self, sender, args):
-        try:
-            from ..HelpWindow import show_help
-            content = (
-                "Les paramètres de feuille permettent de contrôler quels jeux de feuilles sont exportés et comment.\n\n"
-                "• Exportation : Paramètre Oui/Non pour activer l'export de la feuille.\n"
-                "• Export PDF compilé : Paramètre Oui/Non pour inclure la feuille dans un carnet PDF unique.\n"
-                "• Export en DWG : Paramètre Oui/Non pour générer également un fichier DWG pour cette feuille.\n\n"
-                "Ces paramètres doivent être créés dans votre projet Revit en tant que paramètres de projet ou partagés, "
-                "appliqués à la catégorie 'Feuilles'."
-            )
-            show_help(content)
-        except Exception:
-            pass
+    # Note: ouverture de la modale désactivée volontairement (hover uniquement).
