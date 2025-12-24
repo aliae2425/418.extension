@@ -3,63 +3,86 @@
         Title="Ordre d'impression" Height="500" Width="600"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
-        Background="{DynamicResource WindowBackgroundBrush}">
-    
-    <Grid Margin="20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/>
-        </Grid.ColumnDefinitions>
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="{DynamicResource TransparentBrush}">
 
-        <!-- Header -->
-        <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" 
-                   Text="Gérer l'ordre des feuilles" 
-                   Style="{DynamicResource HeaderTextBlockStyle}"
-                   Margin="0,0,0,15"/>
+    <Border Background="{DynamicResource WindowBackgroundBrush}"
+            BorderBrush="{DynamicResource ControlBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="8">
+        <Grid Margin="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
 
-        <!-- List -->
-        <Border Grid.Row="1" Grid.Column="0" 
-                BorderThickness="1" 
-                BorderBrush="{DynamicResource ControlBorderBrush}"
-                CornerRadius="4"
-                Margin="0,0,15,0">
-            <ListView Name="ItemsList" 
-                      SelectionMode="Single" 
-                      BorderThickness="0"
-                      Background="Transparent">
-                <ListView.View>
-                    <GridView>
-                        <GridViewColumn Header="Ordre" Width="60" DisplayMemberBinding="{Binding [Order]}"/>
-                        <GridViewColumn Header="Numéro" Width="100" DisplayMemberBinding="{Binding [SheetNumber]}"/>
-                        <GridViewColumn Header="Nom de feuille" Width="300" DisplayMemberBinding="{Binding [SheetName]}"/>
-                    </GridView>
-                </ListView.View>
-            </ListView>
-        </Border>
+            <!-- TitleBar -->
+            <Grid Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Name="TitleBar" Background="{DynamicResource TransparentBrush}" Margin="0,0,0,15">
+                <TextBlock Text="Gérer l'ordre des feuilles"
+                           Style="{DynamicResource HeaderTextBlockStyle}"
+                           VerticalAlignment="Center"/>
+                <Button Name="CloseButton"
+                        Content="✕"
+                        Width="30" Height="30"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Background="{DynamicResource TransparentBrush}"
+                        BorderThickness="0"
+                        Foreground="{DynamicResource TextPrimaryBrush}"
+                        Cursor="Hand"/>
+            </Grid>
 
-        <!-- Controls -->
-        <StackPanel Grid.Row="1" Grid.Column="1" VerticalAlignment="Center">
-            <Button Name="TopButton" Content="⏫" Width="40" Height="40" Margin="0,0,0,10" Click="OnTopClick"
-                ToolTip="Tout en haut"/>
-            <Button Name="UpButton" Content="▲" Width="40" Height="40" Margin="0,0,0,10" Click="OnUpClick"
-                ToolTip="Monter"/>
-            <Button Name="DownButton" Content="▼" Width="40" Height="40" Margin="0,0,0,10" Click="OnDownClick"
-                ToolTip="Descendre"/>
-            <Button Name="BottomButton" Content="⏬" Width="40" Height="40" Click="OnBottomClick"
-                ToolTip="Tout en bas"/>
-        </StackPanel>
+            <!-- List -->
+            <Border Grid.Row="1" Grid.Column="0"
+                    Background="{DynamicResource ControlFillBrush}"
+                    BorderThickness="1"
+                    BorderBrush="{DynamicResource ControlBorderBrush}"
+                    CornerRadius="8"
+                    Margin="0,0,15,0">
+                <ListView Name="ItemsList"
+                          SelectionMode="Single"
+                          BorderThickness="0"
+                          Background="{DynamicResource TransparentBrush}"
+                          AllowDrop="True"
+                          PreviewMouseLeftButtonDown="OnListPreviewMouseLeftButtonDown"
+                          PreviewMouseMove="OnListPreviewMouseMove"
+                          DragOver="OnListDragOver"
+                          Drop="OnListDrop">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="Ordre" Width="60" DisplayMemberBinding="{Binding [Order]}"/>
+                            <GridViewColumn Header="Numéro" Width="100" DisplayMemberBinding="{Binding [SheetNumber]}"/>
+                            <GridViewColumn Header="Nom de feuille" Width="300" DisplayMemberBinding="{Binding [SheetName]}"/>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </Border>
 
-        <!-- Footer Actions -->
-        <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" 
-                    Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-            <Button Name="OkButton" Content="Enregistrer" Width="100" Height="32" Margin="0,0,10,0" Click="OnOkClick"
-                    FontWeight="SemiBold" Style="{DynamicResource PrimaryButtonStyle}"/>
-            <Button Name="CancelButton" Content="Annuler" Width="100" Height="32" Click="OnCancelClick"/>
-        </StackPanel>
-    </Grid>
+            <!-- Controls -->
+            <StackPanel Grid.Row="1" Grid.Column="1" VerticalAlignment="Center">
+                <Button Name="TopButton" Content="⏫" Width="40" Height="40" Margin="0,0,0,10" Click="OnTopClick"
+                    ToolTip="Tout en haut"/>
+                <Button Name="UpButton" Content="▲" Width="40" Height="40" Margin="0,0,0,10" Click="OnUpClick"
+                    ToolTip="Monter"/>
+                <Button Name="DownButton" Content="▼" Width="40" Height="40" Margin="0,0,0,10" Click="OnDownClick"
+                    ToolTip="Descendre"/>
+                <Button Name="BottomButton" Content="⏬" Width="40" Height="40" Click="OnBottomClick"
+                    ToolTip="Tout en bas"/>
+            </StackPanel>
+
+            <!-- Footer Actions -->
+            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                        Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                <Button Name="OkButton" Content="Enregistrer" Width="100" Height="32" Margin="0,0,10,0" Click="OnOkClick"
+                        FontWeight="SemiBold" Style="{DynamicResource PrimaryButtonStyle}"/>
+                <Button Name="CancelButton" Content="Annuler" Width="100" Height="32" Click="OnCancelClick"/>
+            </StackPanel>
+        </Grid>
+    </Border>
 </Window>

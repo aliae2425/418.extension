@@ -1,5 +1,29 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    CollectionPreviewTemplate
+
+    Où c'est utilisé
+    - Hébergé par CollectionPreviewHost dans Views/index.xaml.
+
+    Rôle
+    - Afficher un récapitulatif des collections + feuilles à exporter.
+    - Fournir la barre de progression, l'état, et le bouton "Exporter".
+
+    Nommage attendu (utilisé côté Python)
+    - ExportProgressBar : progression globale.
+    - PreviewCounterText : compteur collections/éléments.
+    - CollectionGrid : ListView groupée (GroupStyle/Expander).
+    - ExportStatusText : message d'état (erreur/warn/succès).
+    - ExportButton : action principale (activée/désactivée côté code).
+
+    Bindings importants
+    - Group Header bouton "🔃" : appelle ManageOrderCommand exposé par la Window
+      (RelativeSource AncestorType=Window).
+    - Les Items (dictionnaires) sont attendus avec des clés comme:
+      [CollectionIsExported], [CollectionPreviewName], [SheetCount], [CollectionExportInfo],
+      [IsCombined], [SheetNumber], [PreviewNom], [Format], [Size], [Orientation], [Progress], [ProgressColor].
+  -->
   <!-- 
        TEMPLATE PRINCIPAL : CollectionPreviewTemplate
        Ce template définit l'interface utilisateur pour la prévisualisation des collections à exporter.
@@ -16,8 +40,8 @@
            Il remplace le style par défaut pour avoir un look plus "Fluent" / moderne.
       -->
       <Style x:Key="FluentGroupExpanderStyle" TargetType="{x:Type Expander}">
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource ControlFillPressedBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
         <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -35,7 +59,7 @@
                             -->
                             <ToggleButton x:Name="HeaderSite"
                                           DockPanel.Dock="Top"
-                                          Background="Transparent"
+                                          Background="{DynamicResource TransparentBrush}"
                                           Content="{TemplateBinding Header}"
                                           ContentTemplate="{TemplateBinding HeaderTemplate}"
                                           ContentTemplateSelector="{TemplateBinding HeaderTemplateSelector}"
@@ -57,7 +81,7 @@
                                                 </Grid.ColumnDefinitions>
                                                 
                                                 <!-- Icône de flèche (Chevron) qui tourne quand le groupe est ouvert -->
-                                                <Border Width="24" Height="24" Background="Transparent">
+                                                <Border Width="24" Height="24" Background="{DynamicResource TransparentBrush}">
                                                     <Path x:Name="arrow"
                                                           Data="M 0 0 L 4 4 L 0 8"
                                                           Stroke="{TemplateBinding Foreground}"
@@ -123,7 +147,8 @@
         <Style.Triggers>
             <!-- Apparence quand le groupe est désactivé -->
             <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Background" Value="#3f4655"/>
+              <Setter Property="Background" Value="{DynamicResource TransparentBrush}"/>
+              <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             </Trigger>
         </Style.Triggers>
       </Style>
@@ -140,6 +165,7 @@
       
       <!-- Barre de progression globale de l'export -->
       <ProgressBar Name="ExportProgressBar"
+                   Width="850"
                    Height="24" Minimum="0"
                    Maximum="100" Value="0" Margin="0,4,0,8"/>
       <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -158,7 +184,7 @@
               Affiche les feuilles regroupées par Collection.
             -->
             <ListView Name="CollectionGrid"
-                Height="200"
+                Height="300"
                 Width="850"
                 ScrollViewer.VerticalScrollBarVisibility="Auto"
                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -206,7 +232,7 @@
                                               FontSize="10" VerticalAlignment="Center" Margin="5,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     
                                     <!-- Colonne 5 : Bouton pour gérer l'ordre (visible uniquement si combiné) -->
-                                    <Button Grid.Column="4" Content="🔃" Width="20" Height="20" 
+                                    <Button Grid.Column="4" Content="🔃" Width="25" Height="25" 
                                               Visibility="{Binding Items[0][IsCombined], Converter={StaticResource BoolToVisibilityConverter}}"
                                               Command="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=ManageOrderCommand}"
                                             CommandParameter="{Binding Name}"/>
@@ -261,7 +287,7 @@
                    TextWrapping="Wrap"
                    Width="Auto"
                    DockPanel.Dock="Left"
-                   Foreground="Red"
+                   Foreground="{DynamicResource ErrorBrush}"
                    Text="Sélectionnez un dossier de destination valide."/>
         
         <!-- Bouton principal pour lancer l'exportation -->
