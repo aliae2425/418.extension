@@ -40,8 +40,8 @@
            Il remplace le style par défaut pour avoir un look plus "Fluent" / moderne.
       -->
       <Style x:Key="FluentGroupExpanderStyle" TargetType="{x:Type Expander}">
-        <Setter Property="Background" Value="{DynamicResource TransparentBrush}"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource ControlFillPressedBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
         <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -147,7 +147,8 @@
         <Style.Triggers>
             <!-- Apparence quand le groupe est désactivé -->
             <Trigger Property="IsEnabled" Value="False">
-              <Setter Property="Background" Value="{DynamicResource ControlFillPressedBrush}"/>
+              <Setter Property="Background" Value="{DynamicResource TransparentBrush}"/>
+              <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             </Trigger>
         </Style.Triggers>
       </Style>
