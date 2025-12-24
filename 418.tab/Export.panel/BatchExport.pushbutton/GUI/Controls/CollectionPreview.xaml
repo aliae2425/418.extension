@@ -164,6 +164,7 @@
       
       <!-- Barre de progression globale de l'export -->
       <ProgressBar Name="ExportProgressBar"
+                   Width="850"
                    Height="24" Minimum="0"
                    Maximum="100" Value="0" Margin="0,4,0,8"/>
       <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -182,7 +183,7 @@
               Affiche les feuilles regroupées par Collection.
             -->
             <ListView Name="CollectionGrid"
-                Height="200"
+                Height="300"
                 Width="850"
                 ScrollViewer.VerticalScrollBarVisibility="Auto"
                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -230,7 +231,7 @@
                                               FontSize="10" VerticalAlignment="Center" Margin="5,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     
                                     <!-- Colonne 5 : Bouton pour gérer l'ordre (visible uniquement si combiné) -->
-                                    <Button Grid.Column="4" Content="🔃" Width="20" Height="20" 
+                                    <Button Grid.Column="4" Content="🔃" Width="25" Height="25" 
                                               Visibility="{Binding Items[0][IsCombined], Converter={StaticResource BoolToVisibilityConverter}}"
                                               Command="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=ManageOrderCommand}"
                                             CommandParameter="{Binding Name}"/>
