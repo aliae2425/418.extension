@@ -64,11 +64,39 @@ class PikerWindow(forms.WPFWindow):
             self.Title = title
         except Exception:
             pass
+        
+        # Update Title Text
+        try:
+            if hasattr(self, 'TitleText'):
+                if self._kind == 'set':
+                    self.TitleText.Text = "Configuration nom pour : Carnet ( PDF compiler )"
+                else:
+                    self.TitleText.Text = "Configuration nom pour : feuille ( PDF DWG )"
+        except Exception:
+            pass
+
+        # Filter ScopeCombo items based on kind
+        try:
+            if hasattr(self, 'ScopeCombo'):
+                items_to_remove = []
+                for item in self.ScopeCombo.Items:
+                    content = getattr(item, 'Content', '')
+                    if self._kind == 'sheet' and content == 'Collection':
+                        items_to_remove.append(item)
+                    elif self._kind == 'set' and content == 'Feuille':
+                        items_to_remove.append(item)
+                
+                for item in items_to_remove:
+                    self.ScopeCombo.Items.Remove(item)
+        except Exception:
+            pass
+
         self._available_all = []
         self._available_filtered = []
         self._available_project = []
         self._available_collection = []
         self._available_sheet = []
+        self._available_system = ['Date: Jour', 'Date: Mois', 'Date: Année']
         self._selected_rows = []
         # Buttons
         try:
@@ -141,12 +169,14 @@ class PikerWindow(forms.WPFWindow):
             self._available_project = []
             self._available_sheet = []
         # Union
-        all_union = {}
+        all_union = set()
         for lst in (self._available_project, self._available_collection, self._available_sheet):
-            for item in lst:
-                if item and item.get('Name'):
-                    all_union[item['Name']] = item
-        
+            for n in lst:
+                if n:
+                    try:
+                        all_union.add(n)
+                    except Exception:
+                        pass
         try:
             self._available_all = sorted(list(all_union.values()), key=lambda s: s['Name'].lower())
         except Exception:
@@ -303,13 +333,25 @@ class PikerWindow(forms.WPFWindow):
                     scope = getattr(sel, 'Content', 'Tout')
         except Exception:
             scope = 'Tout'
+        
         if scope == 'Projet':
             filtered = list(self._available_project or [])
         elif scope == 'Collection':
-            filtered = list(self._available_collection or [])
+            # Only show collection params if we are in 'set' mode
+            if self._kind == 'set':
+                filtered = list(self._available_collection or [])
+            else:
+                filtered = []
         elif scope == 'Feuille':
-            filtered = list(self._available_sheet or [])
+            # Only show sheet params if we are in 'sheet' mode
+            if self._kind == 'sheet':
+                filtered = list(self._available_sheet or [])
+            else:
+                filtered = []
+        elif scope == 'System':
+            filtered = list(self._available_system or [])
         else:
+            # 'Tout' case: use the pre-calculated union which respects the kind
             filtered = list(self._available_all or [])
 
         # Apply search filter

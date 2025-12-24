@@ -1,10 +1,29 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    DestinationPickerTemplate
+
+    Où c'est utilisé
+    - Hébergé par DestinationPickerHost dans Views/index.xaml.
+    - Chargé en Resources par UIResourceLoader (merge des GUI/Controls/*.xaml).
+
+    Rôle
+    - Permet de choisir le dossier de sortie et quelques options associées.
+
+    Nommage attendu (utilisé côté Python)
+    - BrowseButton : ouvre un sélecteur de dossier.
+    - PathTextBox : affiche/édite le chemin.
+    - CreateSubfoldersCheck : crée des sous-dossiers.
+    - SeparateByFormatCheck : sépare par format.
+  -->
   <ControlTemplate x:Key="DestinationPickerTemplate" TargetType="ContentControl">
     <StackPanel>
+      <!-- Titre de section (light/dark géré via resources) -->
       <TextBlock Text="Destination : "
               Foreground="{DynamicResource TextPrimaryBrush}"
               FontWeight="Bold" Margin="0,0,0,6"/>
+
+      <!-- Ligne chemin + bouton browse -->
       <DockPanel LastChildFill="True" Margin="0,4,0,0">
         <Button Content="..."
                 Name="BrowseButton"
@@ -19,6 +38,8 @@
                  HorizontalAlignment="Stretch"
                  ToolTip="Sélectionne un dossier de sortie"/>
       </DockPanel>
+
+      <!-- Options simples liées à la destination -->
       <StackPanel Orientation="Vertical" Margin="0,6,0,0">
         <CheckBox Name="CreateSubfoldersCheck" Content="Créer des sous-dossiers"/>
         <CheckBox Name="SeparateByFormatCheck" Content="Dossiers séparés par format"/>

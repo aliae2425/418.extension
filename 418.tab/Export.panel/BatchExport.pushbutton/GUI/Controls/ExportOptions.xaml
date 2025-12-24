@@ -1,5 +1,17 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    ExportOptionsTemplate
+
+    Où c'est utilisé
+    - Hébergé par ExportOptionsHost dans le burger menu (Views/index.xaml).
+    - Le template est un panneau d'options (PDF/DWG) repliable via Expander.
+
+    Nommage attendu (utilisé côté Python)
+    - PDFSetupCombo : sélection du réglage PDF.
+    - DWGSetupCombo : sélection du réglage DWG.
+    - DWGSeparateCheck : option d'export DWG séparé.
+  -->
   <ControlTemplate x:Key="ExportOptionsTemplate" TargetType="ContentControl">
     <StackPanel Orientation="Vertical">
       <!-- PDF options -->
@@ -9,6 +21,7 @@
                 IsExpanded="False"
                 ExpandDirection="Down">
         <StackPanel Orientation="Vertical">
+          <!-- Libellé + ComboBox (contenu alimenté par code) -->
           <TextBlock Text="Réglage PDF"
                       Foreground="{DynamicResource TextPrimaryBrush}"
                       Margin="0,0,0,4"/>
@@ -26,6 +39,7 @@
                 IsExpanded="False"
                 ExpandDirection="Down">
         <StackPanel Orientation="Vertical">
+          <!-- Libellé + ComboBox (contenu alimenté par code) -->
           <TextBlock Text="Réglage DWG"
                       Foreground="{DynamicResource TextPrimaryBrush}"
                       Margin="0,0,0,4"/>
@@ -33,6 +47,8 @@
             <ComboBox Name="DWGSetupCombo" MinWidth="160"/>
             <!-- <Button Name="DWGCreateButton" Content="Créer réglage…" DockPanel.Dock="Right" Margin="8,0,0,0"/> -->
           </DockPanel>
+
+          <!-- Option simple DWG -->
           <CheckBox Name="DWGSeparateCheck" Content="Exporter les vues en fichiers séparés" Margin="0,6,0,0"/>
         </StackPanel>
       </Expander>

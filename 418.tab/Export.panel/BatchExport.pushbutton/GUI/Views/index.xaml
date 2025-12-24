@@ -7,13 +7,32 @@
         WindowStyle="None"
         ResizeMode="NoResize"
         AllowsTransparency="True"
-        Background="Transparent"
+        Background="{DynamicResource TransparentBrush}"
         BorderThickness="1">
 
+  <!--
+    Fenêtre principale BatchExport
+
+    Objectif
+    - Fournir une UI unique (TitleBar custom + contenu principal).
+    - Centraliser l'accès aux paramètres via un burger menu (panneau latéral).
+
+    Ressources / styles
+    - Les styles/couleurs (light/dark) ne sont pas définis ici.
+    - Elles sont mergées au runtime (windows.xaml + éventuellement ColorsDark/StylesDark)
+      par le code Python (UIResourceLoader / fenêtres).
+
+    Templates
+    - Les ContentControl ci-dessous consomment des ControlTemplate (…Template)
+      définis dans GUI/Controls/*.xaml et injectés dans Resources par UIResourceLoader.
+  -->
+
   <Window.Resources>
+    <!--
+      Dictionnaire volontairement vide côté XAML.
+      Les dictionnaires de ressources sont ajoutés par Python.
+    -->
     <ResourceDictionary>
-      <!-- Convertisseur pour la visibilité -->
-      <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
     </ResourceDictionary>
   </Window.Resources>
 
@@ -24,8 +43,13 @@
       <RowDefinition Height="*"/>
     </Grid.RowDefinitions>
 
-    <!-- Custom Title Bar -->
-    <Grid Grid.Row="0" Name="TitleBar" Background="Transparent" Margin="0">
+    <!--
+      TitleBar custom
+      - BurgerButton : ouvre/ferme le panneau latéral.
+      - CloseWindowButton : ferme la fenêtre.
+      - TitleBar est utilisé côté Python pour permettre DragMove().
+    -->
+    <Grid Grid.Row="0" Name="TitleBar" Background="{DynamicResource TransparentBrush}" Margin="0">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="*"/>
@@ -37,7 +61,7 @@
               Grid.Column="0"
               Width="40" Height="40"
               Margin="4,4,0,0"
-              Background="Transparent"
+              Background="{DynamicResource TransparentBrush}"
               BorderThickness="0"
               Cursor="Hand"
               ToolTip="Paramètres et options d'export">
@@ -56,7 +80,7 @@
               Width="40" Height="40" 
               Margin="0,4,4,0"
               VerticalAlignment="Top"
-              Background="Transparent" 
+              Background="{DynamicResource TransparentBrush}" 
               BorderThickness="0" 
               Foreground="{DynamicResource TextPrimaryBrush}"
               FontSize="16" 
@@ -68,8 +92,8 @@
                  </Border>
                  <ControlTemplate.Triggers>
                      <Trigger Property="IsMouseOver" Value="True">
-                         <Setter TargetName="border" Property="Background" Value="#FFE81123"/>
-                         <Setter Property="Foreground" Value="White"/>
+                     <Setter TargetName="border" Property="Background" Value="{DynamicResource CloseButtonHoverBrush}"/>
+                     <Setter Property="Foreground" Value="{DynamicResource TextOnDangerBrush}"/>
                      </Trigger>
                  </ControlTemplate.Triggers>
              </ControlTemplate>
@@ -82,7 +106,7 @@
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/>
         <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
         <RowDefinition Height="*"/>
       </Grid.RowDefinitions>
 
@@ -90,15 +114,60 @@
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
 
-      <!-- Overlay for Burger Menu -->
+      <!--
+        Overlay plein écran derrière le burger menu
+        - Sert à "modaliser" le panneau (click-outside, focus) côté code.
+      -->
       <Border Name="BurgerMenuOverlay"
               Grid.Row="0" Grid.RowSpan="4"
-              Background="#80000000"
-              Panel.ZIndex="999"
+              Background="{DynamicResource ModalOverlayBrush}"
+              Panel.ZIndex="1000"
               Visibility="Collapsed"
               Margin="-12"/>
 
-      <!-- Menu burger (panneau coulissant) -->
+      <!--
+        Hover Layer (au-dessus de l'overlay sombre)
+        - Zone dédiée "devant" l'overlay, pour afficher des infos contextuelles.
+        - Marge 36px et bordure transparente (container réutilisable).
+        - IsHitTestVisible="False" pour ne pas casser le click-outside-to-close.
+      -->
+      <Border Name="BurgerMenuHoverLayer"
+              Grid.Row="0" Grid.RowSpan="4"
+              Panel.ZIndex="1100"
+              Background="{DynamicResource TransparentBrush}"
+              IsHitTestVisible="False"
+              Visibility="Collapsed"
+              Margin="-12">
+        <Border BorderBrush="{DynamicResource TransparentBrush}"
+                BorderThickness="1"
+                Background="{DynamicResource TransparentBrush}"
+                Margin="356,36,36,36"
+                Padding="0">
+          <Grid>
+            <!-- Affichage texte simple (cas par défaut) -->
+            <TextBlock Name="BurgerMenuHoverText"
+                       Visibility="Collapsed"
+                       Text=""
+                       Foreground="{DynamicResource HoverTextBrush}"
+                       FontSize="13"
+                       TextWrapping="Wrap"
+                       MaxWidth="520"/>
+
+            <!-- Affichage avancé : un UIElement chargé depuis un XAML -->
+            <ContentControl Name="BurgerMenuHoverContent"
+                            Visibility="Collapsed"/>
+          </Grid>
+        </Border>
+      </Border>
+
+      <!--
+        BurgerMenu (panneau latéral)
+        Contient :
+        - ParameterSelectorHost : choix des paramètres et règles d'export.
+        - ExportOptionsHost : réglages PDF/DWG.
+        - NamingConfigHost : configuration du nommage (déplacé ici).
+        - Section profil : accès aux profils (gestion pilotée par code Python).
+      -->
       <Border Name="BurgerMenu"
               Grid.Row="0" Grid.RowSpan="4"
               Width="320"
@@ -106,7 +175,7 @@
               Background="{DynamicResource CardBackgroundBrush}"
               BorderThickness="0,0,1,0"
               BorderBrush="{DynamicResource ControlBorderBrush}"
-              Panel.ZIndex="1000"
+              Panel.ZIndex="1050"
               Visibility="Collapsed"
               Margin="-12,-12,0,-12">
         <Border.Effect>
@@ -128,14 +197,14 @@
                       FontSize="24"
                       Width="32" Height="32"
                       HorizontalAlignment="Right"
-                      Background="Transparent"
+                      Background="{DynamicResource TransparentBrush}"
                       BorderThickness="0"
                       Cursor="Hand"
                       Foreground="{DynamicResource TextPrimaryBrush}"/>
             </Grid>
           </Border>
           
-          <!-- Contenu du menu -->
+            <!-- Contenu du menu (scrollable) -->
           <Grid Grid.Row="1">
             <Grid.RowDefinitions>
               <RowDefinition Height="*"/>
@@ -145,32 +214,85 @@
               <StackPanel Margin="16">
                 <ContentControl x:Name="ParameterSelectorHost"
                                 Template="{DynamicResource ParameterSelectorTemplate}"/>
+                <ContentControl x:Name="NamingConfigHost"
+                                  Template="{DynamicResource NamingConfigTemplate}"/>
                 <ContentControl x:Name="ExportOptionsHost"
                                 Margin="0,16,0,0"
                                 Template="{DynamicResource ExportOptionsTemplate}"/>
               </StackPanel>
             </ScrollViewer>
+
+            <!-- Section Profil -->
+            <Border Grid.Row="1" 
+                    Background="{DynamicResource MicaBackgroundBrush}" 
+                    BorderThickness="0,1,0,0" 
+                    BorderBrush="{DynamicResource ControlBorderBrush}" 
+                    Padding="16">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- Avatar / Icon -->
+                    <Border Grid.Column="0" 
+                            Width="32" Height="32" 
+                            CornerRadius="16" 
+                            Background="{DynamicResource AccentBrush}" 
+                            Margin="0,0,12,0">
+                        <TextBlock Text="P" 
+                                   HorizontalAlignment="Center" 
+                                   VerticalAlignment="Center" 
+                                   Foreground="{DynamicResource TextOnAccentBrush}" 
+                                   FontWeight="Bold"/>
+                    </Border>
+                    
+                    <!-- Info -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Name="ProfileNameText"
+                                   Text="Profil" 
+                                   FontWeight="SemiBold" 
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Configuration" 
+                                   FontSize="12" 
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                    
+                    <!-- Settings / More button -->
+                    <Button Name="ProfileSettingsButton"
+                            Grid.Column="2"
+                            Content="⚙"
+                            Width="32" Height="32"
+                          Background="{DynamicResource TransparentBrush}"
+                            BorderThickness="0"
+                            Foreground="{DynamicResource TextSecondaryBrush}"
+                            Cursor="Hand"/>
+                </Grid>
+            </Border>
           </Grid>
         </Grid>
       </Border>
 
-      <!-- Zone de destination -->
+      <!--
+        Zone "Destination"
+        - Visible en permanence dans le contenu principal.
+        - Le code Python lit/écrit BrowseButton, PathTextBox, etc.
+      -->
       <Border Style="{DynamicResource StyledBorder}"
               Grid.Row="1">
         <ContentControl x:Name="DestinationPickerHost"
                         Template="{DynamicResource DestinationPickerTemplate}"/>
       </Border>
 
-      <!-- Zone de nommage -->
+      <!--
+        Zone "Preview" (récapitulatif + progression)
+        - Occupe les deux lignes du bas pour maximiser la place.
+        - Contient la ListView groupée des collections + contrôles d'export.
+      -->
       <Border Style="{DynamicResource StyledBorder}"
-              Grid.Row="2">
-        <ContentControl x:Name="NamingConfigHost"
-                        Template="{DynamicResource NamingConfigTemplate}"/>
-      </Border>
-
-      <!-- Zone recapitulatif + progression -->
-      <Border Style="{DynamicResource StyledBorder}"
-              Grid.Row="3"
+              Grid.Row="2"
+              Grid.RowSpan="2"
               Margin="0,0,0,0">
         <ContentControl x:Name="CollectionPreviewHost"
                         Template="{DynamicResource CollectionPreviewTemplate}"/>
