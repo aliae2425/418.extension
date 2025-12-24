@@ -1,0 +1,7 @@
+{
+  "batch_export": {
+    "dwg_setup_name": "Export bonne couleur", 
+    "pattern_sheet": "{Nom du projet}{Nom du client}", 
+    "pattern_sheet_rows": "[[ \"name\": \"Nom du projet\", \"prefixe\": \"\", \"suffixe\": \"\" ], [ \"name\": \"Nom du client\", \"prefixe\": \"\", \"suffixe\": \"\" ]]"
+  }
+}

@@ -30,6 +30,18 @@ class MainWindowController(object):
         # Config
         from ...core.UserConfig import UserConfig
         self._cfg = UserConfig('batch_export')
+
+        # Auto-chargement du profil actif (stocké dans pyRevit userconfig)
+        # Important: le faire avant d'initialiser les services qui lisent la config.
+        try:
+            from ...services.ConfigManagerService import ConfigManagerService
+            svc = ConfigManagerService()
+            active = svc.get_active_profile_name()
+            if active:
+                svc.load_profile(active)
+        except Exception:
+            pass
+
         # Services / Data
         from ...data.sheets.SheetParameterRepository import SheetParameterRepository
         from ...data.destination.DestinationStore import DestinationStore

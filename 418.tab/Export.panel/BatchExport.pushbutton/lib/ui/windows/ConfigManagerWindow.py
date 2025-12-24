@@ -30,6 +30,8 @@ class ConfigManagerWindow(forms.WPFWindow):
             self.LoadConfigButton.Click += self._on_load
         if hasattr(self, 'SaveConfigButton'):
             self.SaveConfigButton.Click += self._on_save
+        if hasattr(self, 'DeleteConfigButton'):
+            self.DeleteConfigButton.Click += self._on_delete
         if hasattr(self, 'ImportConfigButton'):
             self.ImportConfigButton.Click += self._on_import
         if hasattr(self, 'ExportConfigButton'):
@@ -71,6 +73,27 @@ class ConfigManagerWindow(forms.WPFWindow):
             # Reselect the saved item
             if hasattr(self, 'ConfigsList'):
                 self.ConfigsList.SelectedItem = name
+
+    def _on_delete(self, sender, args):
+        sel = None
+        try:
+            sel = self.ConfigsList.SelectedItem
+        except Exception:
+            sel = None
+        if not sel:
+            return
+        try:
+            if self._service.delete_profile(sel):
+                self._refresh_list()
+                try:
+                    if hasattr(self, 'ProfileNameBox'):
+                        self.ProfileNameBox.Text = ''
+                except Exception:
+                    pass
+            else:
+                forms.alert("Erreur lors de la suppression.", title="Erreur")
+        except Exception:
+            forms.alert("Erreur lors de la suppression.", title="Erreur")
 
     def _on_import(self, sender, args):
         path = forms.pick_file(file_ext='csv')
