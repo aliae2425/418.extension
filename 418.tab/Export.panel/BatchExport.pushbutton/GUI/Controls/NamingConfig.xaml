@@ -35,7 +35,7 @@
           -->
           <Button Name="SheetNamingButton"
                   Content="Feuilles"
-                  Width="250"
+                  Width="240"
                   Height="36"
                   HorizontalAlignment="Left"
                   HorizontalContentAlignment="Left"
@@ -44,7 +44,7 @@
 
           <Button Name="SetNamingButton"
                   Content="Carnets"
-                  Width="250"
+                  Width="240"
                   Height="36"
                   HorizontalAlignment="Left"
                   HorizontalContentAlignment="Left"

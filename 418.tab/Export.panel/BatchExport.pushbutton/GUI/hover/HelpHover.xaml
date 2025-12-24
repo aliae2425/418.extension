@@ -1,32 +1,52 @@
-<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Background="{DynamicResource TransparentBrush}"
+        BorderBrush="{DynamicResource TransparentBrush}"
+        BorderThickness="1"
+        CornerRadius="8">
+
   <!--
     Hover UI: Help
-    - Affiché dans BurgerMenuHoverLayer (zone à droite du burger menu)
-    - Utilise uniquement des brushes du design system
+    - Transposition de HelpModal.xaml (même structure header + contenu scrollable)
+    - Pas de boutons ici (hover uniquement)
+    - Texte forcé en blanc via HoverTextBrush
   -->
 
-  <StackPanel>
-    <TextBlock Text="Aide"
-               Foreground="{DynamicResource HoverTextBrush}"
-               FontSize="16"
-               FontWeight="SemiBold"
-               Margin="0,0,0,8"/>
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
 
-    <TextBlock TextWrapping="Wrap"
-               Foreground="{DynamicResource HoverTextBrush}"
-               FontSize="13"
-               LineHeight="18">
-      <Run Text="Cliquez sur le bouton d'aide pour ouvrir la fenêtre complète."/>
-      <LineBreak/>
-      <LineBreak/>
-      <Run Text="Rappel :" FontWeight="SemiBold"/>
-      <LineBreak/>
-      <Run Text="• Exportation : paramètre Oui/Non"/>
-      <LineBreak/>
-      <Run Text="• Export PDF compilé : paramètre Oui/Non"/>
-      <LineBreak/>
-      <Run Text="• Export en DWG : paramètre Oui/Non"/>
-    </TextBlock>
-  </StackPanel>
-</Grid>
+    <!-- Header (équivalent de la modale) -->
+    <Grid Grid.Row="0" Margin="0,0,0,12" Background="{DynamicResource TransparentBrush}">
+      <TextBlock Text="Aide"
+                 Foreground="{DynamicResource HoverTextBrush}"
+                 FontSize="16"
+                 FontWeight="SemiBold"
+                 VerticalAlignment="Center"/>
+    </Grid>
+
+    <!-- Content (équivalent de la modale) -->
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+      <StackPanel>
+        <TextBlock TextWrapping="Wrap"
+                   Foreground="{DynamicResource HoverTextBrush}"
+                   FontSize="13"
+                   LineHeight="18">
+          <Run Text="Les paramètres de feuille permettent de contrôler quels jeux de feuilles sont exportés et comment."/>
+          <LineBreak/>
+          <LineBreak/>
+          <Run Text="• Exportation : Paramètre Oui/Non pour activer l'export de la feuille."/>
+          <LineBreak/>
+          <Run Text="• Export PDF compilé : Paramètre Oui/Non pour inclure la feuille dans un carnet PDF unique."/>
+          <LineBreak/>
+          <Run Text="• Export en DWG : Paramètre Oui/Non pour générer également un fichier DWG pour cette feuille."/>
+          <LineBreak/>
+          <LineBreak/>
+          <Run Text="Ces paramètres doivent être créés dans votre projet Revit en tant que paramètres de projet ou partagés, appliqués à la catégorie 'Feuilles'."/>
+        </TextBlock>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</Border>

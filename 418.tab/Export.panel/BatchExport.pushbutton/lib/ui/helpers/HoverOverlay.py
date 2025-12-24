@@ -197,10 +197,39 @@ def set_hover_xaml_path(win, xaml_path):
     if XamlReader is None:
         return False
 
+    def _read_xaml_text(path):
+        """Read XAML as unicode, preserving special characters.
+
+        Files created on Windows may be UTF-8 (with/without BOM) or ANSI (cp1252).
+        """
+        data = None
+        try:
+            with open(path, 'rb') as fp:
+                data = fp.read()
+        except Exception:
+            return None
+
+        if data is None:
+            return None
+
+        # Try common encodings in order.
+        for enc in ('utf-8-sig', 'utf-16', 'utf-16le', 'utf-16be', 'cp1252'):
+            try:
+                return data.decode(enc)
+            except Exception:
+                continue
+
+        try:
+            # Last resort: replace invalid bytes
+            return data.decode('utf-8', 'replace')
+        except Exception:
+            return None
+
     # Prefer Parse(string) to avoid System.Xml dependency issues.
     try:
-        with open(xaml_path, 'r') as fp:
-            xaml_text = fp.read()
+        xaml_text = _read_xaml_text(xaml_path)
+        if not xaml_text:
+            return False
         element = XamlReader.Parse(xaml_text)
         return bool(set_hover_content(win, element))
     except Exception as e_parse:
