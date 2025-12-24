@@ -125,23 +125,7 @@ class PikerWindow(forms.WPFWindow):
             patt, rows = _naming_store().load(self._kind)
         except Exception:
             patt, rows = '', []
-        
-        # Upgrade rows to include DisplayName if missing
-        self._selected_rows = []
-        if rows:
-            from ...utils.BipTranslator import BipTranslator
-            for r in rows:
-                nm = r.get('Name', '')
-                dn = r.get('DisplayName', '')
-                if not dn:
-                    if nm.startswith('BIP:'):
-                        bip_name = nm[4:]
-                        dn = BipTranslator.get_localized_name(bip_name)
-                    else:
-                        dn = nm
-                r['DisplayName'] = dn
-                self._selected_rows.append(r)
-
+        self._selected_rows = rows or []
         self._reload_selected_list()
         self._refresh_preview()
 
@@ -153,15 +137,15 @@ class PikerWindow(forms.WPFWindow):
         repo = _sheet_repo()
         if doc is not None:
             try:
-                self._available_collection = repo.collect_params_extended(doc, scope='collection')
+                self._available_collection = repo.collect_for_collections(doc, only_boolean=False)
             except Exception:
                 self._available_collection = []
             try:
-                self._available_project = repo.collect_params_extended(doc, scope='project')
+                self._available_project = repo.collect_project_params(doc)
             except Exception:
                 self._available_project = []
             try:
-                self._available_sheet = repo.collect_params_extended(doc, scope='sheet')
+                self._available_sheet = repo.collect_sheet_instance_params(doc)
             except Exception:
                 self._available_sheet = []
         else:
@@ -178,9 +162,9 @@ class PikerWindow(forms.WPFWindow):
                     except Exception:
                         pass
         try:
-            self._available_all = sorted(list(all_union.values()), key=lambda s: s['Name'].lower())
+            self._available_all = sorted(list(all_union), key=lambda s: s.lower())
         except Exception:
-            self._available_all = list(all_union.values())
+            self._available_all = list(all_union)
         self._apply_scope_filter()
         self._refresh_preview()
 
@@ -194,13 +178,9 @@ class PikerWindow(forms.WPFWindow):
     def AvailableParamsList_DoubleClick(self, sender, args):
         try:
             sel = getattr(self.AvailableParamsList, 'SelectedItem', None)
-            # sel is now a dict {'Name':..., 'Id':...}
-            if sel:
-                p_id = sel.get('Id')
-                p_name = sel.get('Name')
-                if p_id and not any(r.get('Name') == p_id for r in self._selected_rows):
-                    self._selected_rows.append({'Name': p_id, 'DisplayName': p_name, 'Prefix': '', 'Suffix': ''})
-                    self._reload_selected_list()
+            if sel and not any(r.get('Name') == sel for r in self._selected_rows):
+                self._selected_rows.append({'Name': sel, 'Prefix': '', 'Suffix': ''})
+                self._reload_selected_list()
         except Exception:
             pass
         self._refresh_preview()
@@ -367,13 +347,12 @@ class PikerWindow(forms.WPFWindow):
             filtered = [n for n in filtered if search_text in n.lower()]
 
         try:
-            self._available_filtered = sorted(filtered, key=lambda s: s['Name'].lower())
+            self._available_filtered = sorted(filtered, key=lambda s: s.lower())
         except Exception:
             self._available_filtered = filtered
         if hasattr(self, 'AvailableParamsList'):
             try:
                 self.AvailableParamsList.Items.Clear()
-                self.AvailableParamsList.DisplayMemberPath = "Name"
                 for n in self._available_filtered:
                     self.AvailableParamsList.Items.Add(n)
             except Exception:
@@ -389,12 +368,9 @@ class PikerWindow(forms.WPFWindow):
     def _on_add_param(self, sender, args):
         try:
             sel = getattr(self.AvailableParamsList, 'SelectedItem', None)
-            if sel:
-                p_id = sel.get('Id')
-                p_name = sel.get('Name')
-                if p_id and not any(r.get('Name') == p_id for r in self._selected_rows):
-                    self._selected_rows.append({'Name': p_id, 'DisplayName': p_name, 'Prefix': '', 'Suffix': ''})
-                    self._reload_selected_list()
+            if sel and not any(r.get('Name') == sel for r in self._selected_rows):
+                self._selected_rows.append({'Name': sel, 'Prefix': '', 'Suffix': ''})
+                self._reload_selected_list()
         except Exception:
             pass
         self._refresh_preview()

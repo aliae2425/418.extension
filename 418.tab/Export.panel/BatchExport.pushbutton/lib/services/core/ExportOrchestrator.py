@@ -525,11 +525,20 @@ class ExportOrchestrator(object):
                 from System.Collections.Generic import List as Clist  # type: ignore
                 views = Clist[DB.ElementId]()
                 views.Add(sheet.Id)
+                
+                # Force MergedViews to True to ensure single file output (no XREFs)
+                # This fixes the issue where XREFs (views) might be picked up instead of the sheet
+                try:
+                    options.MergedViews = True
+                except Exception:
+                    pass
+
                 # DWG export requires a prefix name in most overloads
                 # Export(folder, name, views, options)
                 ok = bool(doc.Export(tmp_dir, "export", views, options))
         except Exception:
             ok = False
+        
         try:
             if ok:
                 # Prioritize the main file "export.dwg"
@@ -547,6 +556,8 @@ class ExportOrchestrator(object):
 
                 if exported_file:
                     try:
+                        if os.path.exists(final_path):
+                            os.remove(final_path)
                         os.rename(exported_file, final_path)
                     except Exception:
                         import shutil
@@ -583,6 +594,7 @@ class ExportOrchestrator(object):
                         pass
         except Exception:
             ok = False
+            
         try:
             if os.path.isdir(tmp_dir):
                 import shutil

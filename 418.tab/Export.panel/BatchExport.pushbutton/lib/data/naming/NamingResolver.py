@@ -3,6 +3,8 @@
 
 from __future__ import unicode_literals
 
+import re
+
 try:
     from Autodesk.Revit import DB  # type: ignore
 except Exception:
@@ -12,6 +14,42 @@ class NamingResolver(object):
     def __init__(self, doc=None):
         self._doc = doc
         self._project_params_cache = None
+
+        # Exemple pythonnet typique:
+        #   <Autodesk.Revit.DB.WallType object at 0x00000123456789AB>
+        # On ne veut jamais ce texte dans un nom de fichier.
+        self._re_dotnet_object_repr = re.compile(
+            r"^<?Autodesk\\.Revit\\.DB(?:\\.[^>]+)?\\s+object\\s+at\\s+0x[0-9a-fA-F]+>?$"
+        )
+
+    def _sanitize_resolved_value(self, val):
+        """Nettoie les valeurs destinées au nom de fichier.
+
+        Si pythonnet renvoie une représentation d'objet .NET (ex: "Autodesk.Revit.DB ... object at 0x..."),
+        on remplace par une chaîne vide.
+        """
+        if val is None:
+            return ''
+
+        # Assurer une chaîne unicode/str
+        try:
+            if type(val).__name__ not in ('str', 'unicode'):
+                val = str(val)
+        except Exception:
+            return ''
+
+        if not val:
+            return ''
+
+        # Détection simple et robuste du repr d'objet .NET
+        try:
+            if 'Autodesk.Revit.DB' in val and 'object at' in val and '0x' in val:
+                if self._re_dotnet_object_repr.match(val.strip()):
+                    return ''
+        except Exception:
+            pass
+
+        return val
 
     def _get_project_param_value(self, param_name):
         """Retourne la valeur d'un paramètre du projet (ProjectInformation)."""
@@ -49,10 +87,13 @@ class NamingResolver(object):
                                 except Exception:
                                     pass
                             if not val:
+                                # Ne pas utiliser str(param) (souvent: "Autodesk.Revit.DB ... object at 0x...")
                                 try:
-                                    val = str(param)
+                                    val = self._extract_param_value(param)
                                 except Exception:
-                                    pass
+                                    val = ''
+
+                            val = self._sanitize_resolved_value(val)
                             
                             self._project_params_cache[pname] = val
                         except Exception:
@@ -126,21 +167,6 @@ class NamingResolver(object):
 
         val = ''
         
-        # 0. Check for BIP
-        if param_name.startswith('BIP:'):
-            bip_str = param_name[4:]
-            try:
-                bip = getattr(DB.BuiltInParameter, bip_str, None)
-                if bip:
-                    p = elem.get_Parameter(bip)
-                    if p:
-                        val = self._extract_param_value(p)
-                        if val:
-                            return val
-            except Exception:
-                pass
-            # If BIP lookup fails, fallback to normal lookup (maybe it's literally named "BIP:...")
-        
         # 1. Essayer LookupParameter (plus fiable et rapide)
         try:
             p = elem.LookupParameter(param_name)
@@ -189,7 +215,7 @@ class NamingResolver(object):
                 continue
             pf = r.get('Prefix', '') or ''
             sf = r.get('Suffix', '') or ''
-            val = self._get_param_value(elem, token)
+            val = self._sanitize_resolved_value(self._get_param_value(elem, token))
             # Si valeur vide: utiliser chaîne vide (pas de fallback vers token)
             if not val:
                 val = ''
