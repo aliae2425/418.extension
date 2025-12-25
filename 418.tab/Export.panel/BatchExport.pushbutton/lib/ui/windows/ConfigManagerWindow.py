@@ -39,6 +39,30 @@ class ConfigManagerWindow(forms.WPFWindow):
         if hasattr(self, 'ConfigsList'):
             self.ConfigsList.SelectionChanged += self._on_selection_changed
 
+    def _refresh_owner_profile_label(self):
+        """Met à jour immédiatement le libellé du profil sur la fenêtre principale."""
+        try:
+            owner = getattr(self, 'Owner', None)
+            if owner is None:
+                return
+            label = u"Profil"
+            try:
+                from ...core.UserConfig import UserConfig
+                cfg = UserConfig('batch_export')
+                active_key = cfg.get('active_profile_key', '')
+                if active_key:
+                    label = active_key
+            except Exception:
+                pass
+            try:
+                res = getattr(owner, 'Resources', None)
+                if res is not None:
+                    res['ActiveProfileLabel'] = label
+            except Exception:
+                pass
+        except Exception:
+            pass
+
     def _refresh_list(self):
         if hasattr(self, 'ConfigsList'):
             self.ConfigsList.Items.Clear()
@@ -55,6 +79,7 @@ class ConfigManagerWindow(forms.WPFWindow):
         sel = self.ConfigsList.SelectedItem
         if sel:
             if self._service.load_profile(sel):
+                self._refresh_owner_profile_label()
                 self.Close()
             else:
                 forms.alert("Erreur lors du chargement.", title="Erreur")
@@ -73,6 +98,7 @@ class ConfigManagerWindow(forms.WPFWindow):
             # Reselect the saved item
             if hasattr(self, 'ConfigsList'):
                 self.ConfigsList.SelectedItem = name
+            self._refresh_owner_profile_label()
 
     def _on_delete(self, sender, args):
         name = None
@@ -108,6 +134,7 @@ class ConfigManagerWindow(forms.WPFWindow):
                     self.ProfileNameBox.Text = ''
                 except Exception:
                     pass
+            self._refresh_owner_profile_label()
         else:
             forms.alert("Erreur lors de la suppression.", title="Erreur")
 

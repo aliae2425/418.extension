@@ -5,6 +5,41 @@ class BurgerMenuSectionController(object):
     def __init__(self, win):
         self._win = win
 
+    def _set_profile_label_resource(self, label):
+        try:
+            # Preferred: DynamicResource ActiveProfileLabel in XAML
+            res = getattr(self._win, 'Resources', None)
+            if res is not None:
+                res['ActiveProfileLabel'] = label
+                return True
+        except Exception:
+            pass
+        return False
+
+    def update_profile_name(self):
+        """Affiche la clé de profil active (active_profile_key) depuis pyRevit_config.ini."""
+        label = u"Profil"
+        try:
+            from ....core.UserConfig import UserConfig
+            cfg = UserConfig('batch_export')
+            active_key = cfg.get('active_profile_key', '')
+            if active_key:
+                label = active_key
+        except Exception:
+            pass
+
+        # Update DynamicResource (best-effort). Fallback to direct TextBlock set.
+        if self._set_profile_label_resource(label):
+            return
+        try:
+            tb = getattr(self._win, 'ProfileNameText', None)
+            if tb is None and hasattr(self._win, 'FindName'):
+                tb = self._win.FindName('ProfileNameText')
+            if tb is not None:
+                tb.Text = label
+        except Exception:
+            pass
+
     def wire(self):
         try:
             if hasattr(self._win, 'BurgerButton'):
@@ -20,6 +55,26 @@ class BurgerMenuSectionController(object):
                 self._win.TitleBar.MouseLeftButtonDown += self._on_title_bar_mouse_down
 
             self._wire_accordion()
+
+            # Les contrôles XAML existent maintenant: set le texte une première fois.
+            self.update_profile_name()
+
+            # Rafraîchit le nom du profil à chaque ouverture du menu
+            if hasattr(self._win, 'BurgerMenu'):
+                try:
+                    self._win.BurgerMenu.IsVisibleChanged += self._on_burger_menu_visibility_changed
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def _on_burger_menu_visibility_changed(self, sender, args):
+        try:
+            # Si le menu devient visible, rafraîchir le nom du profil
+            if hasattr(sender, 'Visibility'):
+                from System.Windows import Visibility
+                if sender.Visibility == Visibility.Visible:
+                    self.update_profile_name()
         except Exception:
             pass
 
@@ -84,6 +139,8 @@ class BurgerMenuSectionController(object):
                     if set_hover_text is not None:
                         set_hover_text(self._win, '')
                 else:
+                    # Juste avant affichage: rafraîchir le libellé du profil actif
+                    self.update_profile_name()
                     menu.Visibility = Visibility.Visible
                     if overlay:
                         overlay.Visibility = Visibility.Visible

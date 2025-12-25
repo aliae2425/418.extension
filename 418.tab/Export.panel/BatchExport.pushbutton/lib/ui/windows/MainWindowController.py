@@ -209,6 +209,11 @@ class MainWindowController(object):
             self._init_destination()
             # Refresh PDF/DWG options
             self._init_pdf_dwg()
+            # Refresh profile label in burger menu
+            try:
+                self._burger_section.update_profile_name()
+            except Exception:
+                pass
             # Refresh grid
             self._preview_section.populate()
             # Check warnings
