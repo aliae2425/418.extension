@@ -1,143 +1,87 @@
 # -*- coding: utf-8 -*-
-"""Backend de configuration local.
-
-Historique: ce module utilisait pyRevit userconfig.
-Nouveau: stockage JSON local dans BatchExport.pushbutton/Data.
-
-Objectif: éviter toute dépendance à pyRevit.userconfig pour les réglages,
-et permettre la portabilité (copie du dossier = mêmes réglages).
-"""
-
-from __future__ import unicode_literals
-
-import io
-import json
-import os
-
+# Accès unifié à la configuration utilisateur via pyRevit (sans dépendre de lib/config.py)
 
 try:
-    unicode  # type: ignore
+    from pyrevit.userconfig import user_config as _UC
 except Exception:
-    unicode = str  # type: ignore
-
-
-def _to_text(value):
-    try:
-        return u"{}".format(value)
-    except Exception:
-        try:
-            return str(value)
-        except Exception:
-            return ''
-
-
-def _data_dir():
-    # lib/core/UserConfig.py -> lib/core -> lib -> BatchExport.pushbutton
-    here = os.path.dirname(__file__)
-    return os.path.normpath(os.path.join(here, '..', '..', 'Data'))
-
-
-def _store_path():
-    return os.path.join(_data_dir(), 'config.json')
-
-
-def _ensure_dir():
-    try:
-        d = _data_dir()
-        if not os.path.exists(d):
-            os.makedirs(d)
-    except Exception:
-        pass
-
-
-def _load_store():
-    _ensure_dir()
-    p = _store_path()
-    if not os.path.exists(p):
-        return {}
-    try:
-        with io.open(p, mode='r', encoding='utf-8-sig') as f:
-            raw = f.read()
-        raw = (raw or '').strip()
-        if not raw:
-            return {}
-        data = json.loads(raw)
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
-
-
-def _save_store(store_dict):
-    _ensure_dir()
-    p = _store_path()
-    try:
-        safe = store_dict if isinstance(store_dict, dict) else {}
-        with io.open(p, mode='w', encoding='utf-8', newline='') as f:
-            f.write(_to_text(json.dumps(safe, indent=2, sort_keys=True)))
-        return True
-    except Exception:
-        return False
+    _UC = None  # type: ignore
 
 
 class UserConfig(object):
     def __init__(self, namespace='batch_export'):
-        self._ns = (namespace or 'batch_export').strip() or 'batch_export'
+        # Namespace conservé pour compat, on opère sur la section batch_export
+        self._ns = namespace or 'batch_export'
 
-    def _get_namespace_dict(self, store_dict, create=True):
-        if not isinstance(store_dict, dict):
+    def _section(self):
+        uc = _UC
+        if uc is None:
+            print("UserConfig [001]: _UC is None")
             return None
-        if self._ns not in store_dict:
-            if not create:
-                return None
-            store_dict[self._ns] = {}
-        sec = store_dict.get(self._ns)
-        if not isinstance(sec, dict):
-            if create:
-                store_dict[self._ns] = {}
-                sec = store_dict[self._ns]
-            else:
-                return None
-        return sec
+        # S'assurer que la section existe si possible
+        try:
+            uc.add_section('batch_export')
+        except Exception:
+            pass
+        try:
+            return uc.batch_export
+        except Exception as e:
+            print("UserConfig [002]: Could not access uc.batch_export: {}".format(e))
+            return None
 
     # Lit une valeur (str)
     def get(self, key, default=None):
-        key = (key or '').strip()
-        if not key:
-            return default
-        store = _load_store()
-        sec = self._get_namespace_dict(store, create=False)
+        sec = self._section()
         if sec is None:
             return default
         try:
-            return sec.get(key, default)
+            # Préférence à get_option si présent
+            try:
+                return sec.get_option(key, default)
+            except Exception:
+                pass
+            return getattr(sec, key)
         except Exception:
             return default
 
     # Écrit une valeur (str)
     def set(self, key, value):
-        key = (key or '').strip()
-        if not key:
-            return False
-
-        # Convention: la majorité du code stocke des strings.
-        # On garde tel quel, mais on accepte dict/list pour certaines clés.
-        try:
-            if isinstance(value, (dict, list)):
-                sval = value
-            else:
-                sval = _to_text(value)
-        except Exception:
-            sval = _to_text(value)
-
-        store = _load_store()
-        sec = self._get_namespace_dict(store, create=True)
+        sec = self._section()
         if sec is None:
+            print("UserConfig [003]: Section is None, cannot set '{}'".format(key))
             return False
         try:
-            sec[key] = sval
+            sval = u"{}".format(value)
         except Exception:
-            return False
-        return bool(_save_store(store))
+            sval = value
+        
+        # Non-error info removed
+        
+        success = False
+        # 1. Try set_option (pyRevit standard)
+        if hasattr(sec, 'set_option'):
+            try:
+                sec.set_option(key, sval)
+                success = True
+            except Exception as e:
+                print("UserConfig [004]: Failed to set_option '{}': {}".format(key, e))
+        
+        # 2. Try setattr (fallback)
+        if not success:
+            try:
+                setattr(sec, key, sval)
+                success = True
+            except Exception as e:
+                print("UserConfig [005]: Failed to setattr '{}': {}".format(key, e))
+
+        if success:
+            # Sauvegarde si API dispo
+            try:
+                _UC.save_changes()
+                # Non-error info removed
+            except Exception as e:
+                print("UserConfig [006]: Failed to save_changes: {}".format(e))
+            return True
+        return False
 
     # Liste -> [str]
     def get_list(self, key, default=None):

@@ -68,7 +68,6 @@
                         <TextBlock Text="Actions" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{DynamicResource TextSecondaryBrush}"/>
                         <Button Name="LoadConfigButton" Content="Charger" Margin="0,0,0,8" Height="32" Background="{DynamicResource AccentBrush}" Foreground="{DynamicResource TextOnAccentBrush}" BorderThickness="0"/>
                         <Button Name="SaveConfigButton" Content="Enregistrer" Margin="0,0,0,8" Height="32" Background="{DynamicResource ControlFillBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1"/>
-                        <Button Name="DeleteConfigButton" Content="Supprimer" Height="32" Background="{DynamicResource ControlFillBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1"/>
                     </StackPanel>
 
                     <StackPanel>
