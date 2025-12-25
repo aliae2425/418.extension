@@ -1,0 +1,8 @@
+/exemple
+/exemple/*
+
+/.venv
+/.venv/*
+
+/*/__pycache__
+profil.json

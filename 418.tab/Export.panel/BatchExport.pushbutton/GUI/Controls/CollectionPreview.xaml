@@ -1,13 +1,47 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    CollectionPreviewTemplate
+
+    Où c'est utilisé
+    - Hébergé par CollectionPreviewHost dans Views/index.xaml.
+
+    Rôle
+    - Afficher un récapitulatif des collections + feuilles à exporter.
+    - Fournir la barre de progression, l'état, et le bouton "Exporter".
+
+    Nommage attendu (utilisé côté Python)
+    - ExportProgressBar : progression globale.
+    - PreviewCounterText : compteur collections/éléments.
+    - CollectionGrid : ListView groupée (GroupStyle/Expander).
+    - ExportStatusText : message d'état (erreur/warn/succès).
+    - ExportButton : action principale (activée/désactivée côté code).
+
+    Bindings importants
+    - Group Header bouton "🔃" : appelle ManageOrderCommand exposé par la Window
+      (RelativeSource AncestorType=Window).
+    - Les Items (dictionnaires) sont attendus avec des clés comme:
+      [CollectionIsExported], [CollectionPreviewName], [SheetCount], [CollectionExportInfo],
+      [IsCombined], [SheetNumber], [PreviewNom], [Format], [Size], [Orientation], [Progress], [ProgressColor].
+  -->
+  <!-- 
+       TEMPLATE PRINCIPAL : CollectionPreviewTemplate
+       Ce template définit l'interface utilisateur pour la prévisualisation des collections à exporter.
+       Il est utilisé par le composant CollectionPreviewComponent.
+  -->
   <ControlTemplate x:Key="CollectionPreviewTemplate" TargetType="ContentControl">
     <ControlTemplate.Resources>
-      <!-- Convertisseur Boolean vers Visibility -->
+      <!-- Convertisseur pour afficher/masquer des éléments basés sur un booléen -->
       <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
 
+      <!-- 
+           STYLE DE L'EXPANDER (GROUPE)
+           Personnalisation du style des groupes (Collections) dans la ListView.
+           Il remplace le style par défaut pour avoir un look plus "Fluent" / moderne.
+      -->
       <Style x:Key="FluentGroupExpanderStyle" TargetType="{x:Type Expander}">
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource ControlFillPressedBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
         <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -19,9 +53,13 @@
                             BorderBrush="{TemplateBinding BorderBrush}"
                             Background="{TemplateBinding Background}">
                         <DockPanel>
+                            <!-- 
+                                 TOGGLE BUTTON (EN-TÊTE DU GROUPE)
+                                 C'est la partie cliquable qui permet d'ouvrir/fermer le groupe.
+                            -->
                             <ToggleButton x:Name="HeaderSite"
                                           DockPanel.Dock="Top"
-                                          Background="Transparent"
+                                          Background="{DynamicResource TransparentBrush}"
                                           Content="{TemplateBinding Header}"
                                           ContentTemplate="{TemplateBinding HeaderTemplate}"
                                           ContentTemplateSelector="{TemplateBinding HeaderTemplateSelector}"
@@ -42,8 +80,8 @@
                                                     <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
                                                 
-                                                <!-- Chevron Icon -->
-                                                <Border Width="24" Height="24" Background="Transparent">
+                                                <!-- Icône de flèche (Chevron) qui tourne quand le groupe est ouvert -->
+                                                <Border Width="24" Height="24" Background="{DynamicResource TransparentBrush}">
                                                     <Path x:Name="arrow"
                                                           Data="M 0 0 L 4 4 L 0 8"
                                                           Stroke="{TemplateBinding Foreground}"
@@ -57,7 +95,7 @@
                                                     </Path>
                                                 </Border>
 
-                                                <!-- Header Content -->
+                                                <!-- Contenu de l'en-tête (défini plus bas dans le GroupStyle) -->
                                                 <ContentPresenter Grid.Column="1" 
                                                                   Content="{TemplateBinding Content}" 
                                                                   ContentTemplate="{TemplateBinding ContentTemplate}" 
@@ -65,10 +103,12 @@
                                             </Grid>
                                         </Border>
                                         <ControlTemplate.Triggers>
+                                            <!-- Changement d'apparence au survol -->
                                             <Trigger Property="IsMouseOver" Value="True">
                                                 <Setter Property="Background" Value="{DynamicResource ControlFillHoverBrush}"/>
                                                 <Setter Property="Cursor" Value="Hand"/>
                                             </Trigger>
+                                            <!-- Rotation de la flèche quand le groupe est ouvert -->
                                             <Trigger Property="IsChecked" Value="True">
                                                 <Setter TargetName="arrow" Property="RenderTransform">
                                                     <Setter.Value>
@@ -80,16 +120,23 @@
                                     </ControlTemplate>
                                 </ToggleButton.Template>
                             </ToggleButton>
+                            
+                            <!-- 
+                                 CONTENU DU GROUPE (LISTE DES FEUILLES)
+                                 C'est ici que s'affichent les éléments enfants du groupe.
+                            -->
                             <ContentPresenter x:Name="ExpandSite"
                                               DockPanel.Dock="Bottom"
                                               Focusable="false"
                                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               Margin="{TemplateBinding Padding}"
                                               Visibility="Collapsed"
-                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Width="850"/>
                         </DockPanel>
                     </Border>
                     <ControlTemplate.Triggers>
+                        <!-- Affiche le contenu quand IsExpanded est vrai -->
                         <Trigger Property="IsExpanded" Value="true">
                             <Setter Property="Visibility" TargetName="ExpandSite" Value="Visible"/>
                         </Trigger>
@@ -98,42 +145,53 @@
             </Setter.Value>
         </Setter>
         <Style.Triggers>
+            <!-- Apparence quand le groupe est désactivé -->
             <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Background" Value="#3f4655"/>
+              <Setter Property="Background" Value="{DynamicResource TransparentBrush}"/>
+              <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             </Trigger>
         </Style.Triggers>
       </Style>
     </ControlTemplate.Resources>
+    
+    <!-- CONTENEUR PRINCIPAL -->
     <StackPanel>
       <!-- ═══════════════════════════════════════════════════════════════ -->
-      <!-- EN-TÊTE ET PROGRESSION -->
+      <!-- SECTION 1 : EN-TÊTE ET PROGRESSION -->
       <!-- ═══════════════════════════════════════════════════════════════ -->
       <TextBlock Text="Recapitulatif : " 
                   Foreground="{DynamicResource TextPrimaryBrush}"
                   FontWeight="Bold" Margin="0,0,0,6"/>
       
-      <!-- Barre de progression de l'export -->
+      <!-- Barre de progression globale de l'export -->
       <ProgressBar Name="ExportProgressBar"
+                   Width="850"
                    Height="24" Minimum="0"
                    Maximum="100" Value="0" Margin="0,4,0,8"/>
       <!-- ═══════════════════════════════════════════════════════════════ -->
-      <!-- TABLEAU DE PRÉVISUALISATION DES COLLECTIONS -->
+      <!-- SECTION 2 : TABLEAU DE PRÉVISUALISATION DES COLLECTIONS -->
       <!-- ═══════════════════════════════════════════════════════════════ -->
       <Border BorderThickness="0" Margin="0,0,0,8">
         <StackPanel>
-          <!-- Compteur de collections et éléments -->
+          <!-- Texte indiquant le nombre de collections et d'éléments trouvés -->
           <TextBlock Name="PreviewCounterText"
                      Margin="0,0,0,6"
                      Foreground="{DynamicResource TextSecondaryBrush}"
                      Text="Collections: 0 • Éléments: 0"/>
           
-          <!-- ListView avec GridView (style tableau) -->
-          <ListView Name="CollectionGrid"
-                    Height="200"
-                    ScrollViewer.VerticalScrollBarVisibility="Auto"
-                    ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                    BorderThickness="1"
-                    BorderBrush="{DynamicResource ControlBorderBrush}">
+          <!-- 
+              LISTVIEW PRINCIPALE
+              Affiche les feuilles regroupées par Collection.
+            -->
+            <ListView Name="CollectionGrid"
+                Height="300"
+                Width="850"
+                ScrollViewer.VerticalScrollBarVisibility="Auto"
+                ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource ControlBorderBrush}">
+            
+            <!-- DÉFINITION DES GROUPES (COLLECTIONS) -->
             <ListView.GroupStyle>
               <GroupStyle>
                 <GroupStyle.ContainerStyle>
@@ -141,27 +199,43 @@
                     <Setter Property="Template">
                       <Setter.Value>
                         <ControlTemplate TargetType="{x:Type GroupItem}">
+                          <!-- Utilisation du style d'Expander défini plus haut -->
                           <Expander Style="{StaticResource FluentGroupExpanderStyle}"
                                     IsExpanded="False"
                                     IsEnabled="{Binding Items[0][CollectionIsExported]}">
+                            
+                            <!-- EN-TÊTE DU GROUPE (Ligne de la Collection) -->
                             <Expander.Header>
-                                <Grid Height="25" Width="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type ListView}}, Path=ActualWidth}">
+                                <Grid Height="25" Width="850">
                                     <Grid.ColumnDefinitions>
-                                      <ColumnDefinition Width="100"/>
-                                      <ColumnDefinition Width="350"/>
-                                      <ColumnDefinition Width="100"/>
-                                      <ColumnDefinition Width="*"/>
+                                      <ColumnDefinition Width="150"/>   <!-- Nom de la collection -->
+                                      <ColumnDefinition Width="350"/>  <!-- Nom du fichier de sortie (preview) -->
+                                      <ColumnDefinition Width="70"/>   <!-- Nombre de feuilles -->
+                                      <ColumnDefinition Width="200"/>    <!-- Infos d'export -->
+                                      <ColumnDefinition Width="30"/>   <!-- Bouton d'ordre -->
                                     </Grid.ColumnDefinitions>
                                     
-                                    <!-- Content -->
+                                    <!-- Colonne 1 : Nom de la collection -->
                                     <TextBlock Grid.Column="0" Text="{Binding Name}"
                                               FontStyle="Italic" VerticalAlignment="Center" Margin="5,0"/>
+                                    
+                                    <!-- Colonne 2 : Nom du fichier généré (si combiné) -->
                                     <TextBlock Grid.Column="1" Text="{Binding Items[0][CollectionPreviewName]}" 
                                               FontWeight="Bold" VerticalAlignment="Center" Margin="5,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    
+                                    <!-- Colonne 3 : Nombre de feuilles dans la collection -->
                                     <TextBlock Grid.Column="2" Text="{Binding Items[0][SheetCount], StringFormat='{}{0} feuilles'}"
                                               FontStyle="Italic"  VerticalAlignment="Center" Margin="5,0"/>
+                                    
+                                    <!-- Colonne 4 : Résumé des options d'export (PDF, DWG, etc.) -->
                                     <TextBlock Grid.Column="3" Text="{Binding Items[0][CollectionExportInfo]}" 
                                               FontSize="10" VerticalAlignment="Center" Margin="5,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    
+                                    <!-- Colonne 5 : Bouton pour gérer l'ordre (visible uniquement si combiné) -->
+                                    <Button Grid.Column="4" Content="🔃" Width="25" Height="25" 
+                                              Visibility="{Binding Items[0][IsCombined], Converter={StaticResource BoolToVisibilityConverter}}"
+                                              Command="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=ManageOrderCommand}"
+                                            CommandParameter="{Binding Name}"/>
                                 </Grid>
                             </Expander.Header>
                             <ItemsPresenter />
@@ -173,29 +247,22 @@
                 </GroupStyle.ContainerStyle>
               </GroupStyle>
             </ListView.GroupStyle>
+            
+            <!-- DÉFINITION DES COLONNES (FEUILLES INDIVIDUELLES) -->
             <ListView.View>
-              <GridView AllowsColumnReorder="False">
-                
-                <!-- Colonne 2: View/Sheet Number -->
-                <GridViewColumn Header="numéro" Width="60" DisplayMemberBinding="{Binding [SheetNumber]}"/>
-                
-                <!-- Colonne 3: View / Sheet Name -->
-                <GridViewColumn Header="nom" Width="100" DisplayMemberBinding="{Binding [SheetName]}"/>
-
-                <!-- Colonne 3b: Preview Name -->
-                <GridViewColumn Header="nom d'export" Width="320" DisplayMemberBinding="{Binding [PreviewNom]}"/>
-                
-                <!-- Colonne 4: Format -->
-                <GridViewColumn Header="Format" Width="60" DisplayMemberBinding="{Binding [Format]}"/>
-                
-                <!-- Colonne 5: Size -->
-                <GridViewColumn Header="Taille" Width="50" DisplayMemberBinding="{Binding [Size]}"/>
-                
-                <!-- Colonne 6: Orientation -->
-                <GridViewColumn Header="Orientation" Width="80" DisplayMemberBinding="{Binding [Orientation]}"/>
-
-                <!-- Colonne 7: Progress -->
-                <GridViewColumn Header="Progress" Width="120">
+              <GridView AllowsColumnReorder="True">
+                <!-- Colonne 1 : Numéro de la feuille -->
+                <GridViewColumn Header="numéro" Width="100" DisplayMemberBinding="{Binding [SheetNumber]}"/>
+                <!-- Colonne 2 : Nom du fichier généré pour cette feuille -->
+                <GridViewColumn Header="nom d'export" Width="400" DisplayMemberBinding="{Binding [PreviewNom]}"/>
+                <!-- Colonne 3 : Format de papier -->
+                <GridViewColumn Header="Format" Width="70" DisplayMemberBinding="{Binding [Format]}"/>
+                <!-- Colonne 4 : Dimensions -->
+                <GridViewColumn Header="Taille" Width="70" DisplayMemberBinding="{Binding [Size]}"/>
+                <!-- Colonne 5 : Orientation (Portrait/Paysage) -->
+                <GridViewColumn Header="Orientation" Width="700" DisplayMemberBinding="{Binding [Orientation]}"/>
+                <!-- Colonne 6 : Statut de progression de l'export -->
+                <GridViewColumn Header="Progress" Width="70">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate>
                       <TextBlock Text="{Binding [Progress]}" 
@@ -210,20 +277,20 @@
       </Border>
       
       <!-- ═══════════════════════════════════════════════════════════════ -->
-      <!-- BARRE D'ACTION (Statut + Bouton Export) -->
+      <!-- SECTION 3 : BARRE D'ACTION (Statut + Bouton Export) -->
       <!-- ═══════════════════════════════════════════════════════════════ -->
       <DockPanel LastChildFill="False" Margin="0,8,0,0">
-        <!-- Message de statut (erreurs, avertissements) -->
+        <!-- Message de statut (erreurs, avertissements, succès) -->
         <TextBlock Name="ExportStatusText"
                    VerticalAlignment="Center"
                    Margin="0,0,8,0"
                    TextWrapping="Wrap"
                    Width="Auto"
                    DockPanel.Dock="Left"
-                   Foreground="Red"
+                   Foreground="{DynamicResource ErrorBrush}"
                    Text="Sélectionnez un dossier de destination valide."/>
         
-        <!-- Bouton pour lancer l'export -->
+        <!-- Bouton principal pour lancer l'exportation -->
         <Button Name="ExportButton"
                 Content="Exporter"
                 Height="32"

@@ -1,8 +1,28 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        ParameterSelectorTemplate
+
+        Où c'est utilisé
+        - Hébergé par ParameterSelectorHost dans le burger menu (Views/index.xaml).
+        - Chargé dans Resources par UIResourceLoader.
+
+        Rôle
+        - Permet de choisir les paramètres Revit (Oui/Non) qui pilotent quelles actions
+            d'export sont actives (PDF compilé, DWG, etc.).
+
+        Nommage attendu (utilisé côté Python)
+        - HelpButton : affiche une aide.
+        - ParamWarningText / UniqueErrorText : messages affichés/masqués selon validation.
+        - ExportationCombo / CarnetCombo / DWGCombo : ComboBox alimentées par code.
+    -->
   <ControlTemplate x:Key="ParameterSelectorTemplate" TargetType="ContentControl">
     <StackPanel Orientation="Vertical" Margin="0">
-        <!-- Jeu de feuilles / paramètres booléens -->
+                <!--
+                    Expander principal "Paramètres du plugin"
+                    - Contient l'explication + l'aide + les 3 ComboBox.
+                    - Le style NavigationExpanderStyle vient de Styles.xaml.
+                -->
         <Expander Header="Paramètres du plugin"
                   Name="CollectionExpander"
                   Style="{DynamicResource NavigationExpanderStyle}"
@@ -20,13 +40,15 @@
                            FontSize="11"
                            VerticalAlignment="Center"
                            Text="Sélectionnez les paramètres Revit (Oui/Non) qui contrôleront les actions d'export des jeux de feuilles."/>
+
+                <!-- Bouton d'aide (géré côté code) -->
                 <Button Grid.Column="1"
                         Name="HelpButton"
                         Content="?"
                         Width="20" Height="20"
                         Margin="8,0,0,0"
                         VerticalAlignment="Top"
-                        Background="Transparent"
+                        Background="{DynamicResource TransparentBrush}"
                         BorderBrush="{DynamicResource ControlBorderBrush}"
                         BorderThickness="1"
                         Foreground="{DynamicResource TextPrimaryBrush}"
@@ -49,32 +71,37 @@
                     </Button.Template>
                 </Button>
             </Grid>
+
+                        <!-- Messages de validation (pilotés côté code: Visibility) -->
             <TextBlock Name="ParamWarningText"
-                       Foreground="Red"
+                       Foreground="{DynamicResource ErrorBrush}"
                        FontStyle="Italic"
                        Margin="0,6,0,0"
                        Visibility="Collapsed"
                        Text="Paramètres insuffisants pour assurer des sélections uniques."/>
-            <!-- Erreur d'unicité des sélections -->
+                        <!-- Erreur d'unicité des sélections (les 3 paramètres doivent être distincts) -->
             <TextBox Name="UniqueErrorText"
                      IsReadOnly="True"
-                     Foreground="Red"
-                     BorderBrush="Red"
+                     Foreground="{DynamicResource ErrorBrush}"
+                     BorderBrush="{DynamicResource ErrorBrush}"
                      Background="{DynamicResource LightGrayBrush}"
                      Margin="0,6,0,0"
                      Visibility="Collapsed"
                      Text="Les trois paramètres doivent être uniques pour activer l'export."/>
-            <!-- Section 1: Exportation -->
+
+                        <!-- Section 1: Exportation -->
             <TextBlock Text="Exportation" 
                       Foreground="{DynamicResource TextPrimaryBrush}"
                       Margin="0,0,0,4"/>
             <ComboBox Name="ExportationCombo" MinWidth="50"/>
-            <!-- Section 2: Carnet -->
+
+                        <!-- Section 2: Carnet -->
             <TextBlock Text="Export PDF compilé"
                       Foreground="{DynamicResource TextPrimaryBrush}"
                       Margin="0,0,0,4"/>
             <ComboBox Name="CarnetCombo" MinWidth="50"/>
-            <!-- Section 3: DWG -->
+
+                        <!-- Section 3: DWG -->
             <TextBlock Text="Export en DWG"
                       Foreground="{DynamicResource TextPrimaryBrush}"
                       Margin="0,0,0,4"/>

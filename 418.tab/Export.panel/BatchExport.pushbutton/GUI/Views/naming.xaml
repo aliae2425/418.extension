@@ -6,7 +6,7 @@
         WindowStyle="None"
         ResizeMode="NoResize"
         AllowsTransparency="True"
-        Background="Transparent"
+        Background="{DynamicResource TransparentBrush}"
         BorderThickness="1">
   
   <Window.Resources>
@@ -23,7 +23,7 @@
     </Grid.RowDefinitions>
 
     <!-- Custom Title Bar -->
-    <Grid Grid.Row="0" Name="TitleBar" Background="Transparent" Margin="0">
+    <Grid Grid.Row="0" Name="TitleBar" Background="{DynamicResource TransparentBrush}" Margin="0">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*"/>
         <ColumnDefinition Width="Auto"/>
@@ -41,7 +41,7 @@
               Width="40" Height="40" 
               Margin="0,4,4,0"
               VerticalAlignment="Top"
-              Background="Transparent" 
+              Background="{DynamicResource TransparentBrush}" 
               BorderThickness="0" 
               Foreground="{DynamicResource TextPrimaryBrush}"
               FontSize="16" 
@@ -53,8 +53,8 @@
                  </Border>
                  <ControlTemplate.Triggers>
                      <Trigger Property="IsMouseOver" Value="True">
-                         <Setter TargetName="border" Property="Background" Value="#FFE81123"/>
-                         <Setter Property="Foreground" Value="White"/>
+                     <Setter TargetName="border" Property="Background" Value="{DynamicResource CloseButtonHoverBrush}"/>
+                     <Setter Property="Foreground" Value="{DynamicResource TextOnDangerBrush}"/>
                      </Trigger>
                  </ControlTemplate.Triggers>
              </ControlTemplate>
@@ -93,6 +93,7 @@
               <ComboBoxItem Content="Projet"/>
               <ComboBoxItem Content="Collection"/>
               <ComboBoxItem Content="Feuille"/>
+              <ComboBoxItem Content="System"/>
             </ComboBox>
             <Grid Grid.Row="2" Margin="0,0,0,8">
                 <TextBox Name="SearchBox" ToolTip="Rechercher un paramètre..." Padding="2,0,24,0"/>

@@ -204,22 +204,44 @@ class CollectionPreviewComponent(object):
                 tblock = titleblocks_by_sheet.get(sid)
                 
                 if tblock:
-                    size = tblock.Name
-                    # Try to guess orientation from width/height params if available
-                    # or just assume based on size name if it contains "Landscape" or "Portrait"
-                    # But usually size name is just "A1".
-                    # Let's try to get Width/Height from sheet parameters
+                    # Get Width/Height from sheet parameters
                     w_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_WIDTH)
                     h_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_HEIGHT)
                     
-                    width = w_param.AsDouble() if w_param else 0
-                    height = h_param.AsDouble() if h_param else 0
+                    width_ft = w_param.AsDouble() if w_param else 0.0
+                    height_ft = h_param.AsDouble() if h_param else 0.0
                     
-                    orientation = "Landscape" if width > height else "Portrait"
-                    if width == 0 and height == 0:
-                         orientation = ""
+                    if width_ft == 0.0 and height_ft == 0.0:
+                         return "", ""
+
+                    orientation = "Landscape" if width_ft > height_ft else "Portrait"
                     
-                    return size, orientation
+                    # Convert to mm (1 ft = 304.8 mm)
+                    w_mm = width_ft * 304.8
+                    h_mm = height_ft * 304.8
+                    
+                    # Normalize (short side, long side)
+                    dims = sorted([w_mm, h_mm])
+                    short = dims[0]
+                    long_side = dims[1]
+                    
+                    tol = 10.0 # Tolerance in mm
+                    
+                    size_name = "Custom"
+                    
+                    # Check standard ISO sizes
+                    if abs(short - 841) < tol and abs(long_side - 1189) < tol:
+                        size_name = "A0"
+                    elif abs(short - 594) < tol and abs(long_side - 841) < tol:
+                        size_name = "A1"
+                    elif abs(short - 420) < tol and abs(long_side - 594) < tol:
+                        size_name = "A2"
+                    elif abs(short - 297) < tol and abs(long_side - 420) < tol:
+                        size_name = "A3"
+                    elif abs(short - 210) < tol and abs(long_side - 297) < tol:
+                        size_name = "A4"
+                    
+                    return size_name, orientation
             except Exception:
                 pass
             return "", ""
