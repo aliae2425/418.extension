@@ -181,3 +181,87 @@ class MainWindowController(object):
     def show(self):
         self._win.ShowDialog()
         return True
+
+    def _on_load(self, sender, args):
+        path = forms.pick_file(file_ext='txt', title='Sélectionner le fichier Keynotes')
+        if path:
+            self._load_file(path)
+
+    def _load_file(self, path):
+        try:
+            self._roots = self._parser.parse(path)
+            self._current_file = path
+            self._win.KeynoteTree.ItemsSource = self._roots
+            self._win.FilePathText.Text = path
+            self._win.DetailPanel.IsEnabled = False
+        except Exception as e:
+            forms.alert('Erreur lors du chargement: {}'.format(e))
+
+    def _on_save(self, sender, args):
+        if not self._current_file:
+            forms.alert('Aucun fichier chargé.')
+            return
+        
+        try:
+            self._parser.save(self._current_file, self._roots)
+            forms.alert('Fichier enregistré avec succès.')
+        except Exception as e:
+            forms.alert('Erreur lors de l\'enregistrement: {}'.format(e))
+
+    def _on_selection_changed(self, sender, args):
+        item = self._win.KeynoteTree.SelectedItem
+        self._selected_item = item
+
+    def _on_apply_changes(self, sender, args):
+        pass
+
+    def _refresh_tree(self):
+        # Save current expansion state? Too complex for now.
+        # Just rebind
+        self._win.KeynoteTree.ItemsSource = None
+        self._win.KeynoteTree.ItemsSource = self._roots
+
+    def _on_add_child(self, sender, args):
+        if not self._selected_item:
+            return
+            
+        from ...data.KeynoteItem import KeynoteItem
+        new_item = KeynoteItem("NEW.KEY", "Nouvelle note", self._selected_item.Key)
+        self._selected_item.Children.append(new_item)
+        self._refresh_tree()
+
+    def _on_add_sibling(self, sender, args):
+        # Finding the parent list is tricky without back-references in the object model
+        # or a search.
+        # Let's do a search for the parent of selected_item
+        if not self._selected_item:
+            return
+            
+        parent_list = self._find_list_containing(self._selected_item, self._roots)
+        if parent_list is not None:
+            from ...data.KeynoteItem import KeynoteItem
+            new_item = KeynoteItem("NEW.KEY", "Nouvelle note", self._selected_item.ParentKey)
+            parent_list.append(new_item)
+            self._refresh_tree()
+
+    def _on_delete(self, sender, args):
+        if not self._selected_item:
+            return
+            
+        if forms.alert("Supprimer cet élément et ses enfants ?", yes=True, no=True):
+            parent_list = self._find_list_containing(self._selected_item, self._roots)
+            if parent_list is not None:
+                parent_list.remove(self._selected_item)
+                self._selected_item = None
+                self._win.DetailPanel.IsEnabled = False
+                self._refresh_tree()
+
+    def _find_list_containing(self, target_item, current_list):
+        if target_item in current_list:
+            return current_list
+        
+        for item in current_list:
+            found_list = self._find_list_containing(target_item, item.Children)
+            if found_list is not None:
+                return found_list
+        return None

@@ -10,8 +10,7 @@ Une extension pyRevit conçue pour faciliter et automatiser l'exportation en lot
 |Repérage| Crée des filtres en fonction de la sélection ou du jeu de feuilles|-|⏳|
 |Edit material| Gestion des matériaux un peu plus sympa|-|⏳|
 |KeyNotes editor| Gestion des matériaux un peu plus sympa|-|⏳|
-|CadastreImporter| Importe automatiquement le cadastre en fonction de la géolocalisation|-|❌|
-|| ne peux pas se faire ironpython ne supporte pas web2view|-|❌|
+|CadastreImporter| Importe automatiquement le cadastre en fonction de la géolocalisation|-|⏳|
 
 
 ## 📦 Installation

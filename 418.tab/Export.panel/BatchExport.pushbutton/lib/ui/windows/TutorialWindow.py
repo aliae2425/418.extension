@@ -27,6 +27,8 @@ class TutorialWindow(forms.WPFWindow):
             print('TutorialWindow [001]: Error loading resources: {}'.format(e))
         if hasattr(self, 'CloseButton'):
             self.CloseButton.Click += self._on_close
+        if hasattr(self, 'OkButton'):
+            self.OkButton.Click += self._on_close
 
     def _on_close(self, sender, args):
         self.Close()

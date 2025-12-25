@@ -64,11 +64,39 @@ class PikerWindow(forms.WPFWindow):
             self.Title = title
         except Exception:
             pass
+        
+        # Update Title Text
+        try:
+            if hasattr(self, 'TitleText'):
+                if self._kind == 'set':
+                    self.TitleText.Text = "Configuration nom pour : Carnet ( PDF compiler )"
+                else:
+                    self.TitleText.Text = "Configuration nom pour : feuille ( PDF DWG )"
+        except Exception:
+            pass
+
+        # Filter ScopeCombo items based on kind
+        try:
+            if hasattr(self, 'ScopeCombo'):
+                items_to_remove = []
+                for item in self.ScopeCombo.Items:
+                    content = getattr(item, 'Content', '')
+                    if self._kind == 'sheet' and content == 'Collection':
+                        items_to_remove.append(item)
+                    elif self._kind == 'set' and content == 'Feuille':
+                        items_to_remove.append(item)
+                
+                for item in items_to_remove:
+                    self.ScopeCombo.Items.Remove(item)
+        except Exception:
+            pass
+
         self._available_all = []
         self._available_filtered = []
         self._available_project = []
         self._available_collection = []
         self._available_sheet = []
+        self._available_system = ['Date: Jour', 'Date: Mois', 'Date: Année']
         self._selected_rows = []
         # Buttons
         try:
@@ -97,23 +125,7 @@ class PikerWindow(forms.WPFWindow):
             patt, rows = _naming_store().load(self._kind)
         except Exception:
             patt, rows = '', []
-        
-        # Upgrade rows to include DisplayName if missing
-        self._selected_rows = []
-        if rows:
-            from ...utils.BipTranslator import BipTranslator
-            for r in rows:
-                nm = r.get('Name', '')
-                dn = r.get('DisplayName', '')
-                if not dn:
-                    if nm.startswith('BIP:'):
-                        bip_name = nm[4:]
-                        dn = BipTranslator.get_localized_name(bip_name)
-                    else:
-                        dn = nm
-                r['DisplayName'] = dn
-                self._selected_rows.append(r)
-
+        self._selected_rows = rows or []
         self._reload_selected_list()
         self._refresh_preview()
 
@@ -125,15 +137,15 @@ class PikerWindow(forms.WPFWindow):
         repo = _sheet_repo()
         if doc is not None:
             try:
-                self._available_collection = repo.collect_params_extended(doc, scope='collection')
+                self._available_collection = repo.collect_for_collections(doc, only_boolean=False)
             except Exception:
                 self._available_collection = []
             try:
-                self._available_project = repo.collect_params_extended(doc, scope='project')
+                self._available_project = repo.collect_project_params(doc)
             except Exception:
                 self._available_project = []
             try:
-                self._available_sheet = repo.collect_params_extended(doc, scope='sheet')
+                self._available_sheet = repo.collect_sheet_instance_params(doc)
             except Exception:
                 self._available_sheet = []
         else:
@@ -141,16 +153,32 @@ class PikerWindow(forms.WPFWindow):
             self._available_project = []
             self._available_sheet = []
         # Union
-        all_union = {}
-        for lst in (self._available_project, self._available_collection, self._available_sheet):
-            for item in lst:
-                if item and item.get('Name'):
-                    all_union[item['Name']] = item
+        all_union = set()
         
+        # Determine sources based on kind
+        sources = [self._available_project, self._available_system]
+        if self._kind == 'sheet':
+            # For individual sheets: Sheet params + Project params + System
+            sources.append(self._available_sheet)
+        elif self._kind == 'set':
+            # For sets: Collection params + Project params + System
+            sources.append(self._available_collection)
+        else:
+            # Fallback
+            sources.append(self._available_collection)
+            sources.append(self._available_sheet)
+
+        for lst in sources:
+            for n in lst:
+                if n:
+                    try:
+                        all_union.add(n)
+                    except Exception:
+                        pass
         try:
-            self._available_all = sorted(list(all_union.values()), key=lambda s: s['Name'].lower())
+            self._available_all = sorted(list(all_union), key=lambda s: s.lower())
         except Exception:
-            self._available_all = list(all_union.values())
+            self._available_all = list(all_union)
         self._apply_scope_filter()
         self._refresh_preview()
 
@@ -164,13 +192,9 @@ class PikerWindow(forms.WPFWindow):
     def AvailableParamsList_DoubleClick(self, sender, args):
         try:
             sel = getattr(self.AvailableParamsList, 'SelectedItem', None)
-            # sel is now a dict {'Name':..., 'Id':...}
-            if sel:
-                p_id = sel.get('Id')
-                p_name = sel.get('Name')
-                if p_id and not any(r.get('Name') == p_id for r in self._selected_rows):
-                    self._selected_rows.append({'Name': p_id, 'DisplayName': p_name, 'Prefix': '', 'Suffix': ''})
-                    self._reload_selected_list()
+            if sel and not any(r.get('Name') == sel for r in self._selected_rows):
+                self._selected_rows.append({'Name': sel, 'Prefix': '', 'Suffix': ''})
+                self._reload_selected_list()
         except Exception:
             pass
         self._refresh_preview()
@@ -303,13 +327,25 @@ class PikerWindow(forms.WPFWindow):
                     scope = getattr(sel, 'Content', 'Tout')
         except Exception:
             scope = 'Tout'
+        
         if scope == 'Projet':
             filtered = list(self._available_project or [])
         elif scope == 'Collection':
-            filtered = list(self._available_collection or [])
+            # Only show collection params if we are in 'set' mode
+            if self._kind == 'set':
+                filtered = list(self._available_collection or [])
+            else:
+                filtered = []
         elif scope == 'Feuille':
-            filtered = list(self._available_sheet or [])
+            # Only show sheet params if we are in 'sheet' mode
+            if self._kind == 'sheet':
+                filtered = list(self._available_sheet or [])
+            else:
+                filtered = []
+        elif scope == 'System':
+            filtered = list(self._available_system or [])
         else:
+            # 'Tout' case: use the pre-calculated union which respects the kind
             filtered = list(self._available_all or [])
 
         # Apply search filter
@@ -325,13 +361,12 @@ class PikerWindow(forms.WPFWindow):
             filtered = [n for n in filtered if search_text in n.lower()]
 
         try:
-            self._available_filtered = sorted(filtered, key=lambda s: s['Name'].lower())
+            self._available_filtered = sorted(filtered, key=lambda s: s.lower())
         except Exception:
             self._available_filtered = filtered
         if hasattr(self, 'AvailableParamsList'):
             try:
                 self.AvailableParamsList.Items.Clear()
-                self.AvailableParamsList.DisplayMemberPath = "Name"
                 for n in self._available_filtered:
                     self.AvailableParamsList.Items.Add(n)
             except Exception:
@@ -347,12 +382,9 @@ class PikerWindow(forms.WPFWindow):
     def _on_add_param(self, sender, args):
         try:
             sel = getattr(self.AvailableParamsList, 'SelectedItem', None)
-            if sel:
-                p_id = sel.get('Id')
-                p_name = sel.get('Name')
-                if p_id and not any(r.get('Name') == p_id for r in self._selected_rows):
-                    self._selected_rows.append({'Name': p_id, 'DisplayName': p_name, 'Prefix': '', 'Suffix': ''})
-                    self._reload_selected_list()
+            if sel and not any(r.get('Name') == sel for r in self._selected_rows):
+                self._selected_rows.append({'Name': sel, 'Prefix': '', 'Suffix': ''})
+                self._reload_selected_list()
         except Exception:
             pass
         self._refresh_preview()

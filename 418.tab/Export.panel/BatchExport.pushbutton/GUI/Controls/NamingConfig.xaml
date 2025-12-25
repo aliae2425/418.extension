@@ -1,26 +1,58 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    NamingConfigTemplate
+
+    Où c'est utilisé
+    - Hébergé par NamingConfigHost.
+    - Depuis la réorganisation UI, ce bloc vit dans le burger menu (Views/index.xaml)
+      pour regrouper tous les réglages (paramètres, options, nommage).
+
+    Rôle
+    - Permet d'ouvrir l'éditeur/manager de patterns de nommage.
+
+    Nommage attendu (utilisé côté Python)
+    - SheetNamingButton : configure le pattern pour les feuilles.
+    - SetNamingButton : configure le pattern pour les carnets (PDF compilé).
+  -->
   <ControlTemplate x:Key="NamingConfigTemplate" TargetType="ContentControl">
-    <StackPanel>
-      <TextBlock Text="Nommage" 
-                Foreground="{DynamicResource TextPrimaryBrush}"
-                FontWeight="Bold" Margin="0,0,0,6"/>
-      <DockPanel LastChildFill="True" Margin="0,4,0,0">
-        <TextBlock Text="Feuilles : " 
-                Foreground="{DynamicResource TextPrimaryBrush}"
-                MinWidth="100" VerticalAlignment="Center"/>
-        <Button Name="SheetNamingButton" Content="..."
-          Background="{DynamicResource LightGrayBrush}"
-                HorizontalAlignment="Stretch" />
-      </DockPanel>
-      <DockPanel LastChildFill="True" Margin="0,4,0,0">
-        <TextBlock Text="Carnets : "
-                  Foreground="{DynamicResource TextPrimaryBrush}"
-                  MinWidth="100"  VerticalAlignment="Center"/>
-        <Button Name="SetNamingButton" Content="..."
-          Background="{DynamicResource LightGrayBrush}"
-                HorizontalAlignment="Stretch"/>
-      </DockPanel>
+    <StackPanel Orientation="Vertical">
+      <!--
+        Expander "Nommage"
+        - Même pattern que ExportOptionsTemplate / ParameterSelectorTemplate.
+        - Les deux boutons déclenchent l'ouverture des écrans de configuration.
+      -->
+      <Expander Header="Règle de nommage"
+                Name="NamingExpander"
+                Style="{DynamicResource NavigationExpanderStyle}"
+                IsExpanded="False"
+                ExpandDirection="Down">
+        <StackPanel Orientation="Vertical">
+          <!--
+            Boutons d'action
+            - Le texte "Feuilles" / "Carnets" est dans le Content du bouton (pas de label séparé)
+            - Taille fixe pour éviter tout "saut" visuel
+          -->
+          <Button Name="SheetNamingButton"
+                  Content="Feuilles"
+                  Width="240"
+                  Height="36"
+                  HorizontalAlignment="Left"
+                  HorizontalContentAlignment="Left"
+                  VerticalContentAlignment="Center"
+                  Padding="12,0"/>
+
+          <Button Name="SetNamingButton"
+                  Content="Carnets"
+                  Width="240"
+                  Height="36"
+                  HorizontalAlignment="Left"
+                  HorizontalContentAlignment="Left"
+                  VerticalContentAlignment="Center"
+                  Padding="12,0"
+                  Margin="0,8,0,0"/>
+        </StackPanel>
+      </Expander>
     </StackPanel>
   </ControlTemplate>
 </ResourceDictionary>
