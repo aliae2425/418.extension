@@ -30,12 +30,38 @@ class ConfigManagerWindow(forms.WPFWindow):
             self.LoadConfigButton.Click += self._on_load
         if hasattr(self, 'SaveConfigButton'):
             self.SaveConfigButton.Click += self._on_save
+        if hasattr(self, 'DeleteConfigButton'):
+            self.DeleteConfigButton.Click += self._on_delete
         if hasattr(self, 'ImportConfigButton'):
             self.ImportConfigButton.Click += self._on_import
         if hasattr(self, 'ExportConfigButton'):
             self.ExportConfigButton.Click += self._on_export
         if hasattr(self, 'ConfigsList'):
             self.ConfigsList.SelectionChanged += self._on_selection_changed
+
+    def _refresh_owner_profile_label(self):
+        """Met à jour immédiatement le libellé du profil sur la fenêtre principale."""
+        try:
+            owner = getattr(self, 'Owner', None)
+            if owner is None:
+                return
+            label = u"Profil"
+            try:
+                from ...core.UserConfig import UserConfig
+                cfg = UserConfig('batch_export')
+                active_key = cfg.get('active_profile_key', '')
+                if active_key:
+                    label = active_key
+            except Exception:
+                pass
+            try:
+                res = getattr(owner, 'Resources', None)
+                if res is not None:
+                    res['ActiveProfileLabel'] = label
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     def _refresh_list(self):
         if hasattr(self, 'ConfigsList'):
@@ -53,6 +79,7 @@ class ConfigManagerWindow(forms.WPFWindow):
         sel = self.ConfigsList.SelectedItem
         if sel:
             if self._service.load_profile(sel):
+                self._refresh_owner_profile_label()
                 self.Close()
             else:
                 forms.alert("Erreur lors du chargement.", title="Erreur")
@@ -71,6 +98,45 @@ class ConfigManagerWindow(forms.WPFWindow):
             # Reselect the saved item
             if hasattr(self, 'ConfigsList'):
                 self.ConfigsList.SelectedItem = name
+            self._refresh_owner_profile_label()
+
+    def _on_delete(self, sender, args):
+        name = None
+        try:
+            sel = self.ConfigsList.SelectedItem if hasattr(self, 'ConfigsList') else None
+            if sel:
+                name = sel
+        except Exception:
+            name = None
+
+        if not name and hasattr(self, 'ProfileNameBox'):
+            try:
+                name = self.ProfileNameBox.Text
+            except Exception:
+                name = None
+
+        if not name:
+            forms.alert("Sélectionne un profil à supprimer.", title="Suppression")
+            return
+
+        res = forms.alert(
+            u"Supprimer le profil : '{}' ?".format(name),
+            title="Confirmer la suppression",
+            options=["Supprimer", "Annuler"]
+        )
+        if res != "Supprimer":
+            return
+
+        if self._service.delete_profile(name):
+            self._refresh_list()
+            if hasattr(self, 'ProfileNameBox'):
+                try:
+                    self.ProfileNameBox.Text = ''
+                except Exception:
+                    pass
+            self._refresh_owner_profile_label()
+        else:
+            forms.alert("Erreur lors de la suppression.", title="Erreur")
 
     def _on_import(self, sender, args):
         path = forms.pick_file(file_ext='csv')
