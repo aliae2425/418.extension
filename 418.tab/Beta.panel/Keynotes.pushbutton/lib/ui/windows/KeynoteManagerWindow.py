@@ -87,7 +87,8 @@ def get_keynote_pcommands():
 class KeynoteManagerWindow(forms.WPFWindow):
     def __init__(self, reset_config=False):
         self._paths = AppPaths()
-        forms.WPFWindow.__init__(self, self._paths.main_xaml())
+        xaml_path = self._paths.materialize_xaml_with_absolute_sources(self._paths.main_xaml())
+        forms.WPFWindow.__init__(self, xaml_path)
 
         # Basic title (no locale system)
         try:

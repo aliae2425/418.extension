@@ -56,7 +56,8 @@ class EditRecordWindow(forms.WPFWindow):
         pkey=None,
     ):
         paths = AppPaths()
-        forms.WPFWindow.__init__(self, paths.edit_record_xaml())
+        xaml_path = paths.materialize_xaml_with_absolute_sources(paths.edit_record_xaml())
+        forms.WPFWindow.__init__(self, xaml_path)
 
         self.Owner = owner
         self._res = None
