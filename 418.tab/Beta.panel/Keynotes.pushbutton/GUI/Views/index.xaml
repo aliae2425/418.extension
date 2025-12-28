@@ -2,68 +2,145 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:system="clr-namespace:System;assembly=mscorlib"
         ShowInTaskbar="False"
-        Width="850" Height="750"
-        MinWidth="650" MinHeight="435"
-        ResizeMode="CanResizeWithGrip"
-        HorizontalContentAlignment="Center"
-        WindowStartupLocation="Manual"
+        Width="950" Height="760"
+        MinWidth="750" MinHeight="520"
+        ResizeMode="CanResize"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="{DynamicResource TransparentBrush}"
+        WindowStartupLocation="CenterScreen"
         Title="Manage Keynotes"
         Closing="window_closing">
 
+    <!-- Resources are merged by Python (UIResourceLoader) -->
     <Window.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="../resources/KeynotesManager.Resources.xaml" />
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-
+        <ResourceDictionary />
     </Window.Resources>
 
-    <Grid Margin="10">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition />
-            <ColumnDefinition Width="{DynamicResource RightPanelWidth}"/>
-        </Grid.ColumnDefinitions>
+    <Border CornerRadius="8"
+            Background="{DynamicResource WindowBackgroundBrush}"
+            BorderBrush="{DynamicResource ControlBorderBrush}"
+            BorderThickness="1">
 
-        <DockPanel Grid.Column="0" Margin="0,0,10,0">
-            <DockPanel DockPanel.Dock="Top">
-                <Button Content="{StaticResource filterIcon}" Width="24" Height="24" Margin="0,0,10,0" Click="custom_filter"/>
-                <StackPanel>
-                    <TextBox x:Name="search_tb" Height="25px" Padding="5,0,24,0"
-                             TextChanged="search_txt_changed" VerticalContentAlignment="Center"/>
-                    <Button x:Name="clrsearch_b" Visibility="Collapsed" Margin="0,-25,2,0" Padding="0,-4,0,0"
-                            Width="22px" Height="22px" HorizontalAlignment="Right"
-                            BorderThickness="0"
-                            Style="{StaticResource ClearButton}"
-                            Click="clear_search">
-                        <Button.Content>
-                            <Canvas Width="25" Height="25" VerticalAlignment="Center" HorizontalAlignment="Center">
-                                <Path Canvas.Top="3" Canvas.Left="1" Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" Fill="DimGray" />
-                            </Canvas>
-                        </Button.Content>
-                    </Button>
-                </StackPanel>
-            </DockPanel>
+        <Grid Margin="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
 
-            <ComboBox x:Name="categories_tv" DockPanel.Dock="Top" BorderBrush="LightGray" Height="28" Margin="0,10,0,0"
-                      VirtualizingPanel.IsVirtualizing="True"
-                      VirtualizingPanel.VirtualizationMode="Recycling"
-                      ItemTemplate="{StaticResource treeViewItem}"
-                      ItemContainerStyle="{StaticResource comboItemStyle}"
-                      SelectionChanged="selected_category_changed"/>
+            <!-- TitleBar (BatchExport-like) -->
+            <Grid Grid.Row="0" Name="TitleBar" Background="{DynamicResource TransparentBrush}" Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-            <TreeView x:Name="keynotes_tv" Grid.Row="2" BorderBrush="LightGray" BorderThickness="1,0,1,1"
-                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                      Padding="0,0,0,0"
-                      PreviewMouseDoubleClick="place_keynote"
-                      SelectedItemChanged="selected_keynote_changed"
-                      VirtualizingPanel.IsVirtualizing="True"
-                      VirtualizingPanel.VirtualizationMode="Recycling"
-                      ItemTemplate="{StaticResource treeViewItem}"
-                      ItemContainerStyle="{StaticResource treeItemStyle}"/>
-        </DockPanel>
+                <TextBlock Grid.Column="0"
+                           Text="{DynamicResource Title}"
+                           Style="{DynamicResource HeaderTextBlockStyle}"
+                           VerticalAlignment="Center"/>
 
-        <DockPanel Grid.Column="1" Margin="0,0,0,0">
+                <Button Name="CloseWindowButton"
+                        Grid.Column="1"
+                    Content="&#x2715;"
+                        Width="40" Height="40"
+                        Background="{DynamicResource TransparentBrush}"
+                        BorderThickness="0"
+                        Foreground="{DynamicResource TextPrimaryBrush}"
+                        FontSize="16"
+                        Cursor="Hand">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="border" Property="Background" Value="{DynamicResource CloseButtonHoverBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource TextOnDangerBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </Grid>
+
+            <!-- Content -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="360"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Left: Search + Tree -->
+                <Border Grid.Column="0" Style="{DynamicResource CardStyle}" Margin="0,0,12,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Grid Grid.Row="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Button Grid.Column="0"
+                                    Content="{DynamicResource filterIcon}"
+                                    Width="36" Height="36"
+                                    Padding="0"
+                                    Margin="0,0,10,0"
+                                    Click="custom_filter"/>
+
+                            <Grid Grid.Column="1">
+                                <TextBox x:Name="search_tb"
+                                         Padding="10,0,34,0"
+                                         TextChanged="search_txt_changed"
+                                         VerticalContentAlignment="Center"/>
+                                <Button x:Name="clrsearch_b"
+                                        Visibility="Collapsed"
+                                        Width="30" Height="30"
+                                        HorizontalAlignment="Right"
+                                        Margin="0,2,2,2"
+                                        Background="{DynamicResource TransparentBrush}"
+                                        BorderThickness="0"
+                                        Style="{DynamicResource ClearButton}"
+                                        Click="clear_search">
+                                    <Button.Content>
+                                        <Canvas Width="18" Height="18" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <Path Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"
+                                                  Fill="{DynamicResource TextSecondaryBrush}"/>
+                                        </Canvas>
+                                    </Button.Content>
+                                </Button>
+                            </Grid>
+                        </Grid>
+
+                        <ComboBox x:Name="categories_tv"
+                                  Grid.Row="1"
+                                  Margin="0,12,0,12"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  ItemTemplate="{DynamicResource treeViewItem}"
+                                  ItemContainerStyle="{DynamicResource comboItemStyle}"
+                                  SelectionChanged="selected_category_changed"/>
+
+                        <TreeView x:Name="keynotes_tv"
+                                  Grid.Row="2"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                  PreviewMouseDoubleClick="place_keynote"
+                                  SelectedItemChanged="selected_keynote_changed"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  ItemTemplate="{DynamicResource treeViewItem}"
+                                  ItemContainerStyle="{DynamicResource treeItemStyle}"/>
+                    </Grid>
+                </Border>
+
+                <!-- Right: Actions -->
+                <DockPanel Grid.Column="1" Margin="0">
             <StackPanel DockPanel.Dock="Bottom">
                 <Button Content="{DynamicResource ImportKeynotes}"
                         Margin="0,15,0,0"
@@ -111,14 +188,15 @@
                             FontFamily="Segoe UI Symbol"
                             ToolTip="{DynamicResource ChangeKeynote}"
                             Click="change_keynote_file"/>
-                    <Button Content="{StaticResource showKFileIcon}"
+                        <Button Content="{DynamicResource showKFileIcon}"
                             Grid.Column="2"
                             ToolTip="{DynamicResource ShowKeynote}"
                             Click="show_keynote_file"/>
                 </Grid>
-                <Button Content="{DynamicResource UpdateKeynote}"
+                    <Button Content="{DynamicResource UpdateKeynote}"
                         Margin="0,10,0,0"
                         Padding="8,4,8,4"
+                        Style="{DynamicResource PrimaryButtonStyle}"
                         ToolTip="{DynamicResource UpdateKeynoteInfo}"
                         Click="update_model"/>
             </StackPanel>
@@ -133,7 +211,7 @@
                             </Grid.ColumnDefinitions>
                             <Button Grid.Column="0"
                                     Margin="0,0,2,0"
-                                    Content="{StaticResource addCategoryIcon}"
+                                    Content="{DynamicResource addCategoryIcon}"
                                     ToolTip="{DynamicResource AddKeynoteCategory}"
                                     Click="add_category"/>
                             <Grid x:Name="catEditButtons" Grid.Column="1" IsEnabled="False">
@@ -147,17 +225,17 @@
                                 </Grid.RowDefinitions>
                                 <Button Grid.Column="0" Grid.Row="0"
                                         Margin="2,0,2,2"
-                                        Content="{StaticResource editCategoryIcon}"
+                                    Content="{DynamicResource editCategoryIcon}"
                                         ToolTip = "{DynamicResource EditKeynoteCategory}"
                                         Click="edit_category"/>
                                 <Button Grid.Column="1"  Grid.Row="0"
                                         Margin="2,0,0,2"
-                                        Content="{StaticResource removeCategoryIcon}"
+                                    Content="{DynamicResource removeCategoryIcon}"
                                         ToolTip="{DynamicResource RemoveKeynoteCategory}"
                                         Click="remove_category"/>
                                 <Button Grid.Column="0" Grid.Row="1"
                                         Margin="2,2,2,0"
-                                        Content="{StaticResource rekeyCategoryIcon}"
+                                    Content="{DynamicResource rekeyCategoryIcon}"
                                         ToolTip="{DynamicResource ReKeyKeynoteCategory}"
                                         Click="rekey_category"/>
                             </Grid>
@@ -177,12 +255,12 @@
                                 </Grid.RowDefinitions>
                                 <Button x:Name="keynoteAdd" Grid.Column="0" Grid.Row="0"
                                         Margin="0,0,2,2"
-                                        Content="{StaticResource addKeynoteIcon}"
+                                    Content="{DynamicResource addKeynoteIcon}"
                                         ToolTip="{DynamicResource AddKeynote}"
                                         Click="add_keynote"/>
                                 <Button x:Name="keynoteSearch" Grid.Column="0" Grid.Row="2"
                                         Margin="0,2,2,0" IsEnabled="False"
-                                        Content="{StaticResource findKeynoteIcon}"
+                                    Content="{DynamicResource findKeynoteIcon}"
                                         ToolTip="{DynamicResource SearchKeynote}"
                                         Click="show_keynote"/>
                                 <Grid x:Name="keynoteEditButtons" Grid.Column="1" Grid.Row="0" Grid.RowSpan="2"
@@ -199,32 +277,32 @@
                                     </Grid.RowDefinitions>
                                     <Button Grid.Column="0" Grid.Row="0"
                                             Margin="2,0,2,2"
-                                            Content="{StaticResource editKeynoteIcon}"
+                                            Content="{DynamicResource editKeynoteIcon}"
                                             ToolTip = "{DynamicResource EditKeynote}"
                                             Click="edit_keynote"/>
                                     <Button Grid.Column="1"  Grid.Row="0"
                                             Margin="2,0,0,2"
-                                            Content="{StaticResource removeKeynoteIcon}"
+                                            Content="{DynamicResource removeKeynoteIcon}"
                                             ToolTip="{DynamicResource RemoveKeynote}"
                                             Click="remove_keynote"/>
                                     <Button x:Name="subkeynoteAdd" Grid.Column="0"  Grid.Row="1"
                                             Margin="2,2,2,2"
-                                            Content="{StaticResource addSubKeynoteIcon}"
+                                            Content="{DynamicResource addSubKeynoteIcon}"
                                             ToolTip="{DynamicResource AddChildKeynote}"
                                             Click="add_sub_keynote"/>
                                     <Button Grid.Column="1"  Grid.Row="1"
                                             Margin="2,2,0,2"
-                                            Content="{StaticResource duplicateKeynoteIcon}"
+                                            Content="{DynamicResource duplicateKeynoteIcon}"
                                             ToolTip="{DynamicResource DuplicateKeynote}"
                                             Click="duplicate_keynote"/>
                                     <Button Grid.Column="0"  Grid.Row="2"
                                             Margin="2,2,2,0"
-                                            Content="{StaticResource rekeyKeynoteIcon}"
+                                            Content="{DynamicResource rekeyKeynoteIcon}"
                                             ToolTip="{DynamicResource ChangeKeyKeynote}"
                                             Click="rekey_keynote"/>
                                     <Button Grid.Column="1"  Grid.Row="2"
                                             Margin="2,2,0,0"
-                                            Content="{StaticResource reCatKeynoteIcon}"
+                                            Content="{DynamicResource reCatKeynoteIcon}"
                                             ToolTip="{DynamicResource ChangeCategoryKeynote}"
                                             Click="recat_keynote" />
                                 </Grid>
@@ -243,5 +321,7 @@
                 </StackPanel>
             </ScrollViewer>
         </DockPanel>
-    </Grid>
+        </Grid>
+        </Grid>
+    </Border>
 </Window>

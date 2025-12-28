@@ -23,6 +23,7 @@ from pyrevit.interop import adc
 
 from ...core.AppPaths import AppPaths
 from ...data import keynotes_db as kdb
+from ..helpers.UIResourceLoader import UIResourceLoader
 from .EditRecordWindow import EditRecordWindow
 
 
@@ -87,8 +88,22 @@ def get_keynote_pcommands():
 class KeynoteManagerWindow(forms.WPFWindow):
     def __init__(self, reset_config=False):
         self._paths = AppPaths()
-        xaml_path = self._paths.materialize_xaml_with_absolute_sources(self._paths.main_xaml())
-        forms.WPFWindow.__init__(self, xaml_path)
+        forms.WPFWindow.__init__(self, self._paths.main_xaml())
+
+        # Merge resources like BatchExport (avoids relative Source issues)
+        try:
+            UIResourceLoader(self, self._paths).merge_all_for_main()
+        except Exception:
+            pass
+
+        # Optional custom window chrome (TitleBar + CloseWindowButton)
+        try:
+            if hasattr(self, 'CloseWindowButton'):
+                self.CloseWindowButton.Click += self._on_close_window
+            if hasattr(self, 'TitleBar'):
+                self.TitleBar.MouseLeftButtonDown += self._on_title_bar_mouse_down
+        except Exception:
+            pass
 
         # Basic title (no locale system)
         try:
@@ -112,6 +127,18 @@ class KeynoteManagerWindow(forms.WPFWindow):
         self._used_keysdict = self.get_used_keynote_elements()
         self.load_config(reset_config)
         self.search_tb.Focus()
+
+    def _on_close_window(self, sender, args):
+        try:
+            self.Close()
+        except Exception:
+            pass
+
+    def _on_title_bar_mouse_down(self, sender, args):
+        try:
+            self.DragMove()
+        except Exception:
+            pass
 
     @property
     def window_geom(self):

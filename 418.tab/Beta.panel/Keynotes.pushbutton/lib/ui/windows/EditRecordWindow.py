@@ -10,6 +10,7 @@ from pyrevit import forms
 
 from ...core.AppPaths import AppPaths
 from ...data import keynotes_db as kdb
+from ..helpers.UIResourceLoader import UIResourceLoader
 
 
 _STR = {
@@ -56,8 +57,20 @@ class EditRecordWindow(forms.WPFWindow):
         pkey=None,
     ):
         paths = AppPaths()
-        xaml_path = paths.materialize_xaml_with_absolute_sources(paths.edit_record_xaml())
-        forms.WPFWindow.__init__(self, xaml_path)
+        forms.WPFWindow.__init__(self, paths.edit_record_xaml())
+
+        try:
+            UIResourceLoader(self, paths).merge_all_for_edit_record()
+        except Exception:
+            pass
+
+        try:
+            if hasattr(self, 'CloseWindowButton'):
+                self.CloseWindowButton.Click += self._on_close_window
+            if hasattr(self, 'TitleBar'):
+                self.TitleBar.MouseLeftButtonDown += self._on_title_bar_mouse_down
+        except Exception:
+            pass
 
         self.Owner = owner
         self._res = None
@@ -71,6 +84,18 @@ class EditRecordWindow(forms.WPFWindow):
         self._rkey = rkey
         self._text = text
         self._pkey = pkey
+
+    def _on_close_window(self, sender, args):
+        try:
+            self.Close()
+        except Exception:
+            pass
+
+    def _on_title_bar_mouse_down(self, sender, args):
+        try:
+            self.DragMove()
+        except Exception:
+            pass
 
         if self._mode == kdb.EDIT_MODE_ADD_CATEG:
             self._cat = True
