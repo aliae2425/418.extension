@@ -31,18 +31,33 @@
             <!-- TitleBar (BatchExport-like) -->
             <Grid Grid.Row="0" Name="TitleBar" Background="{DynamicResource TransparentBrush}" Margin="0,0,0,12">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0"
+                <!-- Burger button (BatchExport-like) -->
+                <Button Name="BurgerButton"
+                        Grid.Column="0"
+                        Width="40" Height="40"
+                        Margin="4,0,6,0"
+                        Background="{DynamicResource TransparentBrush}"
+                        BorderThickness="0"
+                        Cursor="Hand">
+                    <TextBlock Text="☰"
+                               FontSize="20"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                </Button>
+
+                <TextBlock Grid.Column="1"
                            Text="{DynamicResource Title}"
                            Style="{DynamicResource HeaderTextBlockStyle}"
                            VerticalAlignment="Center"/>
 
                 <Button Name="CloseWindowButton"
-                        Grid.Column="1"
-                    Content="&#x2715;"
+                        Grid.Column="2"
+                        Content="&#x2715;"
                         Width="40" Height="40"
                         Background="{DynamicResource TransparentBrush}"
                         BorderThickness="0"
@@ -69,11 +84,239 @@
             <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="360"/>
                 </Grid.ColumnDefinitions>
 
+                <!-- Full overlay behind burger menu (BatchExport-like) -->
+                <Border Name="BurgerMenuOverlay"
+                        Grid.Column="0"
+                        Background="{DynamicResource ModalOverlayBrush}"
+                        Panel.ZIndex="1000"
+                        Visibility="Collapsed"/>
+
+                <!-- BurgerMenu (left drawer) -->
+                <Border Name="BurgerMenu"
+                        Grid.Column="0"
+                        Width="360"
+                        HorizontalAlignment="Left"
+                        Background="{DynamicResource CardBackgroundBrush}"
+                        BorderThickness="0,0,1,0"
+                        BorderBrush="{DynamicResource ControlBorderBrush}"
+                        Panel.ZIndex="1050"
+                        Visibility="Collapsed">
+                    <Border.Effect>
+                        <DropShadowEffect ShadowDepth="4" BlurRadius="16" Opacity="0.2"/>
+                    </Border.Effect>
+
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0"
+                                Background="{DynamicResource MicaBackgroundBrush}"
+                                BorderThickness="0,0,0,1"
+                                BorderBrush="{DynamicResource ControlBorderBrush}"
+                                Padding="16">
+                            <Grid>
+                                <TextBlock Text="Menu" Style="{DynamicResource SubHeaderTextBlockStyle}" VerticalAlignment="Center"/>
+                                <Button Name="CloseBurgerButton"
+                                        Content="×"
+                                        FontSize="24"
+                                        Width="32" Height="32"
+                                        HorizontalAlignment="Right"
+                                        Background="{DynamicResource TransparentBrush}"
+                                        BorderThickness="0"
+                                        Cursor="Hand"
+                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            </Grid>
+                        </Border>
+
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Margin="16">
+                                <GroupBox Header="{DynamicResource UpdateKeynote}" Margin="0,0,0,10" Padding="6">
+                                    <Button Content="{DynamicResource UpdateKeynote}"
+                                            Padding="8,4,8,4"
+                                            Style="{DynamicResource PrimaryButtonStyle}"
+                                            ToolTip="{DynamicResource UpdateKeynoteInfo}"
+                                            Click="update_model"/>
+                                </GroupBox>
+
+                                <GroupBox Header="{DynamicResource ChangeKeynote}" Margin="0,0,0,10" Padding="6">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="{DynamicResource RefreshKeynotesWidth}"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="26"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button Content="{DynamicResource RefreshKeynotes}"
+                                                Grid.Column="0"
+                                                Padding="8,4,8,4"
+                                                ToolTip="{DynamicResource RefreshKeynotesInfo}"
+                                                Click="refresh"/>
+                                        <Button Content="&#x25CF;&#x25CF;&#x25CF;"
+                                                Grid.Column="1"
+                                                Margin="5,0,5,0"
+                                                Padding="0,4,0,4"
+                                                FontFamily="Segoe UI Symbol"
+                                                ToolTip="{DynamicResource ChangeKeynote}"
+                                                Click="change_keynote_file"/>
+                                        <Button Content="{DynamicResource showKFileIcon}"
+                                                Grid.Column="2"
+                                                ToolTip="{DynamicResource ShowKeynote}"
+                                                Click="show_keynote_file"/>
+                                    </Grid>
+                                </GroupBox>
+
+                                <GroupBox Header="{DynamicResource ExportKeynotes}" Margin="0,0,0,10" Padding="6">
+                                    <StackPanel>
+                                        <Button Content="{DynamicResource ImportKeynotes}"
+                                                Margin="0,0,0,6"
+                                                Padding="8,4,8,4"
+                                                ToolTip="{DynamicResource ImportKeynotesInfo}"
+                                                Click="import_keynotes"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Button Content="{DynamicResource ExportKeynotes}"
+                                                    BorderThickness="1,1,0,1"
+                                                    Grid.Column="0"
+                                                    Padding="8,4,8,4"
+                                                    ToolTip="{DynamicResource ExportKeynotesInfo}"
+                                                    Click="export_keynotes"/>
+                                            <Button Content="{DynamicResource ExportVisibleKeynotes}"
+                                                    BorderThickness="0,1,1,1"
+                                                    Grid.Column="1"
+                                                    Padding="8,4,8,4"
+                                                    ToolTip="{DynamicResource ExportVisibleKeynotesInfo}"
+                                                    Click="export_visible_keynotes"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </GroupBox>
+
+                                <GroupBox Header="{DynamicResource CategoryKeynotes}" Margin="0,0,0,10" Padding="6">
+                                    <Grid Height="74">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="1*"/>
+                                            <ColumnDefinition Width="2*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0"
+                                                Margin="0,0,2,0"
+                                                Content="{DynamicResource addCategoryIcon}"
+                                                ToolTip="{DynamicResource AddKeynoteCategory}"
+                                                Click="add_category"/>
+                                        <Grid x:Name="catEditButtons" Grid.Column="1" IsEnabled="False">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition/>
+                                                <ColumnDefinition/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition/>
+                                                <RowDefinition/>
+                                            </Grid.RowDefinitions>
+                                            <Button Grid.Column="0" Grid.Row="0"
+                                                    Margin="2,0,2,2"
+                                                    Content="{DynamicResource editCategoryIcon}"
+                                                    ToolTip="{DynamicResource EditKeynoteCategory}"
+                                                    Click="edit_category"/>
+                                            <Button Grid.Column="1" Grid.Row="0"
+                                                    Margin="2,0,0,2"
+                                                    Content="{DynamicResource removeCategoryIcon}"
+                                                    ToolTip="{DynamicResource RemoveKeynoteCategory}"
+                                                    Click="remove_category"/>
+                                            <Button Grid.Column="0" Grid.Row="1"
+                                                    Margin="2,2,2,0"
+                                                    Content="{DynamicResource rekeyCategoryIcon}"
+                                                    ToolTip="{DynamicResource ReKeyKeynoteCategory}"
+                                                    Click="rekey_category"/>
+                                        </Grid>
+                                    </Grid>
+                                </GroupBox>
+
+                                <GroupBox Header="{DynamicResource Keynotes}" Margin="0,0,0,10" Padding="6">
+                                    <StackPanel IsEnabled="True">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="1*"/>
+                                                <ColumnDefinition Width="2*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="78"/>
+                                                <RowDefinition Height="39"/>
+                                            </Grid.RowDefinitions>
+                                            <Button x:Name="keynoteAdd" Grid.Column="0" Grid.Row="0"
+                                                    Margin="0,0,2,2"
+                                                    Content="{DynamicResource addKeynoteIcon}"
+                                                    ToolTip="{DynamicResource AddKeynote}"
+                                                    Click="add_keynote"/>
+                                            <Button x:Name="keynoteSearch" Grid.Column="0" Grid.Row="2"
+                                                    Margin="0,2,2,0" IsEnabled="False"
+                                                    Content="{DynamicResource findKeynoteIcon}"
+                                                    ToolTip="{DynamicResource SearchKeynote}"
+                                                    Click="show_keynote"/>
+                                            <Grid x:Name="keynoteEditButtons" Grid.Column="1" Grid.Row="0" Grid.RowSpan="2"
+                                                  Height="117"
+                                                  IsEnabled="False">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition/>
+                                                    <ColumnDefinition/>
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition/>
+                                                    <RowDefinition/>
+                                                    <RowDefinition/>
+                                                </Grid.RowDefinitions>
+                                                <Button Grid.Column="0" Grid.Row="0"
+                                                        Margin="2,0,2,2"
+                                                        Content="{DynamicResource editKeynoteIcon}"
+                                                        ToolTip="{DynamicResource EditKeynote}"
+                                                        Click="edit_keynote"/>
+                                                <Button Grid.Column="1" Grid.Row="0"
+                                                        Margin="2,0,0,2"
+                                                        Content="{DynamicResource removeKeynoteIcon}"
+                                                        ToolTip="{DynamicResource RemoveKeynote}"
+                                                        Click="remove_keynote"/>
+                                                <Button x:Name="subkeynoteAdd" Grid.Column="0" Grid.Row="1"
+                                                        Margin="2,2,2,2"
+                                                        Content="{DynamicResource addSubKeynoteIcon}"
+                                                        ToolTip="{DynamicResource AddChildKeynote}"
+                                                        Click="add_sub_keynote"/>
+                                                <Button Grid.Column="1" Grid.Row="1"
+                                                        Margin="2,2,0,2"
+                                                        Content="{DynamicResource duplicateKeynoteIcon}"
+                                                        ToolTip="{DynamicResource DuplicateKeynote}"
+                                                        Click="duplicate_keynote"/>
+                                                <Button Grid.Column="0" Grid.Row="2"
+                                                        Margin="2,2,2,0"
+                                                        Content="{DynamicResource rekeyKeynoteIcon}"
+                                                        ToolTip="{DynamicResource ChangeKeyKeynote}"
+                                                        Click="rekey_keynote"/>
+                                                <Button Grid.Column="1" Grid.Row="2"
+                                                        Margin="2,2,0,0"
+                                                        Content="{DynamicResource reCatKeynoteIcon}"
+                                                        ToolTip="{DynamicResource ChangeCategoryKeynote}"
+                                                        Click="recat_keynote"/>
+                                            </Grid>
+                                        </Grid>
+                                    </StackPanel>
+                                </GroupBox>
+
+                                <GroupBox Header="{DynamicResource PlaceKeynote}" Margin="0" Padding="6">
+                                    <StackPanel>
+                                        <RadioButton x:Name="userknote_rb" Content="{DynamicResource UserKeynotes}" Margin="0,0,0,5"/>
+                                        <RadioButton x:Name="elementknote_rb" Content="{DynamicResource ElementKeynotes}" Margin="0,0,0,5"/>
+                                        <RadioButton x:Name="materialknote_rb" Content="{DynamicResource MaterialKeynotes}"/>
+                                    </StackPanel>
+                                </GroupBox>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+
                 <!-- Left: Search + Tree -->
-                <Border Grid.Column="0" Style="{DynamicResource CardStyle}" Margin="0,0,12,0">
+                <Border Grid.Column="0" Style="{DynamicResource CardStyle}" Margin="0">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -138,189 +381,6 @@
                                   ItemContainerStyle="{DynamicResource treeItemStyle}"/>
                     </Grid>
                 </Border>
-
-                <!-- Right: Actions -->
-                <DockPanel Grid.Column="1" Margin="0">
-            <StackPanel DockPanel.Dock="Bottom">
-                <Button Content="{DynamicResource ImportKeynotes}"
-                        Margin="0,15,0,0"
-                        Padding="8,4,8,4"
-                        ToolTip = "{DynamicResource ImportKeynotesInfo}"
-                        Click="import_keynotes"/>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition />
-                    </Grid.ColumnDefinitions>
-                    <Button Content="{DynamicResource ExportKeynotes}"
-                            BorderThickness="1,1,0,1"
-                            Grid.Column="0"
-                            Margin="0,5,0,0"
-                            Padding="8,4,8,4"
-                            ToolTip = "{DynamicResource ExportKeynotesInfo}"
-                            Click="export_keynotes"/>
-                    <Button Content="{DynamicResource ExportVisibleKeynotes}"
-                            BorderThickness="0,1,1,1"
-                            Grid.Column="1"
-                            Margin="0,5,0,0"
-                            Padding="8,4,8,4"
-                            ToolTip = "{DynamicResource ExportVisibleKeynotesInfo}"
-                            Click="export_visible_keynotes"/>
-                </Grid>
-            </StackPanel>
-
-            <StackPanel DockPanel.Dock="Top">
-                <Grid Height="26">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="{DynamicResource RefreshKeynotesWidth}"/>
-                        <ColumnDefinition />
-                        <ColumnDefinition Width="26"/>
-                    </Grid.ColumnDefinitions>
-                    <Button Content="{DynamicResource RefreshKeynotes}"
-                            Grid.Column="0"
-                            Padding="8,4,8,4"
-                            ToolTip="{DynamicResource RefreshKeynotesInfo}"
-                            Click="refresh"/>
-                    <Button Content="&#x25CF;&#x25CF;&#x25CF;"
-                            Grid.Column="1"
-                            Margin="5,0,5,0"
-                            Padding="0,4,0,4"
-                            FontFamily="Segoe UI Symbol"
-                            ToolTip="{DynamicResource ChangeKeynote}"
-                            Click="change_keynote_file"/>
-                        <Button Content="{DynamicResource showKFileIcon}"
-                            Grid.Column="2"
-                            ToolTip="{DynamicResource ShowKeynote}"
-                            Click="show_keynote_file"/>
-                </Grid>
-                    <Button Content="{DynamicResource UpdateKeynote}"
-                        Margin="0,10,0,0"
-                        Padding="8,4,8,4"
-                        Style="{DynamicResource PrimaryButtonStyle}"
-                        ToolTip="{DynamicResource UpdateKeynoteInfo}"
-                        Click="update_model"/>
-            </StackPanel>
-
-            <ScrollViewer VerticalScrollBarVisibility="Hidden">
-                <StackPanel>
-                    <GroupBox Header="{DynamicResource CategoryKeynotes}" Margin="0,10,0,0" Padding="5">
-                        <Grid Height="74">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="1*"/>
-                                <ColumnDefinition Width="2*" />
-                            </Grid.ColumnDefinitions>
-                            <Button Grid.Column="0"
-                                    Margin="0,0,2,0"
-                                    Content="{DynamicResource addCategoryIcon}"
-                                    ToolTip="{DynamicResource AddKeynoteCategory}"
-                                    Click="add_category"/>
-                            <Grid x:Name="catEditButtons" Grid.Column="1" IsEnabled="False">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition />
-                                    <ColumnDefinition />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions >
-                                    <RowDefinition />
-                                    <RowDefinition />
-                                </Grid.RowDefinitions>
-                                <Button Grid.Column="0" Grid.Row="0"
-                                        Margin="2,0,2,2"
-                                    Content="{DynamicResource editCategoryIcon}"
-                                        ToolTip = "{DynamicResource EditKeynoteCategory}"
-                                        Click="edit_category"/>
-                                <Button Grid.Column="1"  Grid.Row="0"
-                                        Margin="2,0,0,2"
-                                    Content="{DynamicResource removeCategoryIcon}"
-                                        ToolTip="{DynamicResource RemoveKeynoteCategory}"
-                                        Click="remove_category"/>
-                                <Button Grid.Column="0" Grid.Row="1"
-                                        Margin="2,2,2,0"
-                                    Content="{DynamicResource rekeyCategoryIcon}"
-                                        ToolTip="{DynamicResource ReKeyKeynoteCategory}"
-                                        Click="rekey_category"/>
-                            </Grid>
-                        </Grid>
-                    </GroupBox>
-
-                    <GroupBox Header="{DynamicResource Keynotes}" Margin="0,10,0,0" Padding="5">
-                        <StackPanel IsEnabled="True">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="1*"/>
-                                    <ColumnDefinition Width="2*" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions >
-                                    <RowDefinition Height="78" />
-                                    <RowDefinition Height="39" />
-                                </Grid.RowDefinitions>
-                                <Button x:Name="keynoteAdd" Grid.Column="0" Grid.Row="0"
-                                        Margin="0,0,2,2"
-                                    Content="{DynamicResource addKeynoteIcon}"
-                                        ToolTip="{DynamicResource AddKeynote}"
-                                        Click="add_keynote"/>
-                                <Button x:Name="keynoteSearch" Grid.Column="0" Grid.Row="2"
-                                        Margin="0,2,2,0" IsEnabled="False"
-                                    Content="{DynamicResource findKeynoteIcon}"
-                                        ToolTip="{DynamicResource SearchKeynote}"
-                                        Click="show_keynote"/>
-                                <Grid x:Name="keynoteEditButtons" Grid.Column="1" Grid.Row="0" Grid.RowSpan="2"
-                                      Height="117"
-                                      IsEnabled="False">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition />
-                                        <ColumnDefinition />
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions >
-                                        <RowDefinition />
-                                        <RowDefinition />
-                                        <RowDefinition />
-                                    </Grid.RowDefinitions>
-                                    <Button Grid.Column="0" Grid.Row="0"
-                                            Margin="2,0,2,2"
-                                            Content="{DynamicResource editKeynoteIcon}"
-                                            ToolTip = "{DynamicResource EditKeynote}"
-                                            Click="edit_keynote"/>
-                                    <Button Grid.Column="1"  Grid.Row="0"
-                                            Margin="2,0,0,2"
-                                            Content="{DynamicResource removeKeynoteIcon}"
-                                            ToolTip="{DynamicResource RemoveKeynote}"
-                                            Click="remove_keynote"/>
-                                    <Button x:Name="subkeynoteAdd" Grid.Column="0"  Grid.Row="1"
-                                            Margin="2,2,2,2"
-                                            Content="{DynamicResource addSubKeynoteIcon}"
-                                            ToolTip="{DynamicResource AddChildKeynote}"
-                                            Click="add_sub_keynote"/>
-                                    <Button Grid.Column="1"  Grid.Row="1"
-                                            Margin="2,2,0,2"
-                                            Content="{DynamicResource duplicateKeynoteIcon}"
-                                            ToolTip="{DynamicResource DuplicateKeynote}"
-                                            Click="duplicate_keynote"/>
-                                    <Button Grid.Column="0"  Grid.Row="2"
-                                            Margin="2,2,2,0"
-                                            Content="{DynamicResource rekeyKeynoteIcon}"
-                                            ToolTip="{DynamicResource ChangeKeyKeynote}"
-                                            Click="rekey_keynote"/>
-                                    <Button Grid.Column="1"  Grid.Row="2"
-                                            Margin="2,2,0,0"
-                                            Content="{DynamicResource reCatKeynoteIcon}"
-                                            ToolTip="{DynamicResource ChangeCategoryKeynote}"
-                                            Click="recat_keynote" />
-                                </Grid>
-                            </Grid>
-                        </StackPanel>
-                    </GroupBox>
-
-                    <GroupBox Header="{DynamicResource PlaceKeynote}" Margin="0,10,0,0" Padding="5">
-                        <StackPanel>
-                            <RadioButton x:Name="userknote_rb" Content="{DynamicResource UserKeynotes}" Margin="0,0,0,5"/>
-                            <RadioButton x:Name="elementknote_rb" Content="{DynamicResource ElementKeynotes}" Margin="0,0,0,5"/>
-                            <RadioButton x:Name="materialknote_rb" Content="{DynamicResource MaterialKeynotes}" />
-                        </StackPanel>
-                    </GroupBox>
-
-                </StackPanel>
-            </ScrollViewer>
-        </DockPanel>
         </Grid>
         </Grid>
     </Border>

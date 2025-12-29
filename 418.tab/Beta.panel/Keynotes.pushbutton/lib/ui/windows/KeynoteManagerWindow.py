@@ -105,6 +105,20 @@ class KeynoteManagerWindow(forms.WPFWindow):
         except Exception:
             pass
 
+        # Burger menu (drawer + overlay, BatchExport-like)
+        try:
+            if hasattr(self, 'BurgerButton'):
+                self.BurgerButton.Click += self._on_burger_button_click
+            if hasattr(self, 'CloseBurgerButton'):
+                self.CloseBurgerButton.Click += self._on_close_burger_button_click
+            if hasattr(self, 'BurgerMenuOverlay'):
+                self.BurgerMenuOverlay.MouseLeftButtonDown += self._on_burger_overlay_mouse_down
+
+            # Start closed (safe even if already collapsed)
+            self._set_burger_menu_open(False)
+        except Exception:
+            pass
+
         # Basic title (no locale system)
         try:
             self.Title = _s('Title')
@@ -139,6 +153,36 @@ class KeynoteManagerWindow(forms.WPFWindow):
             self.DragMove()
         except Exception:
             pass
+
+    def _set_burger_menu_open(self, is_open):
+        try:
+            from System.Windows import Visibility
+            vis = Visibility.Visible if is_open else Visibility.Collapsed
+            if hasattr(self, 'BurgerMenuOverlay'):
+                self.BurgerMenuOverlay.Visibility = vis
+            if hasattr(self, 'BurgerMenu'):
+                self.BurgerMenu.Visibility = vis
+        except Exception:
+            pass
+
+    def _toggle_burger_menu(self):
+        try:
+            from System.Windows import Visibility
+            is_open = False
+            if hasattr(self, 'BurgerMenu'):
+                is_open = (self.BurgerMenu.Visibility == Visibility.Visible)
+            self._set_burger_menu_open(not is_open)
+        except Exception:
+            pass
+
+    def _on_burger_button_click(self, sender, args):
+        self._toggle_burger_menu()
+
+    def _on_close_burger_button_click(self, sender, args):
+        self._set_burger_menu_open(False)
+
+    def _on_burger_overlay_mouse_down(self, sender, args):
+        self._set_burger_menu_open(False)
 
     @property
     def window_geom(self):
