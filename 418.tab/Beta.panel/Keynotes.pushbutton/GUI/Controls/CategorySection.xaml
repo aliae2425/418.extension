@@ -1,0 +1,50 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <ControlTemplate x:Key="CategorySectionTemplate" TargetType="ContentControl">
+    <GroupBox Header="{DynamicResource CategoryKeynotes}" Margin="0,0,0,10" Padding="6">
+      <Grid Height="74">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="1*"/>
+          <ColumnDefinition Width="2*"/>
+        </Grid.ColumnDefinitions>
+
+        <Button Grid.Column="0"
+                Margin="0,0,2,0"
+                Content="{DynamicResource addCategoryIcon}"
+                ToolTip="{DynamicResource AddKeynoteCategory}"
+                Click="add_category"/>
+
+        <Grid x:Name="catEditButtons" Grid.Column="1" IsEnabled="False">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition/>
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition/>
+            <RowDefinition/>
+          </Grid.RowDefinitions>
+
+          <Button Grid.Column="0" Grid.Row="0"
+                  Margin="2,0,2,2"
+                  Content="{DynamicResource editCategoryIcon}"
+                  ToolTip="{DynamicResource EditKeynoteCategory}"
+                  Click="edit_category"/>
+
+          <Button Grid.Column="1" Grid.Row="0"
+                  Margin="2,0,0,2"
+                  Content="{DynamicResource removeCategoryIcon}"
+                  ToolTip="{DynamicResource RemoveKeynoteCategory}"
+                  Click="remove_category"/>
+
+          <Button Grid.Column="0" Grid.Row="1"
+                  Margin="2,2,2,0"
+                  Content="{DynamicResource rekeyCategoryIcon}"
+                  ToolTip="{DynamicResource ReKeyKeynoteCategory}"
+                  Click="rekey_category"/>
+        </Grid>
+      </Grid>
+    </GroupBox>
+  </ControlTemplate>
+
+</ResourceDictionary>

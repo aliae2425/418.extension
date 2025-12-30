@@ -1,0 +1,71 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <ControlTemplate x:Key="BurgerMenuTemplate" TargetType="ContentControl">
+    <Grid>
+      <!-- Full overlay behind burger menu (BatchExport-like) -->
+      <Border Name="BurgerMenuOverlay"
+              Background="{DynamicResource ModalOverlayBrush}"
+              Panel.ZIndex="1000"
+              Visibility="Collapsed"/>
+
+      <!-- BurgerMenu (left drawer) -->
+      <Border Name="BurgerMenu"
+              Width="360"
+              HorizontalAlignment="Left"
+              Background="{DynamicResource CardBackgroundBrush}"
+              BorderThickness="0,0,1,0"
+              BorderBrush="{DynamicResource ControlBorderBrush}"
+              Panel.ZIndex="1050"
+              Visibility="Collapsed">
+        <Border.Effect>
+          <DropShadowEffect ShadowDepth="4" BlurRadius="16" Opacity="0.2"/>
+        </Border.Effect>
+
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+
+          <Border Grid.Row="0"
+                  Background="{DynamicResource MicaBackgroundBrush}"
+                  BorderThickness="0,0,0,1"
+                  BorderBrush="{DynamicResource ControlBorderBrush}"
+                  Padding="16">
+            <Grid>
+              <TextBlock Text="Menu" Style="{DynamicResource SubHeaderTextBlockStyle}" VerticalAlignment="Center"/>
+              <Button Name="CloseBurgerButton"
+                      Content="×"
+                      FontSize="24"
+                      Width="32" Height="32"
+                      HorizontalAlignment="Right"
+                      Background="{DynamicResource TransparentBrush}"
+                      BorderThickness="0"
+                      Cursor="Hand"
+                      Foreground="{DynamicResource TextPrimaryBrush}"/>
+            </Grid>
+          </Border>
+
+          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="16">
+              <ContentControl x:Name="UpdateSectionHost"
+                              Template="{DynamicResource UpdateSectionTemplate}"/>
+              <ContentControl x:Name="ChangeSectionHost"
+                              Template="{DynamicResource ChangeSectionTemplate}"/>
+              <ContentControl x:Name="ExportSectionHost"
+                              Template="{DynamicResource ExportSectionTemplate}"/>
+              <ContentControl x:Name="CategorySectionHost"
+                              Template="{DynamicResource CategorySectionTemplate}"/>
+              <ContentControl x:Name="KeynotesSectionHost"
+                              Template="{DynamicResource KeynotesSectionTemplate}"/>
+              <ContentControl x:Name="PlaceSectionHost"
+                              Template="{DynamicResource PlaceSectionTemplate}"/>
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+    </Grid>
+  </ControlTemplate>
+
+</ResourceDictionary>

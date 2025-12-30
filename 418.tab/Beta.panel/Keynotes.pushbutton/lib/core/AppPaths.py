@@ -22,6 +22,9 @@ class AppPaths(object):
     def windows_xaml(self):
         return os.path.join(self.gui_root(), 'windows.xaml')
 
+    def controls_dir(self):
+        return os.path.join(self.gui_root(), 'Controls')
+
     def main_xaml(self):
         return os.path.normpath(os.path.join(self.gui_root(), 'Views', 'index.xaml'))
 

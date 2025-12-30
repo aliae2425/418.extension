@@ -1,0 +1,37 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <ControlTemplate x:Key="ExportSectionTemplate" TargetType="ContentControl">
+    <GroupBox Header="{DynamicResource ExportKeynotes}" Margin="0,0,0,10" Padding="6">
+      <StackPanel>
+        <Button Content="{DynamicResource ImportKeynotes}"
+                Margin="0,0,0,6"
+                Padding="8,4,8,4"
+                ToolTip="{DynamicResource ImportKeynotesInfo}"
+                Click="import_keynotes"/>
+
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+
+          <Button Content="{DynamicResource ExportKeynotes}"
+                  BorderThickness="1,1,0,1"
+                  Grid.Column="0"
+                  Padding="8,4,8,4"
+                  ToolTip="{DynamicResource ExportKeynotesInfo}"
+                  Click="export_keynotes"/>
+
+          <Button Content="{DynamicResource ExportVisibleKeynotes}"
+                  BorderThickness="0,1,1,1"
+                  Grid.Column="1"
+                  Padding="8,4,8,4"
+                  ToolTip="{DynamicResource ExportVisibleKeynotesInfo}"
+                  Click="export_visible_keynotes"/>
+        </Grid>
+      </StackPanel>
+    </GroupBox>
+  </ControlTemplate>
+
+</ResourceDictionary>

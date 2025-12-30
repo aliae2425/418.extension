@@ -38,6 +38,24 @@ class UIResourceLoader(object):
     def merge_all_for_main(self):
         self.merge_windows()
         self.merge_keynotes_main()
+
+        # Controls (Burger menu sections)
+        try:
+            ctrl_dir = self._paths.controls_dir()
+            names = [
+                'BurgerMenu.xaml',
+                'WorkArea.xaml',
+                'UpdateSection.xaml',
+                'ChangeSection.xaml',
+                'ExportSection.xaml',
+                'CategorySection.xaml',
+                'KeynotesSection.xaml',
+                'PlaceSection.xaml',
+            ]
+            for n in names:
+                self._add_dict(os.path.join(ctrl_dir, n))
+        except Exception:
+            pass
         return True
 
     def merge_all_for_edit_record(self):

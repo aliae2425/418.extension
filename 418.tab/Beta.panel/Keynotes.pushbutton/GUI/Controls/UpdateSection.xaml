@@ -1,0 +1,14 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <ControlTemplate x:Key="UpdateSectionTemplate" TargetType="ContentControl">
+    <GroupBox Header="{DynamicResource UpdateKeynote}" Margin="0,0,0,10" Padding="6">
+      <Button Content="{DynamicResource UpdateKeynote}"
+              Padding="8,4,8,4"
+              Style="{DynamicResource PrimaryButtonStyle}"
+              ToolTip="{DynamicResource UpdateKeynoteInfo}"
+              Click="update_model"/>
+    </GroupBox>
+  </ControlTemplate>
+
+</ResourceDictionary>

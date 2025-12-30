@@ -93,6 +93,83 @@ class KeynoteManagerWindow(forms.WPFWindow):
         # Merge resources like BatchExport (avoids relative Source issues)
         try:
             UIResourceLoader(self, self._paths).merge_all_for_main()
+
+            # Force templates to resolve now that resources are merged.
+            # Otherwise DynamicResource templates might not be applied yet when
+            # load_config() accesses named controls (e.g. categories_tv).
+            try:
+                def _try_get_resource(key):
+                    try:
+                        if hasattr(self, 'FindResource'):
+                            return self.FindResource(key)
+                    except Exception:
+                        pass
+                    try:
+                        res = getattr(self, 'Resources', None)
+                        if res is not None and res.Contains(key):
+                            return res[key]
+                    except Exception:
+                        pass
+                    return None
+
+                if hasattr(self, 'WorkAreaHost'):
+                    tpl = _try_get_resource('WorkAreaTemplate')
+                    if tpl is not None:
+                        try:
+                            self.WorkAreaHost.Template = tpl
+                        except Exception:
+                            pass
+                    try:
+                        self.WorkAreaHost.ApplyTemplate()
+                        self.WorkAreaHost.UpdateLayout()
+                    except Exception:
+                        pass
+
+                if hasattr(self, 'BurgerMenuHost'):
+                    tpl = _try_get_resource('BurgerMenuTemplate')
+                    if tpl is not None:
+                        try:
+                            self.BurgerMenuHost.Template = tpl
+                        except Exception:
+                            pass
+                    try:
+                        self.BurgerMenuHost.ApplyTemplate()
+                        self.BurgerMenuHost.UpdateLayout()
+                    except Exception:
+                        pass
+
+                try:
+                    self.UpdateLayout()
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+            # Bind named elements that now live inside ControlTemplates (GUI/Controls)
+            try:
+                from ..helpers.TemplateBinder import TemplateBinder
+
+                binder = TemplateBinder(self)
+
+                # 1) Bind immediate template parts (top-level templates)
+                binder.bind({
+                    'BurgerMenuHost': [
+                        'BurgerMenuOverlay', 'BurgerMenu', 'CloseBurgerButton',
+                        # bind section hosts too (they live inside BurgerMenuTemplate)
+                        'UpdateSectionHost', 'ChangeSectionHost', 'ExportSectionHost',
+                        'CategorySectionHost', 'KeynotesSectionHost', 'PlaceSectionHost'
+                    ],
+                    'WorkAreaHost': ['search_tb', 'clrsearch_b', 'categories_tv', 'keynotes_tv'],
+                })
+
+                # 2) Bind nested template parts (section templates)
+                binder.bind({
+                    'CategorySectionHost': ['catEditButtons'],
+                    'KeynotesSectionHost': ['keynoteAdd', 'keynoteSearch', 'keynoteEditButtons', 'subkeynoteAdd'],
+                    'PlaceSectionHost': ['userknote_rb', 'elementknote_rb', 'materialknote_rb'],
+                })
+            except Exception:
+                pass
         except Exception:
             pass
 
