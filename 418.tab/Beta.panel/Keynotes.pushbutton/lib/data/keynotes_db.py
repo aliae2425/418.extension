@@ -24,7 +24,18 @@ from natsort import natsorted
 mlogger = logger.get_logger(__name__)  # pylint: disable=C0103
 
 
-_MOJIBAKE_MARKERS = (u'Ã', u'Â', u'â€', u'â€™', u'â€œ', u'â€�', u'â€”')
+_MOJIBAKE_MARKERS = (
+    u'Ã', u'Â',
+    # common cp1252/latin1 mis-decoding of UTF-8 punctuation
+    u'â€', u'â€™', u'â€œ', u'â€�', u'â€”', u'â€“',
+)
+
+
+def _count_mojibake_markers(utext):
+    try:
+        return sum(utext.count(m) for m in _MOJIBAKE_MARKERS)
+    except Exception:
+        return 0
 
 
 def _maybe_fix_mojibake(text):
@@ -53,14 +64,46 @@ def _maybe_fix_mojibake(text):
     if not any(m in utext for m in _MOJIBAKE_MARKERS):
         return text
 
-    try:
-        fixed = utext.encode('cp1252').decode('utf-8')
-    except Exception:
+    before = _count_mojibake_markers(utext)
+
+    # Try common reverse transforms. Prefer the one that reduces markers most.
+    candidates = []
+    for enc in ('cp1252', 'latin1'):
+        try:
+            cand = utext.encode(enc).decode('utf-8')
+            candidates.append(cand)
+        except Exception:
+            continue
+
+    if not candidates:
         return text
 
-    before = sum(utext.count(m) for m in _MOJIBAKE_MARKERS)
-    after = sum(fixed.count(m) for m in _MOJIBAKE_MARKERS)
-    return fixed if after < before else text
+    best = None
+    best_score = before
+    for cand in candidates:
+        score = _count_mojibake_markers(cand)
+        if score < best_score:
+            best = cand
+            best_score = score
+
+    if best is None:
+        return text
+
+    # One extra pass can fix double-mangled strings like "ÃƒÂ©" -> "é"
+    # but only if it keeps improving.
+    improved = best
+    for _ in range(2):
+        if not any(m in improved for m in _MOJIBAKE_MARKERS):
+            break
+        next_try = _maybe_fix_mojibake(improved)
+        if next_try == improved:
+            break
+        if _count_mojibake_markers(next_try) < _count_mojibake_markers(improved):
+            improved = next_try
+        else:
+            break
+
+    return improved
 
 
 def repair_mojibake(conn):
