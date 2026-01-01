@@ -57,7 +57,9 @@ class AppPaths(object):
         xaml_path = os.path.normpath(xaml_path)
         xaml_dir = os.path.dirname(xaml_path)
 
-        with open(xaml_path, 'r') as fp:
+        # Read/write as bytes to avoid IronPython/.NET text-decoding surprises
+        # (UTF-8 without BOM vs ANSI/cp1252, etc.). We only touch ASCII attrs.
+        with open(xaml_path, 'rb') as fp:
             xaml_text = fp.read()
 
         def _replace_source(match):
@@ -82,7 +84,7 @@ class AppPaths(object):
         base = os.path.basename(xaml_path)
         out_path = os.path.join(tmp_dir, base.replace('.xaml', '.abs.xaml'))
 
-        with open(out_path, 'w') as fp:
+        with open(out_path, 'wb') as fp:
             fp.write(patched)
 
         return out_path

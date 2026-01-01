@@ -44,7 +44,7 @@
                         Background="{DynamicResource TransparentBrush}"
                         BorderThickness="0"
                         Cursor="Hand">
-                    <TextBlock Text="☰"
+                    <TextBlock Text="&#x2630;"
                                FontSize="20"
                                FontWeight="Bold"
                                Foreground="{DynamicResource TextPrimaryBrush}"/>

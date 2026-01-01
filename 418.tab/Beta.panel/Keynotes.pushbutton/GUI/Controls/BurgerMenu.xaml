@@ -36,7 +36,7 @@
             <Grid>
               <TextBlock Text="Menu" Style="{DynamicResource SubHeaderTextBlockStyle}" VerticalAlignment="Center"/>
               <Button Name="CloseBurgerButton"
-                      Content="×"
+                      Content="&#x2715;"
                       FontSize="24"
                       Width="32" Height="32"
                       HorizontalAlignment="Right"

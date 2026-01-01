@@ -24,6 +24,76 @@ from natsort import natsorted
 mlogger = logger.get_logger(__name__)  # pylint: disable=C0103
 
 
+_MOJIBAKE_MARKERS = (u'Ã', u'Â', u'â€', u'â€™', u'â€œ', u'â€�', u'â€”')
+
+
+def _maybe_fix_mojibake(text):
+    """Best-effort repair for UTF-8 bytes incorrectly decoded as cp1252.
+
+    Typical symptom: accented characters show up as sequences like "Ã©".
+    We only apply the transform when it clearly reduces mojibake markers.
+    """
+    if not text:
+        return text
+
+    try:
+        is_text = isinstance(text, basestring)
+    except Exception:
+        is_text = True
+
+    if not is_text:
+        return text
+
+    try:
+        utext = text if isinstance(text, unicode) else unicode(text)
+    except Exception:
+        # If it can't be coerced safely, leave it as-is
+        return text
+
+    if not any(m in utext for m in _MOJIBAKE_MARKERS):
+        return text
+
+    try:
+        fixed = utext.encode('cp1252').decode('utf-8')
+    except Exception:
+        return text
+
+    before = sum(utext.count(m) for m in _MOJIBAKE_MARKERS)
+    after = sum(fixed.count(m) for m in _MOJIBAKE_MARKERS)
+    return fixed if after < before else text
+
+
+def repair_mojibake(conn):
+    """Repair mojibake stored in DB (categories + keynotes text)."""
+    repaired = 0
+    try:
+        conn.BEGIN(KEYNOTES_DB)
+
+        for rec in conn.ReadAllRecords(KEYNOTES_DB, CATEGORIES_TABLE):
+            cat_key = rec.get(CATEGORY_KEY_FIELD)
+            old_title = rec.get(CATEGORY_TITLE_FIELD) or ''
+            new_title = _maybe_fix_mojibake(old_title)
+            if cat_key and new_title != old_title:
+                conn.UpdateRecord(KEYNOTES_DB, CATEGORIES_TABLE, cat_key, {CATEGORY_TITLE_FIELD: new_title})
+                repaired += 1
+
+        for rec in conn.ReadAllRecords(KEYNOTES_DB, KEYNOTES_TABLE):
+            kn_key = rec.get(KEYNOTES_KEY_FIELD)
+            old_text = rec.get(KEYNOTES_TEXT_FIELD) or ''
+            new_text = _maybe_fix_mojibake(old_text)
+            if kn_key and new_text != old_text:
+                conn.UpdateRecord(KEYNOTES_DB, KEYNOTES_TABLE, kn_key, {KEYNOTES_TEXT_FIELD: new_text})
+                repaired += 1
+    finally:
+        try:
+            conn.END()
+        except Exception:
+            pass
+
+    if repaired:
+        mlogger.debug('Repaired %s mojibake strings', repaired)
+
+
 KEYNOTES_DB = 'keynotesdb'
 KEYNOTES_DB_DESC = '418 Keynotes Manager DB'
 
@@ -256,6 +326,14 @@ def connect(keynotes_file, username=None):
         sourceEncoding=framework.Encoding.GetEncoding('utf-16')
     )
     _verify_keynotesdb_def(conn)
+
+    # If the file was previously converted/imported with the wrong encoding order,
+    # accented characters may already be stored as mojibake. Fix it once at connect.
+    try:
+        repair_mojibake(conn)
+    except Exception as ex:
+        mlogger.debug('Mojibake repair skipped | %s', ex)
+
     return conn
 
 
@@ -428,7 +506,10 @@ def _import_keynotes_from_lines(conn, lines, skip_dup=False):
 
 
 def import_legacy_keynotes(conn, src_legacy_keynotes_file, skip_dup=False):
-    encodings = ['Windows-1252', 'ISO-8859-1', 'ascii']
+    # Prefer UTF-8 when file has no BOM.
+    # Decoding UTF-8 bytes as cp1252 does not raise but produces mojibake (e.g. "Ã©").
+    # Using strict UTF-8 first fixes accented characters in the TreeView.
+    encodings = ['utf-8', 'utf-8-sig', 'Windows-1252', 'ISO-8859-1', 'ascii']
     if coreutils.check_encoding_bom(src_legacy_keynotes_file, bom_bytes=codecs.BOM_UTF16):
         encodings = ['utf_16_le']
     elif coreutils.check_encoding_bom(src_legacy_keynotes_file, bom_bytes=codecs.BOM_UTF8):
@@ -444,7 +525,7 @@ def import_legacy_keynotes(conn, src_legacy_keynotes_file, skip_dup=False):
                 break
         except Exception:
             if idx == last_encoding_idx:
-                raise Exception('Unknown file encoding. Supported encodings are ASCII, UTF-8, and UTF-16 (UCS-2 LE)')
+                raise Exception('Unknown file encoding. Supported encodings are UTF-8, Windows-1252, ISO-8859-1, ASCII, and UTF-16 (UCS-2 LE)')
             continue
 
     if legacy_kfile and knote_lines is not None:
