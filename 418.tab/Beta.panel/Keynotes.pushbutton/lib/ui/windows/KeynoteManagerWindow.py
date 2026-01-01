@@ -90,88 +90,18 @@ class KeynoteManagerWindow(forms.WPFWindow):
         self._paths = AppPaths()
         forms.WPFWindow.__init__(self, self._paths.main_xaml())
 
-        # Merge resources like BatchExport (avoids relative Source issues)
+        # If template-based controls are not materialized yet, defer final init to Loaded.
+        self._deferred_reset_config = reset_config
+        self._did_deferred_init = False
+
+        # Merge resources + bind template parts (best-effort)
         try:
             UIResourceLoader(self, self._paths).merge_all_for_main()
-
-            # Force templates to resolve now that resources are merged.
-            # Otherwise DynamicResource templates might not be applied yet when
-            # load_config() accesses named controls (e.g. categories_tv).
-            try:
-                def _try_get_resource(key):
-                    try:
-                        if hasattr(self, 'FindResource'):
-                            return self.FindResource(key)
-                    except Exception:
-                        pass
-                    try:
-                        res = getattr(self, 'Resources', None)
-                        if res is not None and res.Contains(key):
-                            return res[key]
-                    except Exception:
-                        pass
-                    return None
-
-                if hasattr(self, 'WorkAreaHost'):
-                    tpl = _try_get_resource('WorkAreaTemplate')
-                    if tpl is not None:
-                        try:
-                            self.WorkAreaHost.Template = tpl
-                        except Exception:
-                            pass
-                    try:
-                        self.WorkAreaHost.ApplyTemplate()
-                        self.WorkAreaHost.UpdateLayout()
-                    except Exception:
-                        pass
-
-                if hasattr(self, 'BurgerMenuHost'):
-                    tpl = _try_get_resource('BurgerMenuTemplate')
-                    if tpl is not None:
-                        try:
-                            self.BurgerMenuHost.Template = tpl
-                        except Exception:
-                            pass
-                    try:
-                        self.BurgerMenuHost.ApplyTemplate()
-                        self.BurgerMenuHost.UpdateLayout()
-                    except Exception:
-                        pass
-
-                try:
-                    self.UpdateLayout()
-                except Exception:
-                    pass
-            except Exception:
-                pass
-
-            # Bind named elements that now live inside ControlTemplates (GUI/Controls)
-            try:
-                from ..helpers.TemplateBinder import TemplateBinder
-
-                binder = TemplateBinder(self)
-
-                # 1) Bind immediate template parts (top-level templates)
-                binder.bind({
-                    'BurgerMenuHost': [
-                        'BurgerMenuOverlay', 'BurgerMenu', 'CloseBurgerButton',
-                        # bind section hosts too (they live inside BurgerMenuTemplate)
-                        'UpdateSectionHost', 'ChangeSectionHost', 'ExportSectionHost',
-                        'CategorySectionHost', 'KeynotesSectionHost', 'PlaceSectionHost'
-                    ],
-                    'WorkAreaHost': ['search_tb', 'clrsearch_b', 'categories_tv', 'keynotes_tv'],
-                })
-
-                # 2) Bind nested template parts (section templates)
-                binder.bind({
-                    'CategorySectionHost': ['catEditButtons'],
-                    'KeynotesSectionHost': ['keynoteAdd', 'keynoteSearch', 'keynoteEditButtons', 'subkeynoteAdd'],
-                    'PlaceSectionHost': ['userknote_rb', 'elementknote_rb', 'materialknote_rb'],
-                })
-            except Exception:
-                pass
         except Exception:
             pass
+
+        # Try wiring immediately; if it fails, we'll retry on Loaded.
+        self._apply_templates_and_bind()
 
         # Optional custom window chrome (TitleBar + CloseWindowButton)
         try:
@@ -216,8 +146,456 @@ class KeynoteManagerWindow(forms.WPFWindow):
         self._needs_update = False
         self._config = script.get_config()
         self._used_keysdict = self.get_used_keynote_elements()
-        self.load_config(reset_config)
-        self.search_tb.Focus()
+
+        # Verify UI components are available before using them.
+        self._verify_ui_wiring(stage='after-bind')
+
+        if self._ui_ready_for_config():
+            self._finish_init(reset_config)
+        else:
+            # Defer until window is loaded & templates are fully materialized.
+            try:
+                self.Loaded += self._on_window_loaded
+            except Exception:
+                pass
+
+    def _log_diag(self, msg):
+        try:
+            logger = script.get_logger()
+            logger.warning(msg)
+        except Exception:
+            try:
+                print(msg)
+            except Exception:
+                pass
+
+    def _try_get_resource(self, key):
+        try:
+            if hasattr(self, 'FindResource'):
+                return self.FindResource(key)
+        except Exception:
+            pass
+        try:
+            res = getattr(self, 'Resources', None)
+            if res is not None and res.Contains(key):
+                return res[key]
+        except Exception:
+            pass
+        return None
+
+    def _apply_templates_and_bind(self):
+        """Apply host templates and bind named parts onto this window (best-effort)."""
+        # Force templates to resolve now that resources are merged.
+        try:
+            if hasattr(self, 'WorkAreaHost'):
+                tpl = self._try_get_resource('WorkAreaTemplate')
+                if tpl is not None:
+                    try:
+                        self.WorkAreaHost.Template = tpl
+                    except Exception:
+                        pass
+                try:
+                    self.WorkAreaHost.ApplyTemplate()
+                    self.WorkAreaHost.UpdateLayout()
+                except Exception:
+                    pass
+
+            if hasattr(self, 'BurgerMenuHost'):
+                tpl = self._try_get_resource('BurgerMenuTemplate')
+                if tpl is not None:
+                    try:
+                        self.BurgerMenuHost.Template = tpl
+                    except Exception:
+                        pass
+                try:
+                    self.BurgerMenuHost.ApplyTemplate()
+                    self.BurgerMenuHost.UpdateLayout()
+                except Exception:
+                    pass
+
+            try:
+                self.UpdateLayout()
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        # Bind named elements that live inside ControlTemplates (GUI/Controls)
+        try:
+            from ..helpers.TemplateBinder import TemplateBinder
+
+            binder = TemplateBinder(self)
+
+            # 1) Immediate template parts (top-level templates)
+            binder.bind({
+                'BurgerMenuHost': [
+                    'BurgerMenuOverlay', 'BurgerMenu', 'CloseBurgerButton',
+                    'UpdateSectionHost', 'ChangeSectionHost', 'ExportSectionHost',
+                    'CategorySectionHost', 'KeynotesSectionHost', 'PlaceSectionHost'
+                ],
+                'WorkAreaHost': ['search_tb', 'clrsearch_b', 'categories_tv', 'keynotes_tv'],
+            })
+
+            # 2) Nested template parts (section templates)
+            binder.bind({
+                'CategorySectionHost': ['catEditButtons'],
+                'KeynotesSectionHost': [
+                    'keynoteAdd', 'keynoteSearch', 'keynoteEditButtons', 'subkeynoteAdd'
+                ],
+                'PlaceSectionHost': ['userknote_rb', 'elementknote_rb', 'materialknote_rb'],
+            })
+        except Exception:
+            pass
+
+        # Wire UI events (templates can't declare Click="..." etc)
+        self._wire_ui_events()
+
+    def _wire_ui_events(self):
+        """Attach event handlers to template-based controls (best-effort)."""
+        # Work area
+        try:
+            # Filter button is not named in template; find by walking visual tree.
+            # We'll bind by name when possible; otherwise skip.
+            if hasattr(self, 'search_tb'):
+                try:
+                    self.search_tb.TextChanged += self.search_txt_changed
+                except Exception:
+                    pass
+            if hasattr(self, 'clrsearch_b'):
+                try:
+                    self.clrsearch_b.Click += self.clear_search
+                except Exception:
+                    pass
+            if hasattr(self, 'categories_tv'):
+                try:
+                    self.categories_tv.SelectionChanged += self.selected_category_changed
+                except Exception:
+                    pass
+            if hasattr(self, 'keynotes_tv'):
+                try:
+                    self.keynotes_tv.SelectedItemChanged += self.selected_keynote_changed
+                except Exception:
+                    pass
+                try:
+                    self.keynotes_tv.PreviewMouseDoubleClick += self.place_keynote
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # Burger sections: locate buttons via visual tree and wire by tooltip/resource where possible.
+        try:
+            # Update section
+            if hasattr(self, 'UpdateSectionHost'):
+                btn = None
+                try:
+                    import System  # type: ignore
+                    vth = System.Windows.Media.VisualTreeHelper
+                    # find first Button under host
+                    def _find_first_button(root):
+                        try:
+                            cnt = vth.GetChildrenCount(root)
+                        except Exception:
+                            return None
+                        for i in range(cnt):
+                            try:
+                                ch = vth.GetChild(root, i)
+                            except Exception:
+                                ch = None
+                            if ch is None:
+                                continue
+                            try:
+                                if ch.GetType().Name == 'Button':
+                                    return ch
+                            except Exception:
+                                pass
+                            found = _find_first_button(ch)
+                            if found is not None:
+                                return found
+                        return None
+
+                    btn = _find_first_button(self.UpdateSectionHost)
+                except Exception:
+                    btn = None
+                if btn is not None:
+                    try:
+                        btn.Click += self.update_model
+                    except Exception:
+                        pass
+
+            # Change section: refresh, change file, show file
+            if hasattr(self, 'ChangeSectionHost'):
+                try:
+                    import System  # type: ignore
+                    vth = System.Windows.Media.VisualTreeHelper
+                    buttons = []
+                    def _collect_buttons(root):
+                        try:
+                            cnt = vth.GetChildrenCount(root)
+                        except Exception:
+                            return
+                        for i in range(cnt):
+                            try:
+                                ch = vth.GetChild(root, i)
+                            except Exception:
+                                ch = None
+                            if ch is None:
+                                continue
+                            try:
+                                if ch.GetType().Name == 'Button':
+                                    buttons.append(ch)
+                            except Exception:
+                                pass
+                            _collect_buttons(ch)
+                    _collect_buttons(self.ChangeSectionHost)
+                    if len(buttons) >= 1:
+                        try:
+                            buttons[0].Click += self.refresh
+                        except Exception:
+                            pass
+                    if len(buttons) >= 2:
+                        try:
+                            buttons[1].Click += self.change_keynote_file
+                        except Exception:
+                            pass
+                    if len(buttons) >= 3:
+                        try:
+                            buttons[2].Click += self.show_keynote_file
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+            # Export section: import, export all, export visible
+            if hasattr(self, 'ExportSectionHost'):
+                try:
+                    import System  # type: ignore
+                    vth = System.Windows.Media.VisualTreeHelper
+                    buttons = []
+                    def _collect_buttons(root):
+                        try:
+                            cnt = vth.GetChildrenCount(root)
+                        except Exception:
+                            return
+                        for i in range(cnt):
+                            try:
+                                ch = vth.GetChild(root, i)
+                            except Exception:
+                                ch = None
+                            if ch is None:
+                                continue
+                            try:
+                                if ch.GetType().Name == 'Button':
+                                    buttons.append(ch)
+                            except Exception:
+                                pass
+                            _collect_buttons(ch)
+                    _collect_buttons(self.ExportSectionHost)
+                    if len(buttons) >= 1:
+                        try:
+                            buttons[0].Click += self.import_keynotes
+                        except Exception:
+                            pass
+                    if len(buttons) >= 2:
+                        try:
+                            buttons[1].Click += self.export_keynotes
+                        except Exception:
+                            pass
+                    if len(buttons) >= 3:
+                        try:
+                            buttons[2].Click += self.export_visible_keynotes
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+            # Category section: add + (edit/remove/rekey)
+            if hasattr(self, 'CategorySectionHost'):
+                try:
+                    import System  # type: ignore
+                    vth = System.Windows.Media.VisualTreeHelper
+                    buttons = []
+                    def _collect_buttons(root):
+                        try:
+                            cnt = vth.GetChildrenCount(root)
+                        except Exception:
+                            return
+                        for i in range(cnt):
+                            try:
+                                ch = vth.GetChild(root, i)
+                            except Exception:
+                                ch = None
+                            if ch is None:
+                                continue
+                            try:
+                                if ch.GetType().Name == 'Button':
+                                    buttons.append(ch)
+                            except Exception:
+                                pass
+                            _collect_buttons(ch)
+                    _collect_buttons(self.CategorySectionHost)
+                    if len(buttons) >= 1:
+                        try:
+                            buttons[0].Click += self.add_category
+                        except Exception:
+                            pass
+                    if len(buttons) >= 2:
+                        try:
+                            buttons[1].Click += self.edit_category
+                        except Exception:
+                            pass
+                    if len(buttons) >= 3:
+                        try:
+                            buttons[2].Click += self.remove_category
+                        except Exception:
+                            pass
+                    if len(buttons) >= 4:
+                        try:
+                            buttons[3].Click += self.rekey_category
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+            # Keynotes section: add/search + edit/remove/add child/duplicate/rekey/recat
+            if hasattr(self, 'KeynotesSectionHost'):
+                try:
+                    import System  # type: ignore
+                    vth = System.Windows.Media.VisualTreeHelper
+                    buttons = []
+                    def _collect_buttons(root):
+                        try:
+                            cnt = vth.GetChildrenCount(root)
+                        except Exception:
+                            return
+                        for i in range(cnt):
+                            try:
+                                ch = vth.GetChild(root, i)
+                            except Exception:
+                                ch = None
+                            if ch is None:
+                                continue
+                            try:
+                                if ch.GetType().Name == 'Button':
+                                    buttons.append(ch)
+                            except Exception:
+                                pass
+                            _collect_buttons(ch)
+                    _collect_buttons(self.KeynotesSectionHost)
+
+                    # Order in template: keynoteAdd, keynoteSearch, edit, remove, subkeynoteAdd, duplicate, rekey, recat
+                    if len(buttons) >= 1:
+                        try:
+                            buttons[0].Click += self.add_keynote
+                        except Exception:
+                            pass
+                    if len(buttons) >= 2:
+                        try:
+                            buttons[1].Click += self.show_keynote
+                        except Exception:
+                            pass
+                    if len(buttons) >= 3:
+                        try:
+                            buttons[2].Click += self.edit_keynote
+                        except Exception:
+                            pass
+                    if len(buttons) >= 4:
+                        try:
+                            buttons[3].Click += self.remove_keynote
+                        except Exception:
+                            pass
+                    if len(buttons) >= 5:
+                        try:
+                            buttons[4].Click += self.add_sub_keynote
+                        except Exception:
+                            pass
+                    if len(buttons) >= 6:
+                        try:
+                            buttons[5].Click += self.duplicate_keynote
+                        except Exception:
+                            pass
+                    if len(buttons) >= 7:
+                        try:
+                            buttons[6].Click += self.rekey_keynote
+                        except Exception:
+                            pass
+                    if len(buttons) >= 8:
+                        try:
+                            buttons[7].Click += self.recat_keynote
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def _ui_ready_for_config(self):
+        required = [
+            'search_tb', 'categories_tv', 'keynotes_tv',
+            'userknote_rb', 'elementknote_rb', 'materialknote_rb'
+        ]
+        for name in required:
+            if not hasattr(self, name):
+                return False
+        return True
+
+    def _finish_init(self, reset_config):
+        try:
+            self.load_config(reset_config)
+        except Exception:
+            # Keep window alive; diagnostics will help identify missing bindings.
+            self._verify_ui_wiring(stage='load_config-failed')
+            raise
+
+        try:
+            if hasattr(self, 'search_tb'):
+                self.search_tb.Focus()
+        except Exception:
+            pass
+
+    def _verify_ui_wiring(self, stage=''):
+        """Log which expected UI elements are missing (best-effort, non-fatal)."""
+        expected = [
+            # chrome
+            'TitleBar', 'CloseWindowButton', 'BurgerButton',
+            # hosts
+            'WorkAreaHost', 'BurgerMenuHost',
+            # burger internals
+            'BurgerMenuOverlay', 'BurgerMenu', 'CloseBurgerButton',
+            # work area
+            'search_tb', 'clrsearch_b', 'categories_tv', 'keynotes_tv',
+            # section internals used by code
+            'catEditButtons', 'keynoteAdd', 'keynoteSearch', 'keynoteEditButtons',
+            'userknote_rb', 'elementknote_rb', 'materialknote_rb'
+        ]
+
+        missing = [n for n in expected if not hasattr(self, n)]
+        if missing:
+            label = (' [' + stage + ']') if stage else ''
+            self._log_diag('Keynotes UI wiring missing{}: {}'.format(label, ', '.join(missing)))
+
+    def _on_window_loaded(self, sender, args):
+        if self._did_deferred_init:
+            return
+        self._did_deferred_init = True
+        try:
+            try:
+                self.Loaded -= self._on_window_loaded
+            except Exception:
+                pass
+
+            # Retry binding now that the visual tree exists
+            self._apply_templates_and_bind()
+            self._verify_ui_wiring(stage='loaded')
+
+            if self._ui_ready_for_config():
+                self._finish_init(self._deferred_reset_config)
+            else:
+                # Still not ready; keep window but show clear diagnostics.
+                self._verify_ui_wiring(stage='loaded-still-missing')
+        except Exception:
+            # If anything unexpected happens here, keep default exception behavior.
+            raise
 
     def _on_close_window(self, sender, args):
         try:

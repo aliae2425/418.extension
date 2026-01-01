@@ -14,7 +14,7 @@
                 Grid.Column="0"
                 Padding="8,4,8,4"
                 ToolTip="{DynamicResource RefreshKeynotesInfo}"
-                Click="refresh"/>
+          />
 
         <Button Content="&#x25CF;&#x25CF;&#x25CF;"
                 Grid.Column="1"
@@ -22,12 +22,12 @@
                 Padding="0,4,0,4"
                 FontFamily="Segoe UI Symbol"
                 ToolTip="{DynamicResource ChangeKeynote}"
-                Click="change_keynote_file"/>
+          />
 
         <Button Content="{DynamicResource showKFileIcon}"
                 Grid.Column="2"
                 ToolTip="{DynamicResource ShowKeynote}"
-                Click="show_keynote_file"/>
+          />
       </Grid>
     </GroupBox>
   </ControlTemplate>

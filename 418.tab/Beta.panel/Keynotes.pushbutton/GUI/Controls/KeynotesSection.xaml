@@ -18,13 +18,13 @@
                   Margin="0,0,2,2"
                   Content="{DynamicResource addKeynoteIcon}"
                   ToolTip="{DynamicResource AddKeynote}"
-                  Click="add_keynote"/>
+              />
 
             <Button x:Name="keynoteSearch" Grid.Column="0" Grid.Row="1"
                   Margin="0,2,2,0" IsEnabled="False"
                   Content="{DynamicResource findKeynoteIcon}"
                   ToolTip="{DynamicResource SearchKeynote}"
-                  Click="show_keynote"/>
+                />
 
           <Grid x:Name="keynoteEditButtons" Grid.Column="1" Grid.Row="0" Grid.RowSpan="2"
                 Height="117"
@@ -43,37 +43,37 @@
                     Margin="2,0,2,2"
                     Content="{DynamicResource editKeynoteIcon}"
                     ToolTip="{DynamicResource EditKeynote}"
-                    Click="edit_keynote"/>
+                  />
 
             <Button Grid.Column="1" Grid.Row="0"
                     Margin="2,0,0,2"
                     Content="{DynamicResource removeKeynoteIcon}"
                     ToolTip="{DynamicResource RemoveKeynote}"
-                    Click="remove_keynote"/>
+                  />
 
             <Button x:Name="subkeynoteAdd" Grid.Column="0" Grid.Row="1"
                     Margin="2,2,2,2"
                     Content="{DynamicResource addSubKeynoteIcon}"
                     ToolTip="{DynamicResource AddChildKeynote}"
-                    Click="add_sub_keynote"/>
+                  />
 
             <Button Grid.Column="1" Grid.Row="1"
                     Margin="2,2,0,2"
                     Content="{DynamicResource duplicateKeynoteIcon}"
                     ToolTip="{DynamicResource DuplicateKeynote}"
-                    Click="duplicate_keynote"/>
+                  />
 
             <Button Grid.Column="0" Grid.Row="2"
                     Margin="2,2,2,0"
                     Content="{DynamicResource rekeyKeynoteIcon}"
                     ToolTip="{DynamicResource ChangeKeyKeynote}"
-                    Click="rekey_keynote"/>
+                  />
 
             <Button Grid.Column="1" Grid.Row="2"
                     Margin="2,2,0,0"
                     Content="{DynamicResource reCatKeynoteIcon}"
                     ToolTip="{DynamicResource ChangeCategoryKeynote}"
-                    Click="recat_keynote"/>
+                  />
           </Grid>
         </Grid>
       </StackPanel>

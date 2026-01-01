@@ -8,7 +8,7 @@
                 Margin="0,0,0,6"
                 Padding="8,4,8,4"
                 ToolTip="{DynamicResource ImportKeynotesInfo}"
-                Click="import_keynotes"/>
+          />
 
         <Grid>
           <Grid.ColumnDefinitions>
@@ -21,14 +21,14 @@
                   Grid.Column="0"
                   Padding="8,4,8,4"
                   ToolTip="{DynamicResource ExportKeynotesInfo}"
-                  Click="export_keynotes"/>
+              />
 
           <Button Content="{DynamicResource ExportVisibleKeynotes}"
                   BorderThickness="0,1,1,1"
                   Grid.Column="1"
                   Padding="8,4,8,4"
                   ToolTip="{DynamicResource ExportVisibleKeynotesInfo}"
-                  Click="export_visible_keynotes"/>
+              />
         </Grid>
       </StackPanel>
     </GroupBox>

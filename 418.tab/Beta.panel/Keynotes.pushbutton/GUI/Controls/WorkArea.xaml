@@ -21,12 +21,12 @@
                   Width="36" Height="36"
                   Padding="0"
                   Margin="0,0,10,0"
-                  Click="custom_filter"/>
+              />
 
           <Grid Grid.Column="1">
             <TextBox x:Name="search_tb"
                     Padding="10,0,34,0"
-                    TextChanged="search_txt_changed"
+                    
                     VerticalContentAlignment="Center"/>
 
             <Button x:Name="clrsearch_b"
@@ -37,7 +37,7 @@
                     Background="{DynamicResource TransparentBrush}"
                     BorderThickness="0"
                     Style="{DynamicResource ClearButton}"
-                    Click="clear_search">
+                  >
               <Button.Content>
                 <Canvas Width="18" Height="18" VerticalAlignment="Center" HorizontalAlignment="Center">
                   <Path Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"
@@ -55,13 +55,11 @@
                   VirtualizingPanel.VirtualizationMode="Recycling"
                   ItemTemplate="{DynamicResource treeViewItem}"
                   ItemContainerStyle="{DynamicResource comboItemStyle}"
-                  SelectionChanged="selected_category_changed"/>
+                  />
 
         <TreeView x:Name="keynotes_tv"
                   Grid.Row="2"
                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                  PreviewMouseDoubleClick="place_keynote"
-                  SelectedItemChanged="selected_keynote_changed"
                   VirtualizingPanel.IsVirtualizing="True"
                   VirtualizingPanel.VirtualizationMode="Recycling"
                   ItemTemplate="{DynamicResource treeViewItem}"

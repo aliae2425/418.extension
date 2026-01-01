@@ -13,7 +13,7 @@
                 Margin="0,0,2,0"
                 Content="{DynamicResource addCategoryIcon}"
                 ToolTip="{DynamicResource AddKeynoteCategory}"
-                Click="add_category"/>
+          />
 
         <Grid x:Name="catEditButtons" Grid.Column="1" IsEnabled="False">
           <Grid.ColumnDefinitions>
@@ -29,19 +29,19 @@
                   Margin="2,0,2,2"
                   Content="{DynamicResource editCategoryIcon}"
                   ToolTip="{DynamicResource EditKeynoteCategory}"
-                  Click="edit_category"/>
+              />
 
           <Button Grid.Column="1" Grid.Row="0"
                   Margin="2,0,0,2"
                   Content="{DynamicResource removeCategoryIcon}"
                   ToolTip="{DynamicResource RemoveKeynoteCategory}"
-                  Click="remove_category"/>
+              />
 
           <Button Grid.Column="0" Grid.Row="1"
                   Margin="2,2,2,0"
                   Content="{DynamicResource rekeyCategoryIcon}"
                   ToolTip="{DynamicResource ReKeyKeynoteCategory}"
-                  Click="rekey_category"/>
+              />
         </Grid>
       </Grid>
     </GroupBox>
