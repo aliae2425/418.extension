@@ -20,6 +20,7 @@ from pyrevit import revit
 from pyrevit.labs import DeffrelDB as dfdb
 
 from natsort import natsorted
+from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 
 mlogger = logger.get_logger(__name__)  # pylint: disable=C0103
 
@@ -227,12 +228,12 @@ class RKeynoteFilters(object):
         return cleaned
 
 
-class RKeynote(object):
+class RKeynote(INotifyPropertyChanged):
     """Entrée keynote/catégorie + statut (used/locked)."""
 
     def __init__(self, key, text, parent_key=None, locked=False, owner=None, children=None):
-        self.key = key
-        self.text = text
+        self._key = key
+        self._text = text
         self.parent_key = parent_key or ''
         self.locked = locked
         self.owner = owner or ''
@@ -243,6 +244,50 @@ class RKeynote(object):
         self.used = False
         self.used_count = 0
         self.tooltip = 'Referenced on views:'
+
+        self._is_editing = False
+        self._property_changed_handlers = []
+
+    def add_PropertyChanged(self, handler):
+        self._property_changed_handlers.append(handler)
+
+    def remove_PropertyChanged(self, handler):
+        self._property_changed_handlers.remove(handler)
+
+    def OnPropertyChanged(self, propertyName):
+        args = PropertyChangedEventArgs(propertyName)
+        for handler in self._property_changed_handlers:
+            handler(self, args)
+
+    @property
+    def is_editing(self):
+        return self._is_editing
+
+    @is_editing.setter
+    def is_editing(self, value):
+        if self._is_editing != value:
+            self._is_editing = value
+            self.OnPropertyChanged('is_editing')
+
+    @property
+    def key(self):
+        return self._key
+
+    @key.setter
+    def key(self, value):
+        if self._key != value:
+            self._key = value
+            self.OnPropertyChanged('key')
+
+    @property
+    def text(self):
+        return self._text
+
+    @text.setter
+    def text(self, value):
+        if self._text != value:
+            self._text = value
+            self.OnPropertyChanged('text')
 
     def __repr__(self):
         return '<{} key:{} childs:{}>'.format(self.__class__.__name__, self.key, len(self.children))

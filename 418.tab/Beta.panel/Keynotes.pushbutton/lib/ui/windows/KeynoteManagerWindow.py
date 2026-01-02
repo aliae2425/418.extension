@@ -26,6 +26,29 @@ from ...data import keynotes_db as kdb
 from ..helpers.UIResourceLoader import UIResourceLoader
 from .EditRecordWindow import EditRecordWindow
 
+try:
+    from System.Windows.Input import ICommand
+except Exception:
+    ICommand = object  # type: ignore
+
+
+class RelayCommand(ICommand):
+    def __init__(self, execute, can_execute=None):
+        self._execute = execute
+        self._can_execute = can_execute
+
+    def CanExecute(self, parameter):
+        return self._can_execute(parameter) if self._can_execute else True
+
+    def Execute(self, parameter):
+        self._execute(parameter)
+
+    def add_CanExecuteChanged(self, handler):
+        pass
+
+    def remove_CanExecuteChanged(self, handler):
+        pass
+
 
 HELP_URL = 'https://www.notion.so/pyrevitlabs/Manage-Keynotes-6f083d6f66fe43d68dc5d5407c8e19da'
 
@@ -89,6 +112,8 @@ class KeynoteManagerWindow(forms.WPFWindow):
     def __init__(self, reset_config=False):
         self._paths = AppPaths()
         forms.WPFWindow.__init__(self, self._paths.main_xaml())
+        self.DataContext = self
+        self.EditKeynoteCommand = RelayCommand(self.OnEditKeynoteClick)
 
         # If template-based controls are not materialized yet, defer final init to Loaded.
         self._deferred_reset_config = reset_config
@@ -1185,6 +1210,52 @@ class KeynoteManagerWindow(forms.WPFWindow):
                 self._needs_update = True
             finally:
                 self._update_ktree_knotes()
+
+    def OnEditKeynoteClick(self, parameter):
+        rkeynote = parameter
+        if not rkeynote:
+            return
+
+        if rkeynote.is_editing:
+            # Save changes
+            try:
+                original_key = getattr(rkeynote, '_original_key', rkeynote.key)
+                original_text = getattr(rkeynote, '_original_text', rkeynote.text)
+                
+                new_key = rkeynote.key
+                new_text = rkeynote.text
+                
+                if rkeynote.is_category:
+                    if new_key != original_key:
+                        kdb.update_category_key(self._conn, original_key, new_key)
+                        # Update original key for next time
+                        rkeynote._original_key = new_key
+                        
+                    if new_text != original_text:
+                        kdb.update_category_title(self._conn, new_key, new_text)
+                        rkeynote._original_text = new_text
+                else:
+                    if new_key != original_key:
+                        kdb.update_keynote_key(self._conn, original_key, new_key)
+                        rkeynote._original_key = new_key
+                        
+                    if new_text != original_text:
+                        kdb.update_keynote_text(self._conn, new_key, new_text)
+                        rkeynote._original_text = new_text
+                        
+                self._needs_update = True
+            except Exception as ex:
+                forms.alert("Error saving keynote: {}".format(ex))
+                # Revert changes?
+                # rkeynote.key = original_key
+                # rkeynote.text = original_text
+            
+            rkeynote.is_editing = False
+        else:
+            # Start editing
+            rkeynote._original_key = rkeynote.key
+            rkeynote._original_text = rkeynote.text
+            rkeynote.is_editing = True
 
     def rekey_keynote(self, sender, args):
         selected_keynote = self.selected_keynote

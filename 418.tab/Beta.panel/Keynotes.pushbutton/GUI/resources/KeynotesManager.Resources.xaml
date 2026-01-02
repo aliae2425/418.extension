@@ -199,18 +199,45 @@
     <HierarchicalDataTemplate x:Key="treeViewItem" ItemsSource="{Binding children}">
         <Grid Margin="0,2,0,2" Width="600" MaxWidth="600">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition MinWidth="30" Width="Auto"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <WrapPanel x:Name="catTag" Visibility="Collapsed" Grid.Column="0">
+
+            <Button x:Name="editBtn" Grid.Column="0"
+                    Width="20" Height="20"
+                    Margin="0,0,5,0"
+                    Background="Transparent" BorderThickness="0"
+                    Command="{Binding DataContext.EditKeynoteCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    CommandParameter="{Binding}"
+                    ToolTip="Edit">
+                 <ContentControl Content="{DynamicResource editKeynoteIcon}" Width="14" Height="14"/>
+            </Button>
+            
+            <Button x:Name="saveBtn" Grid.Column="0"
+                    Width="20" Height="20"
+                    Margin="0,0,5,0"
+                    Background="Transparent" BorderThickness="0"
+                    Command="{Binding DataContext.EditKeynoteCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    CommandParameter="{Binding}"
+                    Visibility="Collapsed"
+                    ToolTip="Save">
+                 <TextBlock Text="💾" FontSize="14"/>
+            </Button>
+
+            <WrapPanel x:Name="catTag" Visibility="Collapsed" Grid.Column="1">
                 <Border Background="Black" Height="16" MinWidth="24">
                     <TextBlock Text="{Binding Path=key}" Foreground="White" FontSize="12" FontWeight="Medium" Margin="5,-1,0,0"/>
                 </Border>
                 <Polygon Points="0,0 0,16 8,8" Fill="Black" />
             </WrapPanel>
-            <TextBlock x:Name="keyTag" Text="{Binding Path=key}" FontWeight="Medium" Margin="5,-1,0,0" Visibility="Collapsed"/>
-            <WrapPanel Grid.Column="1">
+            <TextBlock x:Name="keyTag" Grid.Column="1" Text="{Binding Path=key}" FontWeight="Medium" Margin="5,-1,0,0" Visibility="Collapsed"/>
+            <TextBox x:Name="keyEdit" Grid.Column="1" Text="{Binding Path=key, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="5,-1,0,0" Visibility="Collapsed" MinWidth="30"/>
+
+            <WrapPanel Grid.Column="2">
                 <TextBlock x:Name="keyText" Text="{Binding Path=text}" Margin="10,0,0,0" Padding="0" TextWrapping="Wrap" />
+                <TextBox x:Name="textEdit" Text="{Binding Path=text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" Visibility="Collapsed" MinWidth="100"/>
+
                 <Border x:Name="usedCount"
                         Background="White" BorderBrush="LightGray" BorderThickness="1"
                         Height="16" CornerRadius="4" Margin="10,0,0,0" Padding="5,0,5,0" Visibility="Collapsed" ToolTip="{Binding Path=tooltip}">
@@ -246,6 +273,15 @@
             </DataTrigger>
             <DataTrigger Binding="{Binding Path=is_category}" Value="False">
                 <Setter TargetName="keyTag" Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Path=is_editing}" Value="True">
+                <Setter TargetName="editBtn" Property="Visibility" Value="Collapsed"/>
+                <Setter TargetName="saveBtn" Property="Visibility" Value="Visible"/>
+                <Setter TargetName="keyTag" Property="Visibility" Value="Collapsed"/>
+                <Setter TargetName="keyEdit" Property="Visibility" Value="Visible"/>
+                <Setter TargetName="keyText" Property="Visibility" Value="Collapsed"/>
+                <Setter TargetName="textEdit" Property="Visibility" Value="Visible"/>
+                <Setter TargetName="catTag" Property="Visibility" Value="Collapsed"/>
             </DataTrigger>
         </HierarchicalDataTemplate.Triggers>
     </HierarchicalDataTemplate>
