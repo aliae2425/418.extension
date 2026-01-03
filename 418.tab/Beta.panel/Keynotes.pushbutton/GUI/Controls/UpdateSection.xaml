@@ -2,11 +2,11 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <ControlTemplate x:Key="UpdateSectionTemplate" TargetType="ContentControl">
-    <GroupBox Header="{DynamicResource UpdateKeynote}" Margin="0,0,0,10" Padding="6">
-      <Button Content="{DynamicResource UpdateKeynote}"
+    <GroupBox Header="Update Model" Margin="0,0,0,10" Padding="6">
+      <Button Content="Update Model"
               Padding="8,4,8,4"
               Style="{DynamicResource PrimaryButtonStyle}"
-              ToolTip="{DynamicResource UpdateKeynoteInfo}"
+              ToolTip="Reloads keynote file and updates keynotes per changes"
               />
     </GroupBox>
   </ControlTemplate>

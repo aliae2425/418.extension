@@ -2,12 +2,12 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <ControlTemplate x:Key="ExportSectionTemplate" TargetType="ContentControl">
-    <GroupBox Header="{DynamicResource ExportKeynotes}" Margin="0,0,0,10" Padding="6">
+    <GroupBox Header="Export All" Margin="0,0,0,10" Padding="6">
       <StackPanel>
-        <Button Content="{DynamicResource ImportKeynotes}"
+        <Button Content="Import Keynotes"
                 Margin="0,0,0,6"
                 Padding="8,4,8,4"
-                ToolTip="{DynamicResource ImportKeynotesInfo}"
+                ToolTip="Import keynotes from Revit standard keynote file"
           />
 
         <Grid>
@@ -16,18 +16,18 @@
             <ColumnDefinition Width="*"/>
           </Grid.ColumnDefinitions>
 
-          <Button Content="{DynamicResource ExportKeynotes}"
+          <Button Content="Export All"
                   BorderThickness="1,1,0,1"
                   Grid.Column="0"
                   Padding="8,4,8,4"
-                  ToolTip="{DynamicResource ExportKeynotesInfo}"
+                  ToolTip="Export keynotes to Revit standard keynote file"
               />
 
-          <Button Content="{DynamicResource ExportVisibleKeynotes}"
+          <Button Content="or Visible"
                   BorderThickness="0,1,1,1"
                   Grid.Column="1"
                   Padding="8,4,8,4"
-                  ToolTip="{DynamicResource ExportVisibleKeynotesInfo}"
+                  ToolTip="Export lted keynotes to Revit standard keynote file"
               />
         </Grid>
       </StackPanel>

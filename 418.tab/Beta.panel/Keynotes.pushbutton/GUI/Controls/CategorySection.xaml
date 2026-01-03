@@ -2,7 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <ControlTemplate x:Key="CategorySectionTemplate" TargetType="ContentControl">
-    <GroupBox Header="{DynamicResource CategoryKeynotes}" Margin="0,0,0,10" Padding="6">
+    <GroupBox Header="Categories" Margin="0,0,0,10" Padding="6">
       <Grid Height="74">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="1*"/>
@@ -12,7 +12,7 @@
         <Button Grid.Column="0"
                 Margin="0,0,2,0"
                 Content="{DynamicResource addCategoryIcon}"
-                ToolTip="{DynamicResource AddKeynoteCategory}"
+                ToolTip="Add new keynote category"
           />
 
         <Grid x:Name="catEditButtons" Grid.Column="1" IsEnabled="False">
@@ -28,19 +28,19 @@
           <Button Grid.Column="0" Grid.Row="0"
                   Margin="2,0,2,2"
                   Content="{DynamicResource editCategoryIcon}"
-                  ToolTip="{DynamicResource EditKeynoteCategory}"
+                  ToolTip="Edit selected category"
               />
 
           <Button Grid.Column="1" Grid.Row="0"
                   Margin="2,0,0,2"
                   Content="{DynamicResource removeCategoryIcon}"
-                  ToolTip="{DynamicResource RemoveKeynoteCategory}"
+                  ToolTip="Remove selected category"
               />
 
           <Button Grid.Column="0" Grid.Row="1"
                   Margin="2,2,2,0"
                   Content="{DynamicResource rekeyCategoryIcon}"
-                  ToolTip="{DynamicResource ReKeyKeynoteCategory}"
+                  ToolTip="Change key for selected category"
               />
         </Grid>
       </Grid>

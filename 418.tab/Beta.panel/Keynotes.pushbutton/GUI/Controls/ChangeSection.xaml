@@ -2,18 +2,18 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <ControlTemplate x:Key="ChangeSectionTemplate" TargetType="ContentControl">
-    <GroupBox Header="{DynamicResource ChangeKeynote}" Margin="0,0,0,10" Padding="6">
+    <GroupBox Header="Change keynote file." Margin="0,0,0,10" Padding="6">
       <Grid>
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="{DynamicResource RefreshKeynotesWidth}"/>
+          <ColumnDefinition Width="70"/>
           <ColumnDefinition Width="*"/>
           <ColumnDefinition Width="26"/>
         </Grid.ColumnDefinitions>
 
-        <Button Content="{DynamicResource RefreshKeynotes}"
+        <Button Content="Refresh"
                 Grid.Column="0"
                 Padding="8,4,8,4"
-                ToolTip="{DynamicResource RefreshKeynotesInfo}"
+                ToolTip="Reloads keynote file and updates keynotes per changes"
           />
 
         <Button Content="&#x25CF;&#x25CF;&#x25CF;"
@@ -21,12 +21,12 @@
                 Margin="5,0,5,0"
                 Padding="0,4,0,4"
                 FontFamily="Segoe UI Symbol"
-                ToolTip="{DynamicResource ChangeKeynote}"
+                ToolTip="Change keynote file."
           />
 
         <Button Content="{DynamicResource showKFileIcon}"
                 Grid.Column="2"
-                ToolTip="{DynamicResource ShowKeynote}"
+                ToolTip="Show keynote file."
           />
       </Grid>
     </GroupBox>

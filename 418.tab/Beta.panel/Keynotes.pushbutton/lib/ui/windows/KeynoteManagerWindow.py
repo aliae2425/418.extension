@@ -1218,6 +1218,9 @@ class KeynoteManagerWindow(forms.WPFWindow):
 
         if rkeynote.is_editing:
             # Save changes
+            if rkeynote.is_duplicate:
+                return
+
             try:
                 original_key = getattr(rkeynote, '_original_key', rkeynote.key)
                 original_text = getattr(rkeynote, '_original_text', rkeynote.text)
@@ -1250,11 +1253,22 @@ class KeynoteManagerWindow(forms.WPFWindow):
                 # rkeynote.key = original_key
                 # rkeynote.text = original_text
             
+            rkeynote.set_validation_context(None)
             rkeynote.is_editing = False
         else:
             # Start editing
             rkeynote._original_key = rkeynote.key
             rkeynote._original_text = rkeynote.text
+            
+            # Gather all keys for validation
+            all_keys = set()
+            if self.all_categories:
+                for cat in self.all_categories:
+                    all_keys.add(cat.key)
+                    for k in cat.children:
+                        all_keys.add(k.key)
+            
+            rkeynote.set_validation_context(all_keys)
             rkeynote.is_editing = True
 
     def rekey_keynote(self, sender, args):

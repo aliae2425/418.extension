@@ -246,7 +246,22 @@ class RKeynote(INotifyPropertyChanged):
         self.tooltip = 'Referenced on views:'
 
         self._is_editing = False
+        self._is_duplicate = False
+        self._validation_context = None
+        self._original_key = None
         self._property_changed_handlers = []
+
+    def set_validation_context(self, existing_keys):
+        self._validation_context = existing_keys
+        self._validate()
+
+    def _validate(self):
+        if self._validation_context is not None and self._original_key is not None:
+            # Check if key exists in context AND it is not the original key (renaming to same name is fine)
+            is_dup = (self._key in self._validation_context) and (self._key != self._original_key)
+            self.is_duplicate = is_dup
+        else:
+            self.is_duplicate = False
 
     def add_PropertyChanged(self, handler):
         self._property_changed_handlers.append(handler)
@@ -258,6 +273,16 @@ class RKeynote(INotifyPropertyChanged):
         args = PropertyChangedEventArgs(propertyName)
         for handler in self._property_changed_handlers:
             handler(self, args)
+
+    @property
+    def is_duplicate(self):
+        return self._is_duplicate
+
+    @is_duplicate.setter
+    def is_duplicate(self, value):
+        if self._is_duplicate != value:
+            self._is_duplicate = value
+            self.OnPropertyChanged('is_duplicate')
 
     @property
     def is_editing(self):
@@ -277,6 +302,7 @@ class RKeynote(INotifyPropertyChanged):
     def key(self, value):
         if self._key != value:
             self._key = value
+            self._validate()
             self.OnPropertyChanged('key')
 
     @property

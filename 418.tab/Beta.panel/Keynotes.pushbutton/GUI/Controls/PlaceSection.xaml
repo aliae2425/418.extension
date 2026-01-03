@@ -2,11 +2,11 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <ControlTemplate x:Key="PlaceSectionTemplate" TargetType="ContentControl">
-    <GroupBox Header="{DynamicResource PlaceKeynote}" Margin="0" Padding="6">
+    <GroupBox Header="Place" Margin="0" Padding="6">
       <StackPanel>
-        <RadioButton x:Name="userknote_rb" Content="{DynamicResource UserKeynotes}" Margin="0,0,0,5"/>
-        <RadioButton x:Name="elementknote_rb" Content="{DynamicResource ElementKeynotes}" Margin="0,0,0,5"/>
-        <RadioButton x:Name="materialknote_rb" Content="{DynamicResource MaterialKeynotes}"/>
+        <RadioButton x:Name="userknote_rb" Content="User Keynotes" Margin="0,0,0,5"/>
+        <RadioButton x:Name="elementknote_rb" Content="Element Keynotes" Margin="0,0,0,5"/>
+        <RadioButton x:Name="materialknote_rb" Content="Material Keynotes"/>
       </StackPanel>
     </GroupBox>
   </ControlTemplate>
