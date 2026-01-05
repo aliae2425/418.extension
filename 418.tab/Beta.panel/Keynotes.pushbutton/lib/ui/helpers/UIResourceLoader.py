@@ -3,57 +3,62 @@
 
 import os
 
+try:
+    from System import Uri, UriKind
+    from System.Windows import ResourceDictionary as WResourceDictionary
+except ImportError:
+    Uri = None
+    UriKind = None
+    WResourceDictionary = None
+
 
 class UIResourceLoader(object):
     def __init__(self, window, app_paths):
         self._win = window
         self._paths = app_paths
 
-    def _add_dict(self, abs_path):
-        try:
-            from System import Uri, UriKind
-            from System.Windows import ResourceDictionary as WResourceDictionary
-        except Exception:
-            return False
+    def _get_dict(self, abs_path):
+        if not WResourceDictionary:
+            return None
+            
         if not abs_path or not os.path.exists(abs_path):
-            return False
+            return None
+            
         try:
             d = WResourceDictionary()
-            u = Uri('file:///' + abs_path.replace('\\', '/').replace(':', ':/'), UriKind.Absolute)
-            d.Source = u
-            self._win.Resources.MergedDictionaries.Add(d)
-            return True
+            # Optimized URI creation
+            uri_str = 'file:///' + abs_path.replace('\\', '/').replace(':', ':/')
+            d.Source = Uri(uri_str, UriKind.Absolute)
+            return d
         except Exception:
+            return None
+
+    def _batch_add(self, paths):
+        if not hasattr(self._win, 'Resources'):
             return False
-
-    def merge_windows(self):
-        return self._add_dict(self._paths.windows_xaml())
-
-    def merge_keynotes_main(self):
-        return self._add_dict(self._paths.resource_path('KeynotesManager.Resources.xaml'))
-
-    def merge_edit_record(self):
-        return self._add_dict(self._paths.resource_path('EditRecord.Resources.xaml'))
-
-    def merge_colors(self):
-        return self._add_dict(self._paths.resource_path('Colors.xaml'))
-
-    def merge_styles(self):
-        return self._add_dict(self._paths.resource_path('Styles.xaml'))
-
-    def merge_icons(self):
-        return self._add_dict(self._paths.resource_path('Icons.xaml'))
-
-    def merge_templates(self):
-        return self._add_dict(self._paths.resource_path('Templates.xaml'))
+            
+        # Create a local list of dictionaries to minimize property access overhead
+        dicts_to_add = []
+        for p in paths:
+            d = self._get_dict(p)
+            if d:
+                dicts_to_add.append(d)
+        
+        # Add to window resources
+        for d in dicts_to_add:
+            self._win.Resources.MergedDictionaries.Add(d)
+            
+        return True
 
     def merge_all_for_main(self):
-        self.merge_colors()
-        self.merge_styles()
-        self.merge_icons()
-        self.merge_templates()
-        self.merge_windows()
-        self.merge_keynotes_main()
+        paths = [
+            self._paths.resource_path('Colors.xaml'),
+            self._paths.resource_path('Styles.xaml'),
+            self._paths.resource_path('Icons.xaml'),
+            self._paths.resource_path('Templates.xaml'),
+            self._paths.windows_xaml(),
+            self._paths.resource_path('KeynotesManager.Resources.xaml')
+        ]
 
         # Controls (Burger menu sections)
         try:
@@ -68,13 +73,15 @@ class UIResourceLoader(object):
                 'KeynotesSection.xaml',
                 'PlaceSection.xaml',
             ]
-            for n in names:
-                self._add_dict(os.path.join(ctrl_dir, n))
+            paths.extend([os.path.join(ctrl_dir, n) for n in names])
         except Exception:
             pass
-        return True
+            
+        return self._batch_add(paths)
 
     def merge_all_for_edit_record(self):
-        self.merge_windows()
-        self.merge_edit_record()
-        return True
+        paths = [
+            self._paths.windows_xaml(),
+            self._paths.resource_path('EditRecord.Resources.xaml')
+        ]
+        return self._batch_add(paths)
