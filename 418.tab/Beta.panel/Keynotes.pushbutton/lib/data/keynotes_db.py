@@ -231,7 +231,7 @@ class RKeynoteFilters(object):
 class RKeynote(INotifyPropertyChanged):
     """Entrée keynote/catégorie + statut (used/locked)."""
 
-    def __init__(self, key, text, parent_key=None, locked=False, owner=None, children=None):
+    def __init__(self, key, text, parent_key=None, locked=False, owner=None, children=None, is_add_button=False, is_new=False):
         self._key = key
         self._text = text
         self.parent_key = parent_key or ''
@@ -240,6 +240,8 @@ class RKeynote(INotifyPropertyChanged):
         self._children = children or []
         self._filtered_children = []
         self._filter = None
+        self.is_add_button = is_add_button
+        self._is_new = is_new
 
         self.used = False
         self.used_count = 0
@@ -273,6 +275,16 @@ class RKeynote(INotifyPropertyChanged):
         args = PropertyChangedEventArgs(propertyName)
         for handler in self._property_changed_handlers:
             handler(self, args)
+
+    @property
+    def is_new(self):
+        return self._is_new
+
+    @is_new.setter
+    def is_new(self, value):
+        if self._is_new != value:
+            self._is_new = value
+            self.OnPropertyChanged('is_new')
 
     @property
     def is_duplicate(self):
@@ -330,6 +342,9 @@ class RKeynote(INotifyPropertyChanged):
         return len(self.children)
 
     def filter(self, search_term):
+        if self.is_add_button:
+            return True
+
         self._filter = (search_term or '').lower()
 
         self_pass = False

@@ -200,4 +200,29 @@
         </Setter>
     </Style>
 
+    <Style x:Key="ClearButton" TargetType="Button">
+        <Setter Property="Background" Value="White"/>
+    </Style>
+
+    <Style x:Key="comboItemStyle" TargetType="ComboBoxItem">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding locked}" Value="True">
+                <Setter Property="Foreground" Value="DarkGray" />
+                <Setter Property="Background" Value="WhiteSmoke" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="treeItemStyle" TargetType="TreeViewItem">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding used}" Value="True">
+                <Setter Property="FontWeight" Value="Medium" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding locked}" Value="True">
+                <Setter Property="Background" Value="WhiteSmoke" />
+            </DataTrigger>
+        </Style.Triggers>
+        <Setter Property="IsExpanded" Value="True"/>
+    </Style>
+
 </ResourceDictionary>

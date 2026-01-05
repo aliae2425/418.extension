@@ -114,6 +114,8 @@ class KeynoteManagerWindow(forms.WPFWindow):
         forms.WPFWindow.__init__(self, self._paths.main_xaml())
         self.DataContext = self
         self.EditKeynoteCommand = RelayCommand(self.OnEditKeynoteClick)
+        self.AddKeynoteCommand = RelayCommand(self.OnAddKeynoteClick)
+        self.DeleteKeynoteCommand = RelayCommand(self.OnDeleteKeynoteClick)
 
         # If template-based controls are not materialized yet, defer final init to Loaded.
         self._deferred_reset_config = reset_config
@@ -976,6 +978,8 @@ class KeynoteManagerWindow(forms.WPFWindow):
                 for crkey in categories:
                     if crkey.key in parents:
                         crkey.children.extend(parents[crkey.key])
+                    # Add dummy "Add" button
+                    crkey.children.append(kdb.RKeynote(key='', text='+', parent_key=crkey.key, is_add_button=True))
                 active_tree = categories
 
         for knote in active_tree:
@@ -1211,6 +1215,82 @@ class KeynoteManagerWindow(forms.WPFWindow):
             finally:
                 self._update_ktree_knotes()
 
+    def OnDeleteKeynoteClick(self, parameter):
+        rkeynote = parameter
+        if not rkeynote:
+            return
+            
+        if rkeynote.is_new:
+            # Just remove from tree
+            # Find parent
+            parent_node = None
+            for cat in self._cache:
+                if cat.key == rkeynote.parent_key:
+                    parent_node = cat
+                    break
+            
+            if parent_node and rkeynote in parent_node.children:
+                parent_node.children.remove(rkeynote)
+                # Refresh
+                current_src = self.keynotes_tv.ItemsSource
+                self.keynotes_tv.ItemsSource = None
+                self.keynotes_tv.ItemsSource = current_src
+            return
+
+        if rkeynote.children:
+            forms.alert(_s('KeynoteHasChildren').format(rkeynote.key))
+        elif rkeynote.used:
+            forms.alert(_s('KeynoteUsed').format(rkeynote.key))
+        else:
+            if forms.alert(_s('PromptToDeleteKeynote').format(rkeynote.key), yes=True, no=True):
+                try:
+                    kdb.remove_keynote(self._conn, rkeynote.key)
+                    self._needs_update = True
+                finally:
+                    self._update_ktree_knotes()
+
+    def OnAddKeynoteClick(self, parameter):
+        parent_key = parameter
+        if not parent_key:
+            if self.selected_keynote:
+                parent_key = self.selected_keynote.parent_key
+            elif self.selected_category:
+                parent_key = self.selected_category.key
+
+            if not parent_key:
+                cat = self._pick_category()
+                if cat:
+                    parent_key = cat.key
+
+        if parent_key:
+            # Find parent node in cache
+            parent_node = None
+            for cat in self._cache:
+                if cat.key == parent_key:
+                    parent_node = cat
+                    break
+                # Also check children if it's a sub-keynote (not implemented fully yet for sub-sub)
+            
+            if parent_node:
+                # Create new placeholder node
+                new_node = kdb.RKeynote(key='', text='', parent_key=parent_key, is_new=True)
+                
+                # Insert before the last item (which is the + button)
+                insert_idx = max(0, len(parent_node.children) - 1)
+                parent_node.children.insert(insert_idx, new_node)
+                
+                # Trigger edit mode immediately
+                self.OnEditKeynoteClick(new_node)
+                
+                # Force refresh of the tree view (hacky but needed since children is a list)
+                # We re-assign ItemsSource to force update
+                current_src = self.keynotes_tv.ItemsSource
+                self.keynotes_tv.ItemsSource = None
+                self.keynotes_tv.ItemsSource = current_src
+                
+                # Expand parent
+                # (TreeView expansion state might be lost on re-bind, but usually top level stays)
+
     def OnEditKeynoteClick(self, parameter):
         rkeynote = parameter
         if not rkeynote:
@@ -1220,38 +1300,47 @@ class KeynoteManagerWindow(forms.WPFWindow):
             # Save changes
             if rkeynote.is_duplicate:
                 return
+            
+            if not rkeynote.key:
+                forms.alert("Key cannot be empty.")
+                return
 
             try:
-                original_key = getattr(rkeynote, '_original_key', rkeynote.key)
-                original_text = getattr(rkeynote, '_original_text', rkeynote.text)
-                
-                new_key = rkeynote.key
-                new_text = rkeynote.text
-                
-                if rkeynote.is_category:
-                    if new_key != original_key:
-                        kdb.update_category_key(self._conn, original_key, new_key)
-                        # Update original key for next time
-                        rkeynote._original_key = new_key
-                        
-                    if new_text != original_text:
-                        kdb.update_category_title(self._conn, new_key, new_text)
-                        rkeynote._original_text = new_text
+                if rkeynote.is_new:
+                    # Create new keynote
+                    kdb.add_keynote(self._conn, rkeynote.key, rkeynote.text, rkeynote.parent_key)
+                    rkeynote.is_new = False
+                    self._needs_update = True
                 else:
-                    if new_key != original_key:
-                        kdb.update_keynote_key(self._conn, original_key, new_key)
-                        rkeynote._original_key = new_key
-                        
-                    if new_text != original_text:
-                        kdb.update_keynote_text(self._conn, new_key, new_text)
-                        rkeynote._original_text = new_text
-                        
-                self._needs_update = True
+                    # Update existing
+                    original_key = getattr(rkeynote, '_original_key', rkeynote.key)
+                    original_text = getattr(rkeynote, '_original_text', rkeynote.text)
+                    
+                    new_key = rkeynote.key
+                    new_text = rkeynote.text
+                    
+                    if rkeynote.is_category:
+                        if new_key != original_key:
+                            kdb.update_category_key(self._conn, original_key, new_key)
+                            # Update original key for next time
+                            rkeynote._original_key = new_key
+                            
+                        if new_text != original_text:
+                            kdb.update_category_title(self._conn, new_key, new_text)
+                            rkeynote._original_text = new_text
+                    else:
+                        if new_key != original_key:
+                            kdb.update_keynote_key(self._conn, original_key, new_key)
+                            rkeynote._original_key = new_key
+                            
+                        if new_text != original_text:
+                            kdb.update_keynote_text(self._conn, new_key, new_text)
+                            rkeynote._original_text = new_text
+                            
+                    self._needs_update = True
             except Exception as ex:
                 forms.alert("Error saving keynote: {}".format(ex))
-                # Revert changes?
-                # rkeynote.key = original_key
-                # rkeynote.text = original_text
+                return
             
             rkeynote.set_validation_context(None)
             rkeynote.is_editing = False

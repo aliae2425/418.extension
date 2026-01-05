@@ -35,7 +35,23 @@ class UIResourceLoader(object):
     def merge_edit_record(self):
         return self._add_dict(self._paths.resource_path('EditRecord.Resources.xaml'))
 
+    def merge_colors(self):
+        return self._add_dict(self._paths.resource_path('Colors.xaml'))
+
+    def merge_styles(self):
+        return self._add_dict(self._paths.resource_path('Styles.xaml'))
+
+    def merge_icons(self):
+        return self._add_dict(self._paths.resource_path('Icons.xaml'))
+
+    def merge_templates(self):
+        return self._add_dict(self._paths.resource_path('Templates.xaml'))
+
     def merge_all_for_main(self):
+        self.merge_colors()
+        self.merge_styles()
+        self.merge_icons()
+        self.merge_templates()
         self.merge_windows()
         self.merge_keynotes_main()
 
