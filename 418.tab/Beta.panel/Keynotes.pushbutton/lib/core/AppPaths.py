@@ -28,8 +28,6 @@ class AppPaths(object):
     def main_xaml(self):
         return os.path.normpath(os.path.join(self.gui_root(), 'Views', 'index.xaml'))
 
-    def edit_record_xaml(self):
-        return os.path.normpath(os.path.join(self.gui_root(), 'Modals', 'EditRecord.xaml'))
 
     def resource_path(self, filename):
         return os.path.join(self.gui_root(), 'resources', filename)

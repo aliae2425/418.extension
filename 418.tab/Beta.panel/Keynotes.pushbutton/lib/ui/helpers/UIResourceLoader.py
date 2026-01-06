@@ -79,9 +79,4 @@ class UIResourceLoader(object):
             
         return self._batch_add(paths)
 
-    def merge_all_for_edit_record(self):
-        paths = [
-            self._paths.windows_xaml(),
-            self._paths.resource_path('EditRecord.Resources.xaml')
-        ]
-        return self._batch_add(paths)
+
