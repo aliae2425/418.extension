@@ -231,7 +231,7 @@ class RKeynoteFilters(object):
 class RKeynote(INotifyPropertyChanged):
     """Entrée keynote/catégorie + statut (used/locked)."""
 
-    def __init__(self, key, text, parent_key=None, locked=False, owner=None, children=None, is_add_button=False, is_new=False):
+    def __init__(self, key, text, parent_key=None, locked=False, owner=None, children=None, is_add_button=False, is_new=False, is_category=False):
         self._key = key
         self._text = text
         self.parent_key = parent_key or ''
@@ -242,6 +242,7 @@ class RKeynote(INotifyPropertyChanged):
         self._filter = None
         self.is_add_button = is_add_button
         self._is_new = is_new
+        self._is_category = is_category or (not self.parent_key)
 
         self.used = False
         self.used_count = 0
@@ -336,7 +337,7 @@ class RKeynote(INotifyPropertyChanged):
 
     @property
     def is_category(self):
-        return not self.parent_key
+        return self._is_category
 
     def has_children(self):
         return len(self.children)
@@ -495,6 +496,7 @@ def get_categories(conn):
                 locked=x[CATEGORY_KEY_FIELD] in locked_records.keys(),
                 owner=locked_records.get(x[CATEGORY_KEY_FIELD], ''),
                 children=[],
+                is_category=True
             )
             for x in cats_records
         ],
@@ -565,7 +567,7 @@ def release_key(conn, key, category=False):
 
 def add_category(conn, key, text):
     conn.InsertRecord(KEYNOTES_DB, CATEGORIES_TABLE, key, {CATEGORY_TITLE_FIELD: text})
-    return RKeynote(key=key, text=text)
+    return RKeynote(key=key, text=text, is_category=True)
 
 
 def update_category_title(conn, key, new_title):

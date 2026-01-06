@@ -1039,15 +1039,20 @@ class KeynoteManagerWindow(forms.WPFWindow):
         self.keynotes_tv.ItemsSource = filtered_keynotes
 
     def _update_catedit_buttons(self):
-        self.catEditButtons.IsEnabled = bool(self.selected_category and not self.selected_category.locked)
+        if hasattr(self, 'catEditButtons'):
+            self.catEditButtons.IsEnabled = bool(self.selected_category and not self.selected_category.locked)
 
     def _update_knoteedit_buttons(self):
-        if self.selected_keynote and not self.selected_keynote.locked:
+        has_buttons = hasattr(self, 'keynoteEditButtons')
+        if has_buttons and self.selected_keynote and not self.selected_keynote.locked:
             self.keynoteEditButtons.IsEnabled = bool(self.selected_keynote.parent_key)
-            self.keynoteSearch.IsEnabled = self.keynoteEditButtons.IsEnabled
-            self.catEditButtons.IsEnabled = not self.keynoteEditButtons.IsEnabled
+            if hasattr(self, 'keynoteSearch'):
+                self.keynoteSearch.IsEnabled = self.keynoteEditButtons.IsEnabled
+            if hasattr(self, 'catEditButtons'):
+                self.catEditButtons.IsEnabled = not self.keynoteEditButtons.IsEnabled
         else:
-            self.keynoteEditButtons.IsEnabled = False
+            if has_buttons:
+                self.keynoteEditButtons.IsEnabled = False
             self.keynoteSearch.IsEnabled = False
 
     def _pick_new_key(self):

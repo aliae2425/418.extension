@@ -55,6 +55,10 @@
                               Template="{DynamicResource ChangeSectionTemplate}"/>
               <ContentControl x:Name="ExportSectionHost"
                               Template="{DynamicResource ExportSectionTemplate}"/>
+              <ContentControl x:Name="CategorySectionHost"
+                              Template="{DynamicResource CategorySectionTemplate}"/>
+              <ContentControl x:Name="KeynotesSectionHost"
+                              Template="{DynamicResource KeynotesSectionTemplate}"/>
               <ContentControl x:Name="PlaceSectionHost"
                               Template="{DynamicResource PlaceSectionTemplate}"/>
             </StackPanel>
