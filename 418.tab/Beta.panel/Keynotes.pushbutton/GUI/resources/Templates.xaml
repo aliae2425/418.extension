@@ -142,4 +142,102 @@
         </HierarchicalDataTemplate.Triggers>
     </HierarchicalDataTemplate>
 
+
+    <HierarchicalDataTemplate x:Key="categoryComboItem" ItemsSource="{Binding children}">
+        <Grid Margin="0,2,0,2" Width="600" MaxWidth="600">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="0"/>
+                <ColumnDefinition MinWidth="30" Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <WrapPanel x:Name="catTag" Visibility="Collapsed" Grid.Column="1">
+                <Border Background="Black" Height="16" MinWidth="24">
+                    <TextBlock Text="{Binding Path=key}" Foreground="White" FontSize="12" FontWeight="Medium" Margin="5,-1,0,0"/>
+                </Border>
+                <Polygon Points="0,0 0,16 8,8" Fill="Black" />
+            </WrapPanel>
+            <TextBlock x:Name="keyTag" Grid.Column="1" Text="{Binding Path=key}" FontWeight="Medium" Margin="5,-1,0,0" Visibility="Collapsed"/>
+            <TextBox x:Name="keyEdit" Grid.Column="1" Text="{Binding Path=key, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="5,-1,0,0" Visibility="Collapsed" MinWidth="30"/>
+
+            <WrapPanel Grid.Column="2">
+                <TextBlock x:Name="keyText" Text="{Binding Path=text}" Margin="10,0,0,0" Padding="0" TextWrapping="Wrap" />
+                <TextBox x:Name="textEdit" Text="{Binding Path=text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="10,0,0,0" Visibility="Collapsed" MinWidth="100"/>
+
+                <Border x:Name="usedCount"
+                        Background="White" BorderBrush="LightGray" BorderThickness="1"
+                        Height="16" CornerRadius="4" Margin="10,0,0,0" Padding="5,0,5,0" Visibility="Collapsed" ToolTip="{Binding Path=tooltip}">
+                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="DimGray" FontSize="10" Margin="0,-1,0,0">
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat="{}{0}x">
+                                <Binding Path="used_count"/>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
+                </Border>
+                <Border x:Name="ownerId" Background="Red" Height="16" CornerRadius="4" Margin="10,0,0,0" Padding="5,0,5,0" Visibility="Collapsed">
+                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontSize="10" Margin="0,-1,0,0">
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat=" {0} is editing...">
+                                <Binding Path="owner"/>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
+                </Border>
+            </WrapPanel>
+
+            <Button x:Name="addBtn" Grid.Column="1" Grid.ColumnSpan="2"
+                    Content="+"
+                    HorizontalAlignment="Left"
+                    Width="24" Height="24"
+                    Visibility="Collapsed"
+                    Command="{Binding DataContext.AddKeynoteCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    CommandParameter="{Binding parent_key}"
+                    />
+        </Grid>
+        <HierarchicalDataTemplate.Triggers>
+            <DataTrigger Binding="{Binding Path=locked}" Value="True">
+                <Setter TargetName="ownerId" Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Path=used}" Value="True">
+                <Setter TargetName="usedCount" Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Path=is_category}" Value="True">
+                <Setter TargetName="catTag" Property="Visibility" Value="Visible"/>
+                <Setter TargetName="keyText" Property="FontWeight" Value="Medium" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Path=is_category}" Value="False">
+                <Setter TargetName="keyTag" Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Path=is_editing}" Value="True">
+                <Setter TargetName="keyTag" Property="Visibility" Value="Collapsed"/>
+                <Setter TargetName="keyEdit" Property="Visibility" Value="Visible"/>
+                <Setter TargetName="keyText" Property="Visibility" Value="Collapsed"/>
+                <Setter TargetName="textEdit" Property="Visibility" Value="Visible"/>
+                <Setter TargetName="catTag" Property="Visibility" Value="Collapsed"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Path=is_new}" Value="True">
+                <Setter TargetName="keyTag" Property="Visibility" Value="Collapsed"/>
+                <Setter TargetName="keyEdit" Property="Visibility" Value="Visible"/>
+                <Setter TargetName="keyText" Property="Visibility" Value="Collapsed"/>
+                <Setter TargetName="textEdit" Property="Visibility" Value="Visible"/>
+                <Setter TargetName="catTag" Property="Visibility" Value="Collapsed"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Path=is_duplicate}" Value="True">
+                <Setter TargetName="keyEdit" Property="Background" Value="#FFEEEE"/>
+                <Setter TargetName="keyEdit" Property="BorderBrush" Value="Red"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Path=is_add_button}" Value="True">
+                <Setter TargetName="catTag" Property="Visibility" Value="Collapsed"/>
+                <Setter TargetName="keyTag" Property="Visibility" Value="Collapsed"/>
+                <Setter TargetName="keyEdit" Property="Visibility" Value="Collapsed"/>
+                <Setter TargetName="keyText" Property="Visibility" Value="Collapsed"/>
+                <Setter TargetName="textEdit" Property="Visibility" Value="Collapsed"/>
+                <Setter TargetName="usedCount" Property="Visibility" Value="Collapsed"/>
+                <Setter TargetName="ownerId" Property="Visibility" Value="Collapsed"/>
+                <Setter TargetName="addBtn" Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+        </HierarchicalDataTemplate.Triggers>
+    </HierarchicalDataTemplate>
+
 </ResourceDictionary>
