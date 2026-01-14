@@ -280,6 +280,10 @@ class KeynoteManagerWindow(forms.WPFWindow):
     def _on_add_category_click(self, sender, args):
         self.OnAddKeynoteClick(None)
 
+    def _on_add_sub_category_click(self, sender, args):
+        if self.selected_category:
+            self.OnAddKeynoteClick(self.selected_category.key)
+
     def _on_edit_category_click(self, sender, args):
         if self.selected_category:
             self.OnEditKeynoteClick(self.selected_category)
@@ -496,26 +500,35 @@ class KeynoteManagerWindow(forms.WPFWindow):
                                 pass
                             _collect_buttons(ch)
                     _collect_buttons(self.CategorySectionHost)
-                    if len(buttons) >= 1:
+                    if len(buttons) >= 5:
+                        try:
+                            buttons[0].Click += self._on_add_category_click
+                            buttons[1].Click += self._on_add_sub_category_click
+                            buttons[2].Click += self._on_edit_category_click
+                            buttons[3].Click += self._on_remove_category_click
+                            buttons[4].Click += self._on_edit_category_click
+                        except Exception:
+                            pass
+                    elif len(buttons) >= 1:
                         try:
                             buttons[0].Click += self._on_add_category_click
                         except Exception:
                             pass
-                    if len(buttons) >= 2:
-                        try:
-                            buttons[1].Click += self._on_edit_category_click
-                        except Exception:
-                            pass
-                    if len(buttons) >= 3:
-                        try:
-                            buttons[2].Click += self._on_remove_category_click
-                        except Exception:
-                            pass
-                    if len(buttons) >= 4:
-                        try:
-                            buttons[3].Click += self._on_edit_category_click
-                        except Exception:
-                            pass
+                        if len(buttons) >= 2:
+                            try:
+                                buttons[1].Click += self._on_edit_category_click
+                            except Exception:
+                                pass
+                        if len(buttons) >= 3:
+                            try:
+                                buttons[2].Click += self._on_remove_category_click
+                            except Exception:
+                                pass
+                        if len(buttons) >= 4:
+                            try:
+                                buttons[3].Click += self._on_edit_category_click
+                            except Exception:
+                                pass
                 except Exception:
                     pass
 
