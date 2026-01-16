@@ -154,21 +154,7 @@ class PikerWindow(forms.WPFWindow):
             self._available_sheet = []
         # Union
         all_union = set()
-        
-        # Determine sources based on kind
-        sources = [self._available_project, self._available_system]
-        if self._kind == 'sheet':
-            # For individual sheets: Sheet params + Project params + System
-            sources.append(self._available_sheet)
-        elif self._kind == 'set':
-            # For sets: Collection params + Project params + System
-            sources.append(self._available_collection)
-        else:
-            # Fallback
-            sources.append(self._available_collection)
-            sources.append(self._available_sheet)
-
-        for lst in sources:
+        for lst in (self._available_project, self._available_collection, self._available_sheet):
             for n in lst:
                 if n:
                     try:
