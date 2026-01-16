@@ -81,7 +81,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-
+  
                 <!-- Work area (search + tree) -->
                 <ContentControl x:Name="WorkAreaHost"
                                 Grid.Column="0"
