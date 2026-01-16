@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 # ------------------------------- info pyrevit ------------------------------- #
-__title__ = "Exportation"
+__title__ = "Export"
 __doc__ = """
-    Version 0.3.02
+    Version 1.0
     Auteur : Aliae
     _____________________________________________
 
