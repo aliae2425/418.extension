@@ -4,6 +4,7 @@
 from __future__ import unicode_literals
 
 import os
+import tempfile
 from collections import namedtuple
 
 try:
@@ -187,7 +188,7 @@ class ExportOrchestrator(object):
             sheets = self._get_collection_sheets(doc, collection) if collection else []
             # Tri des feuilles par numéro croissant
             try:
-                sheets = sorted(sheets, key=lambda sh: getattr(sh, 'SheetNumber', ''))
+                sheets = sorted(sheets, key=lambda sh: u'{}'.format(getattr(sh, 'SheetNumber', '') or ''))
             except Exception:
                 pass
             
@@ -280,7 +281,7 @@ class ExportOrchestrator(object):
             sheets = self._get_collection_sheets(doc, collection) if collection is not None else []
             # Tri des feuilles par numéro croissant
             try:
-                sheets = sorted(sheets, key=lambda sh: getattr(sh, 'SheetNumber', ''))
+                sheets = sorted(sheets, key=lambda sh: u'{}'.format(getattr(sh, 'SheetNumber', '') or ''))
             except Exception:
                 pass
             base_pdf = self._get_destination_base('PDF', plan.collection_name) if plan.do_pdf else None
@@ -329,6 +330,12 @@ class ExportOrchestrator(object):
                                 log_cb(u"Erreur export DWG: {}".format(self._safe_sheet_name(sh)))
                             except Exception:
                                 pass
+                try:
+                    if ui_win is not None and ui_comp is not None:
+                        ui_comp.set_collection_status(ui_win, plan.collection_name, 'ok')
+                        ui_comp.refresh_grid(ui_win)
+                except Exception:
+                    pass
             else:
                 # Utiliser le pattern 'set' (carnet) s'il existe, sinon fallback sur sheet/default
                 rows = self._get_rows_for_set()
@@ -477,12 +484,14 @@ class ExportOrchestrator(object):
                 if views is not None:
                     try:
                         ok = bool(doc.Export(folder, views, options))
-                    except Exception:
+                    except Exception as _e1:
                         try:
                             ok = bool(doc.Export(folder, file_no_ext, views, options))
-                        except Exception:
+                        except Exception as _e2:
+                            print('ExportOrchestrator [PDF-sheet]: Export API failed: {} / {}'.format(_e1, _e2))
                             ok = False
-        except Exception:
+        except Exception as _e:
+            print('ExportOrchestrator [PDF-sheet]: Unexpected error: {}'.format(_e))
             ok = False
         if not ok:
             try:
@@ -503,7 +512,8 @@ class ExportOrchestrator(object):
                 except Exception:
                     pass
                 ok = bool(pm.SubmitPrint(vs))
-            except Exception:
+            except Exception as _e:
+                print('ExportOrchestrator [PDF-sheet]: PrintManager fallback failed: {}'.format(_e))
                 ok = False
         return ok, path
 
@@ -514,11 +524,14 @@ class ExportOrchestrator(object):
         except Exception:
             pass
         final_path = self._unique_with_ext(base_folder, name_no_ext, 'dwg', overwrite=overwrite)
-        tmp_dir = os.path.join(base_folder, '_tmp_dwg')
         try:
-            self._dest.ensure(tmp_dir)
+            tmp_dir = tempfile.mkdtemp(prefix='batchexport_dwg_')
         except Exception:
-            pass
+            tmp_dir = os.path.join(base_folder, '_tmp_dwg')
+            try:
+                self._dest.ensure(tmp_dir)
+            except Exception:
+                pass
         ok = False
         try:
             if DB is not None and options is not None:
@@ -536,7 +549,8 @@ class ExportOrchestrator(object):
                 # DWG export requires a prefix name in most overloads
                 # Export(folder, name, views, options)
                 ok = bool(doc.Export(tmp_dir, "export", views, options))
-        except Exception:
+        except Exception as _e:
+            print('ExportOrchestrator [DWG-sheet]: Export API failed: {}'.format(_e))
             ok = False
         
         try:
@@ -639,11 +653,13 @@ class ExportOrchestrator(object):
                     pass
                 try:
                     ok = bool(doc.Export(folder, views, options))
-                except Exception:
+                except Exception as _e1:
                     try:
                         ok = bool(doc.Export(folder, file_no_ext, views, options))
-                    except Exception:
+                    except Exception as _e2:
+                        print('ExportOrchestrator [PDF-collection]: Export API failed: {} / {}'.format(_e1, _e2))
                         ok = False
-        except Exception:
+        except Exception as _e:
+            print('ExportOrchestrator [PDF-collection]: Unexpected error: {}'.format(_e))
             ok = False
         return ok, path

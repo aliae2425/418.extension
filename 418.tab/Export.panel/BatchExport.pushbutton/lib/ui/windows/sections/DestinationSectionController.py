@@ -80,16 +80,17 @@ class DestinationSectionController(object):
 
     def _on_browse(self, sender, args):
         try:
-            chosen = self._dest_store.choose_destination_explorer(save=True)
+            # save=False: le TextBox est la source de vérité, _on_path_changed se charge de la sauvegarde
+            chosen = self._dest_store.choose_destination_explorer(save=False)
         except Exception:
             chosen = None
 
         if chosen:
             try:
+                # Mettre à jour le TextBox déclenche TextChanged → _on_path_changed → sauvegarde
                 self._win.PathTextBox.Text = chosen
             except Exception:
                 pass
-            self._on_path_changed(None, None)
 
     def _on_path_changed(self, sender, args):
         try:
@@ -98,6 +99,14 @@ class DestinationSectionController(object):
         except Exception:
             Brushes = None
             Control = None
+
+        # Le TextBox est la source de vérité: on sauvegarde le chemin en config à chaque modification
+        try:
+            path = self._win.PathTextBox.Text or ''
+            if path:
+                self._dest_store.set(path)
+        except Exception:
+            pass
 
         ok, err = self._dest_comp.validate(self._win, create=False)
         self._win._dest_valid = bool(ok)

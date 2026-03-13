@@ -57,9 +57,10 @@ class ConfigManagerService(object):
         if not os.path.isdir(data_dir):
             try:
                 os.makedirs(data_dir)
-            except Exception:
-                # In case of race conditions or permissions, caller will fail on write
+            except OSError:
+                # Race condition: another process may have created it between the check and makedirs
                 pass
+        return os.path.isdir(data_dir)
 
     # ------------------------------- Schema ------------------------------- #
     def _utc_now_iso(self):
@@ -100,7 +101,9 @@ class ConfigManagerService(object):
             return self._empty_schema()
 
     def _atomic_write_json(self, path, payload):
-        self._ensure_data_dir()
+        if not self._ensure_data_dir():
+            print('ConfigManagerService [006]: Data directory unavailable, aborting write.')
+            return False
         tmp_path = path + '.tmp'
         try:
             with io.open(tmp_path, 'w', encoding='utf-8') as fh:

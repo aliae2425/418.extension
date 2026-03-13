@@ -26,7 +26,7 @@ class DestinationPickerComponent(object):
 
     def browse(self, win):
         try:
-            chosen = self._dest.choose(save=True)
+            chosen = self._dest.choose_destination_explorer(save=True)
             if chosen and hasattr(win, 'PathTextBox'):
                 win.PathTextBox.Text = chosen
             return chosen

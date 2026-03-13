@@ -161,15 +161,9 @@ class DestinationStore(object):
                     chosen = picker(title='Choisir un dossier de destination', start_dir=start)
             except Exception:
                 chosen = None
+        # Note: console input() fallback disabled — not applicable in Revit/WPF context
         if not chosen:
-            try:
-                hint = u"Entrer un chemin de dossier (laisser vide pour annuler) [{}]: ".format(start)
-                entered = input(hint)  # type: ignore
-                entered = (entered or '').strip()
-                if entered:
-                    chosen = entered
-            except Exception:
-                chosen = None
+            chosen = None
         if chosen:
             ok, _ = self.ensure(chosen)
             if ok and save:
