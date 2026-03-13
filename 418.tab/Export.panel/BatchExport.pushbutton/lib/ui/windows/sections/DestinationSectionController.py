@@ -111,6 +111,12 @@ class DestinationSectionController(object):
         ok, err = self._dest_comp.validate(self._win, create=False)
         self._win._dest_valid = bool(ok)
 
+        if ok and hasattr(self._win, 'PathTextBox'):
+            try:
+                self._dest_store.set(self._win.PathTextBox.Text)
+            except Exception:
+                pass
+
         try:
             if hasattr(self._win, 'PathTextBox'):
                 if ok:
