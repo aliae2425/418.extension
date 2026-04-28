@@ -35,7 +35,7 @@ except Exception:
 resolver = NamingResolver() if NamingResolver is not None else None
 # Toujours vérifier avant usage :
 if resolver is not None:
-    result = resolver.resolve(rows, element, doc)
+    result = resolver.resolve_for_element(elem, rows)
 ```
 
 **UserConfig**
