@@ -29,7 +29,10 @@ def supprimer_formes_existantes(doc):
             if e.Name.startswith(PREFIXE_NOM)
         ]
         if existants:
-            doc.Delete([e.Id for e in existants])
+            ids = CSharpList[ElementId]()
+            for e in existants:
+                ids.Add(e.Id)
+            doc.Delete(ids)
     except Exception:
         pass
 
@@ -72,7 +75,7 @@ def construire_directshape_volee(doc, faces_marches, hauteur_ft, run_id):
 def _extruder_face_marche(face, hauteur_ft):
     """Extrude une face de marche vers le haut pour créer le volume d'échappée."""
     try:
-        loops = list(face.GetEdgesAsCurveLoops())
+        loops = face.GetEdgesAsCurveLoops()
         if not loops:
             return None
         direction = XYZ(0.0, 0.0, 1.0)
