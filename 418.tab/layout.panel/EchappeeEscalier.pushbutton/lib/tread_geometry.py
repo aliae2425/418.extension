@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 # Extraction des faces horizontales (marches) depuis la géométrie d'un StairsRun.
 try:
-    from Autodesk.Revit.DB import Options, PlanarFace, UV
+    from Autodesk.Revit.DB import Options, PlanarFace, UV, Solid
 except Exception:
     Options = None
     PlanarFace = None
     UV = None
+    Solid = None
 
 TOLERANCE_Z = 0.01  # La normale Z doit être >= 1 - TOLERANCE_Z pour une face horizontale
 
@@ -25,6 +26,8 @@ def extraire_faces_marches(stairs_run):
     try:
         geom = stairs_run.get_Geometry(opts)
         for geom_obj in geom:
+            if Solid is None or not isinstance(geom_obj, Solid):
+                continue
             try:
                 for face in geom_obj.Faces:
                     if _est_horizontale(face):
