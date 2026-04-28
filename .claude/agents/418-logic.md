@@ -14,14 +14,16 @@ Tu es l'agent logique métier du projet 418.extension, une extension pyRevit Pyt
 Fichiers que tu touches :
 - `BatchExport.pushbutton/lib/core/` (AppPaths, UserConfig)
 - `BatchExport.pushbutton/lib/data/` (DestinationStore, NamingPatternStore, NamingResolver, SheetParameterRepository, SheetSetRepository)
-- `BatchExport.pushbutton/lib/services/` (ExportOrchestrator, PdfExporterService, DwgExporterService, ConfigManagerService)
+- `BatchExport.pushbutton/lib/services/core/` (ExportOrchestrator)
+- `BatchExport.pushbutton/lib/services/formats/` (PdfExporterService, DwgExporterService)
+- `BatchExport.pushbutton/lib/services/` (ConfigManagerService)
 - `BatchExport.pushbutton/lib/ui/windows/sections/` — côté orchestration services/data uniquement
 
 ## Conventions critiques
 
 **Couches et dépendances**
 Ordre strict sans dépendance montante : `core/ → data/ → services/`
-Jamais d'import UI (`ui/`, `GUI/`, `System.Windows`) dans ces couches.
+Les imports UI au niveau module sont interdits dans ces couches. Les imports locaux (dans une méthode dédiée) protégés par `try/except` sont tolérés pour les interactions utilisateur (ex: `choose_destination_explorer`).
 
 **Pattern import guard (obligatoire)**
 ```python
@@ -52,8 +54,8 @@ rows = [
     {"Name": "date_day",       "Prefix": "",   "Suffix": ""},
 ]
 ```
-Noms système réservés : `"date_day"`, `"date_month"`, `"date_year"`.
-Résolution : `NamingResolver().resolve(rows, revit_element, doc)`.
+Noms système réservés : `'Date: Jour'`, `'Date: Mois'`, `'Date: Année'`.
+Résolution : constructeur `NamingResolver(doc)`, puis `resolver.resolve_for_element(elem, rows)`.
 
 **DestinationStore**
 `DestinationStore.sanitize(name)` est la méthode canonique pour tout nom de fichier Windows :
