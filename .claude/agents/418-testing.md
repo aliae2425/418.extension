@@ -40,7 +40,7 @@ store = DestinationStore()  # UserConfig sera None, mais sanitize() et unique_pa
 |---|---|
 | `DestinationStore` | `sanitize()`, `unique_path()`, `build_filename_from_rows()` |
 | `NamingResolver` | `build_pattern()`, `resolve_for_element()` (avec faux éléments) |
-| `NamingPatternStore` | sérialisation/désérialisation JSON des rows |
+| `NamingPatternStore` | round-trip `save()` / `load()` (format custom, pas JSON standard) |
 
 ## Structure d'un fichier de test
 
