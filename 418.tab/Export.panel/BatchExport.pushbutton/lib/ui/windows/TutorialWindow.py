@@ -14,7 +14,7 @@ class TutorialWindow(forms.WPFWindow):
             paths = AppPaths()
             theme = UIThemeManager.CurrentTheme
             if theme == UITheme.Dark:
-                files = ['ColorsDark.xaml', 'StylesDark.xaml']
+                files = ['Colors.xaml', 'Styles.xaml', 'ColorsDark.xaml']
             else:
                 files = ['Colors.xaml', 'Styles.xaml']
             for filename in files:

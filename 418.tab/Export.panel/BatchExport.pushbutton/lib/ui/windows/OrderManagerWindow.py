@@ -19,11 +19,10 @@ class OrderManagerWindow(forms.WPFWindow):
 
             # Dark overrides
             if is_dark_mode:
-                for filename in ('ColorsDark.xaml', 'StylesDark.xaml'):
-                    path = paths.resource_path(filename)
-                    rd = ResourceDictionary()
-                    rd.Source = Uri('file:///' + path.replace('\\', '/').replace(':', ':/'), UriKind.Absolute)
-                    self.Resources.MergedDictionaries.Add(rd)
+                path = paths.resource_path('ColorsDark.xaml')
+                rd = ResourceDictionary()
+                rd.Source = Uri('file:///' + path.replace('\\', '/').replace(':', ':/'), UriKind.Absolute)
+                self.Resources.MergedDictionaries.Add(rd)
 
         except Exception as e:
             print('OrderManagerWindow [001]: Error loading resources: {}'.format(e))

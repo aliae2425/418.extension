@@ -162,14 +162,9 @@ class ConfigManagerWindow(forms.WPFWindow):
             if theme == UITheme.Dark:
                 from System.Windows import ResourceDictionary
                 from System import Uri, UriKind
-                
-                dark_colors = self._paths.resource_path('ColorsDark.xaml')
-                dark_styles = self._paths.resource_path('StylesDark.xaml')
-                
-                for path in [dark_colors, dark_styles]:
-                    rd = ResourceDictionary()
-                    rd.Source = Uri(path, UriKind.Absolute)
-                    self.Resources.MergedDictionaries.Add(rd)
+                rd = ResourceDictionary()
+                rd.Source = Uri(self._paths.resource_path('ColorsDark.xaml'), UriKind.Absolute)
+                self.Resources.MergedDictionaries.Add(rd)
         except Exception:
             pass
 

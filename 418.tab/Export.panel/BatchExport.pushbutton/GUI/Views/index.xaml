@@ -20,8 +20,8 @@
 
     Ressources / styles
     - Les styles/couleurs (light/dark) ne sont pas définis ici.
-    - Elles sont mergées au runtime (windows.xaml + éventuellement ColorsDark/StylesDark)
-      par le code Python (UIResourceLoader / fenêtres).
+    - Elles sont mergées au runtime (windows.xaml pour la base, puis ColorsDark.xaml
+      en surcharge si le thème Revit est sombre) par le code Python (UIResourceLoader / DarkMode).
 
     Templates
     - Les ContentControl ci-dessous consomment des ControlTemplate (…Template)
