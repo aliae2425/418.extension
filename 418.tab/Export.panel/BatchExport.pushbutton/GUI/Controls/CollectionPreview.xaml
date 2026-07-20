@@ -243,16 +243,23 @@
                                                   Tag="export"
                                                   IsChecked="{Binding Items[0][CollectionExportFlag], Mode=OneWay}"
                                                   ToolTip="{Binding Items[0][ParamExport]}"
-                                                  Margin="0,0,8,0"/>
+                                                  FontSize="10"
+                                                  Foreground="{DynamicResource TextSecondaryBrush}"
+                                                  Margin="0,0,6,0" Padding="4,0,0,0"/>
                                         <CheckBox Content="Carnet"
                                                   Tag="carnet"
                                                   IsChecked="{Binding Items[0][CollectionCarnetFlag], Mode=OneWay}"
                                                   ToolTip="{Binding Items[0][ParamCarnet]}"
-                                                  Margin="0,0,8,0"/>
+                                                  FontSize="10"
+                                                  Foreground="{DynamicResource TextSecondaryBrush}"
+                                                  Margin="0,0,6,0" Padding="4,0,0,0"/>
                                         <CheckBox Content="DWG"
                                                   Tag="dwg"
                                                   IsChecked="{Binding Items[0][CollectionDwgFlag], Mode=OneWay}"
-                                                  ToolTip="{Binding Items[0][ParamDwg]}"/>
+                                                  ToolTip="{Binding Items[0][ParamDwg]}"
+                                                  FontSize="10"
+                                                  Foreground="{DynamicResource TextSecondaryBrush}"
+                                                  Padding="4,0,0,0"/>
                                     </StackPanel>
                                     
                                     <!-- Colonne 5 : Bouton pour gérer l'ordre (visible uniquement si combiné) -->
