@@ -25,8 +25,6 @@ try:
             if self._data.get(key) != value:
                 self._data[key] = value
                 self._notify_property_changed(key)
-                # "Item[]" notifie les bindings WPF en notation indexeur {Binding [Key]}
-                self._notify_property_changed('Item[]')
         
         def _notify_property_changed(self, property_name):
             for handler in self._property_changed_handlers:
@@ -48,7 +46,7 @@ except Exception:
 
 class CollectionPreviewComponent(object):
     def __init__(self):
-        self._handlers_registered = False
+        pass
 
     def populate(self, win, selected_names):
         try:
@@ -367,22 +365,20 @@ class CollectionPreviewComponent(object):
                     grid.ItemsSource = items
                 # Stockage de la référence à la grille pour le write-back
                 self._grid = grid
-                # Branchement des routed events — une seule fois pour éviter les doubles appels
-                if not self._handlers_registered:
-                    try:
-                        from System.Windows.Controls.Primitives import ToggleButton  # type: ignore
-                        from System.Windows import RoutedEventHandler  # type: ignore
-                        grid.AddHandler(
-                            ToggleButton.CheckedEvent,
-                            RoutedEventHandler(self._on_flag_changed)
-                        )
-                        grid.AddHandler(
-                            ToggleButton.UncheckedEvent,
-                            RoutedEventHandler(self._on_flag_changed)
-                        )
-                        self._handlers_registered = True
-                    except Exception:
-                        pass
+                # Branchement des routed events pour les checkboxes de flags
+                try:
+                    from System.Windows.Controls.Primitives import ToggleButton  # type: ignore
+                    from System.Windows import RoutedEventHandler  # type: ignore
+                    grid.AddHandler(
+                        ToggleButton.CheckedEvent,
+                        RoutedEventHandler(self._on_flag_changed)
+                    )
+                    grid.AddHandler(
+                        ToggleButton.UncheckedEvent,
+                        RoutedEventHandler(self._on_flag_changed)
+                    )
+                except Exception:
+                    pass
         except Exception:
             pass
 
@@ -440,8 +436,13 @@ class CollectionPreviewComponent(object):
             if flag_type == 'export':
                 item['CollectionIsExported'] = new_val   # pilote le grisage
 
-        # INotifyPropertyChanged + "Item[]" sur ObservableItem suffit pour les bindings
-        # en notation indexeur — pas besoin de view.Refresh() qui reconstruirait la visual tree
+        # 3. Rafraîchissement de la ListCollectionView (mémoire seulement, pas de re-scan Revit)
+        try:
+            view = getattr(self._grid, 'ItemsSource', None) if hasattr(self, '_grid') else None
+            if view is not None:
+                view.Refresh()
+        except Exception:
+            pass
 
     # Force un refresh de la grille si possible
     def refresh_grid(self, win):
