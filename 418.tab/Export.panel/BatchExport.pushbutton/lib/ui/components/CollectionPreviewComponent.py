@@ -408,22 +408,18 @@ class CollectionPreviewComponent(object):
 
         # 1. Écriture Revit dans une transaction
         try:
-            try:
-                doc = __revit__.ActiveUIDocument.Document  # type: ignore
-            except Exception:
-                return
-            try:
-                from pyrevit import revit  # type: ignore
-                with revit.Transaction(doc=doc, name=u"Modifier flag {}".format(flag_type)):
-                    coll = doc.GetElement(coll_id)
-                    p = coll.LookupParameter(param_name)
-                    if p and not p.IsReadOnly:
-                        p.Set(1 if new_val else 0)
-            except Exception:
-                cb.IsChecked = not new_val   # rollback visuel
-                return
+            doc = __revit__.ActiveUIDocument.Document  # type: ignore
         except Exception:
-            cb.IsChecked = not new_val
+            return
+        try:
+            from pyrevit import revit  # type: ignore
+            with revit.Transaction(doc=doc, name=u"Modifier flag {}".format(flag_type)):
+                coll = doc.GetElement(coll_id)
+                p = coll.LookupParameter(param_name)
+                if p and not p.IsReadOnly:
+                    p.Set(1 if new_val else 0)
+        except Exception:
+            cb.IsChecked = not new_val   # rollback visuel
             return
 
         # 2. Mise à jour in-place de tous les items du groupe
