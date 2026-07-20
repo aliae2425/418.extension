@@ -34,7 +34,75 @@
       <!-- Convertisseur pour afficher/masquer des éléments basés sur un booléen -->
       <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
 
-      <!-- 
+      <!-- CheckBox style Fluent compact pour l'en-tête de groupe -->
+      <Style x:Key="FluentHeaderCheckBoxStyle" TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="FontFamily" Value="Segoe UI"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="CheckBox">
+              <BulletDecorator Background="Transparent" VerticalAlignment="Center">
+                <BulletDecorator.Bullet>
+                  <Border x:Name="CheckBorder"
+                          Width="12" Height="12"
+                          CornerRadius="2"
+                          BorderThickness="1.5"
+                          BorderBrush="{DynamicResource ControlBorderBrush}"
+                          Background="{DynamicResource ControlFillBrush}">
+                    <Path x:Name="CheckMark"
+                          Data="M 1 4.5 L 4 7.5 L 9.5 2"
+                          Stroke="White"
+                          StrokeThickness="1.5"
+                          StrokeStartLineCap="Round"
+                          StrokeEndLineCap="Round"
+                          StrokeLineJoin="Round"
+                          Visibility="Collapsed"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"/>
+                  </Border>
+                </BulletDecorator.Bullet>
+                <ContentPresenter Margin="4,0,0,0"
+                                  VerticalAlignment="Center"
+                                  RecognizesAccessKey="True"/>
+              </BulletDecorator>
+              <ControlTemplate.Triggers>
+                <!-- Coché -->
+                <Trigger Property="IsChecked" Value="True">
+                  <Setter TargetName="CheckBorder" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                  <Setter TargetName="CheckBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                  <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                </Trigger>
+                <!-- Survol non coché -->
+                <MultiTrigger>
+                  <MultiTrigger.Conditions>
+                    <Condition Property="IsMouseOver" Value="True"/>
+                    <Condition Property="IsChecked" Value="False"/>
+                  </MultiTrigger.Conditions>
+                  <Setter TargetName="CheckBorder" Property="BorderBrush" Value="{DynamicResource ControlBorderHoverBrush}"/>
+                </MultiTrigger>
+                <!-- Survol coché -->
+                <MultiTrigger>
+                  <MultiTrigger.Conditions>
+                    <Condition Property="IsMouseOver" Value="True"/>
+                    <Condition Property="IsChecked" Value="True"/>
+                  </MultiTrigger.Conditions>
+                  <Setter TargetName="CheckBorder" Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+                  <Setter TargetName="CheckBorder" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}"/>
+                </MultiTrigger>
+                <!-- Désactivé -->
+                <Trigger Property="IsEnabled" Value="False">
+                  <Setter Property="Opacity" Value="0.4"/>
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+
+      <!--
            STYLE DE L'EXPANDER (GROUPE)
            Personnalisation du style des groupes (Collections) dans la ListView.
            Il remplace le style par défaut pour avoir un look plus "Fluent" / moderne.
@@ -237,29 +305,25 @@
                                     <TextBlock Grid.Column="2" Text="{Binding Items[0][SheetCount], StringFormat='{}{0} feuilles'}"
                                               FontStyle="Italic"  VerticalAlignment="Center" Margin="5,0"/>
                                     
-                                    <!-- Colonne 4 : Flags d'export (checkboxes interactives) -->
+                                    <!-- Colonne 4 : Flags d'export (checkboxes interactives style Fluent) -->
                                     <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="5,0">
                                         <CheckBox Content="Export"
                                                   Tag="export"
+                                                  Style="{StaticResource FluentHeaderCheckBoxStyle}"
                                                   IsChecked="{Binding Items[0][CollectionExportFlag], Mode=OneWay}"
                                                   ToolTip="{Binding Items[0][ParamExport]}"
-                                                  FontSize="10"
-                                                  Foreground="{DynamicResource TextSecondaryBrush}"
-                                                  Margin="0,0,6,0" Padding="4,0,0,0"/>
+                                                  Margin="0,0,8,0"/>
                                         <CheckBox Content="Carnet"
                                                   Tag="carnet"
+                                                  Style="{StaticResource FluentHeaderCheckBoxStyle}"
                                                   IsChecked="{Binding Items[0][CollectionCarnetFlag], Mode=OneWay}"
                                                   ToolTip="{Binding Items[0][ParamCarnet]}"
-                                                  FontSize="10"
-                                                  Foreground="{DynamicResource TextSecondaryBrush}"
-                                                  Margin="0,0,6,0" Padding="4,0,0,0"/>
+                                                  Margin="0,0,8,0"/>
                                         <CheckBox Content="DWG"
                                                   Tag="dwg"
+                                                  Style="{StaticResource FluentHeaderCheckBoxStyle}"
                                                   IsChecked="{Binding Items[0][CollectionDwgFlag], Mode=OneWay}"
-                                                  ToolTip="{Binding Items[0][ParamDwg]}"
-                                                  FontSize="10"
-                                                  Foreground="{DynamicResource TextSecondaryBrush}"
-                                                  Padding="4,0,0,0"/>
+                                                  ToolTip="{Binding Items[0][ParamDwg]}"/>
                                     </StackPanel>
                                     
                                     <!-- Colonne 5 : Bouton pour gérer l'ordre (visible uniquement si combiné) -->
