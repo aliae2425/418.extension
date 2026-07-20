@@ -324,7 +324,15 @@ class CollectionPreviewComponent(object):
                             'GroupHeader': group_header,
                             'SheetIdStr': sheet_num + '_' + sheet_name, # Matches _safe_sheet_name
                             'IsCombined': is_combined,
-                            'CollectionIsExported': do_export
+                            'CollectionIsExported': do_export,
+                            # Nouveaux champs pour les checkboxes de flags collection
+                            'CollectionExportFlag': do_export,
+                            'CollectionCarnetFlag': carnet_flag,
+                            'CollectionDwgFlag':    do_dwg,
+                            'CollectionId':         coll.Id,
+                            'ParamExport':          pname_export or '',
+                            'ParamCarnet':          pname_carnet or '',
+                            'ParamDwg':             pname_dwg or '',
                         }))
 
                     if should_generate_pdf:
@@ -355,6 +363,88 @@ class CollectionPreviewComponent(object):
                     grid.ItemsSource = view
                 else:
                     grid.ItemsSource = items
+                # Stockage de la référence à la grille pour le write-back
+                self._grid = grid
+                # Branchement des routed events pour les checkboxes de flags
+                try:
+                    from System.Windows.Controls.Primitives import ToggleButton  # type: ignore
+                    from System.Windows import RoutedEventHandler  # type: ignore
+                    grid.AddHandler(
+                        ToggleButton.CheckedEvent,
+                        RoutedEventHandler(self._on_flag_changed)
+                    )
+                    grid.AddHandler(
+                        ToggleButton.UncheckedEvent,
+                        RoutedEventHandler(self._on_flag_changed)
+                    )
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def _on_flag_changed(self, sender, args):
+        """Handler routed event — écrit le flag Revit et met à jour les items du groupe"""
+        try:
+            from System.Windows.Controls import CheckBox  # type: ignore
+        except Exception:
+            return
+        cb = args.Source
+        if not isinstance(cb, CheckBox):
+            return
+
+        flag_type = cb.Tag           # "export", "carnet", "dwg"
+        new_val   = bool(cb.IsChecked)
+        group     = cb.DataContext   # CollectionViewGroup
+
+        if not group or not group.Items.Count:
+            return
+
+        first = group.Items[0]
+        coll_id    = first['CollectionId']
+        param_name = first['Param' + flag_type.capitalize()]
+
+        if not param_name:
+            return
+
+        # 1. Écriture Revit dans une transaction
+        try:
+            try:
+                doc = __revit__.ActiveUIDocument.Document  # type: ignore
+            except Exception:
+                return
+            try:
+                from pyrevit import revit  # type: ignore
+                with revit.Transaction(doc=doc, name=u"Modifier flag {}".format(flag_type)):
+                    coll = doc.GetElement(coll_id)
+                    p = coll.LookupParameter(param_name)
+                    if p and not p.IsReadOnly:
+                        p.Set(1 if new_val else 0)
+            except Exception:
+                cb.IsChecked = not new_val   # rollback visuel
+                return
+        except Exception:
+            cb.IsChecked = not new_val
+            return
+
+        # 2. Mise à jour in-place de tous les items du groupe
+        flag_key = {
+            'export': 'CollectionExportFlag',
+            'carnet': 'CollectionCarnetFlag',
+            'dwg':    'CollectionDwgFlag',
+        }.get(flag_type)
+        if not flag_key:
+            return
+
+        for item in group.Items:
+            item[flag_key] = new_val
+            if flag_type == 'export':
+                item['CollectionIsExported'] = new_val   # pilote le grisage
+
+        # 3. Rafraîchissement de la ListCollectionView (mémoire seulement, pas de re-scan Revit)
+        try:
+            view = getattr(self._grid, 'ItemsSource', None) if hasattr(self, '_grid') else None
+            if view is not None:
+                view.Refresh()
         except Exception:
             pass
 
