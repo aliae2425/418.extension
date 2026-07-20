@@ -38,6 +38,12 @@ class MainWindowController(object):
         from ...services.formats.DwgExporterService import DwgExporterService
         self._sheet_params = SheetParameterRepository(self._cfg)
         self._dest = DestinationStore()
+        try:
+            from ..viewmodels.DestinationViewModel import DestinationViewModel
+            self._dest_vm = DestinationViewModel(self._dest)
+        except Exception as e:
+            print('MainWindowController [006]: DestinationViewModel init error: {}'.format(e))
+            self._dest_vm = None
         self._nstore = NamingPatternStore()
         self._pdf = PdfExporterService()
         self._dwg = DwgExporterService()
@@ -73,6 +79,7 @@ class MainWindowController(object):
             self._dest,
             self._dest_comp,
             on_destination_validity_changed=self._update_export_button_state,
+            dest_vm=self._dest_vm,
         )
         self._export_section = ExportSectionController(self._win, self._opts_comp)
         self._preview_section = PreviewSectionController(self._win, self._grid_comp, self._get_selected_values)
@@ -130,7 +137,10 @@ class MainWindowController(object):
             return
         avail = getattr(self._win, '_available_param_names', None)
         count = len(avail) if isinstance(avail, list) else 0
-        dest_ok = bool(getattr(self._win, '_dest_valid', False))
+        if self._dest_vm is not None:
+            dest_ok = bool(self._dest_vm.is_path_valid)
+        else:
+            dest_ok = bool(getattr(self._win, '_dest_valid', False))
         messages = []
         if not dest_ok:
             messages.append(u"Sélectionnez un dossier de destination valide.")
@@ -228,6 +238,13 @@ class MainWindowController(object):
     def initialize(self):
         # Build visual tree and bind
         self._binding_section.merge_and_bind()
+        # Câbler DataContext des VMs sur leurs hôtes ContentControl
+        if self._dest_vm is not None:
+            try:
+                if hasattr(self._win, 'DestinationPickerHost'):
+                    self._win.DestinationPickerHost.DataContext = self._dest_vm
+            except Exception as e:
+                print('MainWindowController [007]: DataContext dest error: {}'.format(e))
         self._theme_section.apply_initial_theme()
         # Populate UI
         self._load_param_combos()

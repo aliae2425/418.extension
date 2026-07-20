@@ -33,7 +33,7 @@
                 Margin="8,0,0,0"
                 Padding="12,4"/>
         <TextBox Name="PathTextBox"
-                 Text=""
+                 Text="{Binding destination_path, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                  Style="{DynamicResource {x:Type TextBox}}"
                  HorizontalAlignment="Stretch"
                  ToolTip="Sélectionne un dossier de sortie"/>
@@ -41,8 +41,10 @@
 
       <!-- Options simples liées à la destination -->
       <StackPanel Orientation="Vertical" Margin="0,6,0,0">
-        <CheckBox Name="CreateSubfoldersCheck" Content="Créer des sous-dossiers"/>
-        <CheckBox Name="SeparateByFormatCheck" Content="Dossiers séparés par format"/>
+        <CheckBox Name="CreateSubfoldersCheck"
+                  Content="Créer des sous-dossiers"/>
+        <CheckBox Name="SeparateByFormatCheck"
+                  Content="Dossiers séparés par format"/>
       </StackPanel>
     </StackPanel>
   </ControlTemplate>

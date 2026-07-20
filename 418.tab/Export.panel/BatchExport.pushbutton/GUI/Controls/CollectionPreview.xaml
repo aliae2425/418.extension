@@ -279,8 +279,7 @@
                         <ControlTemplate TargetType="{x:Type GroupItem}">
                           <!-- Utilisation du style d'Expander défini plus haut -->
                           <Expander Style="{StaticResource FluentGroupExpanderStyle}"
-                                    IsExpanded="False"
-                                    IsEnabled="{Binding Items[0][CollectionIsExported]}">
+                                    IsExpanded="False">
                             
                             <!-- EN-TÊTE DU GROUPE (Ligne de la Collection) -->
                             <Expander.Header>
