@@ -190,7 +190,17 @@
                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
                 BorderThickness="1"
                 BorderBrush="{DynamicResource ControlBorderBrush}">
-            
+
+            <ListView.ItemContainerStyle>
+                <Style TargetType="{x:Type ListViewItem}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding [CollectionIsExported]}" Value="False">
+                            <Setter Property="Opacity" Value="0.4"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ListView.ItemContainerStyle>
+
             <!-- DÉFINITION DES GROUPES (COLLECTIONS) -->
             <ListView.GroupStyle>
               <GroupStyle>
@@ -227,9 +237,23 @@
                                     <TextBlock Grid.Column="2" Text="{Binding Items[0][SheetCount], StringFormat='{}{0} feuilles'}"
                                               FontStyle="Italic"  VerticalAlignment="Center" Margin="5,0"/>
                                     
-                                    <!-- Colonne 4 : Résumé des options d'export (PDF, DWG, etc.) -->
-                                    <TextBlock Grid.Column="3" Text="{Binding Items[0][CollectionExportInfo]}" 
-                                              FontSize="10" VerticalAlignment="Center" Margin="5,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <!-- Colonne 4 : Flags d'export (checkboxes interactives) -->
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="5,0">
+                                        <CheckBox Content="Export"
+                                                  Tag="export"
+                                                  IsChecked="{Binding Items[0][CollectionExportFlag], Mode=OneWay}"
+                                                  ToolTip="{Binding Items[0][ParamExport]}"
+                                                  Margin="0,0,8,0"/>
+                                        <CheckBox Content="Carnet"
+                                                  Tag="carnet"
+                                                  IsChecked="{Binding Items[0][CollectionCarnetFlag], Mode=OneWay}"
+                                                  ToolTip="{Binding Items[0][ParamCarnet]}"
+                                                  Margin="0,0,8,0"/>
+                                        <CheckBox Content="DWG"
+                                                  Tag="dwg"
+                                                  IsChecked="{Binding Items[0][CollectionDwgFlag], Mode=OneWay}"
+                                                  ToolTip="{Binding Items[0][ParamDwg]}"/>
+                                    </StackPanel>
                                     
                                     <!-- Colonne 5 : Bouton pour gérer l'ordre (visible uniquement si combiné) -->
                                     <Button Grid.Column="4" Content="🔃" Width="25" Height="25" 
