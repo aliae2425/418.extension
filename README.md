@@ -1,31 +1,62 @@
 # 418.extension
 
-Une extension pyRevit conçue pour faciliter et automatiser l'exportation en lot de feuilles Revit vers les formats PDF et DWG.
+Extension pyRevit pour l'automatisation et la gestion dans Revit.
 
-## 🚀 Fonctionnalités
+## Fonctionnalités
 
-| Nom | Description | Version | Status |
-|-----|-------------|---------|--------|
-|BatchExport| Option d'export à partir des jeux de feuilles.|0.3|🖋️|
-|Repérage| Crée des filtres en fonction de la sélection ou du jeu de feuilles|-|⏳|
-|Edit material| Gestion des matériaux un peu plus sympa|-|⏳|
-|KeyNotes editor| Gestion des matériaux un peu plus sympa|-|⏳|
-|CadastreImporter| Importe automatiquement le cadastre en fonction de la géolocalisation|-|⏳|
+| Feature | Panel | Description | Version | Statut |
+|---------|-------|-------------|---------|--------|
+| BatchExport | Export | Export en lot PDF/DWG depuis les jeux de feuilles | 0.3 | 🔨 En cours |
+| Audit | Audit | Analyse et rapport sur la santé du modèle Revit | — | ⏳ Scaffold |
+| ManageFiltre | Manage | Gestion avancée des filtres de vue | — | ⏳ Scaffold |
+| ManageMatérial | Manage | Gestion et édition des matériaux | — | ⏳ Scaffold |
+| ManageSheet | Manage | Gestion des feuilles (nommage, tri, duplication) | — | ⏳ Scaffold |
+| ManageView | Manage | Gestion des vues (templates, organisation) | — | ⏳ Scaffold |
+| ImageCrop | Tools | Recadrage automatique d'images/vues | — | 🔲 Placeholder |
 
+## Installation
 
-## 📦 Installation
+1. Installer [pyRevit](https://github.com/eirannejad/pyRevit)
+2. Cloner ce dépôt dans le dossier extensions pyRevit
+3. Recharger pyRevit (`pyRevit tab → Reload` ou `Ctrl+F5`)
 
-1.  Assurez-vous que [pyRevit](https://github.com/eirannejad/pyRevit) est installé sur votre machine.
-2.  Installez cette extension via le gestionnaire d'extensions pyRevit ou en clonant ce dépôt dans votre dossier d'extensions.
-3.  Rechargez pyRevit.
+## Architecture
 
-## 🛠️ Utilisation
+### Bibliothèque partagée (`418.extension/lib/`)
 
-1.  Allez dans l'onglet **418** du ruban Revit.
-2.  Cliquez sur le bouton **Batch Export** dans le panneau Export.
-3.  **Configuration** :
-    *   Sélectionnez les paramètres Revit qui pilotent l'export (ex: "A Exporter", "Est un Carnet").
-    *   Choisissez vos configurations d'export (Setups) PDF et DWG définies dans Revit.
-    *   Définissez le dossier de destination.
-4.  **Nommage** : Cliquez sur les icônes de configuration pour définir les règles de nommage des feuilles et des carnets.
-5.  **Lancement** : Vérifiez le résumé dans la grille de prévisualisation et cliquez sur **Exporter**.
+pyRevit ajoute automatiquement `418.extension/lib/` au `sys.path`. Import direct depuis n'importe quel pushbutton :
+
+```python
+from core.UserConfig import UserConfig
+from ui.base.BaseViewModel import BaseViewModel
+from ui.helpers.RelayCommand import RelayCommand
+```
+
+Structure :
+- `core/` — `AppPaths`, `UserConfig`, `sanitize`
+- `ui/base/` — `BaseViewModel` (INotifyPropertyChanged), `BaseWindow` (chargement XAML)
+- `ui/helpers/` — `RelayCommand`, `DarkMode`, `UIResourceLoader`, `HoverOverlay`, `GridRowToggle`
+- `ui/GUI/resources/` — thème XAML unifié (Colors, Styles, variantes Dark)
+
+### Pattern MVVM
+
+Chaque pushbutton WPF suit :
+
+```
+<Feature>.pushbutton/
+├── script.py                 ← instancie ViewModel + ouvre View
+├── GUI/Views/MainWindow.xaml ← bindings sur ViewModel, zéro logique
+└── lib/
+    ├── models/               ← DTOs, wrappers Revit
+    ├── viewmodels/           ← MainViewModel(BaseViewModel)
+    ├── services/             ← logique métier + Revit API
+    └── views/                ← MainWindowView (chargement fenêtre)
+```
+
+## Développement
+
+Cycle : éditer → `pyRevit tab → Reload` → tester.
+
+Pour tester un seul bouton sans recharger : clic droit → **Run script**.
+
+Minimum Revit : 2026. Python 2/3 compatible.
