@@ -2,9 +2,12 @@
 from __future__ import unicode_literals
 
 try:
-    from System.Windows.Input import ICommand
+    from System.Windows.Input import ICommand, CommandManager
+    _has_cm = True
 except Exception:
     ICommand = object
+    CommandManager = None
+    _has_cm = False
 
 
 class RelayCommand(ICommand):
@@ -19,7 +22,9 @@ class RelayCommand(ICommand):
         self._execute(parameter)
 
     def add_CanExecuteChanged(self, handler):
-        pass
+        if _has_cm and CommandManager:
+            CommandManager.RequerySuggested += handler
 
     def remove_CanExecuteChanged(self, handler):
-        pass
+        if _has_cm and CommandManager:
+            CommandManager.RequerySuggested -= handler
