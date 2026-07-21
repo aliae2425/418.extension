@@ -65,7 +65,7 @@ class UserConfig(object):
 
     def set_list(self, key, values):
         """Persiste une liste sous forme 'v1, v2, v3' lisible par get_list."""
-        return self.set(key, u', '.join(unicode(v) for v in values))
+        return self.set(key, u', '.join(u'{}'.format(v) for v in values))
 
     def get_list(self, key, default=None):
         if default is None:
