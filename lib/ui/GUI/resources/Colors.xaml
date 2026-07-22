@@ -42,4 +42,13 @@
     <!-- Legacy/Existing keys mapped to new ones -->
     <SolidColorBrush x:Key="LightGrayBrush" Color="#F3F3F3"/>
     <SolidColorBrush x:Key="MediumGrayBrush" Color="#E0E0E0"/>
+
+    <!-- Coquille commune (barre commune Fluent) -->
+    <!-- Accent secondaire (thème clair) -->
+    <SolidColorBrush x:Key="AccentSecondaryBrush" Color="#00B7C3"/>
+    <!-- Dégradé de marque : AccentBrush -> AccentSecondaryBrush (couleurs en dur, un GradientBrush ne référence pas d'autres brushes) -->
+    <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Offset="0" Color="#0078D4"/>
+        <GradientStop Offset="1" Color="#00B7C3"/>
+    </LinearGradientBrush>
 </ResourceDictionary>

@@ -12,3 +12,11 @@ class AppPaths(object):
 
     def resource_path(self, filename):
         return os.path.join(self.resources_dir(), filename)
+
+    def logo_path(self, dark=False):
+        # Retourne le logo sombre si demandé et présent, sinon le logo clair.
+        if dark:
+            sombre = self.resource_path('logo.dark.png')
+            if os.path.exists(sombre):
+                return sombre
+        return self.resource_path('logo.png')

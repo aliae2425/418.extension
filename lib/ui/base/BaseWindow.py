@@ -17,6 +17,11 @@ except Exception:
     _has_wpf = False
 
 try:
+    from System.Windows import WindowState
+except Exception:
+    WindowState = None
+
+try:
     from ui.helpers.UIResourceLoader import UIResourceLoader
 except Exception:
     UIResourceLoader = None
@@ -67,6 +72,45 @@ class BaseWindow(object):
                     except Exception:
                         pass
                 tb.MouseLeftButtonDown += _on_title_bar_down
+        except Exception:
+            pass
+        # Câblage opt-in des boutons de la barre commune. Chaque bouton est
+        # optionnel : FindName peut renvoyer None (ex. modal About). Tout est
+        # protégé afin qu'une fenêtre sans ces boutons charge sans erreur.
+        try:
+            btn_min = self._window.FindName('MinimizeButton')
+            if btn_min is not None and WindowState is not None:
+                def _on_minimize(sender, args):
+                    try:
+                        self._window.WindowState = WindowState.Minimized
+                    except Exception:
+                        pass
+                btn_min.Click += _on_minimize
+        except Exception:
+            pass
+        try:
+            btn_maxr = self._window.FindName('MaximizeRestoreButton')
+            if btn_maxr is not None and WindowState is not None:
+                def _on_maximize_restore(sender, args):
+                    try:
+                        if self._window.WindowState == WindowState.Maximized:
+                            self._window.WindowState = WindowState.Normal
+                        else:
+                            self._window.WindowState = WindowState.Maximized
+                    except Exception:
+                        pass
+                btn_maxr.Click += _on_maximize_restore
+        except Exception:
+            pass
+        try:
+            btn_close = self._window.FindName('CloseButton')
+            if btn_close is not None:
+                def _on_close(sender, args):
+                    try:
+                        self._window.Close()
+                    except Exception:
+                        pass
+                btn_close.Click += _on_close
         except Exception:
             pass
 
