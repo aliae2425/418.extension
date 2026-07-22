@@ -2,6 +2,12 @@
 from __future__ import unicode_literals
 
 try:
+    from ui.helpers.wpf_runtime import ensure_wpf as _ensure_wpf
+    _ensure_wpf()
+except Exception:
+    pass
+
+try:
     from System.Windows.Input import ICommand, CommandManager
     _has_cm = True
 except Exception:

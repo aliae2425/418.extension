@@ -2,6 +2,12 @@
 from __future__ import unicode_literals
 
 try:
+    from ui.helpers.wpf_runtime import ensure_wpf as _ensure_wpf
+    _ensure_wpf()
+except Exception:
+    pass
+
+try:
     from System.Windows.Markup import XamlReader
     from System.IO import FileStream, FileMode, FileAccess
     _has_wpf = True
@@ -50,6 +56,19 @@ class BaseWindow(object):
             loader.merge_theme()
         if self._vm is not None:
             self._window.DataContext = self._vm
+        # Câblage du glisser-déposer par une barre de titre nommée « TitleBar ».
+        # Gardé : les fenêtres sans « TitleBar » continuent de charger sans erreur.
+        try:
+            tb = self._window.FindName('TitleBar')
+            if tb is not None:
+                def _on_title_bar_down(sender, args):
+                    try:
+                        self._window.DragMove()
+                    except Exception:
+                        pass
+                tb.MouseLeftButtonDown += _on_title_bar_down
+        except Exception:
+            pass
 
     def show(self):
         if self._window is None:
