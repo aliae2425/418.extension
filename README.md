@@ -13,6 +13,7 @@ Extension pyRevit pour l'automatisation et la gestion dans Revit.
 | ManageSheet | Manage | Gestion des feuilles (nommage, tri, duplication) | — | ⏳ Scaffold |
 | ManageView | Manage | Gestion des vues (templates, organisation) | — | ⏳ Scaffold |
 | ImageCrop | Tools | Recadrage automatique d'images/vues | — | 🔲 Placeholder |
+| Infos | Aide | Fenêtre « À propos » (version, dépôt, licence) | 1.2.12 | ✅ Actif |
 
 ## Installation
 
