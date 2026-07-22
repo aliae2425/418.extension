@@ -24,6 +24,11 @@ from lib.ui.windows.TutorialWindow import show_tutorial
 from lib.data.sheets.SheetParameterRepository import SheetParameterRepository
 
 
+# TODO(feat/Export): migrer les imports internes vers 418.extension/lib/
+# Modules cibles : core.UserConfig, core.AppPaths, ui.helpers.RelayCommand,
+#                  ui.helpers.DarkMode, ui.base.BaseWindow, ui.base.BaseViewModel
+
+
 if __name__ == "__main__":
     try:
         doc = __revit__.ActiveUIDocument.Document  # type: ignore
