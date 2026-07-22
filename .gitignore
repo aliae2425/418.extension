@@ -4,5 +4,7 @@
 /.venv
 /.venv/*
 
-/*/__pycache__
+**/__pycache__
 profil.json
+.claude/*
+.claude-flow/*
