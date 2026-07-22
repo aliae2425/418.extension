@@ -7,7 +7,7 @@ import unittest
 # Rendre importable le lib partagé (418.extension/lib) comme le fait pyRevit.
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _SHARED_LIB = os.path.abspath(os.path.join(
-    _HERE, '..', '..', '..', '..', '..', 'lib'))  # -> 418.extension/lib
+    _HERE, '..', '..', '..', '..', 'lib'))  # -> 418.extension/lib
 if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
 # Rendre importable le lib local du bouton (pour 'from lib.viewmodels...').
@@ -26,7 +26,7 @@ class TestAboutViewModel(unittest.TestCase):
         self.assertEqual(self.vm.Nom, u'418.extension')
 
     def test_version_contient_numero(self):
-        self.assertIn(u'1.2.12', self.vm.Version)
+        self.assertEqual(self.vm.Version, u'Version 1.2.12')
         self.assertEqual(__version__, u'1.2.12')
 
     def test_description_non_vide(self):
@@ -34,7 +34,7 @@ class TestAboutViewModel(unittest.TestCase):
 
     def test_auteur_et_licence(self):
         self.assertEqual(self.vm.Auteur, u'Aliae')
-        self.assertIn(u'MIT', self.vm.Licence)
+        self.assertEqual(self.vm.Licence, u'Licence MIT © 2025')
 
     def test_url_depot(self):
         self.assertEqual(
