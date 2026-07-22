@@ -15,6 +15,10 @@ _WPF_ASSEMBLIES = (
     'PresentationCore',
     'WindowsBase',
     'System.Xaml',
+    # System.dll : contient System.Uri / System.UriKind. Sous IronPython, le
+    # namespace System de base (mscorlib) n'expose pas Uri tant que l'assembly
+    # System n'est pas explicitement référencée -> « Cannot import name Uri ».
+    'System',
 )
 
 _ensured = False

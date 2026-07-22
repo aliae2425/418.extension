@@ -2,18 +2,29 @@
 from __future__ import unicode_literals
 import os
 
-try:
-    from ui.helpers.wpf_runtime import ensure_wpf as _ensure_wpf
-    _ensure_wpf()
-except Exception:
-    pass
 
-try:
-    from System import Uri, UriKind
-    from System.Windows import ResourceDictionary
-    _has_wpf = True
-except Exception:
-    _has_wpf = False
+def _load_wpf():
+    """Charge et retourne les types WPF nécessaires, ou None si indisponible.
+
+    IMPORTANT : l'import est fait AU MOMENT DE L'USAGE (et non à l'import du
+    module). Évaluer la disponibilité WPF à l'import est fragile : selon l'ordre
+    d'import, le module pouvait être chargé avant que les assemblies WPF soient
+    référencées, figeant alors un état « indisponible » pour toute la session
+    même si la fenêtre s'affiche ensuite correctement. On appelle donc
+    ``ensure_wpf`` puis on importe juste avant d'en avoir besoin.
+    """
+    try:
+        from ui.helpers.wpf_runtime import ensure_wpf
+        ensure_wpf()
+    except Exception:
+        pass
+    try:
+        from System import Uri, UriKind
+        from System.Windows import ResourceDictionary
+        return Uri, UriKind, ResourceDictionary
+    except Exception:
+        return None
+
 
 try:
     from core.AppPaths import AppPaths as _AppPaths
@@ -28,9 +39,11 @@ class UIResourceLoader(object):
         self._paths = _AppPaths() if _AppPaths is not None else None
 
     def merge_theme(self):
-        if not _has_wpf:
+        wpf = _load_wpf()
+        if wpf is None:
             print('UIResourceLoader: WPF non disponible')
             return False
+        Uri, UriKind, ResourceDictionary = wpf
         if self._paths is None:
             print('UIResourceLoader: AppPaths non disponible')
             return False
@@ -50,8 +63,12 @@ class UIResourceLoader(object):
         return True
 
     def merge_resource(self, xaml_path):
-        if not _has_wpf or not os.path.exists(xaml_path):
+        if not os.path.exists(xaml_path):
             return False
+        wpf = _load_wpf()
+        if wpf is None:
+            return False
+        Uri, UriKind, ResourceDictionary = wpf
         try:
             rd = ResourceDictionary()
             uri_str = 'file:///' + xaml_path.replace('\\', '/').replace(':', ':/')

@@ -86,12 +86,11 @@
           <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <!-- Colonne gauche : logo (variante dark/clair via IconPath) -->
-        <Border Grid.Column="0"
-                Style="{DynamicResource CardStyle}"
-                Margin="0,0,20,0">
-          <Image Source="{Binding IconPath}" Stretch="Uniform"/>
-        </Border>
+        <!-- Colonne gauche : logo (variante dark/clair via IconPath), sans fond -->
+        <Image Grid.Column="0"
+               Source="{Binding IconPath}"
+               Stretch="Uniform"
+               Margin="0,0,20,0"/>
 
         <!-- Colonne droite : infos + pied de page -->
         <Grid Grid.Column="1">
