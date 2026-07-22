@@ -31,4 +31,13 @@
     <Color x:Key="ShadowColor">#000000</Color>
     <SolidColorBrush x:Key="LightGrayBrush" Color="#23272F"/>
     <SolidColorBrush x:Key="MediumGrayBrush" Color="#444A57"/>
+
+    <!-- Coquille commune (barre commune Fluent) -->
+    <!-- Accent secondaire (thème sombre) -->
+    <SolidColorBrush x:Key="AccentSecondaryBrush" Color="#29C6D1"/>
+    <!-- Dégradé de marque : AccentBrush -> AccentSecondaryBrush (couleurs en dur adaptées au thème sombre) -->
+    <LinearGradientBrush x:Key="AccentGradientBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Offset="0" Color="#0078D4"/>
+        <GradientStop Offset="1" Color="#29C6D1"/>
+    </LinearGradientBrush>
 </ResourceDictionary>
