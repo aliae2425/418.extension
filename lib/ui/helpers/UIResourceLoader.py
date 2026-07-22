@@ -3,6 +3,12 @@ from __future__ import unicode_literals
 import os
 
 try:
+    from ui.helpers.wpf_runtime import ensure_wpf as _ensure_wpf
+    _ensure_wpf()
+except Exception:
+    pass
+
+try:
     from System import Uri, UriKind
     from System.Windows import ResourceDictionary
     _has_wpf = True

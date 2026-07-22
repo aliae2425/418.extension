@@ -2,56 +2,139 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="{Binding Nom}"
         Width="520" Height="300"
+        WindowStyle="None"
         ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="{DynamicResource TransparentBrush}"
         WindowStartupLocation="CenterScreen">
-    <Grid Margin="20">
+
+  <!--
+    Fenêtre "À propos" (Infos.pushbutton)
+
+    Chargement
+    - Ce XAML est chargé par lib/ui/base/BaseWindow.py via XamlReader.Load(stream).
+    - Les dictionnaires de thème (Colors/Styles + variantes Dark) sont fusionnés
+      dans window.Resources APRÈS le parse.
+    - CONSÉQUENCE : tout brush/style de thème est référencé via DynamicResource.
+      Aucun StaticResource ne doit apparaître ici.
+
+    Chrome custom borderless
+    - WindowStyle="None" + AllowsTransparency : chrome dessiné par le Border racine.
+    - TitleBar (x:Name requis) : BaseWindow y câble le DragMove().
+    - Fermeture : boutons IsCancel="True" (ShowDialog).
+  -->
+
+  <Border CornerRadius="8"
+          Background="{DynamicResource WindowBackgroundBrush}"
+          BorderBrush="{DynamicResource ControlBorderBrush}"
+          BorderThickness="1">
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <!--
+        TitleBar custom
+        - x:Name="TitleBar" utilisé côté Python pour permettre DragMove().
+        - Titre à gauche + bouton de fermeture à droite.
+      -->
+      <Grid Grid.Row="0" x:Name="TitleBar" Background="{DynamicResource TransparentBrush}" Margin="0">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="160"/>
-            <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
 
-        <!-- Colonne gauche : logo placeholder (à remplacer par une Image) -->
+        <TextBlock Text="À propos"
+                   Grid.Column="0"
+                   Style="{DynamicResource HeaderTextBlockStyle}"
+                   Margin="12,0,0,0"
+                   VerticalAlignment="Center"/>
+
+        <Button Name="CloseWindowButton"
+                Grid.Column="1"
+                Content="✕"
+                IsCancel="True"
+                Width="40" Height="40"
+                Margin="0,4,4,0"
+                VerticalAlignment="Top"
+                Background="{DynamicResource TransparentBrush}"
+                BorderThickness="0"
+                Foreground="{DynamicResource TextPrimaryBrush}"
+                FontSize="16"
+                Cursor="Hand">
+          <Button.Template>
+            <ControlTemplate TargetType="Button">
+              <Border x:Name="border" Background="{TemplateBinding Background}">
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter TargetName="border" Property="Background" Value="{DynamicResource CloseButtonHoverBrush}"/>
+                  <Setter Property="Foreground" Value="{DynamicResource TextOnDangerBrush}"/>
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Button.Template>
+        </Button>
+      </Grid>
+
+      <!-- Contenu principal : logo + infos -->
+      <Grid Grid.Row="1" Margin="20">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="160"/>
+          <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Colonne gauche : logo (variante dark/clair via IconPath) -->
         <Border Grid.Column="0"
-                CornerRadius="8"
-                BorderBrush="#888888" BorderThickness="1"
+                Style="{DynamicResource CardStyle}"
                 Margin="0,0,20,0">
-            <TextBlock Text="418"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       FontSize="48" FontWeight="Bold"/>
+          <Image Source="{Binding IconPath}" Stretch="Uniform"/>
         </Border>
 
         <!-- Colonne droite : infos + pied de page -->
         <Grid Grid.Column="1">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+          </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0">
-                <TextBlock Text="{Binding Nom}"
-                           FontSize="22" FontWeight="Bold"/>
-                <TextBlock Text="{Binding Version}"
-                           FontSize="13" Margin="0,2,0,10"/>
-                <TextBlock Text="{Binding Description}"
-                           TextWrapping="Wrap" Margin="0,0,0,12"/>
-                <Button Content="github.com/aliae2425/418.extension"
-                        Command="{Binding ouvrir_depot_cmd}"
-                        Cursor="Hand"
-                        HorizontalAlignment="Left"
-                        Background="Transparent" BorderThickness="0"
-                        Foreground="#2A7DE1" Padding="0"
-                        ToolTip="Ouvrir le dépôt GitHub"/>
-                <TextBlock Margin="0,12,0,0"
-                           Text="Aliae · Licence MIT © 2025"
-                           FontSize="12" Foreground="Gray"/>
-            </StackPanel>
+          <StackPanel Grid.Row="0">
+            <TextBlock Text="{Binding Nom}"
+                       Style="{DynamicResource HeaderTextBlockStyle}"
+                       FontSize="22"/>
+            <TextBlock Text="{Binding Version}"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="13"
+                       Margin="0,2,0,10"/>
+            <TextBlock Text="{Binding Description}"
+                       Style="{DynamicResource BodyTextBlockStyle}"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,12"/>
+            <Button Content="github.com/aliae2425/418.extension"
+                    Command="{Binding ouvrir_depot_cmd}"
+                    Cursor="Hand"
+                    HorizontalAlignment="Left"
+                    Background="{DynamicResource TransparentBrush}"
+                    BorderThickness="0"
+                    Foreground="{DynamicResource AccentBrush}"
+                    Padding="0"
+                    ToolTip="Ouvrir le dépôt GitHub"/>
+            <TextBlock Text="Aliae · Licence MIT © 2025"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="12"
+                       Margin="0,12,0,0"/>
+          </StackPanel>
 
-            <Button Grid.Row="1"
-                    Content="Fermer"
-                    IsCancel="True"
-                    Width="90" Height="28"
-                    HorizontalAlignment="Right"/>
+          <Button Grid.Row="1"
+                  Content="Fermer"
+                  Style="{DynamicResource PrimaryButtonStyle}"
+                  IsCancel="True"
+                  Width="90" Height="30"
+                  HorizontalAlignment="Right"/>
         </Grid>
+      </Grid>
     </Grid>
+  </Border>
 </Window>

@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+import os
+
 try:
     from ui.base.BaseViewModel import BaseViewModel
 except Exception:
     BaseViewModel = object
+
+try:
+    from ui.helpers.DarkMode import is_dark
+except Exception:
+    def is_dark():
+        return False
 
 try:
     from ui.helpers.RelayCommand import RelayCommand
@@ -67,3 +75,19 @@ class AboutViewModel(BaseViewModel):
     @property
     def UrlDepot(self):
         return self._url_depot
+
+    @property
+    def IconPath(self):
+        """Chemin absolu vers l'icône selon le thème (dark/clair)."""
+        racine = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        clair = os.path.join(racine, u'icon.png')
+        try:
+            actif_dark = bool(is_dark())
+        except Exception:
+            actif_dark = False
+        if actif_dark:
+            sombre = os.path.join(racine, u'icon.dark.png')
+            if os.path.exists(sombre):
+                return sombre
+        return clair
