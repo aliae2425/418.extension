@@ -20,7 +20,10 @@ except Exception:
 try:
     from core.UserConfig import UserConfig  # type: ignore
 except Exception:
-    UserConfig = None  # type: ignore
+    try:
+        from lib.core.UserConfig import UserConfig  # type: ignore
+    except Exception:
+        UserConfig = None  # type: ignore
 
 
 class NamingService(object):
