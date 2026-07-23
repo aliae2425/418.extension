@@ -22,6 +22,10 @@ class MainWindowView(BaseWindow):
     def _load(self):
         super(MainWindowView, self)._load()
         self.wire_navigation()
+        try:
+            self._vm.refresh_par_jeu()
+        except Exception:
+            pass
 
     def wire_navigation(self):
         if self._window is None:

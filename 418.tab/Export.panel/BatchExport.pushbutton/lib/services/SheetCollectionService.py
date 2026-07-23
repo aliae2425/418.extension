@@ -54,7 +54,12 @@ class SheetCollectionService(object):
     # ------------------------------------------------------------------
 
     def list_collections(self):
-        """Retourne `[{'Titre': unicode, 'Id': ElementId, 'Feuilles': int}, ...]`."""
+        """Retourne `[{'Titre': unicode, 'Id': ElementId, 'Feuilles': int, 'Elem': DB.SheetCollection}, ...]`.
+
+        La clé `'Elem'` (élément Revit brut) est exposée pour permettre à
+        l'appelant (ex: `MainViewModel.refresh_par_jeu`) d'appeler
+        `read_flag(elem, param_name)` sans aller-retour supplémentaire par Id.
+        """
         result = []
         if DB is None or self._doc is None:
             return result
@@ -79,7 +84,7 @@ class SheetCollectionService(object):
                         count += 1
                 except Exception:
                     continue
-            result.append({'Titre': titre, 'Id': coll_id, 'Feuilles': count})
+            result.append({'Titre': titre, 'Id': coll_id, 'Feuilles': count, 'Elem': coll})
         return result
 
     # ------------------------------------------------------------------
@@ -87,9 +92,13 @@ class SheetCollectionService(object):
     # ------------------------------------------------------------------
 
     def list_sheets(self, collection_id=None):
-        """Retourne `[{'Numero': unicode, 'Nom': unicode, 'CollectionId': ElementId}, ...]`.
+        """Retourne `[{'Numero': unicode, 'Nom': unicode, 'CollectionId': ElementId, 'Elem': DB.ViewSheet}, ...]`.
 
         Si `collection_id` est `None`, retourne toutes les feuilles du document.
+
+        La clé `'Elem'` (élément Revit brut) est exposée pour permettre à
+        l'appelant de résoudre un nom projeté via `NamingService.resolve_for_element`
+        sans aller-retour supplémentaire par Id.
         """
         result = []
         if DB is None or self._doc is None:
@@ -117,7 +126,7 @@ class SheetCollectionService(object):
                 nom = vs.Name
             except Exception:
                 nom = ''
-            result.append({'Numero': numero, 'Nom': nom, 'CollectionId': vs_coll_id})
+            result.append({'Numero': numero, 'Nom': nom, 'CollectionId': vs_coll_id, 'Elem': vs})
         return result
 
     # ------------------------------------------------------------------

@@ -31,11 +31,28 @@
     - NavAuto / NavManual / NavSettings partagent GroupName="nav" (sélection exclusive).
     - Le contenu réel (sections) arrive en phase ultérieure ; la surface affiche
       pour l'instant un placeholder lié à SurfaceTitre.
+
+    Mode « par jeu » (Collections)
+    - `MainViewModel.Collections` (property CLR) expose une LISTE de
+      `CollectionItemVM` (dérivant de `BaseViewModel`, propriétés CLR
+      `Titre`/`Id`/`FlagExport`/`FlagCarnet`/`FlagDwg`/`Qualified`/`Sheets`).
+      Chaque `Sheets` est une liste de `SheetItemVM` (propriétés `Numero`/
+      `Nom`/`NomProjete`). Ce pattern (objet à @property dérivé de
+      BaseViewModel) est celui déjà utilisé pour `{Binding Titre}` sur la
+      fenêtre elle-même : il bind de façon fiable, contrairement à un
+      `dict` Python qui n'expose pas de propriétés CLR nommées.
+    - Bindings donc en syntaxe PROPRIÉTÉ classique (`{Binding Titre}`,
+      `{Binding Sheets}`, etc.), pas en syntaxe indexeur.
   -->
 
   <shell:WindowChrome.WindowChrome>
     <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0"/>
   </shell:WindowChrome.WindowChrome>
+
+  <Window.Resources>
+    <!-- Local à cette fenêtre : bascule Visibility selon IsAuto/IsNotAuto (mode « par jeu »). -->
+    <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+  </Window.Resources>
 
   <!-- Border racine : coins arrondis, fond de fenêtre -->
   <Border CornerRadius="12"
@@ -137,20 +154,240 @@
                 Margin="6,0,12,12">
           <Grid>
             <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
               <RowDefinition Height="*"/>
               <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- Zone de contenu (placeholder — le contenu réel viendra en phase ultérieure) -->
-            <TextBlock Grid.Row="0"
+            <!--
+              En-tête de surface : titre du mode + badge de compte
+              (jeux qualifiés / feuilles qualifiées). Visible uniquement
+              en mode « par jeu » (IsAuto).
+            -->
+            <Grid Grid.Row="0"
+                  Margin="20,16,20,8"
+                  Visibility="{Binding IsAuto, Converter={StaticResource BoolToVisibilityConverter}}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+
+              <TextBlock Grid.Column="0"
+                         Text="{Binding SurfaceTitre}"
+                         Style="{DynamicResource SubHeaderTextBlockStyle}"
+                         VerticalAlignment="Center"/>
+
+              <!-- Badge de compte : "N jeux · M feuilles" -->
+              <Border Grid.Column="1"
+                      Background="{DynamicResource ControlFillBrush}"
+                      BorderBrush="{DynamicResource ControlBorderBrush}"
+                      BorderThickness="1"
+                      CornerRadius="10"
+                      Padding="10,4"
+                      VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock Text="{Binding NbJeuxQualifies}"
+                             Foreground="{DynamicResource AccentBrush}"
+                             FontWeight="SemiBold"
+                             FontSize="12.5"/>
+                  <TextBlock Text=" jeux qualifiés · "
+                             Foreground="{DynamicResource TextSecondaryBrush}"
+                             FontSize="12.5"/>
+                  <TextBlock Text="{Binding NbFeuillesQualifiees}"
+                             Foreground="{DynamicResource AccentBrush}"
+                             FontWeight="SemiBold"
+                             FontSize="12.5"/>
+                  <TextBlock Text=" feuilles"
+                             Foreground="{DynamicResource TextSecondaryBrush}"
+                             FontSize="12.5"/>
+                </StackPanel>
+              </Border>
+            </Grid>
+
+            <!--
+              Zone de contenu — mode « par jeu » : liste des collections
+              (lecture seule). ItemsSource = MainViewModel.Collections
+              (liste de CollectionItemVM). Chaque item est bindé via la
+              syntaxe PROPRIÉTÉ {Binding Cle} — voir note en tête de
+              fichier sur le pattern CollectionItemVM/SheetItemVM.
+            -->
+            <ScrollViewer Grid.Row="1"
+                          Margin="20,0,20,8"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Visibility="{Binding IsAuto, Converter={StaticResource BoolToVisibilityConverter}}">
+              <ItemsControl ItemsSource="{Binding Collections}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Vertical"/>
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <!--
+                      Carte de collection. Opacity abaissée si la collection
+                      n'est pas qualifiée (Qualified == False).
+                    -->
+                    <Border Style="{DynamicResource CardStyle}"
+                            x:Name="CollectionCard">
+                      <StackPanel Orientation="Vertical">
+
+                        <!-- En-tête de collection : Titre + 3 badges de rôle -->
+                        <Grid Margin="0,0,0,8">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                          </Grid.ColumnDefinitions>
+
+                          <TextBlock Grid.Column="0"
+                                     Text="{Binding Titre}"
+                                     Foreground="{DynamicResource TextPrimaryBrush}"
+                                     FontWeight="SemiBold"
+                                     FontSize="14"
+                                     VerticalAlignment="Center"/>
+
+                          <StackPanel Grid.Column="1"
+                                      Orientation="Horizontal">
+
+                            <!-- Badge EXPORT -->
+                            <Border x:Name="BadgeExport"
+                                    Background="{DynamicResource ControlFillBrush}"
+                                    BorderBrush="{DynamicResource ControlBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="8,3"
+                                    Margin="4,0,0,0">
+                              <TextBlock x:Name="BadgeExportText"
+                                         Text="EXPORT"
+                                         FontSize="10.5"
+                                         FontWeight="SemiBold"
+                                         Foreground="{DynamicResource TextDisabledBrush}"/>
+                            </Border>
+
+                            <!-- Badge CARNET -->
+                            <Border x:Name="BadgeCarnet"
+                                    Background="{DynamicResource ControlFillBrush}"
+                                    BorderBrush="{DynamicResource ControlBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="8,3"
+                                    Margin="4,0,0,0">
+                              <TextBlock x:Name="BadgeCarnetText"
+                                         Text="CARNET"
+                                         FontSize="10.5"
+                                         FontWeight="SemiBold"
+                                         Foreground="{DynamicResource TextDisabledBrush}"/>
+                            </Border>
+
+                            <!-- Badge DWG -->
+                            <Border x:Name="BadgeDwg"
+                                    Background="{DynamicResource ControlFillBrush}"
+                                    BorderBrush="{DynamicResource ControlBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="8,3"
+                                    Margin="4,0,0,0">
+                              <TextBlock x:Name="BadgeDwgText"
+                                         Text="DWG"
+                                         FontSize="10.5"
+                                         FontWeight="SemiBold"
+                                         Foreground="{DynamicResource TextDisabledBrush}"/>
+                            </Border>
+                          </StackPanel>
+                        </Grid>
+
+                        <!--
+                          Sous-liste des feuilles de la collection.
+                          ItemsSource = Sheets (liste de SheetItemVM) ;
+                          binding propriété également pour Numero/Nom/NomProjete.
+                        -->
+                        <ItemsControl ItemsSource="{Binding Sheets}">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                              <StackPanel Orientation="Vertical"/>
+                            </ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                              <Grid Margin="0,3">
+                                <Grid.ColumnDefinitions>
+                                  <ColumnDefinition Width="90"/>
+                                  <ColumnDefinition Width="*"/>
+                                  <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding Numero}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           FontSize="12.5"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding Nom}"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                           FontSize="12.5"
+                                           TextTrimming="CharacterEllipsis"
+                                           Margin="8,0"/>
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding NomProjete}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           FontSize="12.5"
+                                           FontStyle="Italic"
+                                           TextTrimming="CharacterEllipsis"/>
+                              </Grid>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </Border>
+
+                    <DataTemplate.Triggers>
+                      <!-- Collection non qualifiée (Qualified == False) : grisée -->
+                      <DataTrigger Binding="{Binding Qualified}" Value="False">
+                        <Setter TargetName="CollectionCard" Property="Opacity" Value="0.5"/>
+                      </DataTrigger>
+
+                      <!-- Badge EXPORT actif si FlagExport == True -->
+                      <DataTrigger Binding="{Binding FlagExport}" Value="True">
+                        <Setter TargetName="BadgeExport" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                        <Setter TargetName="BadgeExport" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        <Setter TargetName="BadgeExportText" Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
+                      </DataTrigger>
+
+                      <!-- Badge CARNET actif si FlagCarnet == True -->
+                      <DataTrigger Binding="{Binding FlagCarnet}" Value="True">
+                        <Setter TargetName="BadgeCarnet" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                        <Setter TargetName="BadgeCarnet" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        <Setter TargetName="BadgeCarnetText" Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
+                      </DataTrigger>
+
+                      <!-- Badge DWG actif si FlagDwg == True -->
+                      <DataTrigger Binding="{Binding FlagDwg}" Value="True">
+                        <Setter TargetName="BadgeDwg" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                        <Setter TargetName="BadgeDwg" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        <Setter TargetName="BadgeDwgText" Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
+                      </DataTrigger>
+                    </DataTemplate.Triggers>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+
+            <!--
+              Placeholder pour les modes non-« par jeu » (manual / settings) :
+              contenu réel hors périmètre de cette tâche (Phase 4/5). Sans ce
+              TextBlock, la surface serait entièrement vide dans ces modes
+              (seul le header/liste ci-dessus est masqué en dehors de IsAuto).
+            -->
+            <TextBlock Grid.Row="1"
                        Text="{Binding SurfaceTitre}"
+                       Visibility="{Binding IsNotAuto, Converter={StaticResource BoolToVisibilityConverter}}"
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        FontSize="14"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"/>
 
             <!-- Footer d'actions -->
-            <Border Grid.Row="1"
+            <Border Grid.Row="2"
                     BorderBrush="{DynamicResource ControlBorderBrush}"
                     BorderThickness="0,1,0,0"
                     Padding="20,14">
