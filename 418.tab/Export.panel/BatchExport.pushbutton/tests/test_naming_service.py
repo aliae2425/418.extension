@@ -53,10 +53,15 @@ class FakeDefinition(object):
 
 
 class FakeElement(object):
-    """Faux élément Revit : LookupParameter + .Parameters."""
+    """Faux élément Revit : LookupParameter + .Parameters, + attributs
+    directs (SheetNumber/Name) pour exercer les jetons spéciaux."""
 
-    def __init__(self, values):
+    def __init__(self, values, sheet_number=None, name=None):
         self._values = dict(values or {})
+        if sheet_number is not None:
+            self.SheetNumber = sheet_number
+        if name is not None:
+            self.Name = name
 
     def LookupParameter(self, name):
         if name in self._values:
@@ -125,6 +130,72 @@ class TestNamingServiceResolution(unittest.TestCase):
         self.assertEqual(self.service.resolve_for_element(elem, rows), '')
 
 
+class TestNamingServiceJetons(unittest.TestCase):
+    """Nouveau système de nommage à jetons : `pattern` est une chaîne."""
+
+    def setUp(self):
+        self.service = NamingService(doc=None, config=FakeConfig())
+
+    def test_jeton_numero(self):
+        elem = FakeElement({}, sheet_number='A-101')
+        self.assertEqual(self.service.resolve_for_element(elem, '{numero}'), 'A-101')
+
+    def test_jeton_nom(self):
+        elem = FakeElement({}, name='Plan Rez de chaussee')
+        self.assertEqual(self.service.resolve_for_element(elem, '{nom}'), 'Plan Rez de chaussee')
+
+    def test_jeton_nom_tiret(self):
+        elem = FakeElement({}, name='Plan Rez de chaussee')
+        self.assertEqual(
+            self.service.resolve_for_element(elem, '{nom_tiret}'),
+            'Plan-Rez-de-chaussee')
+
+    def test_jeton_nom_underscore(self):
+        elem = FakeElement({}, name='Plan Rez de chaussee')
+        self.assertEqual(
+            self.service.resolve_for_element(elem, '{nom_underscore}'),
+            'Plan_Rez_de_chaussee')
+
+    def test_jeton_date_annee_quatre_chiffres(self):
+        result = self.service.resolve_for_element(None, '{date_annee}')
+        self.assertTrue(re.match(r'^\d{4}$', result))
+
+    def test_jeton_date_complete(self):
+        result = self.service.resolve_for_element(None, '{date}')
+        self.assertTrue(re.match(r'^\d{4}-\d{2}-\d{2}$', result))
+
+    def test_jeton_param_nomme(self):
+        elem = FakeElement({'Phase': 'DCE'})
+        self.assertEqual(self.service.resolve_for_element(elem, '{param:Phase}'), 'DCE')
+
+    def test_jeton_inconnu_devient_vide(self):
+        elem = FakeElement({})
+        self.assertEqual(self.service.resolve_for_element(elem, '{ce_jeton_n_existe_pas}'), '')
+
+    def test_motif_mixte_numero_nom(self):
+        elem = FakeElement({}, sheet_number='A-101', name='Plan RDC')
+        self.assertEqual(
+            self.service.resolve_for_element(elem, '{numero}-{nom}'),
+            'A-101-Plan RDC')
+
+    def test_elem_none_jetons_param_donnent_vide_mais_date_fonctionne(self):
+        result = self.service.resolve_for_element(None, '{numero}_{date_jour}')
+        self.assertTrue(re.match(r'^_\d{2}$', result))
+
+    def test_pattern_liste_rows_toujours_supporte(self):
+        """Compat : `pattern` peut toujours être une liste de rows (ancien
+        système) -- convertie en chaîne à jetons puis résolue."""
+        rows = [{'Name': 'Date: Année', 'Prefix': '', 'Suffix': ''}]
+        elem = FakeElement({})
+        result = self.service.resolve_for_element(elem, rows)
+        self.assertTrue(re.match(r'^\d{4}$', result))
+
+    def test_available_tokens_contient_les_jetons_speciaux(self):
+        tokens = [t['token'] for t in self.service.available_tokens()]
+        for attendu in ('{numero}', '{nom}', '{date}', '{param:NOM}', '{param_projet:NOM}'):
+            self.assertIn(attendu, tokens)
+
+
 class TestNamingServicePersistence(unittest.TestCase):
     def setUp(self):
         self.config = FakeConfig()
@@ -177,6 +248,36 @@ class TestNamingServicePersistence(unittest.TestCase):
             service.has_saved('sheet')
         except Exception as e:
             self.fail('NamingService(config=None) a leve: {!r}'.format(e))
+
+    def test_round_trip_save_load_motif_chaine_sans_rows(self):
+        """Nouveau système : `save(kind, pattern)` sans rows -- `load` doit
+        retourner le même pattern, et `has_saved` doit le reconnaître même
+        si `rows` reste vide (pas de dépendance à `rows` pour ce diagnostic)."""
+        pattern = '{numero}_{nom}_{param:Phase}'
+        self.service.save('sheet', pattern)
+
+        loaded_pattern, loaded_rows = self.service.load('sheet')
+        self.assertEqual(loaded_pattern, pattern)
+        self.assertEqual(loaded_rows, [])
+        self.assertTrue(self.service.has_saved('sheet'))
+
+    def test_round_trip_preset(self):
+        self.assertTrue(self.service.save_preset('Standard PDF', '{numero}_{nom}'))
+        presets = self.service.list_presets()
+        self.assertEqual(len(presets), 1)
+        self.assertEqual(presets[0]['name'], 'Standard PDF')
+        self.assertEqual(presets[0]['pattern'], '{numero}_{nom}')
+
+        self.assertTrue(self.service.save_preset('Autre', '{titre}'))
+        self.assertEqual(len(self.service.list_presets()), 2)
+
+        self.assertTrue(self.service.delete_preset('Standard PDF'))
+        presets = self.service.list_presets()
+        self.assertEqual(len(presets), 1)
+        self.assertEqual(presets[0]['name'], 'Autre')
+
+    def test_delete_preset_absent_retourne_false(self):
+        self.assertFalse(self.service.delete_preset('Inexistant'))
 
 
 if __name__ == '__main__':

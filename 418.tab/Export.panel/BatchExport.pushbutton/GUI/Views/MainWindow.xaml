@@ -399,9 +399,20 @@
                        VerticalAlignment="Center"/>
 
             <!--
-              Mode « Paramètres » (IsSettings) : mappage des 3 paramètres
-              Oui/Non de collection -> rôle (Export / Carnet / DWG). La
-              sélection est persistée par les setters ParamExport/ParamCarnet/
+              Mode « Paramètres » (IsSettings) : réglages regroupés en
+              3 Expanders REPLIABLES (IsExpanded="False" par défaut),
+              stylés via CollectionExpanderStyle (socle Styles/StylesDark.xaml,
+              déjà utilisé pour les cartes de collection en mode « par jeu »).
+
+              - « Mappage des paramètres » : les 3 ComboBox Export/Carnet/DWG
+                (inchangées, cf. ParamExport/ParamCarnet/ParamDwg).
+              - « Setups d'impression » : les 2 ComboBox SetupPdf/SetupDwg
+                (inchangées).
+              - « Nommage des fichiers » : 2 boutons ouvrant la modale
+                NamingEditorView (câblage Python, cf. wire_naming_editors
+                dans MainWindowView).
+
+              Sélection persistée par les setters ParamExport/ParamCarnet/
               ParamDwg (MainViewModel) qui déclenchent aussi refresh_par_jeu()
               -> les badges/qualification du mode « par jeu » se mettent à
               jour immédiatement au changement.
@@ -412,78 +423,84 @@
                         Margin="20,16,20,8"
                         Visibility="{Binding IsSettings, Converter={StaticResource BoolToVisibilityConverter}}">
 
-              <TextBlock Text="Mappage des paramètres de collection"
-                         Style="{DynamicResource SubHeaderTextBlockStyle}"
-                         Margin="0,0,0,4"/>
-              <TextBlock Text="Choisissez, pour chaque rôle, le paramètre Oui/Non de collection qui qualifie les jeux."
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         FontSize="12.5"
-                         TextWrapping="Wrap"
-                         Margin="0,0,0,16"/>
-
+              <!--
+                Groupe 1 : Mappage des paramètres.
+                Structure alignée sur la carte de collection (cf. CollectionCard
+                ci-dessus) : Border CardStyle en conteneur EXTERIEUR, Expander
+                CollectionExpanderStyle logé dedans. Le CardStyle porte déjà
+                Margin="0,0,0,12" et Padding="16" — ne pas les redéfinir ici.
+              -->
               <Border Style="{DynamicResource CardStyle}">
-                <StackPanel Orientation="Vertical">
+                <Expander Style="{DynamicResource CollectionExpanderStyle}"
+                          IsExpanded="False">
+                  <Expander.Header>
+                    <TextBlock Text="Mappage des paramètres"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               FontWeight="SemiBold"
+                               FontSize="14"/>
+                  </Expander.Header>
 
-                  <!-- Ligne Export -->
-                  <Grid Margin="0,0,0,12">
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="140"/>
-                      <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"
-                               Text="Export"
-                               VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <ComboBox Grid.Column="1"
-                              x:Name="ParamExportCombo"
-                              ItemsSource="{Binding ParametresDisponibles}"
-                              SelectedItem="{Binding ParamExport, Mode=TwoWay}"/>
-                  </Grid>
+                  <StackPanel Orientation="Vertical" Margin="0,10,0,0">
+                    <TextBlock Text="Choisissez, pour chaque rôle, le paramètre Oui/Non de collection qui qualifie les jeux."
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="12.5"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,12"/>
 
-                  <!-- Ligne Carnet -->
-                  <Grid Margin="0,0,0,12">
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="140"/>
-                      <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"
-                               Text="Carnet"
-                               VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <ComboBox Grid.Column="1"
-                              x:Name="ParamCarnetCombo"
-                              ItemsSource="{Binding ParametresDisponibles}"
-                              SelectedItem="{Binding ParamCarnet, Mode=TwoWay}"/>
-                  </Grid>
+                    <StackPanel Orientation="Vertical">
 
-                  <!-- Ligne DWG -->
-                  <Grid Margin="0,0,0,0">
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="140"/>
-                      <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"
-                               Text="DWG"
-                               VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <ComboBox Grid.Column="1"
-                              x:Name="ParamDwgCombo"
-                              ItemsSource="{Binding ParametresDisponibles}"
-                              SelectedItem="{Binding ParamDwg, Mode=TwoWay}"/>
-                  </Grid>
+                      <!-- Ligne Export -->
+                      <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="140"/>
+                          <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="Export"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <ComboBox Grid.Column="1"
+                                  x:Name="ParamExportCombo"
+                                  ItemsSource="{Binding ParametresDisponibles}"
+                                  SelectedItem="{Binding ParamExport, Mode=TwoWay}"/>
+                      </Grid>
 
-                </StackPanel>
+                      <!-- Ligne Carnet -->
+                      <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="140"/>
+                          <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="Carnet"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <ComboBox Grid.Column="1"
+                                  x:Name="ParamCarnetCombo"
+                                  ItemsSource="{Binding ParametresDisponibles}"
+                                  SelectedItem="{Binding ParamCarnet, Mode=TwoWay}"/>
+                      </Grid>
+
+                      <!-- Ligne DWG -->
+                      <Grid Margin="0,0,0,0">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="140"/>
+                          <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="DWG"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <ComboBox Grid.Column="1"
+                                  x:Name="ParamDwgCombo"
+                                  ItemsSource="{Binding ParametresDisponibles}"
+                                  SelectedItem="{Binding ParamDwg, Mode=TwoWay}"/>
+                      </Grid>
+
+                    </StackPanel>
+                  </StackPanel>
+                </Expander>
               </Border>
-
-              <!-- En-tête de section : options d'export -->
-              <TextBlock Text="Options d'export"
-                         Style="{DynamicResource SubHeaderTextBlockStyle}"
-                         Margin="0,20,0,4"/>
-              <TextBlock Text="Configurez les setups Revit utilisés pour l'export PDF et DWG."
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         FontSize="12.5"
-                         TextWrapping="Wrap"
-                         Margin="0,0,0,16"/>
 
               <!--
                 Les 2 toggles d'organisation (sous-dossier par jeu / séparer
@@ -492,42 +509,107 @@
                 ils sont pertinents quel que soit le mode (Auto/Manuel), donc
                 visibles en permanence plutôt qu'enfouis dans Paramètres.
               -->
+
+              <!--
+                Groupe 2 : Setups d'impression.
+                Même structure « carte de collection » que le Groupe 1 :
+                Border CardStyle en conteneur extérieur, Expander dedans.
+              -->
               <Border Style="{DynamicResource CardStyle}">
-                <StackPanel Orientation="Vertical">
+                <Expander Style="{DynamicResource CollectionExpanderStyle}"
+                          IsExpanded="False">
+                  <Expander.Header>
+                    <TextBlock Text="Setups d'impression"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               FontWeight="SemiBold"
+                               FontSize="14"/>
+                  </Expander.Header>
 
-                  <!-- Ligne Setup PDF -->
-                  <Grid Margin="0,0,0,12">
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="140"/>
-                      <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"
-                               Text="Setup PDF"
-                               VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <ComboBox Grid.Column="1"
-                              x:Name="SetupPdfCombo"
-                              ItemsSource="{Binding SetupsPdf}"
-                              SelectedItem="{Binding SetupPdf, Mode=TwoWay}"/>
-                  </Grid>
+                  <StackPanel Orientation="Vertical" Margin="0,10,0,0">
+                    <TextBlock Text="Configurez les setups Revit utilisés pour l'export PDF et DWG."
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="12.5"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,12"/>
 
-                  <!-- Ligne Setup DWG -->
-                  <Grid Margin="0,0,0,0">
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="140"/>
-                      <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"
-                               Text="Setup DWG"
-                               VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <ComboBox Grid.Column="1"
-                              x:Name="SetupDwgCombo"
-                              ItemsSource="{Binding SetupsDwg}"
-                              SelectedItem="{Binding SetupDwg, Mode=TwoWay}"/>
-                  </Grid>
+                    <StackPanel Orientation="Vertical">
 
-                </StackPanel>
+                      <!-- Ligne Setup PDF -->
+                      <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="140"/>
+                          <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="Setup PDF"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <ComboBox Grid.Column="1"
+                                  x:Name="SetupPdfCombo"
+                                  ItemsSource="{Binding SetupsPdf}"
+                                  SelectedItem="{Binding SetupPdf, Mode=TwoWay}"/>
+                      </Grid>
+
+                      <!-- Ligne Setup DWG -->
+                      <Grid Margin="0,0,0,0">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="140"/>
+                          <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="Setup DWG"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <ComboBox Grid.Column="1"
+                                  x:Name="SetupDwgCombo"
+                                  ItemsSource="{Binding SetupsDwg}"
+                                  SelectedItem="{Binding SetupDwg, Mode=TwoWay}"/>
+                      </Grid>
+
+                    </StackPanel>
+                  </StackPanel>
+                </Expander>
+              </Border>
+
+              <!--
+                Groupe 3 : Nommage des fichiers. Ouvre la modale
+                NamingEditorView (NamingEditorViewModel côté Python) pour
+                éditer la convention de nommage des feuilles / des carnets.
+                Câblage : MainWindowView.wire_naming_editors().
+
+                Même structure « carte de collection » que les Groupes 1 et 2.
+                Le CardStyle porte déjà Margin="0,0,0,12" ; comme pour les
+                cartes de collection (dernier item de la liste inclus), on ne
+                supprime pas cette marge basse pour rester cohérent.
+              -->
+              <Border Style="{DynamicResource CardStyle}">
+                <Expander Style="{DynamicResource CollectionExpanderStyle}"
+                          IsExpanded="False">
+                  <Expander.Header>
+                    <TextBlock Text="Nommage des fichiers"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               FontWeight="SemiBold"
+                               FontSize="14"/>
+                  </Expander.Header>
+
+                  <StackPanel Orientation="Vertical" Margin="0,10,0,0">
+                    <TextBlock Text="Éditez la convention de nommage utilisée pour renommer les fichiers exportés."
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="12.5"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,12"/>
+
+                    <StackPanel Orientation="Horizontal">
+                      <Button x:Name="EditSheetNamingButton"
+                              Content="Éditer le nommage des feuilles"
+                              Style="{DynamicResource SecondaryActionButtonStyle}"
+                              Margin="0,0,10,0"/>
+                      <Button x:Name="EditSetNamingButton"
+                              Content="Éditer le nommage des carnets"
+                              Style="{DynamicResource SecondaryActionButtonStyle}"/>
+                    </StackPanel>
+                  </StackPanel>
+                </Expander>
               </Border>
             </StackPanel>
 

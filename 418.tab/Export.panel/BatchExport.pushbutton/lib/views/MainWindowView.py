@@ -7,6 +7,25 @@ try:
 except Exception:
     BaseWindow = object
 
+# Modale d'édition de la convention de nommage (feuilles/carnets). Double
+# forme d'import (régime pyRevit vs régime tests standalone), cf. convention
+# du projet (voir MainViewModel.py).
+try:
+    from viewmodels.NamingEditorViewModel import NamingEditorViewModel
+except Exception:
+    try:
+        from lib.viewmodels.NamingEditorViewModel import NamingEditorViewModel
+    except Exception:
+        NamingEditorViewModel = None  # type: ignore
+
+try:
+    from views.NamingEditorView import NamingEditorView
+except Exception:
+    try:
+        from lib.views.NamingEditorView import NamingEditorView
+    except Exception:
+        NamingEditorView = None  # type: ignore
+
 
 def _xaml_path():
     here = os.path.dirname(os.path.abspath(__file__))
@@ -51,6 +70,7 @@ class MainWindowView(BaseWindow):
         self.wire_navigation()
         self.wire_export()
         self.wire_destination()
+        self.wire_naming_editors()
         try:
             self._vm.refresh_par_jeu()
         except Exception:
@@ -97,6 +117,67 @@ class MainWindowView(BaseWindow):
             btn.Click += _on_click
         except Exception:
             pass
+
+    def wire_naming_editors(self):
+        """Câble les 2 boutons de la carte « Nommage des fichiers » (page
+        Paramètres) : chacun ouvre la modale NamingEditorView pour la
+        convention correspondante ('sheet' ou 'set').
+
+        Chaque bouton est optionnel (FindName peut renvoyer None) et le
+        câblage entier est best-effort : si les classes modales n'ont pas pu
+        être importées (hors Revit/WPF), les boutons restent simplement
+        sans effet plutôt que de lever au chargement de la fenêtre.
+        """
+        if self._window is None:
+            return
+        mapping = (('EditSheetNamingButton', u'sheet'),
+                   ('EditSetNamingButton', u'set'))
+        for name, kind in mapping:
+            btn = self._window.FindName(name)
+            if btn is None:
+                continue
+            self._bind_naming_editor(btn, kind)
+
+    def _bind_naming_editor(self, btn, kind):
+        def _on_click(sender, args):
+            try:
+                self._open_naming_editor(kind)
+            except Exception:
+                pass
+        try:
+            btn.Click += _on_click
+        except Exception:
+            pass
+
+    def _open_naming_editor(self, kind):
+        """Instancie et affiche la modale NamingEditorView pour `kind`
+        ('sheet' ou 'set'), câblée sur le même `naming_service` que le VM
+        principal (mode jetons : plus besoin d'injecter une liste de
+        paramètres disponibles, `NamingEditorViewModel` les tire directement
+        de `naming_service.available_tokens()`).
+        """
+        if NamingEditorViewModel is None or NamingEditorView is None:
+            return
+        vm = self._vm
+
+        ned_vm = NamingEditorViewModel(
+            kind,
+            naming_service=getattr(vm, '_naming_service', None),
+        )
+        view = NamingEditorView(ned_vm)
+
+        # Forcer le chargement immédiat (plutôt que le chargement paresseux
+        # de `show()`) afin de pouvoir fixer `Owner` avant l'affichage --
+        # `show()` ne recharge pas si `_window` est déjà défini, donc cet
+        # appel anticipé n'entraîne aucun double chargement.
+        try:
+            view._load()
+            if view._window is not None and self._window is not None:
+                view._window.Owner = self._window
+        except Exception:
+            pass
+
+        view.show()
 
     def wire_navigation(self):
         if self._window is None:

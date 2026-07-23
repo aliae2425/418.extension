@@ -1,0 +1,192 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="{Binding Titre}"
+        Width="720" Height="560"
+        MinWidth="600" MinHeight="420"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="{DynamicResource TransparentBrush}"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterOwner">
+
+  <!--
+    Éditeur de nommage (modale), mode TOKENS — coquille commune (barre
+    commune Fluent). Remplace l'ancien éditeur à lignes
+    paramètre/préfixe/suffixe : un seul champ motif texte + jetons `{...}`
+    insérables + presets nommés + aperçu.
+
+    Chargement
+    - XAML chargé via XamlReader.Load (PAS de x:Class, PAS de code-behind).
+    - Colors/Styles (+ variantes Dark) fusionnés dans window.Resources par
+      BaseWindow APRÈS le parse -> tout brush/style référencé en DynamicResource.
+
+    Chrome custom borderless
+    - WindowStyle="None" + AllowsTransparency : chrome dessiné par le Border racine.
+    - TitleBar (x:Name="TitleBar") : BaseWindow y câble DragMove().
+    - CloseButton (x:Name="CloseButton") : BaseWindow y câble Close().
+
+    Jetons (ItemsControl "TokensItemsControl") : chaque item est un
+    TokenItemVM (.token/.desc), affiché comme badge cliquable. Le clic ne
+    peut pas être câblé par x:Name (généré dynamiquement dans le
+    DataTemplate) -> UN SEUL AddHandler(Button.ClickEvent, ...) posé sur
+    l'ItemsControl (bubbling), qui insère le jeton dans PatternTextBox à la
+    position du curseur : voir NamingEditorView.wire_tokens().
+  -->
+
+  <shell:WindowChrome.WindowChrome>
+    <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0"/>
+  </shell:WindowChrome.WindowChrome>
+
+  <Border CornerRadius="12" Background="{DynamicResource WindowBackgroundBrush}">
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <!-- Barre de titre draggable -->
+      <Grid Grid.Row="0" x:Name="TitleBar" Height="44" Background="{DynamicResource TransparentBrush}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Column="0"
+                   Text="{Binding Titre}"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   FontSize="12.5"
+                   FontWeight="SemiBold"
+                   VerticalAlignment="Center"
+                   Margin="14,0,0,0"/>
+
+        <Button x:Name="CloseButton"
+                Grid.Column="1"
+                Content="&#x2715;"
+                Style="{DynamicResource CaptionCloseButtonStyle}"
+                Margin="0,0,4,0"/>
+      </Grid>
+
+      <!-- Corps -->
+      <Grid Grid.Row="1" Margin="20,4,20,16">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="*"/>
+          <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Motif + jetons -->
+        <Border Grid.Row="0" Style="{DynamicResource CardStyle}" Margin="0,0,0,12">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Motif de nommage" Style="{DynamicResource SubHeaderTextBlockStyle}" Margin="0,0,0,4"/>
+            <TextBlock Grid.Row="1"
+                       Text="Saisissez le motif librement, ou cliquez sur un jeton ci-dessous pour l'insérer au curseur."
+                       FontSize="12"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       Margin="0,0,0,10"/>
+
+            <TextBox Grid.Row="2"
+                     x:Name="PatternTextBox"
+                     Text="{Binding Pattern, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     FontFamily="Consolas"
+                     Margin="0,0,0,10"/>
+
+            <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" MaxHeight="120">
+              <ItemsControl x:Name="TokensItemsControl" ItemsSource="{Binding AvailableTokens}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal"/>
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Button Content="{Binding token}"
+                            ToolTip="{Binding desc}"
+                            Style="{DynamicResource SecondaryActionButtonStyle}"
+                            Height="28"
+                            Padding="10,0"
+                            FontFamily="Consolas"
+                            FontSize="12"
+                            Margin="0,0,6,6"/>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Grid>
+        </Border>
+
+        <!-- Presets -->
+        <Border Grid.Row="1" Style="{DynamicResource CardStyle}" Margin="0,0,0,12">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                       Text="Presets"
+                       Style="{DynamicResource SubHeaderTextBlockStyle}"
+                       Margin="0,0,0,8"/>
+
+            <ComboBox Grid.Row="1" Grid.Column="0"
+                      x:Name="PresetsComboBox"
+                      ItemsSource="{Binding Presets}"
+                      DisplayMemberPath="name"
+                      Margin="0,0,8,0"/>
+
+            <Button Grid.Row="1" Grid.Column="1"
+                    x:Name="SavePresetButton"
+                    Content="Enregistrer comme preset"
+                    Style="{DynamicResource SecondaryActionButtonStyle}"
+                    Margin="0,0,8,0"/>
+
+            <Button Grid.Row="1" Grid.Column="2"
+                    x:Name="DeletePresetButton"
+                    Content="Supprimer"
+                    Style="{DynamicResource SecondaryActionButtonStyle}"/>
+          </Grid>
+        </Border>
+
+        <!-- Aperçu -->
+        <Border Grid.Row="2" Style="{DynamicResource CardStyle}" Margin="0,0,0,12">
+          <StackPanel Orientation="Vertical">
+            <TextBlock Text="Aperçu" FontWeight="SemiBold" Margin="0,0,0,6"/>
+            <Border Background="{DynamicResource ControlFillBrush}"
+                    BorderBrush="{DynamicResource ControlBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="8">
+              <TextBlock x:Name="ApercuText" Text="{Binding Apercu}" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Consolas"/>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <!-- Footer -->
+        <DockPanel Grid.Row="3" LastChildFill="False">
+          <Button x:Name="CancelButton"
+                  DockPanel.Dock="Right"
+                  Content="Annuler"
+                  Style="{DynamicResource SecondaryActionButtonStyle}"
+                  Margin="8,0,0,0"/>
+          <Button x:Name="OkButton"
+                  DockPanel.Dock="Right"
+                  Content="Enregistrer"
+                  Style="{DynamicResource PrimaryActionButtonStyle}"/>
+        </DockPanel>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>

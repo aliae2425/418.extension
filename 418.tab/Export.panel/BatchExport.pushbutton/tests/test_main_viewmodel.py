@@ -151,6 +151,26 @@ class FakeNamingService(object):
         return u'PROJETE-{}'.format(numero)
 
 
+class FakeNamingServicePatternSeul(object):
+    """Faux NamingService, mode jetons : `load` renvoie un pattern chaîne
+    NON VIDE avec des `rows` VIDES (comportement réel de
+    `NamingService.save(kind, pattern)` sans rows, cf. NamingEditorViewModel
+    token-based) -- exerce le correctif de `refresh_par_jeu` qui doit
+    utiliser `_pattern or rows_sheet` (et non plus `rows_sheet` seul) pour
+    qu'un motif à jetons pilote bien `NomProjete`."""
+
+    def __init__(self):
+        self.resolve_calls = []
+
+    def load(self, kind):
+        return ('{numero}-JETON', [])
+
+    def resolve_for_element(self, elem, pattern_ou_rows):
+        self.resolve_calls.append(pattern_ou_rows)
+        numero = getattr(elem, 'numero', '')
+        return u'{}-JETON'.format(numero)
+
+
 class TestMainViewModelParJeu(unittest.TestCase):
     def setUp(self):
         self.sheet_service = FakeSheetService()
@@ -216,6 +236,39 @@ class TestMainViewModelParJeu(unittest.TestCase):
         self.assertTrue(jeu_a.FlagExport)
         self.assertTrue(jeu_a.Qualified)
         self.assertEqual(jeu_a.Sheets[0].Numero, '01')
+
+
+class TestMainViewModelParJeuPatternJetons(unittest.TestCase):
+    """Un pattern à jetons (chaîne non vide, rows vides) doit piloter
+    NomProjete au même titre qu'un ancien pattern à rows -- régression
+    couverte suite au correctif de `refresh_par_jeu` (voir
+    FakeNamingServicePatternSeul)."""
+
+    def setUp(self):
+        self.sheet_service = FakeSheetService()
+        self.naming_service = FakeNamingServicePatternSeul()
+        self.vm = MainViewModel(
+            doc=None,
+            sheet_service=self.sheet_service,
+            naming_service=self.naming_service,
+            destination_service=None,
+            config=FakeConfig(),
+        )
+        self.vm.ParamExport = 'Export'
+        self.vm.ParamCarnet = 'Carnet'
+        self.vm.ParamDwg = 'Dwg'
+
+    def test_nom_projete_pilote_par_le_pattern_jetons(self):
+        self.vm.refresh_par_jeu()
+        jeu_a = self.vm.Collections[0]
+        for sheet in jeu_a.Sheets:
+            self.assertTrue(sheet.NomProjete.endswith(u'-JETON'))
+
+    def test_resolve_appele_avec_le_pattern_chaine_pas_les_rows_vides(self):
+        self.vm.refresh_par_jeu()
+        self.assertTrue(len(self.naming_service.resolve_calls) > 0)
+        for appel in self.naming_service.resolve_calls:
+            self.assertEqual(appel, u'{numero}-JETON')
 
 
 class TestMainViewModelMappingParametres(unittest.TestCase):
@@ -697,6 +750,22 @@ class TestMainViewModelServicesPdfDwgParDefaut(unittest.TestCase):
         self.assertEqual(vm.SetupDwg, u'')
         vm.SetupPdf = u'X'
         vm.SetupDwg = u'Y'
+
+
+class TestMainViewModelGetNamingParams(unittest.TestCase):
+    """`get_naming_params()` (page Paramètres -> modale NamingEditorView) :
+    best-effort, ne doit jamais lever, retourne `[]` hors Revit (doc=None)."""
+
+    def test_get_naming_params_vide_sans_doc(self):
+        vm = MainViewModel(doc=None)
+        self.assertEqual(vm.get_naming_params(), [])
+
+    def test_get_naming_params_ne_leve_pas_meme_avec_doc_factice(self):
+        # doc factice sans rapport avec Autodesk.Revit.DB -- la collecte
+        # réelle (SheetParameterRepository) échoue silencieusement à chaque
+        # étape (FilteredElementCollector etc.) et doit retourner [].
+        vm = MainViewModel(doc=object())
+        self.assertEqual(vm.get_naming_params(), [])
 
 
 if __name__ == '__main__':

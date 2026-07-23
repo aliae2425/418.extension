@@ -44,6 +44,18 @@ except Exception:
     except Exception:
         UserConfig = None  # type: ignore
 
+# Répertoire (legacy) des paramètres de nommage disponibles (feuilles +
+# projet). Utilisé uniquement par `get_naming_params()` pour alimenter la
+# modale NamingEditorView -- double forme d'import comme les autres services
+# de ce fichier.
+try:
+    from data.sheets.SheetParameterRepository import SheetParameterRepository
+except Exception:
+    try:
+        from lib.data.sheets.SheetParameterRepository import SheetParameterRepository
+    except Exception:
+        SheetParameterRepository = None  # type: ignore
+
 # ATTENTION -- ordre d'import INVERSE des autres services de ce fichier
 # (`lib.` d'abord). PdfExporterService/DwgExporterService utilisent des
 # imports RELATIFS internes (`from ...core.UserConfig import UserConfig`) qui
@@ -388,6 +400,52 @@ class MainViewModel(BaseViewModel):
     def ParametresDisponibles(self):
         return self._parametres_disponibles
 
+    def get_naming_params(self):
+        """Liste des noms de paramètres utilisables pour le nommage des
+        fichiers exportés (modale NamingEditorView), best-effort.
+
+        Combine les paramètres d'instance de feuille (`ViewSheet`) et les
+        paramètres projet (`ProjectInfo`) via `SheetParameterRepository`
+        (legacy), dédoublonnés en conservant l'ordre d'apparition
+        (feuilles d'abord, puis projet). Injecte `self._cfg` (config
+        partagée du VM) au repository -- `SheetParameterRepository._get_cfg`
+        retourne alors directement cette instance sans dépendre de son
+        import relatif interne (`from ...core.UserConfig import UserConfig`),
+        qui ne résolvent correctement que si le package racine du module est
+        `lib` (cf. notes d'import plus haut dans ce fichier).
+
+        Ne lève jamais : retourne `[]` si `self._doc` est absent, si
+        `SheetParameterRepository` n'a pas pu être importé, ou si la
+        collecte échoue pour toute autre raison.
+        """
+        if self._doc is None or SheetParameterRepository is None:
+            return []
+        try:
+            repo = SheetParameterRepository(config_store=self._cfg)
+        except Exception:
+            return []
+
+        noms = []
+        vus = set()
+
+        try:
+            for n in (repo.collect_sheet_instance_params(self._doc) or []):
+                if n not in vus:
+                    vus.add(n)
+                    noms.append(n)
+        except Exception:
+            pass
+
+        try:
+            for n in (repo.collect_project_params(self._doc) or []):
+                if n not in vus:
+                    vus.add(n)
+                    noms.append(n)
+        except Exception:
+            pass
+
+        return noms
+
     # ------------------------------------------------------------------
     # Mode « par jeu »
     # ------------------------------------------------------------------
@@ -419,11 +477,13 @@ class MainViewModel(BaseViewModel):
         nb_jeux_qualifies = 0
         nb_feuilles_qualifiees = 0
 
+        _pattern = u''
         rows_sheet = []
         if self._naming_service is not None:
             try:
                 _pattern, rows_sheet = self._naming_service.load('sheet')
             except Exception:
+                _pattern = u''
                 rows_sheet = []
 
         raw_collections = []
@@ -477,9 +537,9 @@ class MainViewModel(BaseViewModel):
                 sheet_elem = sheet.get('Elem') if isinstance(sheet, dict) else None
 
                 nom_projete = u''
-                if self._naming_service is not None and sheet_elem is not None and rows_sheet:
+                if self._naming_service is not None and sheet_elem is not None and (_pattern or rows_sheet):
                     try:
-                        nom_projete = self._naming_service.resolve_for_element(sheet_elem, rows_sheet) or u''
+                        nom_projete = self._naming_service.resolve_for_element(sheet_elem, _pattern or rows_sheet) or u''
                     except Exception:
                         nom_projete = u''
                 if not nom_projete:
