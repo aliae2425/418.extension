@@ -229,13 +229,6 @@ class ExportOrchestrator(object):
             except Exception:
                 self._nres = None
         
-        # UI status component for live updates
-        ui_comp = None
-        try:
-            from ...ui.components.CollectionPreviewComponent import CollectionPreviewComponent
-            ui_comp = CollectionPreviewComponent()
-        except Exception:
-            ui_comp = None
         plans = self.plan_exports_for_collections(doc, get_ctrl)
         total = len(plans)
 
@@ -270,12 +263,6 @@ class ExportOrchestrator(object):
                 progress_cb(i, total, 'Collection: {}'.format(plan.collection_name))
             if not plan.do_export:
                 continue
-            try:
-                if ui_win is not None and ui_comp is not None:
-                    ui_comp.set_collection_status(ui_win, plan.collection_name, 'progress')
-                    ui_comp.refresh_grid(ui_win)
-            except Exception:
-                pass
 
             collection = self._find_collection_by_name(doc, plan.collection_name)
             sheets = self._get_collection_sheets(doc, collection) if collection is not None else []
@@ -291,51 +278,29 @@ class ExportOrchestrator(object):
                 for sh in sheets:
                     rows = self._get_rows_for_sheet(sh)
                     if plan.do_pdf and base_pdf:
-                        try:
-                            if ui_win is not None and ui_comp is not None:
-                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'PDF', 'progress')
-                                ui_comp.refresh_grid(ui_win)
-                        except Exception:
-                            pass
+                        if progress_cb:
+                            try:
+                                progress_cb(i, total, u'{}: {} (PDF)'.format(plan.collection_name, self._safe_sheet_name(sh)))
+                            except Exception:
+                                pass
                         ok, path = self._export_pdf_sheet(doc, sh, rows, base_pdf, pdf_opt, separate=pdf_sep, overwrite=overwrite)
-                        try:
-                            if ui_win is not None and ui_comp is not None:
-                                status = 'ok' if ok else 'error'
-                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'PDF', status)
-                                ui_comp.refresh_grid(ui_win)
-                        except Exception:
-                            pass
                         if log_cb and not ok:
                             try:
                                 log_cb(u"Erreur export PDF: {}".format(self._safe_sheet_name(sh)))
                             except Exception:
                                 pass
                     if plan.do_dwg and base_dwg:
-                        try:
-                            if ui_win is not None and ui_comp is not None:
-                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'progress')
-                                ui_comp.refresh_grid(ui_win)
-                        except Exception:
-                            pass
+                        if progress_cb:
+                            try:
+                                progress_cb(i, total, u'{}: {} (DWG)'.format(plan.collection_name, self._safe_sheet_name(sh)))
+                            except Exception:
+                                pass
                         ok, path = self._export_dwg_sheet(doc, sh, rows, base_dwg, dwg_opt, overwrite=overwrite)
-                        try:
-                            if ui_win is not None and ui_comp is not None:
-                                status = 'ok' if ok else 'error'
-                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', status)
-                                ui_comp.refresh_grid(ui_win)
-                        except Exception:
-                            pass
                         if log_cb and not ok:
                             try:
                                 log_cb(u"Erreur export DWG: {}".format(self._safe_sheet_name(sh)))
                             except Exception:
                                 pass
-                try:
-                    if ui_win is not None and ui_comp is not None:
-                        ui_comp.set_collection_status(ui_win, plan.collection_name, 'ok')
-                        ui_comp.refresh_grid(ui_win)
-                except Exception:
-                    pass
             else:
                 # Utiliser le pattern 'set' (carnet) s'il existe, sinon fallback sur sheet/default
                 rows = self._get_rows_for_set()
@@ -343,22 +308,12 @@ class ExportOrchestrator(object):
                     rows = self._get_rows_for_sheet(sheets[0]) if sheets else [{'Name': plan.collection_name, 'Prefix': '', 'Suffix': ''}]
 
                 if plan.do_pdf and base_pdf:
-                    try:
-                        if ui_win is not None and ui_comp is not None:
-                            name_preview = self._safe_sheet_name(sheets[0]) if sheets else plan.collection_name
-                            ui_comp.set_detail_status(ui_win, plan.collection_name, name_preview, 'PDF (combiné)', 'progress')
-                            ui_comp.refresh_grid(ui_win)
-                    except Exception:
-                        pass
+                    if progress_cb:
+                        try:
+                            progress_cb(i, total, u'{}: PDF (combiné)'.format(plan.collection_name))
+                        except Exception:
+                            pass
                     ok, path = self._export_pdf_collection(doc, sheets, rows, base_pdf, pdf_opt, collection=collection, overwrite=overwrite)
-                    try:
-                        if ui_win is not None and ui_comp is not None:
-                            name_preview = self._safe_sheet_name(sheets[0]) if sheets else plan.collection_name
-                            status = 'ok' if ok else 'error'
-                            ui_comp.set_detail_status(ui_win, plan.collection_name, name_preview, 'PDF (combiné)', status)
-                            ui_comp.refresh_grid(ui_win)
-                    except Exception:
-                        pass
                     if log_cb and not ok:
                         try:
                             log_cb(u"Erreur export PDF combiné: {}".format(plan.collection_name))
@@ -367,32 +322,17 @@ class ExportOrchestrator(object):
                 if plan.do_dwg and base_dwg:
                     for sh in sheets:
                         rows_sh = self._get_rows_for_sheet(sh)
-                        try:
-                            if ui_win is not None and ui_comp is not None:
-                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'progress')
-                                ui_comp.refresh_grid(ui_win)
-                        except Exception:
-                            pass
+                        if progress_cb:
+                            try:
+                                progress_cb(i, total, u'{}: {} (DWG)'.format(plan.collection_name, self._safe_sheet_name(sh)))
+                            except Exception:
+                                pass
                         ok, path = self._export_dwg_sheet(doc, sh, rows_sh, base_dwg, dwg_opt, overwrite=overwrite)
-                        try:
-                            if ui_win is not None and ui_comp is not None:
-                                status = 'ok' if ok else 'error'
-                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', status)
-                                ui_comp.refresh_grid(ui_win)
-                        except Exception:
-                            pass
                         if log_cb and not ok:
                             try:
                                 log_cb(u"Erreur export DWG: {}".format(self._safe_sheet_name(sh)))
                             except Exception:
                                 pass
-
-                try:
-                    if ui_win is not None and ui_comp is not None:
-                        ui_comp.set_collection_status(ui_win, plan.collection_name, 'ok')
-                        ui_comp.refresh_grid(ui_win)
-                except Exception:
-                    pass
 
         if progress_cb:
             progress_cb(total, max(total, 1), 'Terminé')
