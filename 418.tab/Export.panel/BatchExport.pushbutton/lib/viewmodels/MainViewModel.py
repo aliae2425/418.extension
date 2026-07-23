@@ -160,11 +160,16 @@ class MainViewModel(BaseViewModel):
 
         # Services injectables : si absents, instancier les vrais sous
         # try/except -> None (permet l'usage hors Revit / dans les tests).
+        # On INJECTE self._cfg (config partagée du VM) : ainsi tous les services
+        # écrivent via la MÊME instance UserConfig que le mapping (qui, lui,
+        # persiste). Sinon chaque service crée sa propre UserConfig via son
+        # propre import (`core.UserConfig` vs `lib.core.UserConfig` = modules
+        # distincts) et la destination ne partageait pas le chemin de config.
         if sheet_service is not None:
             self._sheet_service = sheet_service
         else:
             try:
-                self._sheet_service = SheetCollectionService(doc) if SheetCollectionService is not None else None
+                self._sheet_service = SheetCollectionService(doc, config=self._cfg) if SheetCollectionService is not None else None
             except Exception:
                 self._sheet_service = None
 
@@ -172,7 +177,7 @@ class MainViewModel(BaseViewModel):
             self._naming_service = naming_service
         else:
             try:
-                self._naming_service = NamingService(doc) if NamingService is not None else None
+                self._naming_service = NamingService(doc, config=self._cfg) if NamingService is not None else None
             except Exception:
                 self._naming_service = None
 
@@ -180,7 +185,7 @@ class MainViewModel(BaseViewModel):
             self._destination_service = destination_service
         else:
             try:
-                self._destination_service = DestinationService(doc) if DestinationService is not None else None
+                self._destination_service = DestinationService(doc, config=self._cfg) if DestinationService is not None else None
             except Exception:
                 self._destination_service = None
 

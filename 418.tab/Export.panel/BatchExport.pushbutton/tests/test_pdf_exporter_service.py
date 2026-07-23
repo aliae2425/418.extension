@@ -12,6 +12,10 @@ _BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
 if _BUTTON not in sys.path:
     sys.path.insert(0, _BUTTON)
 
+# Isole la persistance UserConfig dans un dossier temporaire (jamais le config réel).
+import tempfile as _tf
+os.environ['PY418_CONFIG_DIR'] = _tf.mkdtemp(prefix='418test_')
+
 from lib.services.formats.PdfExporterService import PdfExporterService
 
 

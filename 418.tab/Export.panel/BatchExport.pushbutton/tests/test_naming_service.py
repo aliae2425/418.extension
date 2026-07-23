@@ -13,6 +13,10 @@ _BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
 if _BUTTON not in sys.path:
     sys.path.insert(0, _BUTTON)
 
+# Isole la persistance UserConfig dans un dossier temporaire (jamais le config réel).
+import tempfile as _tf
+os.environ['PY418_CONFIG_DIR'] = _tf.mkdtemp(prefix='418test_')
+
 from lib.services.NamingService import NamingService
 
 
@@ -161,15 +165,18 @@ class TestNamingServicePersistence(unittest.TestCase):
         self.assertEqual(pattern, '')
         self.assertEqual(rows, [])
 
-    def test_config_absente_ne_leve_pas(self):
+    def test_config_none_reste_utilisable(self):
+        # config=None : le service instancie un UserConfig réel (persistance
+        # propre via fichier JSON, indépendante de pyRevit). Le service doit
+        # rester utilisable sans lever, quel que soit l'environnement.
         service = NamingService(doc=None, config=None)
-        # Sans UserConfig disponible (hors Revit et pas de config injectée),
-        # le service doit rester utilisable sans lever d'exception.
-        service.save('sheet', 'p', [])
-        pattern, rows = service.load('sheet')
-        self.assertEqual(pattern, '')
-        self.assertEqual(rows, [])
-        self.assertFalse(service.has_saved('sheet'))
+        try:
+            rows = [{'Name': 'X', 'Prefix': '', 'Suffix': ''}]
+            service.save('sheet', service.build_pattern(rows), rows)
+            service.load('sheet')
+            service.has_saved('sheet')
+        except Exception as e:
+            self.fail('NamingService(config=None) a leve: {!r}'.format(e))
 
 
 if __name__ == '__main__':
