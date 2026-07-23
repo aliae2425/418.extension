@@ -391,16 +391,43 @@
                     BorderBrush="{DynamicResource ControlBorderBrush}"
                     BorderThickness="0,1,0,0"
                     Padding="20,14">
-              <StackPanel Orientation="Horizontal"
-                          HorizontalAlignment="Right">
-                <Button x:Name="SecondaryActionButton"
-                        Content="Parcourir…"
-                        Style="{DynamicResource SecondaryActionButtonStyle}"
-                        Margin="0,0,10,0"/>
-                <Button x:Name="PrimaryActionButton"
-                        Content="Exporter"
-                        Style="{DynamicResource PrimaryActionButtonStyle}"/>
-              </StackPanel>
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Retour visuel export (Task 3) : StatusText + ProgressValue,
+                     mis à jour via progress_cb/log_cb de ExportOrchestrator. -->
+                <StackPanel Grid.Column="0"
+                            Orientation="Vertical"
+                            VerticalAlignment="Center"
+                            Margin="0,0,16,0">
+                  <TextBlock x:Name="StatusTextBlock"
+                             Text="{Binding StatusText}"
+                             Foreground="{DynamicResource TextSecondaryBrush}"
+                             FontSize="12"
+                             TextTrimming="CharacterEllipsis"/>
+                  <ProgressBar x:Name="ExportProgressBar"
+                               Value="{Binding ProgressValue}"
+                               Minimum="0"
+                               Maximum="100"
+                               Height="4"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right">
+                  <Button x:Name="SecondaryActionButton"
+                          Content="Parcourir…"
+                          Style="{DynamicResource SecondaryActionButtonStyle}"
+                          Margin="0,0,10,0"/>
+                  <Button x:Name="PrimaryActionButton"
+                          Content="Exporter"
+                          Style="{DynamicResource PrimaryActionButtonStyle}"/>
+                </StackPanel>
+              </Grid>
             </Border>
           </Grid>
         </Border>

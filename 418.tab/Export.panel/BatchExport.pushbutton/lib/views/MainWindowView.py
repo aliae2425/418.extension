@@ -22,8 +22,27 @@ class MainWindowView(BaseWindow):
     def _load(self):
         super(MainWindowView, self)._load()
         self.wire_navigation()
+        self.wire_export()
         try:
             self._vm.refresh_par_jeu()
+        except Exception:
+            pass
+
+    def wire_export(self):
+        if self._window is None:
+            return
+        btn = self._window.FindName('PrimaryActionButton')
+        if btn is None:
+            return
+        vm = self._vm
+
+        def _on_click(sender, args):
+            try:
+                vm.lancer_export()
+            except Exception:
+                pass
+        try:
+            btn.Click += _on_click
         except Exception:
             pass
 

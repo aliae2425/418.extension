@@ -247,5 +247,71 @@ class TestMainViewModelServicesParDefaut(unittest.TestCase):
         self.assertEqual(vm.NbFeuillesQualifiees, 0)
 
 
+class TestMainViewModelLancerExport(unittest.TestCase):
+    """`lancer_export()` (Task 3) : ne doit jamais lever hors Revit, quels que
+    soient les services injectés (réels absents ou faux/factices)."""
+
+    def test_lancer_export_doc_none_ne_leve_pas(self):
+        vm = MainViewModel(doc=None)
+        vm.lancer_export()
+        self.assertIn(u'indisponible', vm.StatusText.lower())
+
+    def test_lancer_export_avec_services_factices_doc_none_ne_leve_pas(self):
+        vm = MainViewModel(
+            doc=None,
+            sheet_service=FakeSheetService(),
+            naming_service=FakeNamingService(),
+            destination_service=None,
+            config=FakeConfig(),
+        )
+        vm.lancer_export()
+        self.assertIn(u'indisponible', vm.StatusText.lower())
+
+    def test_status_text_et_progress_value_par_defaut(self):
+        vm = MainViewModel(doc=None)
+        self.assertEqual(vm.StatusText, u'')
+        self.assertEqual(vm.ProgressValue, 0)
+
+    def test_progress_value_setter_borne_0_100(self):
+        vm = MainViewModel(doc=None)
+        vm.ProgressValue = 150
+        self.assertEqual(vm.ProgressValue, 100)
+        vm.ProgressValue = -5
+        self.assertEqual(vm.ProgressValue, 0)
+
+    def test_on_export_progress_met_a_jour_status_et_progress(self):
+        vm = MainViewModel(doc=None)
+        vm._on_export_progress(2, 4, u'Collection: Jeu A')
+        self.assertEqual(vm.ProgressValue, 50)
+        self.assertEqual(vm.StatusText, u'Collection: Jeu A')
+
+    def test_on_export_log_met_a_jour_status(self):
+        vm = MainViewModel(doc=None)
+        vm._on_export_log(u'Erreur export PDF: 01_RDC')
+        self.assertEqual(vm.StatusText, u'Erreur export PDF: 01_RDC')
+
+    def test_import_lib_services_core_resout_les_dependances_internes(self):
+        """Vérifie que `from lib.services.core.ExportOrchestrator import ...`
+        (chemin utilisé par `lancer_export()`) fait résoudre correctement les
+        imports RELATIFS internes de l'orchestrateur (`from ...core.UserConfig`,
+        `from ...data...`, `from ...services.formats...`), qui exigent que le
+        package racine soit `lib` (donc `lib.services.core`).
+
+        Importé sous `services.core.ExportOrchestrator` (package racine
+        `services`), ces `...` remonteraient au-dessus de `lib` et tous les
+        try/except internes retomberaient sur `None` -- l'orchestrateur
+        « fonctionnerait » alors en mode dégradé silencieux (dossier courant,
+        sans options de pattern/PDF/DWG). Ce test fige le chemin d'import
+        correct pour que toute régression de packaging (ex: `__init__.py`
+        manquant sous `lib/data/`) soit détectée hors Revit."""
+        from lib.services.core.ExportOrchestrator import ExportOrchestrator
+        orch = ExportOrchestrator()
+        self.assertIsNotNone(orch._dest)
+        self.assertIsNotNone(orch._nstore)
+        self.assertIsNotNone(orch._pdf)
+        self.assertIsNotNone(orch._dwg)
+        self.assertIsNotNone(orch._cfg)
+
+
 if __name__ == '__main__':
     unittest.main()

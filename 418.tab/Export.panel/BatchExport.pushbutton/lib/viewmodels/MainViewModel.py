@@ -189,6 +189,10 @@ class MainViewModel(BaseViewModel):
         self._nb_jeux_qualifies = 0
         self._nb_feuilles_qualifiees = 0
 
+        # Export (Task 3) : retour visuel (progress_cb/log_cb de l'orchestrateur)
+        self._status_text = u''
+        self._progress_value = 0
+
     # ------------------------------------------------------------------
     # Mode / titre (existant)
     # ------------------------------------------------------------------
@@ -401,3 +405,159 @@ class MainViewModel(BaseViewModel):
     @property
     def NbFeuillesQualifiees(self):
         return self._nb_feuilles_qualifiees
+
+    # ------------------------------------------------------------------
+    # Export (Task 3) : coordination VM -> ExportOrchestrator
+    # ------------------------------------------------------------------
+
+    @property
+    def StatusText(self):
+        return self._status_text
+
+    @StatusText.setter
+    def StatusText(self, value):
+        self._status_text = value if value is not None else u''
+        self.notify_property(u'StatusText')
+
+    @property
+    def ProgressValue(self):
+        return self._progress_value
+
+    @ProgressValue.setter
+    def ProgressValue(self, value):
+        try:
+            v = int(value)
+        except Exception:
+            v = 0
+        v = max(0, min(100, v))
+        self._progress_value = v
+        self.notify_property(u'ProgressValue')
+
+    class _ComboShim(object):
+        """Faux contrôle UI minimal : expose seulement `.SelectedItem`.
+
+        `ExportOrchestrator._get_ui_selected_param_names` fait
+        `str(getattr(ctrl, 'SelectedItem', None))` sur ce que renvoie
+        `get_ctrl(name)`. Historiquement `get_ctrl` retournait une vraie
+        ComboBox WPF (`.SelectedItem` = nom du paramètre choisi par
+        l'utilisateur). Ce shim reproduit uniquement l'attribut consommé,
+        sans dépendance WPF, pour que l'orchestrateur (non modifié) puisse
+        lire le mapping paramètres depuis le VM.
+        """
+
+        def __init__(self, value):
+            self.SelectedItem = value if value else u''
+
+    def _get_ctrl_adapter(self):
+        """Construit `get_ctrl(name)` à partir du mapping VM (ParamExport/
+        ParamCarnet/ParamDwg), sans passer par des contrôles WPF réels.
+
+        Adaptation choisie (la moins invasive après lecture de
+        `ExportOrchestrator`) : l'orchestrateur n'a besoin, en dehors de
+        `doc`, que des TROIS noms de paramètres Oui/Non (Export/Carnet/DWG)
+        via `get_ctrl(name).SelectedItem`. Tout le reste (destination,
+        patterns de nommage, setups PDF/DWG) est lu par l'orchestrateur
+        lui-même depuis `UserConfig('batch_export')` — le MÊME namespace et
+        les MÊMES clés que `DestinationService`/`NamingService` (Phase 2)
+        utilisent pour persister (`PathDossier`, `pattern_sheet[_rows]`,
+        `pattern_set[_rows]`, `create_subfolders`, `separate_format_folders`,
+        etc.). Il n'y a donc pas besoin d'injecter `_destination_service`
+        ni `_naming_service` dans l'orchestrateur : la configuration est
+        déjà partagée de façon transparente via le namespace commun. Un
+        adaptateur plus large (dict de config direct) aurait nécessité de
+        modifier `ExportOrchestrator.run()` -- écarté au profit de ce petit
+        shim purement local au VM.
+        """
+        mapping = {
+            u'ExportationCombo': self.ParamExport,
+            u'CarnetCombo': self.ParamCarnet,
+            u'DWGCombo': self.ParamDwg,
+        }
+
+        def get_ctrl(name):
+            return MainViewModel._ComboShim(mapping.get(name, u''))
+
+        return get_ctrl
+
+    def _on_export_progress(self, current, total, message=u''):
+        try:
+            total = max(int(total), 1)
+        except Exception:
+            total = 1
+        try:
+            current = int(current)
+        except Exception:
+            current = 0
+        self.ProgressValue = int(100 * current / total)
+        self.StatusText = message or u''
+
+    def _on_export_log(self, message):
+        self.StatusText = message or u''
+
+    def lancer_export(self):
+        """Lance l'export du mode « par jeu » via `ExportOrchestrator`.
+
+        Hors Revit (`doc is None`) ou si l'orchestrateur est indisponible,
+        ne lève jamais : `StatusText` reflète l'indisponibilité et la
+        méthode retourne silencieusement. Toute exception levée pendant la
+        construction/l'exécution de l'orchestrateur est absorbée (try/except)
+        conformément aux conventions du projet (accès Revit protégé).
+        """
+        if self._doc is None:
+            self.StatusText = u"Export indisponible (hors Revit)."
+            return
+
+        try:
+            try:
+                # Ordre d'import : `lib.services.core...` d'abord. Le module
+                # `ExportOrchestrator` utilise des imports relatifs (`from
+                # ...core.UserConfig`, `from ...data...`) qui ne résolvent
+                # correctement QUE si son package est `lib.services.core`
+                # (racine de package = `lib`). Importé comme
+                # `services.core.ExportOrchestrator` (package racine =
+                # `services`), les `...` remontent au-dessus de `lib` et
+                # tous les try/except internes retombent sur None
+                # (DestinationStore/NamingPatternStore/NamingResolver/
+                # PdfExporterService = None) sans lever -- l'export
+                # « fonctionnerait » silencieusement en mode dégradé
+                # (dossier courant, sans options). D'où l'ordre inverse de
+                # celui utilisé pour les autres services de ce fichier.
+                from lib.services.core.ExportOrchestrator import ExportOrchestrator
+            except Exception:
+                from services.core.ExportOrchestrator import ExportOrchestrator
+        except Exception:
+            self.StatusText = u"Export indisponible (orchestrateur introuvable)."
+            return
+
+        try:
+            orch = ExportOrchestrator()
+        except Exception:
+            self.StatusText = u"Export indisponible (initialisation impossible)."
+            return
+
+        # Détection best-effort du mode dégradé (imports internes retombés
+        # sur None) : on prévient plutôt que d'exporter silencieusement
+        # dans de mauvaises conditions.
+        try:
+            if getattr(orch, '_dest', None) is None:
+                self.StatusText = u"Export indisponible (dépendances internes manquantes)."
+                return
+        except Exception:
+            pass
+
+        self.StatusText = u"Préparation de l'export..."
+        self.ProgressValue = 0
+
+        try:
+            orch.run(
+                self._doc,
+                self._get_ctrl_adapter(),
+                progress_cb=self._on_export_progress,
+                log_cb=self._on_export_log,
+            )
+        except Exception as exc:
+            try:
+                self.StatusText = u"Erreur pendant l'export : {}".format(exc)
+            except Exception:
+                self.StatusText = u"Erreur pendant l'export."
+            return
