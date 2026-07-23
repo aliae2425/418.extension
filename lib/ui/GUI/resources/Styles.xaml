@@ -813,4 +813,62 @@
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!-- ============================================================= -->
+    <!-- Interrupteur (ToggleSwitchStyle) : pill + thumb glissant.      -->
+    <!-- Basé sur CheckBox pour rester bindable IsChecked TwoWay tel    -->
+    <!-- quel. OFF : piste ControlFillBrush/bordure ControlBorderBrush, -->
+    <!-- thumb TextSecondaryBrush aligné à gauche. ON : piste           -->
+    <!-- AccentBrush, thumb ToggleThumbCheckedBrush (blanc constant,    -->
+    <!-- cf. Colors.xaml) aligné à droite. Réutilisable partout où un   -->
+    <!-- booléen doit être présenté comme un interrupteur Fluent.       -->
+    <!-- ============================================================= -->
+    <Style x:Key="ToggleSwitchStyle" TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontFamily" Value="Segoe UI"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Padding" Value="10,0,0,0"/>
+        <Setter Property="Margin" Value="0,4"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <StackPanel Orientation="Horizontal">
+                        <!-- Piste (pill) -->
+                        <Border x:Name="track"
+                                Width="38" Height="20"
+                                CornerRadius="10"
+                                Background="{DynamicResource ControlFillBrush}"
+                                BorderBrush="{DynamicResource ControlBorderBrush}"
+                                BorderThickness="1">
+                            <!-- Pastille (thumb) : alignée à gauche par défaut (OFF) -->
+                            <Border x:Name="thumb"
+                                    Width="14" Height="14"
+                                    CornerRadius="7"
+                                    HorizontalAlignment="Left"
+                                    Margin="2,0,0,0"
+                                    Background="{DynamicResource TextSecondaryBrush}"/>
+                        </Border>
+                        <ContentPresenter x:Name="content"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center"
+                                          HorizontalAlignment="Left"/>
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="track" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="track" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="thumb" Property="HorizontalAlignment" Value="Right"/>
+                            <Setter TargetName="thumb" Property="Margin" Value="0,0,2,0"/>
+                            <Setter TargetName="thumb" Property="Background" Value="{DynamicResource ToggleThumbCheckedBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.6"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 </ResourceDictionary>

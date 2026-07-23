@@ -44,4 +44,9 @@
         <GradientStop Offset="0" Color="#0078D4"/>
         <GradientStop Offset="1" Color="#29C6D1"/>
     </LinearGradientBrush>
+
+    <!-- Interrupteur (ToggleSwitchStyle) : thumb à l'état ON, blanc constant
+         (indépendant du thème — TextOnAccentBrush vaut #23272F en sombre et
+         disparaîtrait sur la piste accentuée). -->
+    <SolidColorBrush x:Key="ToggleThumbCheckedBrush" Color="#FFFFFF"/>
 </ResourceDictionary>

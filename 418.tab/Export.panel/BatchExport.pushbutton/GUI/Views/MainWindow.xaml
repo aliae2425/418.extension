@@ -479,23 +479,24 @@
               <TextBlock Text="Options d'export"
                          Style="{DynamicResource SubHeaderTextBlockStyle}"
                          Margin="0,20,0,4"/>
-              <TextBlock Text="Configurez l'organisation des fichiers exportés et les setups Revit utilisés."
+              <TextBlock Text="Configurez les setups Revit utilisés pour l'export PDF et DWG."
                          Foreground="{DynamicResource TextSecondaryBrush}"
                          FontSize="12.5"
                          TextWrapping="Wrap"
                          Margin="0,0,0,16"/>
 
+              <!--
+                Les 2 toggles d'organisation (sous-dossier par jeu / séparer
+                PDF-DWG) ont été déplacés sous le champ destination, dans le
+                footer (voir section « Sous-dossier et format » ci-dessous) :
+                ils sont pertinents quel que soit le mode (Auto/Manuel), donc
+                visibles en permanence plutôt qu'enfouis dans Paramètres.
+              -->
               <Border Style="{DynamicResource CardStyle}">
                 <StackPanel Orientation="Vertical">
 
-                  <!-- Toggles d'organisation -->
-                  <CheckBox Content="Créer un sous-dossier par jeu"
-                            IsChecked="{Binding CreerSousDossiers, Mode=TwoWay}"/>
-                  <CheckBox Content="Séparer PDF et DWG"
-                            IsChecked="{Binding SeparerFormats, Mode=TwoWay}"/>
-
                   <!-- Ligne Setup PDF -->
-                  <Grid Margin="0,16,0,12">
+                  <Grid Margin="0,0,0,12">
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="140"/>
                       <ColumnDefinition Width="*"/>
@@ -541,8 +542,10 @@
                   <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Retour visuel export (Task 3) : StatusText + ProgressValue,
-                     mis à jour via progress_cb/log_cb de ExportOrchestrator. -->
+                <!-- Retour visuel export (Task 3) : StatusText, mis à jour
+                     via progress_cb/log_cb de ExportOrchestrator. La
+                     ProgressBar (liée ProgressValue) a été retirée de l'UI ;
+                     la propriété ProgressValue reste disponible côté VM. -->
                 <StackPanel Grid.Column="0"
                             Orientation="Vertical"
                             VerticalAlignment="Center"
@@ -554,23 +557,41 @@
                              FontSize="12"
                              HorizontalAlignment="Left"
                              TextTrimming="CharacterEllipsis"
-                             Margin="0,0,0,4"/>
+                             Margin="0,0,0,10"/>
+
+                  <!--
+                    Sous-dossier et format : les 2 interrupteurs d'organisation
+                    de l'export (déplacés depuis Paramètres, cf. carte
+                    « Options d'export »), regroupés sous le champ destination
+                    car pertinents quel que soit le mode (Auto/Manuel).
+                  -->
+                  <TextBlock Text="Sous-dossier et format"
+                             Foreground="{DynamicResource TextSecondaryBrush}"
+                             FontSize="11"
+                             FontWeight="SemiBold"
+                             Margin="0,0,0,6"/>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                    <CheckBox Content="Sous-dossier par jeu"
+                              Style="{DynamicResource ToggleSwitchStyle}"
+                              IsChecked="{Binding CreerSousDossiers, Mode=TwoWay}"
+                              Margin="0,4,20,4"/>
+                    <CheckBox Content="Séparer PDF / DWG"
+                              Style="{DynamicResource ToggleSwitchStyle}"
+                              IsChecked="{Binding SeparerFormats, Mode=TwoWay}"
+                              Margin="0,4"/>
+                  </StackPanel>
+
                   <TextBlock x:Name="StatusTextBlock"
                              Text="{Binding StatusText}"
                              Foreground="{DynamicResource TextSecondaryBrush}"
                              FontSize="12"
                              TextTrimming="CharacterEllipsis"/>
-                  <ProgressBar x:Name="ExportProgressBar"
-                               Value="{Binding ProgressValue}"
-                               Minimum="0"
-                               Maximum="100"
-                               Height="4"
-                               Margin="0,4,0,0"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1"
                             Orientation="Horizontal"
-                            HorizontalAlignment="Right">
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top">
                   <Button x:Name="SecondaryActionButton"
                           Content="Parcourir…"
                           Style="{DynamicResource SecondaryActionButtonStyle}"
