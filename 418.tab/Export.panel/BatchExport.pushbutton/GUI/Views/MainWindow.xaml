@@ -230,74 +230,85 @@
                     <!--
                       Carte de collection. Opacity abaissée si la collection
                       n'est pas qualifiée (Qualified == False).
+
+                      Repli par défaut (#3) : la sous-liste des feuilles est
+                      logée dans un Expander (IsExpanded="False"), stylé via
+                      CollectionExpanderStyle (socle Styles/StylesDark.xaml).
+                      L'en-tête (Titre + badges) est fourni en contenu INLINE
+                      via Expander.Header — PAS de HeaderTemplate — afin de
+                      rester dans le namescope de ce DataTemplate : les
+                      DataTrigger ci-dessous ciblent BadgeExport/BadgeCarnet/
+                      BadgeDwg par TargetName et doivent continuer à résoudre.
                     -->
                     <Border Style="{DynamicResource CardStyle}"
                             x:Name="CollectionCard">
-                      <StackPanel Orientation="Vertical">
+                      <Expander Style="{DynamicResource CollectionExpanderStyle}"
+                                IsExpanded="False">
+                        <Expander.Header>
+                          <!-- En-tête de collection : Titre + 3 badges de rôle -->
+                          <Grid Margin="0,0,0,0">
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="*"/>
+                              <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
 
-                        <!-- En-tête de collection : Titre + 3 badges de rôle -->
-                        <Grid Margin="0,0,0,8">
-                          <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                          </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding Titre}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       FontWeight="SemiBold"
+                                       FontSize="14"
+                                       VerticalAlignment="Center"/>
 
-                          <TextBlock Grid.Column="0"
-                                     Text="{Binding Titre}"
-                                     Foreground="{DynamicResource TextPrimaryBrush}"
-                                     FontWeight="SemiBold"
-                                     FontSize="14"
-                                     VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1"
+                                        Orientation="Horizontal">
 
-                          <StackPanel Grid.Column="1"
-                                      Orientation="Horizontal">
+                              <!-- Badge EXPORT -->
+                              <Border x:Name="BadgeExport"
+                                      Background="{DynamicResource ControlFillBrush}"
+                                      BorderBrush="{DynamicResource ControlBorderBrush}"
+                                      BorderThickness="1"
+                                      CornerRadius="8"
+                                      Padding="8,3"
+                                      Margin="4,0,0,0">
+                                <TextBlock x:Name="BadgeExportText"
+                                           Text="EXPORT"
+                                           FontSize="10.5"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextDisabledBrush}"/>
+                              </Border>
 
-                            <!-- Badge EXPORT -->
-                            <Border x:Name="BadgeExport"
-                                    Background="{DynamicResource ControlFillBrush}"
-                                    BorderBrush="{DynamicResource ControlBorderBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="8"
-                                    Padding="8,3"
-                                    Margin="4,0,0,0">
-                              <TextBlock x:Name="BadgeExportText"
-                                         Text="EXPORT"
-                                         FontSize="10.5"
-                                         FontWeight="SemiBold"
-                                         Foreground="{DynamicResource TextDisabledBrush}"/>
-                            </Border>
+                              <!-- Badge CARNET -->
+                              <Border x:Name="BadgeCarnet"
+                                      Background="{DynamicResource ControlFillBrush}"
+                                      BorderBrush="{DynamicResource ControlBorderBrush}"
+                                      BorderThickness="1"
+                                      CornerRadius="8"
+                                      Padding="8,3"
+                                      Margin="4,0,0,0">
+                                <TextBlock x:Name="BadgeCarnetText"
+                                           Text="CARNET"
+                                           FontSize="10.5"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextDisabledBrush}"/>
+                              </Border>
 
-                            <!-- Badge CARNET -->
-                            <Border x:Name="BadgeCarnet"
-                                    Background="{DynamicResource ControlFillBrush}"
-                                    BorderBrush="{DynamicResource ControlBorderBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="8"
-                                    Padding="8,3"
-                                    Margin="4,0,0,0">
-                              <TextBlock x:Name="BadgeCarnetText"
-                                         Text="CARNET"
-                                         FontSize="10.5"
-                                         FontWeight="SemiBold"
-                                         Foreground="{DynamicResource TextDisabledBrush}"/>
-                            </Border>
-
-                            <!-- Badge DWG -->
-                            <Border x:Name="BadgeDwg"
-                                    Background="{DynamicResource ControlFillBrush}"
-                                    BorderBrush="{DynamicResource ControlBorderBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="8"
-                                    Padding="8,3"
-                                    Margin="4,0,0,0">
-                              <TextBlock x:Name="BadgeDwgText"
-                                         Text="DWG"
-                                         FontSize="10.5"
-                                         FontWeight="SemiBold"
-                                         Foreground="{DynamicResource TextDisabledBrush}"/>
-                            </Border>
-                          </StackPanel>
-                        </Grid>
+                              <!-- Badge DWG -->
+                              <Border x:Name="BadgeDwg"
+                                      Background="{DynamicResource ControlFillBrush}"
+                                      BorderBrush="{DynamicResource ControlBorderBrush}"
+                                      BorderThickness="1"
+                                      CornerRadius="8"
+                                      Padding="8,3"
+                                      Margin="4,0,0,0">
+                                <TextBlock x:Name="BadgeDwgText"
+                                           Text="DWG"
+                                           FontSize="10.5"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextDisabledBrush}"/>
+                              </Border>
+                            </StackPanel>
+                          </Grid>
+                        </Expander.Header>
 
                         <!--
                           Sous-liste des feuilles de la collection.
@@ -339,7 +350,7 @@
                             </DataTemplate>
                           </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                      </StackPanel>
+                      </Expander>
                     </Border>
 
                     <DataTemplate.Triggers>
@@ -348,24 +359,24 @@
                         <Setter TargetName="CollectionCard" Property="Opacity" Value="0.5"/>
                       </DataTrigger>
 
-                      <!-- Badge EXPORT actif si FlagExport == True -->
+                      <!-- Badge EXPORT actif si FlagExport == True (vert = SuccessBrush) -->
                       <DataTrigger Binding="{Binding FlagExport}" Value="True">
-                        <Setter TargetName="BadgeExport" Property="Background" Value="{DynamicResource AccentBrush}"/>
-                        <Setter TargetName="BadgeExport" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        <Setter TargetName="BadgeExport" Property="Background" Value="{DynamicResource SuccessBrush}"/>
+                        <Setter TargetName="BadgeExport" Property="BorderBrush" Value="{DynamicResource SuccessBrush}"/>
                         <Setter TargetName="BadgeExportText" Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
                       </DataTrigger>
 
-                      <!-- Badge CARNET actif si FlagCarnet == True -->
+                      <!-- Badge CARNET actif si FlagCarnet == True (bleu = AccentBrush, inchangé) -->
                       <DataTrigger Binding="{Binding FlagCarnet}" Value="True">
                         <Setter TargetName="BadgeCarnet" Property="Background" Value="{DynamicResource AccentBrush}"/>
                         <Setter TargetName="BadgeCarnet" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                         <Setter TargetName="BadgeCarnetText" Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
                       </DataTrigger>
 
-                      <!-- Badge DWG actif si FlagDwg == True -->
+                      <!-- Badge DWG actif si FlagDwg == True (ambre = WarningBrush) -->
                       <DataTrigger Binding="{Binding FlagDwg}" Value="True">
-                        <Setter TargetName="BadgeDwg" Property="Background" Value="{DynamicResource AccentBrush}"/>
-                        <Setter TargetName="BadgeDwg" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        <Setter TargetName="BadgeDwg" Property="Background" Value="{DynamicResource WarningBrush}"/>
+                        <Setter TargetName="BadgeDwg" Property="BorderBrush" Value="{DynamicResource WarningBrush}"/>
                         <Setter TargetName="BadgeDwgText" Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
                       </DataTrigger>
                     </DataTemplate.Triggers>
@@ -482,6 +493,14 @@
                             Orientation="Vertical"
                             VerticalAlignment="Center"
                             Margin="0,0,16,0">
+                  <!-- Dossier de destination courant (Task « Parcourir »). -->
+                  <TextBlock x:Name="DestinationPathTextBlock"
+                             Text="{Binding DestinationPath, StringFormat='Destination : {0}'}"
+                             Foreground="{DynamicResource TextSecondaryBrush}"
+                             FontSize="12"
+                             HorizontalAlignment="Left"
+                             TextTrimming="CharacterEllipsis"
+                             Margin="0,0,0,4"/>
                   <TextBlock x:Name="StatusTextBlock"
                              Text="{Binding StatusText}"
                              Foreground="{DynamicResource TextSecondaryBrush}"

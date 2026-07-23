@@ -36,6 +36,10 @@
     <SolidColorBrush x:Key="ErrorBrush" Color="#D13438"/>
     <SolidColorBrush x:Key="TextOnDangerBrush" Color="#FFFFFF"/>
 
+    <!-- Couleurs sémantiques (états) — thème clair -->
+    <SolidColorBrush x:Key="SuccessBrush" Color="#2E9E4F"/>
+    <SolidColorBrush x:Key="WarningBrush" Color="#B8860B"/>
+
     <!-- Non-brush color resources (for properties expecting Color) -->
     <Color x:Key="ShadowColor">#000000</Color>
     

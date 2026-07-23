@@ -14,6 +14,33 @@ def _xaml_path():
     return os.path.join(button, 'GUI', 'Views', 'MainWindow.xaml')
 
 
+def _pick_folder():
+    """Ouvre un sélecteur de dossier. Retourne le chemin choisi, ou `None`
+    (annulation ou sélecteur indisponible hors Revit).
+
+    Ordre de repli : `pyrevit.forms.pick_folder` (intégration Revit), puis
+    `System.Windows.Forms.FolderBrowserDialog` (WinForms brut). Chaque
+    tentative est protégée : hors Revit/hors WPF, aucune ne doit lever.
+    """
+    try:
+        from pyrevit import forms
+        chemin = forms.pick_folder()
+        if chemin:
+            return chemin
+    except Exception:
+        pass
+
+    try:
+        from System.Windows.Forms import FolderBrowserDialog, DialogResult
+        dlg = FolderBrowserDialog()
+        if dlg.ShowDialog() == DialogResult.OK:
+            return dlg.SelectedPath
+    except Exception:
+        pass
+
+    return None
+
+
 class MainWindowView(BaseWindow):
     def __init__(self, view_model):
         super(MainWindowView, self).__init__(_xaml_path(), view_model)
@@ -23,6 +50,7 @@ class MainWindowView(BaseWindow):
         super(MainWindowView, self)._load()
         self.wire_navigation()
         self.wire_export()
+        self.wire_destination()
         try:
             self._vm.refresh_par_jeu()
         except Exception:
@@ -39,6 +67,30 @@ class MainWindowView(BaseWindow):
         def _on_click(sender, args):
             try:
                 vm.lancer_export()
+            except Exception:
+                pass
+        try:
+            btn.Click += _on_click
+        except Exception:
+            pass
+
+    def wire_destination(self):
+        if self._window is None:
+            return
+        btn = self._window.FindName('SecondaryActionButton')
+        if btn is None:
+            return
+        vm = self._vm
+
+        def _on_click(sender, args):
+            try:
+                chemin = _pick_folder()
+            except Exception:
+                chemin = None
+            if not chemin:
+                return
+            try:
+                vm.definir_destination(chemin)
             except Exception:
                 pass
         try:

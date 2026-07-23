@@ -382,5 +382,96 @@ class TestMainViewModelLancerExport(unittest.TestCase):
         self.assertIsNotNone(orch._cfg)
 
 
+class FakeDestinationService(object):
+    """Faux DestinationService : mêmes méthodes que le vrai (get/set/ensure),
+    mais `set` enregistre l'argument reçu pour vérification (pas de disque)."""
+
+    def __init__(self, initial=u''):
+        self._path = initial
+        self.set_calls = []
+        self.ensure_calls = []
+
+    def get(self, default=None):
+        return self._path
+
+    def set(self, path):
+        self.set_calls.append(path)
+        self._path = path
+        return True
+
+    def ensure(self, path):
+        self.ensure_calls.append(path)
+        return path
+
+
+class TestMainViewModelDestination(unittest.TestCase):
+    """`DestinationPath` (Task « Parcourir ») : reflète un faux
+    destination_service ; `definir_destination` appelle bien set()/ensure()
+    sur le service et notifie la propriété bindable."""
+
+    def test_destination_path_reflete_le_service(self):
+        vm = MainViewModel(doc=None, destination_service=FakeDestinationService(u'C:/Export'))
+        self.assertEqual(vm.DestinationPath, u'C:/Export')
+
+    def test_destination_path_vide_si_service_absent(self):
+        # `destination_service=None` ne suffit pas à simuler l'absence de
+        # service : le VM instancie alors le VRAI `DestinationService`
+        # (importable hors Revit, avec repli ~/Documents/Exports). Pour
+        # exercer la branche "service absent" du getter (cf.
+        # `DestinationPath`), on force `_destination_service` à None
+        # après construction plutôt qu'à l'injection.
+        vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                            naming_service=FakeNamingService(),
+                            config=FakeConfig())
+        vm._destination_service = None
+        self.assertEqual(vm.DestinationPath, u'')
+
+    def test_definir_destination_appelle_set_sur_le_service(self):
+        fake = FakeDestinationService(u'')
+        vm = MainViewModel(doc=None, destination_service=fake)
+        vm.definir_destination(u'X')
+        self.assertEqual(fake.set_calls, [u'X'])
+        self.assertEqual(vm.DestinationPath, u'X')
+
+    def test_definir_destination_appelle_ensure_sur_le_service(self):
+        fake = FakeDestinationService(u'')
+        vm = MainViewModel(doc=None, destination_service=fake)
+        vm.definir_destination(u'X')
+        self.assertEqual(fake.ensure_calls, [u'X'])
+
+    def test_definir_destination_chemin_vide_ignore(self):
+        fake = FakeDestinationService(u'C:/Existant')
+        vm = MainViewModel(doc=None, destination_service=fake)
+        vm.definir_destination(u'')
+        self.assertEqual(fake.set_calls, [])
+        self.assertEqual(vm.DestinationPath, u'C:/Existant')
+
+    def test_definir_destination_sans_service_ne_leve_pas(self):
+        vm = MainViewModel(doc=None, destination_service=None,
+                            sheet_service=FakeSheetService(),
+                            naming_service=FakeNamingService(),
+                            config=FakeConfig())
+        vm.definir_destination(u'X')  # ne doit pas lever
+
+    def test_definir_destination_fonctionne_sans_methode_ensure(self):
+        """Le service peut ne pas exposer `ensure` (mock minimal) -> `set`
+        doit tout de même être appelé, sans lever."""
+        class ServiceSansEnsure(object):
+            def __init__(self):
+                self.set_calls = []
+
+            def get(self, default=None):
+                return u''
+
+            def set(self, path):
+                self.set_calls.append(path)
+                return True
+
+        fake = ServiceSansEnsure()
+        vm = MainViewModel(doc=None, destination_service=fake)
+        vm.definir_destination(u'X')
+        self.assertEqual(fake.set_calls, [u'X'])
+
+
 if __name__ == '__main__':
     unittest.main()

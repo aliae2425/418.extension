@@ -449,6 +449,48 @@ class MainViewModel(BaseViewModel):
         return self._nb_feuilles_qualifiees
 
     # ------------------------------------------------------------------
+    # Destination (Task « Parcourir ») : coordination VM -> DestinationService
+    # ------------------------------------------------------------------
+
+    @property
+    def DestinationPath(self):
+        """Chemin de destination courant.
+
+        Best-effort : `_destination_service.get()` peut lever (hors Revit,
+        backend UserConfig absent) -> repli `u''`. Si le service lui-même
+        est absent (None), retourne directement `u''` sans appel.
+        """
+        try:
+            if self._destination_service is not None:
+                return self._destination_service.get() or u''
+        except Exception:
+            pass
+        return u''
+
+    def definir_destination(self, path):
+        """Enregistre `path` comme dossier de destination et notifie la vue.
+
+        Ne lève jamais : chaque étape (set/ensure) est protégée
+        individuellement afin que l'échec de l'une n'empêche pas l'autre
+        ni la notification de la propriété bindable.
+        """
+        if not path:
+            return
+        if self._destination_service is None:
+            return
+        try:
+            self._destination_service.set(path)
+        except Exception:
+            pass
+        try:
+            ensure = getattr(self._destination_service, 'ensure', None)
+            if callable(ensure):
+                ensure(path)
+        except Exception:
+            pass
+        self.notify_property(u'DestinationPath')
+
+    # ------------------------------------------------------------------
     # Export (Task 3) : coordination VM -> ExportOrchestrator
     # ------------------------------------------------------------------
 
