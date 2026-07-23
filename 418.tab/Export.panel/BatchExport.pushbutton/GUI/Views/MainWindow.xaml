@@ -29,8 +29,10 @@
 
     Rail de navigation
     - NavAuto / NavManual / NavSettings partagent GroupName="nav" (sélection exclusive).
-    - Le contenu réel (sections) arrive en phase ultérieure ; la surface affiche
+    - Mode manuel (IsManual) : contenu réel hors périmètre, la surface affiche
       pour l'instant un placeholder lié à SurfaceTitre.
+    - Mode Paramètres (IsSettings) : panneau réel (PanneauParametres) qui
+      mappe les 3 paramètres Oui/Non de collection (Export/Carnet/DWG).
 
     Mode « par jeu » (Collections)
     - `MainViewModel.Collections` (property CLR) expose une LISTE de
@@ -373,18 +375,95 @@
             </ScrollViewer>
 
             <!--
-              Placeholder pour les modes non-« par jeu » (manual / settings) :
-              contenu réel hors périmètre de cette tâche (Phase 4/5). Sans ce
-              TextBlock, la surface serait entièrement vide dans ces modes
-              (seul le header/liste ci-dessus est masqué en dehors de IsAuto).
+              Placeholder pour le mode « manuel » (Phase 4/5, hors périmètre
+              de cette tâche) : contenu réel à venir. Le mode « Paramètres »
+              a désormais son propre panneau ci-dessous (PanneauParametres).
             -->
             <TextBlock Grid.Row="1"
                        Text="{Binding SurfaceTitre}"
-                       Visibility="{Binding IsNotAuto, Converter={StaticResource BoolToVisibilityConverter}}"
+                       Visibility="{Binding IsManual, Converter={StaticResource BoolToVisibilityConverter}}"
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        FontSize="14"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"/>
+
+            <!--
+              Mode « Paramètres » (IsSettings) : mappage des 3 paramètres
+              Oui/Non de collection -> rôle (Export / Carnet / DWG). La
+              sélection est persistée par les setters ParamExport/ParamCarnet/
+              ParamDwg (MainViewModel) qui déclenchent aussi refresh_par_jeu()
+              -> les badges/qualification du mode « par jeu » se mettent à
+              jour immédiatement au changement.
+            -->
+            <StackPanel Grid.Row="1"
+                        x:Name="PanneauParametres"
+                        Orientation="Vertical"
+                        Margin="20,16,20,8"
+                        Visibility="{Binding IsSettings, Converter={StaticResource BoolToVisibilityConverter}}">
+
+              <TextBlock Text="Mappage des paramètres de collection"
+                         Style="{DynamicResource SubHeaderTextBlockStyle}"
+                         Margin="0,0,0,4"/>
+              <TextBlock Text="Choisissez, pour chaque rôle, le paramètre Oui/Non de collection qui qualifie les jeux."
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         FontSize="12.5"
+                         TextWrapping="Wrap"
+                         Margin="0,0,0,16"/>
+
+              <Border Style="{DynamicResource CardStyle}">
+                <StackPanel Orientation="Vertical">
+
+                  <!-- Ligne Export -->
+                  <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="140"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="Export"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <ComboBox Grid.Column="1"
+                              x:Name="ParamExportCombo"
+                              ItemsSource="{Binding ParametresDisponibles}"
+                              SelectedItem="{Binding ParamExport, Mode=TwoWay}"/>
+                  </Grid>
+
+                  <!-- Ligne Carnet -->
+                  <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="140"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="Carnet"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <ComboBox Grid.Column="1"
+                              x:Name="ParamCarnetCombo"
+                              ItemsSource="{Binding ParametresDisponibles}"
+                              SelectedItem="{Binding ParamCarnet, Mode=TwoWay}"/>
+                  </Grid>
+
+                  <!-- Ligne DWG -->
+                  <Grid Margin="0,0,0,0">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="140"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="DWG"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <ComboBox Grid.Column="1"
+                              x:Name="ParamDwgCombo"
+                              ItemsSource="{Binding ParametresDisponibles}"
+                              SelectedItem="{Binding ParamDwg, Mode=TwoWay}"/>
+                  </Grid>
+
+                </StackPanel>
+              </Border>
+            </StackPanel>
 
             <!-- Footer d'actions -->
             <Border Grid.Row="2"

@@ -193,6 +193,15 @@ class MainViewModel(BaseViewModel):
         self._status_text = u''
         self._progress_value = 0
 
+        # Mode Paramètres (Task 4) : liste des paramètres Oui/Non disponibles
+        # pour le mappage Export/Carnet/DWG. Calculée une fois à la
+        # construction (voir `_refresh_parametres_disponibles`) plutôt qu'à
+        # chaque `refresh_par_jeu()` -- ce dernier est appelé par les setters
+        # ParamExport/ParamCarnet/ParamDwg, et `list_boolean_params()` n'a
+        # aucun rapport avec la (re)qualification des jeux.
+        self._parametres_disponibles = []
+        self._refresh_parametres_disponibles()
+
     # ------------------------------------------------------------------
     # Mode / titre (existant)
     # ------------------------------------------------------------------
@@ -260,8 +269,12 @@ class MainViewModel(BaseViewModel):
 
     @ParamExport.setter
     def ParamExport(self, value):
+        value = value or u''
+        if value == self.ParamExport:
+            return
         self._cfg_set(_CFG_KEY_PARAM_EXPORT, value)
         self.notify_property(u'ParamExport')
+        self.refresh_par_jeu()
 
     @property
     def ParamCarnet(self):
@@ -269,8 +282,12 @@ class MainViewModel(BaseViewModel):
 
     @ParamCarnet.setter
     def ParamCarnet(self, value):
+        value = value or u''
+        if value == self.ParamCarnet:
+            return
         self._cfg_set(_CFG_KEY_PARAM_CARNET, value)
         self.notify_property(u'ParamCarnet')
+        self.refresh_par_jeu()
 
     @property
     def ParamDwg(self):
@@ -278,8 +295,33 @@ class MainViewModel(BaseViewModel):
 
     @ParamDwg.setter
     def ParamDwg(self, value):
+        value = value or u''
+        if value == self.ParamDwg:
+            return
         self._cfg_set(_CFG_KEY_PARAM_DWG, value)
         self.notify_property(u'ParamDwg')
+        self.refresh_par_jeu()
+
+    def _refresh_parametres_disponibles(self):
+        """(Re)calcule `ParametresDisponibles` depuis `_sheet_service`.
+
+        Best-effort : `list_boolean_params()` peut être absent (faux
+        service dans certains tests) ou lever (hors Revit) -> `[]`.
+        """
+        noms = []
+        if self._sheet_service is not None:
+            try:
+                lister = getattr(self._sheet_service, 'list_boolean_params', None)
+                if callable(lister):
+                    noms = list(lister() or [])
+            except Exception:
+                noms = []
+        self._parametres_disponibles = noms
+        self.notify_property(u'ParametresDisponibles')
+
+    @property
+    def ParametresDisponibles(self):
+        return self._parametres_disponibles
 
     # ------------------------------------------------------------------
     # Mode « par jeu »

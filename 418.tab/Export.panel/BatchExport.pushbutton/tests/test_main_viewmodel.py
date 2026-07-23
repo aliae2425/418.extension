@@ -132,6 +132,9 @@ class FakeSheetService(object):
     def read_flag(self, elem, param_name):
         return self._flags.get((elem, param_name), False)
 
+    def list_boolean_params(self):
+        return ['A', 'B', 'C']
+
 
 class FakeNamingService(object):
     """Faux NamingService : exerce le chemin resolve_for_element (non vide)."""
@@ -234,6 +237,72 @@ class TestMainViewModelMappingParametres(unittest.TestCase):
         self.vm.ParamDwg = u'MonDwg'
         self.assertEqual(self.vm.ParamCarnet, u'MonCarnet')
         self.assertEqual(self.vm.ParamDwg, u'MonDwg')
+
+
+class TestMainViewModelModeParametres(unittest.TestCase):
+    """Mode Paramètres (Task 4) : ParametresDisponibles + re-qualification
+    déclenchée par les setters ParamExport/ParamCarnet/ParamDwg."""
+
+    def setUp(self):
+        self.sheet_service = FakeSheetService()
+        self.naming_service = FakeNamingService()
+        self.vm = MainViewModel(
+            doc=None,
+            sheet_service=self.sheet_service,
+            naming_service=self.naming_service,
+            destination_service=None,
+            config=FakeConfig(),
+        )
+
+    def test_parametres_disponibles_source_service(self):
+        self.assertEqual(self.vm.ParametresDisponibles, ['A', 'B', 'C'])
+
+    def test_parametres_disponibles_vide_sans_service(self):
+        vm = MainViewModel(doc=None)
+        self.assertEqual(vm.ParametresDisponibles, [])
+
+    def test_parametres_disponibles_vide_si_service_sans_methode(self):
+        class ServiceSansListBooleanParams(object):
+            def list_collections(self):
+                return []
+
+            def list_sheets(self, collection_id=None):
+                return []
+
+        vm = MainViewModel(doc=None, sheet_service=ServiceSansListBooleanParams(),
+                            config=FakeConfig())
+        self.assertEqual(vm.ParametresDisponibles, [])
+
+    def test_setter_param_export_declenche_requalification(self):
+        # FakeSheetService qualifie Jeu A si le paramètre 'Export' est vrai.
+        self.vm.ParamExport = 'Export'
+        jeu_a = self.vm.Collections[0]
+        self.assertTrue(jeu_a.FlagExport)
+        self.assertTrue(jeu_a.Qualified)
+
+    def test_setter_param_carnet_declenche_requalification(self):
+        self.vm.ParamCarnet = 'Carnet'
+        jeu_a = self.vm.Collections[0]
+        self.assertTrue(jeu_a.FlagCarnet)
+
+    def test_setter_param_dwg_declenche_requalification(self):
+        self.vm.ParamExport = 'Export'
+        self.vm.ParamDwg = 'Dwg'
+        jeu_b = self.vm.Collections[1]
+        self.assertFalse(jeu_b.FlagDwg)
+
+    def test_setter_valeur_identique_est_idempotent(self):
+        self.vm.ParamExport = 'Export'
+        appels_avant = len(self.vm.Collections)
+        # Réassigner la même valeur ne doit pas planter ni changer l'état.
+        self.vm.ParamExport = 'Export'
+        self.assertEqual(len(self.vm.Collections), appels_avant)
+        self.assertEqual(self.vm.ParamExport, 'Export')
+
+    def test_setter_ne_leve_pas_sans_service(self):
+        vm = MainViewModel(doc=None, config=FakeConfig())
+        vm.ParamExport = 'X'
+        self.assertEqual(vm.ParamExport, 'X')
 
 
 class TestMainViewModelServicesParDefaut(unittest.TestCase):
