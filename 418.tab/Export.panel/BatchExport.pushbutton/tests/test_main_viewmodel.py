@@ -388,12 +388,18 @@ class TestMainViewModelLancerExport(unittest.TestCase):
 
 class FakeDestinationService(object):
     """Faux DestinationService : mêmes méthodes que le vrai (get/set/ensure),
-    mais `set` enregistre l'argument reçu pour vérification (pas de disque)."""
+    mais `set` enregistre l'argument reçu pour vérification (pas de disque).
+
+    Étendu (toggles Paramètres) avec get_create_subfolders/set_create_subfolders
+    et get_separate_formats/set_separate_formats, stockage en mémoire, même
+    contrat que le vrai DestinationService (booléens)."""
 
     def __init__(self, initial=u''):
         self._path = initial
         self.set_calls = []
         self.ensure_calls = []
+        self._create_subfolders = False
+        self._separate_formats = False
 
     def get(self, default=None):
         return self._path
@@ -406,6 +412,59 @@ class FakeDestinationService(object):
     def ensure(self, path):
         self.ensure_calls.append(path)
         return path
+
+    def get_create_subfolders(self):
+        return self._create_subfolders
+
+    def set_create_subfolders(self, val):
+        self._create_subfolders = bool(val)
+
+    def get_separate_formats(self):
+        return self._separate_formats
+
+    def set_separate_formats(self, val):
+        self._separate_formats = bool(val)
+
+
+class FakePdfService(object):
+    """Faux PdfExporterService minimal : list_all_setups/get_saved_setup/
+    set_saved_setup, stockage en mémoire, ignore `doc`."""
+
+    def __init__(self, setups=None, saved=u''):
+        self._setups = list(setups or [])
+        self._saved = saved
+        self.set_calls = []
+
+    def list_all_setups(self, doc):
+        return list(self._setups)
+
+    def get_saved_setup(self, default=None):
+        return self._saved or default
+
+    def set_saved_setup(self, name):
+        self.set_calls.append(name)
+        self._saved = name
+        return True
+
+
+class FakeDwgService(object):
+    """Faux DwgExporterService minimal, même contrat que FakePdfService."""
+
+    def __init__(self, setups=None, saved=u''):
+        self._setups = list(setups or [])
+        self._saved = saved
+        self.set_calls = []
+
+    def list_all_setups(self, doc):
+        return list(self._setups)
+
+    def get_saved_setup(self, default=None):
+        return self._saved or default
+
+    def set_saved_setup(self, name):
+        self.set_calls.append(name)
+        self._saved = name
+        return True
 
 
 class TestMainViewModelDestination(unittest.TestCase):
@@ -475,6 +534,169 @@ class TestMainViewModelDestination(unittest.TestCase):
         vm = MainViewModel(doc=None, destination_service=fake)
         vm.definir_destination(u'X')
         self.assertEqual(fake.set_calls, [u'X'])
+
+
+class TestMainViewModelTogglesParametres(unittest.TestCase):
+    """`CreerSousDossiers`/`SeparerFormats` (page Paramètres) : reflètent un
+    faux DestinationService étendu, round-trip set/get, et ne lèvent jamais
+    si le service est absent."""
+
+    def test_creer_sous_dossiers_reflete_le_service_et_persiste(self):
+        fake = FakeDestinationService()
+        vm = MainViewModel(doc=None, destination_service=fake)
+        self.assertFalse(vm.CreerSousDossiers)
+        vm.CreerSousDossiers = True
+        self.assertTrue(vm.CreerSousDossiers)
+        self.assertTrue(fake.get_create_subfolders())
+
+    def test_separer_formats_reflete_le_service_et_persiste(self):
+        fake = FakeDestinationService()
+        vm = MainViewModel(doc=None, destination_service=fake)
+        self.assertFalse(vm.SeparerFormats)
+        vm.SeparerFormats = True
+        self.assertTrue(vm.SeparerFormats)
+        self.assertTrue(fake.get_separate_formats())
+
+    def test_creer_sous_dossiers_setter_idempotent(self):
+        fake = FakeDestinationService()
+        vm = MainViewModel(doc=None, destination_service=fake)
+        vm.CreerSousDossiers = True
+        vm.CreerSousDossiers = True  # ne doit pas lever ni changer l'état
+        self.assertTrue(vm.CreerSousDossiers)
+
+    def test_creer_sous_dossiers_defaut_false_sans_service(self):
+        vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                            naming_service=FakeNamingService(),
+                            config=FakeConfig())
+        vm._destination_service = None
+        self.assertFalse(vm.CreerSousDossiers)
+
+    def test_separer_formats_defaut_false_sans_service(self):
+        vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                            naming_service=FakeNamingService(),
+                            config=FakeConfig())
+        vm._destination_service = None
+        self.assertFalse(vm.SeparerFormats)
+
+    def test_creer_sous_dossiers_setter_ne_leve_pas_sans_service(self):
+        vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                            naming_service=FakeNamingService(),
+                            config=FakeConfig())
+        vm._destination_service = None
+        vm.CreerSousDossiers = True  # ne doit pas lever
+        self.assertFalse(vm.CreerSousDossiers)
+
+    def test_separer_formats_setter_ne_leve_pas_sans_service(self):
+        vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                            naming_service=FakeNamingService(),
+                            config=FakeConfig())
+        vm._destination_service = None
+        vm.SeparerFormats = True  # ne doit pas lever
+        self.assertFalse(vm.SeparerFormats)
+
+
+class TestMainViewModelSetupsPdfDwg(unittest.TestCase):
+    """`SetupsPdf`/`SetupPdf`/`SetupsDwg`/`SetupDwg` (page Paramètres) :
+    reflètent de faux services PDF/DWG, tolèrent un service absent."""
+
+    def test_setups_pdf_reflete_le_service(self):
+        fake = FakePdfService(setups=[u'A', u'B'])
+        vm = MainViewModel(doc=None, pdf_service=fake)
+        self.assertEqual(vm.SetupsPdf, [u'A', u'B'])
+
+    def test_setups_pdf_vide_si_service_absent_apres_construction(self):
+        fake = FakePdfService(setups=[u'A', u'B'])
+        vm = MainViewModel(doc=None, pdf_service=fake)
+        self.assertEqual(vm.SetupsPdf, [u'A', u'B'])
+        vm._pdf_service = None
+        self.assertEqual(vm.SetupsPdf, [])
+
+    def test_setups_dwg_reflete_le_service(self):
+        fake = FakeDwgService(setups=[u'X', u'Y'])
+        vm = MainViewModel(doc=None, dwg_service=fake)
+        self.assertEqual(vm.SetupsDwg, [u'X', u'Y'])
+
+    def test_setups_dwg_vide_si_service_absent_apres_construction(self):
+        fake = FakeDwgService(setups=[u'X', u'Y'])
+        vm = MainViewModel(doc=None, dwg_service=fake)
+        self.assertEqual(vm.SetupsDwg, [u'X', u'Y'])
+        vm._dwg_service = None
+        self.assertEqual(vm.SetupsDwg, [])
+
+    def test_setup_pdf_reflete_le_service_et_persiste(self):
+        fake = FakePdfService(setups=[u'A', u'B'])
+        vm = MainViewModel(doc=None, pdf_service=fake)
+        self.assertEqual(vm.SetupPdf, u'')
+        vm.SetupPdf = u'A'
+        self.assertEqual(vm.SetupPdf, u'A')
+        self.assertEqual(fake.set_calls, [u'A'])
+
+    def test_setup_dwg_reflete_le_service_et_persiste(self):
+        fake = FakeDwgService(setups=[u'X', u'Y'])
+        vm = MainViewModel(doc=None, dwg_service=fake)
+        self.assertEqual(vm.SetupDwg, u'')
+        vm.SetupDwg = u'Y'
+        self.assertEqual(vm.SetupDwg, u'Y')
+        self.assertEqual(fake.set_calls, [u'Y'])
+
+    def test_setup_pdf_setter_idempotent(self):
+        fake = FakePdfService(setups=[u'A'])
+        vm = MainViewModel(doc=None, pdf_service=fake)
+        vm.SetupPdf = u'A'
+        vm.SetupPdf = u'A'  # ne doit pas rappeler set_saved_setup
+        self.assertEqual(fake.set_calls, [u'A'])
+
+    def test_setup_pdf_defaut_vide_sans_service(self):
+        vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                            naming_service=FakeNamingService(),
+                            config=FakeConfig())
+        vm._pdf_service = None
+        self.assertEqual(vm.SetupPdf, u'')
+
+    def test_setup_dwg_defaut_vide_sans_service(self):
+        vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                            naming_service=FakeNamingService(),
+                            config=FakeConfig())
+        vm._dwg_service = None
+        self.assertEqual(vm.SetupDwg, u'')
+
+    def test_setup_pdf_setter_ne_leve_pas_sans_service(self):
+        vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                            naming_service=FakeNamingService(),
+                            config=FakeConfig())
+        vm._pdf_service = None
+        vm.SetupPdf = u'X'  # ne doit pas lever
+        self.assertEqual(vm.SetupPdf, u'')
+
+    def test_setup_dwg_setter_ne_leve_pas_sans_service(self):
+        vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                            naming_service=FakeNamingService(),
+                            config=FakeConfig())
+        vm._dwg_service = None
+        vm.SetupDwg = u'X'  # ne doit pas lever
+        self.assertEqual(vm.SetupDwg, u'')
+
+
+class TestMainViewModelServicesPdfDwgParDefaut(unittest.TestCase):
+    """Construction sans aucun service PDF/DWG injecté : le VM doit pouvoir
+    instancier les vrais services hors Revit sans jamais lever."""
+
+    def test_construction_sans_pdf_dwg_service_ne_leve_pas(self):
+        vm = MainViewModel(doc=None)
+        # Vérifie que les VRAIS services ont bien été instanciés (et non
+        # `None` suite à un import silencieusement en échec) -- sinon les
+        # assertions [] / u'' ci-dessous passeraient aussi dans le cas d'une
+        # régression de packaging, sans jamais la détecter (cf. le même
+        # garde-fou pour ExportOrchestrator dans
+        # test_import_lib_services_core_resout_les_dependances_internes).
+        self.assertIsNotNone(vm._pdf_service)
+        self.assertIsNotNone(vm._dwg_service)
+        self.assertEqual(vm.SetupsPdf, [])
+        self.assertEqual(vm.SetupsDwg, [])
+        self.assertEqual(vm.SetupPdf, u'')
+        self.assertEqual(vm.SetupDwg, u'')
+        vm.SetupPdf = u'X'
+        vm.SetupDwg = u'Y'
 
 
 if __name__ == '__main__':

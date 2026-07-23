@@ -474,6 +474,60 @@
 
                 </StackPanel>
               </Border>
+
+              <!-- En-tête de section : options d'export -->
+              <TextBlock Text="Options d'export"
+                         Style="{DynamicResource SubHeaderTextBlockStyle}"
+                         Margin="0,20,0,4"/>
+              <TextBlock Text="Configurez l'organisation des fichiers exportés et les setups Revit utilisés."
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         FontSize="12.5"
+                         TextWrapping="Wrap"
+                         Margin="0,0,0,16"/>
+
+              <Border Style="{DynamicResource CardStyle}">
+                <StackPanel Orientation="Vertical">
+
+                  <!-- Toggles d'organisation -->
+                  <CheckBox Content="Créer un sous-dossier par jeu"
+                            IsChecked="{Binding CreerSousDossiers, Mode=TwoWay}"/>
+                  <CheckBox Content="Séparer PDF et DWG"
+                            IsChecked="{Binding SeparerFormats, Mode=TwoWay}"/>
+
+                  <!-- Ligne Setup PDF -->
+                  <Grid Margin="0,16,0,12">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="140"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="Setup PDF"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <ComboBox Grid.Column="1"
+                              x:Name="SetupPdfCombo"
+                              ItemsSource="{Binding SetupsPdf}"
+                              SelectedItem="{Binding SetupPdf, Mode=TwoWay}"/>
+                  </Grid>
+
+                  <!-- Ligne Setup DWG -->
+                  <Grid Margin="0,0,0,0">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="140"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="Setup DWG"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <ComboBox Grid.Column="1"
+                              x:Name="SetupDwgCombo"
+                              ItemsSource="{Binding SetupsDwg}"
+                              SelectedItem="{Binding SetupDwg, Mode=TwoWay}"/>
+                  </Grid>
+
+                </StackPanel>
+              </Border>
             </StackPanel>
 
             <!-- Footer d'actions -->

@@ -9,12 +9,24 @@ except Exception:
 import json
 
 class PdfExporterService(object):
-    def __init__(self, namespace='batch_export'):
-        try:
-            from ...core.UserConfig import UserConfig
-        except Exception:
+    def __init__(self, namespace='batch_export', config=None):
+        # `config` injecté = on partage la MÊME UserConfig (socle) que le reste
+        # de l'app -> les setups persistent dans data/<namespace>.json. Sinon
+        # l'import relatif `...core.UserConfig` résout vers l'ANCIEN UserConfig
+        # local du bouton (dépendant de pyRevit, no-op en mode admin) et les
+        # setups ne se sauvegardaient jamais.
+        if config is not None:
+            self._cfg = config
+        else:
             UserConfig = None  # type: ignore
-        self._cfg = UserConfig(namespace) if UserConfig is not None else None
+            try:
+                from core.UserConfig import UserConfig  # socle en priorité
+            except Exception:
+                try:
+                    from lib.core.UserConfig import UserConfig
+                except Exception:
+                    UserConfig = None  # type: ignore
+            self._cfg = UserConfig(namespace) if UserConfig is not None else None
         self._SETUP_KEY = 'pdf_setup_name'
         self._SEPARATE_KEY = 'pdf_separate_views'
         self._CUSTOM_KEY = 'custom_pdf_setups'

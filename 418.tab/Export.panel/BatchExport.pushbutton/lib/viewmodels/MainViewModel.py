@@ -44,6 +44,34 @@ except Exception:
     except Exception:
         UserConfig = None  # type: ignore
 
+# ATTENTION -- ordre d'import INVERSE des autres services de ce fichier
+# (`lib.` d'abord). PdfExporterService/DwgExporterService utilisent des
+# imports RELATIFS internes (`from ...core.UserConfig import UserConfig`) qui
+# ne résolvent correctement QUE si leur package racine est `lib`
+# (donc `lib.services.formats.X`). Importés comme `services.formats.X`
+# (racine = `services`), les `...` remontent au-dessus de `lib` et l'import
+# interne de UserConfig retombe sur None sans lever -> `self._cfg = None`
+# côté service -> get/set_saved_setup deviennent des no-op silencieux et les
+# setups PDF/DWG choisis ne persisteraient JAMAIS (les listes, elles,
+# continueraient de se peupler car list_all_setups n'a besoin que de DB/doc :
+# bug invisible « les setups ne se sauvegardent pas »). Même raison que pour
+# l'import de ExportOrchestrator dans lancer_export().
+try:
+    from lib.services.formats.PdfExporterService import PdfExporterService
+except Exception:
+    try:
+        from services.formats.PdfExporterService import PdfExporterService
+    except Exception:
+        PdfExporterService = None  # type: ignore
+
+try:
+    from lib.services.formats.DwgExporterService import DwgExporterService
+except Exception:
+    try:
+        from services.formats.DwgExporterService import DwgExporterService
+    except Exception:
+        DwgExporterService = None  # type: ignore
+
 
 _MODES = (u'auto', u'manual', u'settings')
 _SURFACE_TITRES = {
@@ -138,7 +166,8 @@ class CollectionItemVM(BaseViewModel):
 
 class MainViewModel(BaseViewModel):
     def __init__(self, doc=None, sheet_service=None, naming_service=None,
-                 destination_service=None, config=None):
+                 destination_service=None, config=None,
+                 pdf_service=None, dwg_service=None):
         super(MainViewModel, self).__init__()
         self._doc = doc
         self._titre = u'Exportation'
@@ -188,6 +217,33 @@ class MainViewModel(BaseViewModel):
                 self._destination_service = DestinationService(doc, config=self._cfg) if DestinationService is not None else None
             except Exception:
                 self._destination_service = None
+
+        # Services PDF/DWG (setups + options d'export). Contrairement aux
+        # autres services, PdfExporterService/DwgExporterService n'acceptent
+        # PAS de paramètre `config=`/`doc=` dans leur constructeur (signature
+        # figée : `__init__(self, namespace='batch_export')`). Ils créent
+        # donc leur propre instance UserConfig plutôt que de partager
+        # `self._cfg` -- pas d'injection possible par construction. Ce n'est
+        # toutefois pas un problème de partage de données : `UserConfig`
+        # (lib/core/UserConfig.py) ignore le `namespace` reçu et opère
+        # toujours sur la MÊME section pyRevit `uc.batch_export`, donc ces
+        # services persistent bien dans la même config que le reste du VM,
+        # simplement via une instance Python distincte.
+        if pdf_service is not None:
+            self._pdf_service = pdf_service
+        else:
+            try:
+                self._pdf_service = PdfExporterService(config=self._cfg) if PdfExporterService is not None else None
+            except Exception:
+                self._pdf_service = None
+
+        if dwg_service is not None:
+            self._dwg_service = dwg_service
+        else:
+            try:
+                self._dwg_service = DwgExporterService(config=self._cfg) if DwgExporterService is not None else None
+            except Exception:
+                self._dwg_service = None
 
         # Données « par jeu »
         self._collections = []
@@ -494,6 +550,134 @@ class MainViewModel(BaseViewModel):
         except Exception:
             pass
         self.notify_property(u'DestinationPath')
+
+    # ------------------------------------------------------------------
+    # Page Paramètres : toggles destination (sous-dossiers / formats séparés)
+    # ------------------------------------------------------------------
+
+    @property
+    def CreerSousDossiers(self):
+        """Reflète `DestinationService.get_create_subfolders()`.
+
+        Best-effort : `False` si le service est absent ou lève (hors Revit
+        sans injection, ou service factice minimal dans les tests)."""
+        try:
+            if self._destination_service is not None:
+                return bool(self._destination_service.get_create_subfolders())
+        except Exception:
+            pass
+        return False
+
+    @CreerSousDossiers.setter
+    def CreerSousDossiers(self, value):
+        value = bool(value)
+        if value == self.CreerSousDossiers:
+            return
+        try:
+            if self._destination_service is not None:
+                self._destination_service.set_create_subfolders(value)
+        except Exception:
+            pass
+        self.notify_property(u'CreerSousDossiers')
+
+    @property
+    def SeparerFormats(self):
+        """Reflète `DestinationService.get_separate_formats()` (dossiers
+        distincts PDF/DWG à l'export) -- sans rapport avec les options
+        `get_separate`/`pdf_separate_views` propres à PdfExporterService/
+        DwgExporterService (export par vue séparée), volontairement non
+        touchées ici."""
+        try:
+            if self._destination_service is not None:
+                return bool(self._destination_service.get_separate_formats())
+        except Exception:
+            pass
+        return False
+
+    @SeparerFormats.setter
+    def SeparerFormats(self, value):
+        value = bool(value)
+        if value == self.SeparerFormats:
+            return
+        try:
+            if self._destination_service is not None:
+                self._destination_service.set_separate_formats(value)
+        except Exception:
+            pass
+        self.notify_property(u'SeparerFormats')
+
+    # ------------------------------------------------------------------
+    # Page Paramètres : sélecteurs de setup PDF / DWG
+    # ------------------------------------------------------------------
+
+    @property
+    def SetupsPdf(self):
+        """Liste des setups PDF disponibles (Revit + customs).
+
+        Calculée À LA DEMANDE (pas de cache construit dans `__init__`,
+        contrairement à `ParametresDisponibles`) : `list_all_setups(doc)`
+        dépend potentiellement de l'état courant du document Revit, et le
+        coût d'un appel API au moment du binding WPF est négligeable (pas
+        de sondage répété). Ce choix permet aussi de refléter fidèlement
+        un service devenu `None` en cours de vie (cf. tests)."""
+        try:
+            if self._pdf_service is not None:
+                return list(self._pdf_service.list_all_setups(self._doc) or [])
+        except Exception:
+            pass
+        return []
+
+    @property
+    def SetupPdf(self):
+        try:
+            if self._pdf_service is not None:
+                return self._pdf_service.get_saved_setup(default=u'') or u''
+        except Exception:
+            pass
+        return u''
+
+    @SetupPdf.setter
+    def SetupPdf(self, value):
+        value = value or u''
+        if value == self.SetupPdf:
+            return
+        try:
+            if self._pdf_service is not None:
+                self._pdf_service.set_saved_setup(value)
+        except Exception:
+            pass
+        self.notify_property(u'SetupPdf')
+
+    @property
+    def SetupsDwg(self):
+        """Cf. `SetupsPdf` : même choix (à la demande, non caché)."""
+        try:
+            if self._dwg_service is not None:
+                return list(self._dwg_service.list_all_setups(self._doc) or [])
+        except Exception:
+            pass
+        return []
+
+    @property
+    def SetupDwg(self):
+        try:
+            if self._dwg_service is not None:
+                return self._dwg_service.get_saved_setup(default=u'') or u''
+        except Exception:
+            pass
+        return u''
+
+    @SetupDwg.setter
+    def SetupDwg(self, value):
+        value = value or u''
+        if value == self.SetupDwg:
+            return
+        try:
+            if self._dwg_service is not None:
+                self._dwg_service.set_saved_setup(value)
+        except Exception:
+            pass
+        self.notify_property(u'SetupDwg')
 
     # ------------------------------------------------------------------
     # Export (Task 3) : coordination VM -> ExportOrchestrator
