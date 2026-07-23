@@ -85,6 +85,12 @@ class TestSheetCollectionServiceDocNone(unittest.TestCase):
         self.assertEqual(service.list_sheets(), [])
         self.assertEqual(service.list_boolean_params(), [])
 
+    def test_list_all_sheets_vide(self):
+        self.assertEqual(self.service.list_all_sheets(), [])
+
+    def test_list_view_sheet_sets_vide(self):
+        self.assertEqual(self.service.list_view_sheet_sets(), [])
+
 
 class TestSheetCollectionServiceReadFlag(unittest.TestCase):
     def setUp(self):

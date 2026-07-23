@@ -133,6 +133,91 @@ class SheetCollectionService(object):
         return result
 
     # ------------------------------------------------------------------
+    # Mode « feuille par feuille » (manuel) : toutes les feuilles + sets d'impression
+    # ------------------------------------------------------------------
+
+    def list_all_sheets(self):
+        """Retourne `[{'Numero': unicode, 'Nom': unicode, 'CollectionId': ElementId, 'Elem': DB.ViewSheet}, ...]`
+        pour TOUTES les `ViewSheet` du document (mode manuel), triées par
+        `SheetNumber`.
+
+        Exclut les feuilles placeholder (`IsPlaceholder`), qui n'ont pas de
+        contenu exportable. `doc=None` (ou API Revit indisponible) -> `[]`,
+        jamais d'exception.
+        """
+        result = []
+        if DB is None or self._doc is None:
+            return result
+        try:
+            sheets = DB.FilteredElementCollector(self._doc).OfClass(DB.ViewSheet).ToElements()
+        except Exception:
+            return result
+        for vs in sheets:
+            try:
+                if getattr(vs, 'IsPlaceholder', False):
+                    continue
+            except Exception:
+                pass
+            try:
+                vs_coll_id = getattr(vs, 'SheetCollectionId', None)
+            except Exception:
+                vs_coll_id = None
+            try:
+                numero = vs.SheetNumber
+            except Exception:
+                numero = ''
+            try:
+                nom = vs.Name
+            except Exception:
+                nom = ''
+            result.append({'Numero': numero, 'Nom': nom, 'CollectionId': vs_coll_id, 'Elem': vs})
+        try:
+            result.sort(key=lambda s: s.get('Numero') or u'')
+        except Exception:
+            pass
+        return result
+
+    def list_view_sheet_sets(self):
+        """Retourne `[{'Nom': unicode, 'SheetIds': set(unicode)}, ...]` pour
+        les `DB.ViewSheetSet` (sets d'impression) du document.
+
+        IMPORTANT : malgré son nom (conservé pour rester conforme au
+        contrat demandé), `'SheetIds'` contient des **numéros de feuille**
+        (`ViewSheet.SheetNumber`), pas des `ElementId`. Le `SheetNumber` est
+        garanti unique dans un document Revit, ce qui en fait une clé de
+        correspondance fiable et simple à comparer (chaînes), y compris hors
+        Revit dans les tests (pas de dépendance à la représentation interne
+        d'un `ElementId`).
+
+        `doc=None` (ou API Revit indisponible) -> `[]`, jamais d'exception.
+        """
+        result = []
+        if DB is None or self._doc is None:
+            return result
+        try:
+            sheet_sets = DB.FilteredElementCollector(self._doc).OfClass(DB.ViewSheetSet).ToElements()
+        except Exception:
+            return result
+        for vss in sheet_sets:
+            try:
+                nom = vss.Name
+            except Exception:
+                nom = ''
+            numeros = set()
+            try:
+                views = vss.Views
+                for v in views:
+                    try:
+                        if DB is not None and isinstance(v, DB.ViewSheet):
+                            numeros.add(v.SheetNumber)
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+            result.append({'Nom': nom, 'SheetIds': numeros})
+        return result
+
+    # ------------------------------------------------------------------
     # Paramètres Oui/Non des collections (pour le mappage)
     # ------------------------------------------------------------------
 

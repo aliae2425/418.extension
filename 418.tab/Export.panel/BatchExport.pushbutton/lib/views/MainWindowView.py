@@ -75,6 +75,10 @@ class MainWindowView(BaseWindow):
             self._vm.refresh_par_jeu()
         except Exception:
             pass
+        try:
+            self._vm.refresh_manuel()
+        except Exception:
+            pass
 
     def wire_export(self):
         if self._window is None:

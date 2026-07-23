@@ -386,17 +386,156 @@
             </ScrollViewer>
 
             <!--
-              Placeholder pour le mode « manuel » (Phase 4/5, hors périmètre
-              de cette tâche) : contenu réel à venir. Le mode « Paramètres »
-              a désormais son propre panneau ci-dessous (PanneauParametres).
+              Mode « feuille par feuille » (IsManual) : recherche + filtre +
+              compteur + liste des feuilles avec tags PDF/DWG par ligne.
+
+              Structure calquée sur le mode « par jeu » ci-dessus pour la
+              cohérence visuelle (CardStyle pour la barre outils, ScrollViewer
+              + ItemsControl pour la liste, colonnes Numero/Nom identiques à
+              la sous-liste des feuilles d'une collection).
+
+              Bindings (MainViewModel) :
+              - RechercheManuel (TwoWay, PropertyChanged) : texte de recherche.
+              - FiltresManuel / FiltreManuelSelectionne (TwoWay) : liste de
+                FiltreItemVM (« Toutes les feuilles » / « Jeu : … » /
+                « Impression : … »), affichée via .Label.
+              - NbFeuillesManuel / NbPdf / NbDwg : compteurs recalculés à
+                chaque changement de recherche/filtre/toggle.
+              - SheetsManuelFiltrees : liste de ManualSheetVM (Numero, Nom,
+                ExportPdf TwoWay, ExportDwg TwoWay).
             -->
-            <TextBlock Grid.Row="1"
-                       Text="{Binding SurfaceTitre}"
-                       Visibility="{Binding IsManual, Converter={StaticResource BoolToVisibilityConverter}}"
-                       Foreground="{DynamicResource TextSecondaryBrush}"
-                       FontSize="14"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"/>
+            <Grid Grid.Row="1"
+                  Margin="20,16,20,8"
+                  Visibility="{Binding IsManual, Converter={StaticResource BoolToVisibilityConverter}}">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+              </Grid.RowDefinitions>
+
+              <!--
+                Barre de recherche : label au-dessus (indice visuel simple,
+                cf. consigne) + TextBox pleine largeur. Style TextBox implicite
+                (socle Styles.xaml), pas de Style explicite à poser ici.
+              -->
+              <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,10">
+                <TextBlock Text="Rechercher une feuille…"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="11"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,6"/>
+                <TextBox Text="{Binding RechercheManuel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+              </StackPanel>
+
+              <!--
+                Filtre : label + ComboBox liée à FiltresManuel (liste de
+                FiltreItemVM). DisplayMemberPath="Label" car ce sont des
+                objets, pas des chaînes (contrairement aux ComboBox de
+                mappage de paramètres en mode Paramètres).
+              -->
+              <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0,0,0,10">
+                <TextBlock Text="Filtrer par"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="11"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,6"/>
+                <ComboBox ItemsSource="{Binding FiltresManuel}"
+                          SelectedItem="{Binding FiltreManuelSelectionne, Mode=TwoWay}"
+                          DisplayMemberPath="Label"/>
+              </StackPanel>
+
+              <!--
+                Compteur : plusieurs TextBlock/littéraux (pas de MultiBinding),
+                calqué sur le badge de compte du mode « par jeu » (lignes 190-205).
+              -->
+              <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10">
+                <TextBlock Text="{Binding NbFeuillesManuel}"
+                           Foreground="{DynamicResource AccentBrush}"
+                           FontWeight="SemiBold"
+                           FontSize="12.5"/>
+                <TextBlock Text=" feuilles · "
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="12.5"/>
+                <TextBlock Text="{Binding NbPdf}"
+                           Foreground="{DynamicResource AccentBrush}"
+                           FontWeight="SemiBold"
+                           FontSize="12.5"/>
+                <TextBlock Text=" PDF · "
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="12.5"/>
+                <TextBlock Text="{Binding NbDwg}"
+                           Foreground="{DynamicResource AccentBrush}"
+                           FontWeight="SemiBold"
+                           FontSize="12.5"/>
+                <TextBlock Text=" DWG"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="12.5"/>
+              </StackPanel>
+
+              <!--
+                Liste des feuilles. ScrollViewer + ItemsControl, style carte
+                (CardStyle) par ligne pour rester cohérent avec les cartes de
+                collection du mode « par jeu ». Colonnes : Numero (90, mono) /
+                Nom (*) / tag PDF / tag DWG.
+              -->
+              <ScrollViewer Grid.Row="3"
+                            VerticalScrollBarVisibility="Auto"
+                            HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding SheetsManuelFiltrees}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Vertical"/>
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Style="{DynamicResource CardStyle}"
+                              Padding="12,10"
+                              Margin="0,0,0,8">
+                        <Grid>
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="90"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                          </Grid.ColumnDefinitions>
+
+                          <TextBlock Grid.Column="0"
+                                     Text="{Binding Numero}"
+                                     Foreground="{DynamicResource TextSecondaryBrush}"
+                                     FontFamily="Consolas"
+                                     FontSize="12.5"
+                                     VerticalAlignment="Center"/>
+
+                          <TextBlock Grid.Column="1"
+                                     Text="{Binding Nom}"
+                                     Foreground="{DynamicResource TextPrimaryBrush}"
+                                     FontSize="12.5"
+                                     TextTrimming="CharacterEllipsis"
+                                     VerticalAlignment="Center"
+                                     Margin="8,0"/>
+
+                          <CheckBox Grid.Column="2"
+                                    Content="PDF"
+                                    Style="{DynamicResource ToggleSwitchStyle}"
+                                    IsChecked="{Binding ExportPdf, Mode=TwoWay}"
+                                    Margin="0,0,16,0"
+                                    VerticalAlignment="Center"/>
+
+                          <CheckBox Grid.Column="3"
+                                    Content="DWG"
+                                    Style="{DynamicResource ToggleSwitchStyle}"
+                                    IsChecked="{Binding ExportDwg, Mode=TwoWay}"
+                                    VerticalAlignment="Center"/>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </Grid>
 
             <!--
               Mode « Paramètres » (IsSettings) : réglages regroupés en

@@ -16,7 +16,7 @@ if _BUTTON not in sys.path:
 import tempfile as _tf
 os.environ['PY418_CONFIG_DIR'] = _tf.mkdtemp(prefix='418test_')
 
-from lib.viewmodels.MainViewModel import MainViewModel
+from lib.viewmodels.MainViewModel import MainViewModel, ManualSheetVM, FiltreItemVM
 
 
 class TestMainViewModel(unittest.TestCase):
@@ -138,6 +138,21 @@ class FakeSheetService(object):
 
     def list_boolean_params(self):
         return ['A', 'B', 'C']
+
+    def list_all_sheets(self):
+        # Toutes les feuilles, triées par numéro (comme le vrai service).
+        out = []
+        for coll_id in ('id-A', 'id-B'):
+            out.extend(self._sheets.get(coll_id, []))
+        out.sort(key=lambda s: s.get('Numero') or u'')
+        return out
+
+    def list_view_sheet_sets(self):
+        # 2 sets d'impression : 'Set 1' (feuilles 01, 03) et 'Set 2' (02 seule).
+        return [
+            {'Nom': 'Set 1', 'SheetIds': set(['01', '03'])},
+            {'Nom': 'Set 2', 'SheetIds': set(['02'])},
+        ]
 
 
 class FakeNamingService(object):
@@ -360,6 +375,200 @@ class TestMainViewModelModeParametres(unittest.TestCase):
         vm = MainViewModel(doc=None, config=FakeConfig())
         vm.ParamExport = 'X'
         self.assertEqual(vm.ParamExport, 'X')
+
+
+class TestMainViewModelModeManuel(unittest.TestCase):
+    """Mode « feuille par feuille » : refresh_manuel(), recherche, filtre
+    (par jeu / par set d'impression), toggles PDF/DWG, compteurs et
+    selection_manuelle(). Utilise le FakeSheetService étendu (3 feuilles :
+    01/RDC, 02/R+1 dans Jeu A ; 03/Toiture dans Jeu B) + 2 sets factices
+    ('Set 1' = 01+03, 'Set 2' = 02 seule)."""
+
+    def setUp(self):
+        self.sheet_service = FakeSheetService()
+        self.vm = MainViewModel(
+            doc=None,
+            sheet_service=self.sheet_service,
+            naming_service=FakeNamingService(),
+            destination_service=None,
+            config=FakeConfig(),
+        )
+
+    def test_refresh_manuel_construit_toutes_les_feuilles(self):
+        self.vm.refresh_manuel()
+        self.assertEqual(len(self.vm.SheetsManuel), 3)
+        numeros = [s.Numero for s in self.vm.SheetsManuel]
+        self.assertEqual(numeros, ['01', '02', '03'])
+
+    def test_refresh_manuel_items_sont_de_vraies_instances(self):
+        self.vm.refresh_manuel()
+        for s in self.vm.SheetsManuel:
+            self.assertIsInstance(s, ManualSheetVM)
+
+    def test_defaut_export_pdf_true_dwg_false(self):
+        self.vm.refresh_manuel()
+        for s in self.vm.SheetsManuel:
+            self.assertTrue(s.ExportPdf)
+            self.assertFalse(s.ExportDwg)
+
+    def test_filtres_manuel_contient_toutes_jeux_et_sets(self):
+        self.vm.refresh_manuel()
+        labels = [f.Label for f in self.vm.FiltresManuel]
+        self.assertEqual(labels[0], u'Toutes les feuilles')
+        self.assertIn(u'Jeu : Jeu A', labels)
+        self.assertIn(u'Jeu : Jeu B', labels)
+        self.assertIn(u'Impression : Set 1', labels)
+        self.assertIn(u'Impression : Set 2', labels)
+        for f in self.vm.FiltresManuel:
+            self.assertIsInstance(f, FiltreItemVM)
+
+    def test_filtre_selectionne_par_defaut_est_toutes_les_feuilles(self):
+        self.vm.refresh_manuel()
+        self.assertEqual(self.vm.FiltreManuelSelectionne.Label, u'Toutes les feuilles')
+        self.assertEqual(self.vm.FiltreManuelSelectionne.kind, u'all')
+
+    def test_sheets_manuel_filtrees_sans_filtre_ni_recherche(self):
+        self.vm.refresh_manuel()
+        self.assertEqual(len(self.vm.SheetsManuelFiltrees), 3)
+
+    def test_recherche_filtre_par_numero(self):
+        self.vm.refresh_manuel()
+        self.vm.RechercheManuel = u'02'
+        filtrees = self.vm.SheetsManuelFiltrees
+        self.assertEqual(len(filtrees), 1)
+        self.assertEqual(filtrees[0].Numero, '02')
+
+    def test_recherche_filtre_par_nom_insensible_a_la_casse(self):
+        self.vm.refresh_manuel()
+        self.vm.RechercheManuel = u'toiture'
+        filtrees = self.vm.SheetsManuelFiltrees
+        self.assertEqual(len(filtrees), 1)
+        self.assertEqual(filtrees[0].Nom, 'Toiture')
+
+    def test_recherche_vide_ne_filtre_rien(self):
+        self.vm.refresh_manuel()
+        self.vm.RechercheManuel = u''
+        self.assertEqual(len(self.vm.SheetsManuelFiltrees), 3)
+
+    def test_filtre_par_collection_restreint_correctement(self):
+        self.vm.refresh_manuel()
+        filtre_jeu_a = next(f for f in self.vm.FiltresManuel if f.Label == u'Jeu : Jeu A')
+        self.vm.FiltreManuelSelectionne = filtre_jeu_a
+        filtrees = self.vm.SheetsManuelFiltrees
+        numeros = sorted([s.Numero for s in filtrees])
+        self.assertEqual(numeros, ['01', '02'])
+
+    def test_filtre_par_set_impression_restreint_correctement(self):
+        self.vm.refresh_manuel()
+        filtre_set1 = next(f for f in self.vm.FiltresManuel if f.Label == u'Impression : Set 1')
+        self.vm.FiltreManuelSelectionne = filtre_set1
+        filtrees = self.vm.SheetsManuelFiltrees
+        numeros = sorted([s.Numero for s in filtrees])
+        self.assertEqual(numeros, ['01', '03'])
+
+    def test_filtre_set_et_recherche_combines(self):
+        self.vm.refresh_manuel()
+        filtre_set1 = next(f for f in self.vm.FiltresManuel if f.Label == u'Impression : Set 1')
+        self.vm.FiltreManuelSelectionne = filtre_set1
+        self.vm.RechercheManuel = u'toiture'
+        filtrees = self.vm.SheetsManuelFiltrees
+        self.assertEqual(len(filtrees), 1)
+        self.assertEqual(filtrees[0].Numero, '03')
+
+    def test_toggle_export_pdf_met_a_jour_nb_pdf(self):
+        self.vm.refresh_manuel()
+        self.assertEqual(self.vm.NbPdf, 3)  # défaut PDF=True pour toutes
+        self.vm.SheetsManuel[0].ExportPdf = False
+        self.assertEqual(self.vm.NbPdf, 2)
+
+    def test_toggle_export_dwg_met_a_jour_nb_dwg(self):
+        self.vm.refresh_manuel()
+        self.assertEqual(self.vm.NbDwg, 0)  # défaut DWG=False pour toutes
+        self.vm.SheetsManuel[0].ExportDwg = True
+        self.assertEqual(self.vm.NbDwg, 1)
+
+    def test_nb_feuilles_manuel_reflete_le_filtre(self):
+        self.vm.refresh_manuel()
+        self.assertEqual(self.vm.NbFeuillesManuel, 3)
+        self.vm.RechercheManuel = u'01'
+        self.assertEqual(self.vm.NbFeuillesManuel, 1)
+
+    def test_compteurs_pdf_dwg_portent_sur_les_feuilles_filtrees(self):
+        self.vm.refresh_manuel()
+        self.vm.SheetsManuel[2].ExportDwg = True  # feuille '03' (Toiture)
+        filtre_jeu_a = next(f for f in self.vm.FiltresManuel if f.Label == u'Jeu : Jeu A')
+        self.vm.FiltreManuelSelectionne = filtre_jeu_a
+        # Feuille '03' est hors Jeu A -> ne doit plus compter dans NbDwg.
+        self.assertEqual(self.vm.NbDwg, 0)
+
+    def test_selection_manuelle_retourne_les_feuilles_cochees(self):
+        self.vm.refresh_manuel()
+        self.vm.SheetsManuel[0].ExportDwg = True  # '01' : PDF=True (défaut) + DWG=True
+        self.vm.SheetsManuel[1].ExportPdf = False  # '02' : ni PDF ni DWG
+        self.vm.SheetsManuel[2].ExportPdf = False
+        self.vm.SheetsManuel[2].ExportDwg = False
+        selection = self.vm.selection_manuelle()
+        numeros = sorted([s.Numero for s in selection])
+        self.assertEqual(numeros, ['01'])
+
+    def test_selection_manuelle_persiste_malgre_changement_de_filtre(self):
+        """Une feuille cochée puis masquée par un filtre doit rester dans
+        selection_manuelle() -- celle-ci porte sur toutes les feuilles, pas
+        sur SheetsManuelFiltrees."""
+        self.vm.refresh_manuel()
+        self.vm.SheetsManuel[2].ExportDwg = True  # '03' (Jeu B)
+        filtre_jeu_a = next(f for f in self.vm.FiltresManuel if f.Label == u'Jeu : Jeu A')
+        self.vm.FiltreManuelSelectionne = filtre_jeu_a  # masque '03'
+        selection = self.vm.selection_manuelle()
+        numeros = [s.Numero for s in selection]
+        self.assertIn('03', numeros)
+
+    def test_refresh_manuel_reinitialise_la_selection(self):
+        self.vm.refresh_manuel()
+        self.vm.SheetsManuel[0].ExportDwg = True
+        self.vm.refresh_manuel()
+        for s in self.vm.SheetsManuel:
+            self.assertTrue(s.ExportPdf)
+            self.assertFalse(s.ExportDwg)
+
+    def test_refresh_manuel_sans_service_ne_leve_pas(self):
+        vm = MainViewModel(doc=None)
+        vm.refresh_manuel()
+        self.assertEqual(vm.SheetsManuel, [])
+        self.assertEqual(len(vm.FiltresManuel), 1)  # « Toutes les feuilles » seule
+        self.assertEqual(vm.NbFeuillesManuel, 0)
+        self.assertEqual(vm.NbPdf, 0)
+        self.assertEqual(vm.NbDwg, 0)
+        self.assertEqual(vm.selection_manuelle(), [])
+
+
+class TestManualSheetVM(unittest.TestCase):
+    """`ManualSheetVM` isolé : défauts, notify + callback on_change,
+    idempotence des setters."""
+
+    def test_defauts(self):
+        item = ManualSheetVM('01', 'RDC')
+        self.assertTrue(item.ExportPdf)
+        self.assertFalse(item.ExportDwg)
+
+    def test_toggle_appelle_on_change(self):
+        calls = []
+        item = ManualSheetVM('01', 'RDC', on_change=lambda: calls.append(1))
+        item.ExportPdf = False
+        self.assertEqual(len(calls), 1)
+        item.ExportDwg = True
+        self.assertEqual(len(calls), 2)
+
+    def test_setter_idempotent_ne_rappelle_pas_on_change(self):
+        calls = []
+        item = ManualSheetVM('01', 'RDC', on_change=lambda: calls.append(1))
+        item.ExportPdf = True  # déjà True par défaut
+        self.assertEqual(len(calls), 0)
+
+    def test_sans_on_change_ne_leve_pas(self):
+        item = ManualSheetVM('01', 'RDC')
+        item.ExportPdf = False  # ne doit pas lever
+        self.assertFalse(item.ExportPdf)
 
 
 class TestMainViewModelServicesParDefaut(unittest.TestCase):

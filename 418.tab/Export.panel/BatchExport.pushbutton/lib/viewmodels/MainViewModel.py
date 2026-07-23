@@ -176,6 +176,91 @@ class CollectionItemVM(BaseViewModel):
         return self._sheets
 
 
+class ManualSheetVM(BaseViewModel):
+    """Item bindable pour une feuille en mode « feuille par feuille »
+    (sélection manuelle). `ExportPdf`/`ExportDwg` sont TWO-WAY (cases à
+    cocher) ; chaque toggle notifie sa propriété puis appelle `on_change`
+    (callback fourni par le VM parent) pour permettre la recomputation des
+    compteurs `NbPdf`/`NbDwg` sans que ce VM connaisse `MainViewModel`.
+    """
+
+    def __init__(self, numero, nom, collection_id=None, elem=None,
+                 export_pdf=True, export_dwg=False, on_change=None):
+        super(ManualSheetVM, self).__init__()
+        self._numero = numero
+        self._nom = nom
+        self._collection_id = collection_id
+        self._elem = elem
+        self._export_pdf = bool(export_pdf)
+        self._export_dwg = bool(export_dwg)
+        self._on_change = on_change
+
+    @property
+    def Numero(self):
+        return self._numero
+
+    @property
+    def Nom(self):
+        return self._nom
+
+    @property
+    def CollectionId(self):
+        return self._collection_id
+
+    @property
+    def Elem(self):
+        return self._elem
+
+    @property
+    def ExportPdf(self):
+        return self._export_pdf
+
+    @ExportPdf.setter
+    def ExportPdf(self, value):
+        value = bool(value)
+        if value == self._export_pdf:
+            return
+        self._export_pdf = value
+        self.notify_property(u'ExportPdf')
+        if callable(self._on_change):
+            self._on_change()
+
+    @property
+    def ExportDwg(self):
+        return self._export_dwg
+
+    @ExportDwg.setter
+    def ExportDwg(self, value):
+        value = bool(value)
+        if value == self._export_dwg:
+            return
+        self._export_dwg = value
+        self.notify_property(u'ExportDwg')
+        if callable(self._on_change):
+            self._on_change()
+
+
+class FiltreItemVM(BaseViewModel):
+    """Item bindable pour le sélecteur de filtre du mode manuel (« Toutes
+    les feuilles », un par collection/jeu, un par set d'impression).
+
+    Seul `.Label` est bindé côté WPF ; `kind`/`coll_id`/`sheet_ids` sont des
+    attributs internes lus uniquement par `MainViewModel.SheetsManuelFiltrees`.
+    `kind` vaut `'all'`, `'collection'` ou `'set'`.
+    """
+
+    def __init__(self, label, kind, coll_id=None, sheet_ids=None):
+        super(FiltreItemVM, self).__init__()
+        self._label = label
+        self.kind = kind
+        self.coll_id = coll_id
+        self.sheet_ids = sheet_ids or set()
+
+    @property
+    def Label(self):
+        return self._label
+
+
 class MainViewModel(BaseViewModel):
     def __init__(self, doc=None, sheet_service=None, naming_service=None,
                  destination_service=None, config=None,
@@ -274,6 +359,13 @@ class MainViewModel(BaseViewModel):
         # aucun rapport avec la (re)qualification des jeux.
         self._parametres_disponibles = []
         self._refresh_parametres_disponibles()
+
+        # Données « feuille par feuille » (mode manuel). Sélection ÉPHÉMÈRE :
+        # reconstruite à chaque refresh_manuel(), jamais persistée.
+        self._sheets_manuel = []
+        self._filtres_manuel = []
+        self._filtre_manuel_selectionne = None
+        self._recherche_manuel = u''
 
     # ------------------------------------------------------------------
     # Mode / titre (existant)
@@ -572,6 +664,194 @@ class MainViewModel(BaseViewModel):
     @property
     def NbFeuillesQualifiees(self):
         return self._nb_feuilles_qualifiees
+
+    # ------------------------------------------------------------------
+    # Mode « feuille par feuille » (manuel)
+    # ------------------------------------------------------------------
+
+    def refresh_manuel(self):
+        """Construit `self._sheets_manuel` (toutes les feuilles du doc) et
+        `self._filtres_manuel` (« Toutes les feuilles » + un par collection
+        + un par set d'impression) depuis `_sheet_service`.
+
+        Sélection ÉPHÉMÈRE : chaque appel reconstruit entièrement les
+        `ManualSheetVM` (défauts `ExportPdf=True`/`ExportDwg=False`), sans
+        tenter de préserver les coches précédentes. Le filtre sélectionné
+        est réinitialisé sur « Toutes les feuilles » (l'ancienne instance
+        de `FiltreItemVM`, potentiellement encore référencée par
+        `FiltreManuelSelectionne`, devient orpheline puisque
+        `_filtres_manuel` est recréée).
+
+        Contrat attendu pour `sheet_service` :
+          - `list_all_sheets()` -> liste de dicts `'Numero'`/`'Nom'`/
+            `'CollectionId'`/`'Elem'`.
+          - `list_collections()` -> liste de dicts `'Titre'`/`'Id'` (déjà
+            utilisée par `refresh_par_jeu`).
+          - `list_view_sheet_sets()` -> liste de dicts `'Nom'`/`'SheetIds'`
+            (numéros de feuille, PAS des ElementId -- cf. docstring de
+            `SheetCollectionService.list_view_sheet_sets`).
+        """
+        raw_sheets = []
+        if self._sheet_service is not None:
+            try:
+                raw_sheets = self._sheet_service.list_all_sheets() or []
+            except Exception:
+                raw_sheets = []
+
+        sheets_out = []
+        for sheet in raw_sheets:
+            numero = sheet.get('Numero', u'') if isinstance(sheet, dict) else u''
+            nom = sheet.get('Nom', u'') if isinstance(sheet, dict) else u''
+            coll_id = sheet.get('CollectionId') if isinstance(sheet, dict) else None
+            elem = sheet.get('Elem') if isinstance(sheet, dict) else None
+            sheets_out.append(ManualSheetVM(
+                numero, nom, collection_id=coll_id, elem=elem,
+                export_pdf=True, export_dwg=False,
+                on_change=self._on_manual_sheet_change,
+            ))
+        self._sheets_manuel = sheets_out
+
+        filtres_out = [FiltreItemVM(u'Toutes les feuilles', u'all')]
+
+        raw_collections = []
+        if self._sheet_service is not None:
+            try:
+                raw_collections = self._sheet_service.list_collections() or []
+            except Exception:
+                raw_collections = []
+        for coll in raw_collections:
+            titre = coll.get('Titre', u'') if isinstance(coll, dict) else u''
+            coll_id = coll.get('Id') if isinstance(coll, dict) else None
+            filtres_out.append(FiltreItemVM(u'Jeu : ' + (titre or u''), u'collection', coll_id=coll_id))
+
+        raw_sets = []
+        if self._sheet_service is not None:
+            try:
+                raw_sets = self._sheet_service.list_view_sheet_sets() or []
+            except Exception:
+                raw_sets = []
+        for vss in raw_sets:
+            nom = vss.get('Nom', u'') if isinstance(vss, dict) else u''
+            sheet_ids = vss.get('SheetIds') if isinstance(vss, dict) else None
+            filtres_out.append(FiltreItemVM(u'Impression : ' + (nom or u''), u'set', sheet_ids=sheet_ids))
+
+        self._filtres_manuel = filtres_out
+        self._filtre_manuel_selectionne = filtres_out[0]
+
+        for name in (u'SheetsManuel', u'FiltresManuel', u'FiltreManuelSelectionne',
+                     u'SheetsManuelFiltrees', u'NbFeuillesManuel', u'NbPdf', u'NbDwg'):
+            self.notify_property(name)
+
+    def _on_manual_sheet_change(self):
+        """Callback passé à chaque `ManualSheetVM` : un toggle ExportPdf/
+        ExportDwg impacte les compteurs (calculés à la volée sur les
+        feuilles FILTRÉES), jamais la liste ni le filtre eux-mêmes."""
+        for name in (u'NbPdf', u'NbDwg'):
+            self.notify_property(name)
+
+    @property
+    def SheetsManuel(self):
+        return self._sheets_manuel
+
+    @property
+    def FiltresManuel(self):
+        return self._filtres_manuel
+
+    @property
+    def FiltreManuelSelectionne(self):
+        return self._filtre_manuel_selectionne
+
+    @FiltreManuelSelectionne.setter
+    def FiltreManuelSelectionne(self, value):
+        if value is self._filtre_manuel_selectionne:
+            return
+        self._filtre_manuel_selectionne = value
+        for name in (u'FiltreManuelSelectionne', u'SheetsManuelFiltrees',
+                     u'NbFeuillesManuel', u'NbPdf', u'NbDwg'):
+            self.notify_property(name)
+
+    @property
+    def RechercheManuel(self):
+        return self._recherche_manuel
+
+    @RechercheManuel.setter
+    def RechercheManuel(self, value):
+        value = value or u''
+        if value == self._recherche_manuel:
+            return
+        self._recherche_manuel = value
+        for name in (u'RechercheManuel', u'SheetsManuelFiltrees',
+                     u'NbFeuillesManuel', u'NbPdf', u'NbDwg'):
+            self.notify_property(name)
+
+    def _sheet_matches_filtre(self, sheet, filtre):
+        """Applique le critère de correspondance feuille <-> filtre.
+
+        - kind 'all' : toujours vrai.
+        - kind 'collection' : `sheet.CollectionId == filtre.coll_id`.
+        - kind 'set' : `sheet.Numero in filtre.sheet_ids` -- le
+          `SheetNumber` est la clé de correspondance choisie pour les sets
+          d'impression (cf. `SheetCollectionService.list_view_sheet_sets`),
+          car unique dans le document et trivialement comparable hors
+          Revit, contrairement à un `ElementId`.
+        """
+        if filtre is None or filtre.kind == u'all':
+            return True
+        if filtre.kind == u'collection':
+            return sheet.CollectionId == filtre.coll_id
+        if filtre.kind == u'set':
+            try:
+                return sheet.Numero in (filtre.sheet_ids or set())
+            except Exception:
+                return False
+        return True
+
+    @property
+    def SheetsManuelFiltrees(self):
+        """Feuilles du mode manuel après application de la recherche
+        (Numero OU Nom, insensible à la casse) ET du filtre sélectionné."""
+        recherche = (self._recherche_manuel or u'').strip().lower()
+        filtre = self._filtre_manuel_selectionne
+        out = []
+        for sheet in self._sheets_manuel:
+            if not self._sheet_matches_filtre(sheet, filtre):
+                continue
+            if recherche:
+                try:
+                    numero = (sheet.Numero or u'').lower()
+                except Exception:
+                    numero = u''
+                try:
+                    nom = (sheet.Nom or u'').lower()
+                except Exception:
+                    nom = u''
+                if recherche not in numero and recherche not in nom:
+                    continue
+            out.append(sheet)
+        return out
+
+    @property
+    def NbFeuillesManuel(self):
+        return len(self.SheetsManuelFiltrees)
+
+    @property
+    def NbPdf(self):
+        return len([s for s in self.SheetsManuelFiltrees if s.ExportPdf])
+
+    @property
+    def NbDwg(self):
+        return len([s for s in self.SheetsManuelFiltrees if s.ExportDwg])
+
+    def selection_manuelle(self):
+        """Retourne les `ManualSheetVM` cochées (ExportPdf OU ExportDwg),
+        pour un futur export.
+
+        Porte sur `self._sheets_manuel` EN ENTIER (pas sur
+        `SheetsManuelFiltrees`) : une feuille cochée puis masquée par un
+        changement de filtre/recherche doit rester dans la sélection --
+        seul `refresh_manuel()` réinitialise l'état des cases.
+        """
+        return [s for s in self._sheets_manuel if s.ExportPdf or s.ExportDwg]
 
     # ------------------------------------------------------------------
     # Destination (Task « Parcourir ») : coordination VM -> DestinationService
