@@ -531,33 +531,43 @@
               </Border>
             </StackPanel>
 
-            <!-- Footer d'actions -->
+            <!--
+              Footer d'actions. Masqué en mode Paramètres (IsNotSettings ->
+              Collapsed) : la destination/les toggles/les boutons Parcourir/
+              Exporter ne concernent que les modes « par jeu » et « feuille
+              par feuille ».
+
+              Disposition (haut -> bas) :
+                (a) TextBox destination pleine largeur (éditable, TwoWay) ;
+                (b) une ligne [toggles « Sous-dossier et format » à gauche]
+                    .... [StatusText discret] [Parcourir…] [Exporter] à droite.
+            -->
             <Border Grid.Row="2"
                     BorderBrush="{DynamicResource ControlBorderBrush}"
                     BorderThickness="0,1,0,0"
-                    Padding="20,14">
-              <Grid>
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*"/>
-                  <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+                    Padding="20,14"
+                    Visibility="{Binding IsNotSettings, Converter={StaticResource BoolToVisibilityConverter}}">
+              <StackPanel Orientation="Vertical">
 
-                <!-- Retour visuel export (Task 3) : StatusText, mis à jour
-                     via progress_cb/log_cb de ExportOrchestrator. La
-                     ProgressBar (liée ProgressValue) a été retirée de l'UI ;
-                     la propriété ProgressValue reste disponible côté VM. -->
-                <StackPanel Grid.Column="0"
-                            Orientation="Vertical"
-                            VerticalAlignment="Center"
-                            Margin="0,0,16,0">
-                  <!-- Dossier de destination courant (Task « Parcourir »). -->
-                  <TextBlock x:Name="DestinationPathTextBlock"
-                             Text="{Binding DestinationPath, StringFormat='Destination : {0}'}"
-                             Foreground="{DynamicResource TextSecondaryBrush}"
-                             FontSize="12"
-                             HorizontalAlignment="Left"
-                             TextTrimming="CharacterEllipsis"
-                             Margin="0,0,0,10"/>
+                <!--
+                  Dossier de destination courant (Task « Parcourir »).
+                  TextBox pleine largeur, éditable directement : le bouton
+                  « Parcourir… » reste un raccourci vers l'explorateur, mais
+                  l'utilisateur peut aussi coller/taper le chemin ici.
+                  UpdateSourceTrigger=LostFocus : on ne persiste/ne
+                  requalifie qu'une fois la saisie terminée (pas à chaque
+                  frappe), cohérent avec le coût de `definir_destination`
+                  (I/O disque possible via `ensure`).
+                -->
+                <TextBox Text="{Binding DestinationPath, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                         Margin="0,0,0,12"/>
+
+                <!-- Ligne basse : toggles à gauche, actions à droite -->
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
 
                   <!--
                     Sous-dossier et format : les 2 interrupteurs d'organisation
@@ -565,42 +575,51 @@
                     « Options d'export »), regroupés sous le champ destination
                     car pertinents quel que soit le mode (Auto/Manuel).
                   -->
-                  <TextBlock Text="Sous-dossier et format"
-                             Foreground="{DynamicResource TextSecondaryBrush}"
-                             FontSize="11"
-                             FontWeight="SemiBold"
-                             Margin="0,0,0,6"/>
-                  <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                    <CheckBox Content="Sous-dossier par jeu"
-                              Style="{DynamicResource ToggleSwitchStyle}"
-                              IsChecked="{Binding CreerSousDossiers, Mode=TwoWay}"
-                              Margin="0,4,20,4"/>
-                    <CheckBox Content="Séparer PDF / DWG"
-                              Style="{DynamicResource ToggleSwitchStyle}"
-                              IsChecked="{Binding SeparerFormats, Mode=TwoWay}"
-                              Margin="0,4"/>
+                  <StackPanel Grid.Column="0"
+                              Orientation="Vertical"
+                              VerticalAlignment="Center">
+                    <TextBlock Text="Sous-dossier et format"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,6"/>
+                    <StackPanel Orientation="Horizontal">
+                      <CheckBox Content="Sous-dossier par jeu"
+                                Style="{DynamicResource ToggleSwitchStyle}"
+                                IsChecked="{Binding CreerSousDossiers, Mode=TwoWay}"
+                                Margin="0,4,20,4"/>
+                      <CheckBox Content="Séparer PDF / DWG"
+                                Style="{DynamicResource ToggleSwitchStyle}"
+                                IsChecked="{Binding SeparerFormats, Mode=TwoWay}"
+                                Margin="0,4"/>
+                    </StackPanel>
                   </StackPanel>
 
-                  <TextBlock x:Name="StatusTextBlock"
-                             Text="{Binding StatusText}"
-                             Foreground="{DynamicResource TextSecondaryBrush}"
-                             FontSize="12"
-                             TextTrimming="CharacterEllipsis"/>
-                </StackPanel>
-
-                <StackPanel Grid.Column="1"
-                            Orientation="Horizontal"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Top">
-                  <Button x:Name="SecondaryActionButton"
-                          Content="Parcourir…"
-                          Style="{DynamicResource SecondaryActionButtonStyle}"
-                          Margin="0,0,10,0"/>
-                  <Button x:Name="PrimaryActionButton"
-                          Content="Exporter"
-                          Style="{DynamicResource PrimaryActionButtonStyle}"/>
-                </StackPanel>
-              </Grid>
+                  <!-- Retour visuel export (Task 3) : StatusText, discret,
+                       aligné avec les boutons à droite. Mis à jour via
+                       progress_cb/log_cb de ExportOrchestrator. -->
+                  <StackPanel Grid.Column="1"
+                              Orientation="Horizontal"
+                              HorizontalAlignment="Right"
+                              VerticalAlignment="Center">
+                    <TextBlock x:Name="StatusTextBlock"
+                               Text="{Binding StatusText}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="11"
+                               MaxWidth="180"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center"
+                               Margin="0,0,10,0"/>
+                    <Button x:Name="SecondaryActionButton"
+                            Content="Parcourir…"
+                            Style="{DynamicResource SecondaryActionButtonStyle}"
+                            Margin="0,0,10,0"/>
+                    <Button x:Name="PrimaryActionButton"
+                            Content="Exporter"
+                            Style="{DynamicResource PrimaryActionButtonStyle}"/>
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
             </Border>
           </Grid>
         </Border>

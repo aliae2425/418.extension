@@ -281,7 +281,7 @@ class MainViewModel(BaseViewModel):
             return
         self._mode = value
         for name in (u'ActiveMode', u'IsAuto', u'IsNotAuto', u'IsManual',
-                     u'IsSettings', u'SurfaceTitre'):
+                     u'IsSettings', u'IsNotSettings', u'SurfaceTitre'):
             self.notify_property(name)
 
     def set_mode(self, mode):
@@ -302,6 +302,10 @@ class MainViewModel(BaseViewModel):
     @property
     def IsSettings(self):
         return self._mode == u'settings'
+
+    @property
+    def IsNotSettings(self):
+        return self._mode != u'settings'
 
     @property
     def SurfaceTitre(self):
@@ -527,6 +531,19 @@ class MainViewModel(BaseViewModel):
         except Exception:
             pass
         return u''
+
+    @DestinationPath.setter
+    def DestinationPath(self, value):
+        """Setter TWO-WAY (footer : TextBox destination éditable).
+
+        Délègue à `definir_destination` (persistance + notification déjà
+        gérées là-bas). Ignore une valeur vide ou inchangée pour éviter une
+        boucle de notification (LostFocus -> setter -> notify_property ->
+        binding relit la même valeur -> ...).
+        """
+        if not value or value == self.DestinationPath:
+            return
+        self.definir_destination(value)
 
     def definir_destination(self, path):
         """Enregistre `path` comme dossier de destination et notifie la vue.
