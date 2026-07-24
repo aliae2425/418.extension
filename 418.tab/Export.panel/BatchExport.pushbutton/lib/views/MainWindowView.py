@@ -91,10 +91,10 @@ class MainWindowView(BaseWindow):
         self._mount_auto_page_spike()
 
     # ------------------------------------------------------------------
-    # SPIKE (étape 0) : charge GUI/Views/pages/AutoPage.xaml comme arbre
-    # séparé, lui pose son PROPRE DataContext (AutoPageVM) et l'insère dans
-    # le ContentControl AutoPageHost du shell. Les erreurs sont VOLONTAIREMENT
-    # imprimées (go/no-go du mécanisme d'arbre embarqué) plutôt qu'absorbées.
+    # Charge GUI/Views/pages/AutoPage.xaml comme arbre séparé, lui pose son
+    # PROPRE DataContext (AutoPageVM) et l'insère dans le ContentControl
+    # AutoPageHost du shell. Best-effort (silencieux) comme le reste du
+    # câblage : hors Revit / si l'hôte manque, ne lève pas.
     # ------------------------------------------------------------------
     def _load_page(self, filename):
         from System.Windows.Markup import XamlReader
@@ -113,12 +113,9 @@ class MainWindowView(BaseWindow):
 
     def _mount_auto_page_spike(self):
         if self._window is None or AutoPageVM is None:
-            print('SPIKE AutoPage: window ou AutoPageVM indisponible (window={}, VM={})'.format(
-                self._window is not None, AutoPageVM is not None))
             return
         host = self._window.FindName('AutoPageHost')
         if host is None:
-            print('SPIKE AutoPage: hote AutoPageHost introuvable dans le shell')
             return
         try:
             collections = getattr(self._vm, 'Collections', None) or []
@@ -126,10 +123,8 @@ class MainWindowView(BaseWindow):
             page = self._load_page('AutoPage.xaml')
             page.DataContext = page_vm
             host.Content = page
-            print('SPIKE AutoPage: OK — page montee, {} collection(s), DataContext={}'.format(
-                len(collections), type(page_vm).__name__))
-        except Exception as e:
-            print('SPIKE AutoPage: ECHEC — {}'.format(e))
+        except Exception:
+            pass
 
     def wire_export(self):
         if self._window is None:

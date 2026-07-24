@@ -1183,5 +1183,45 @@ class TestMainViewModelPatternsApercu(unittest.TestCase):
         self.assertEqual(vm.PatternFeuilleApercu, u'V2')
 
 
+class TestMainViewModelCombinerPdf(unittest.TestCase):
+    """Mode « feuille par feuille » : PDF combiné + titre (UI + persistance).
+    Vérifie les valeurs par défaut, le round-trip via UserConfig injecté, et
+    l'indépendance des deux propriétés. Le branchement moteur n'est PAS testé
+    ici (non implémenté à ce stade)."""
+
+    def setUp(self):
+        self.cfg = FakeConfig()
+        self.vm = MainViewModel(doc=None, config=self.cfg)
+
+    def test_defauts(self):
+        self.assertFalse(self.vm.CombinerPdf)
+        self.assertEqual(self.vm.TitrePdfCombine, u'')
+
+    def test_combiner_pdf_round_trip(self):
+        self.vm.CombinerPdf = True
+        self.assertTrue(self.vm.CombinerPdf)
+        # persisté dans la config injectée
+        self.assertEqual(self.cfg.get('manual_combine_pdf'), u'1')
+        self.vm.CombinerPdf = False
+        self.assertFalse(self.vm.CombinerPdf)
+        self.assertEqual(self.cfg.get('manual_combine_pdf'), u'0')
+
+    def test_titre_round_trip(self):
+        self.vm.TitrePdfCombine = u'Carnet complet'
+        self.assertEqual(self.vm.TitrePdfCombine, u'Carnet complet')
+        self.assertEqual(self.cfg.get('manual_pdf_combine_title'), u'Carnet complet')
+
+    def test_proprietes_independantes(self):
+        self.vm.TitrePdfCombine = u'Titre'
+        self.assertFalse(self.vm.CombinerPdf)  # titre défini n'active pas le combiné
+        self.vm.CombinerPdf = True
+        self.assertEqual(self.vm.TitrePdfCombine, u'Titre')  # combiné n'efface pas le titre
+
+    def test_setter_idempotent(self):
+        self.vm.CombinerPdf = True
+        self.vm.CombinerPdf = True  # ne doit pas lever ni changer
+        self.assertTrue(self.vm.CombinerPdf)
+
+
 if __name__ == '__main__':
     unittest.main()

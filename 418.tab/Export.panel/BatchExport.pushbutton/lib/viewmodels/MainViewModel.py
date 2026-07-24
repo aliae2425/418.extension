@@ -107,6 +107,13 @@ _CFG_KEY_PARAM_EXPORT = 'sheet_param_exportationcombo'
 _CFG_KEY_PARAM_CARNET = 'sheet_param_carnetcombo'
 _CFG_KEY_PARAM_DWG = 'sheet_param_dwgcombo'
 
+# Mode « feuille par feuille » : export combiné en un seul PDF + titre de ce
+# PDF. UI + persistance UNIQUEMENT à ce stade (aucun branchement sur le moteur
+# d'export : le comportement d'export réel reste inchangé tant que la fusion
+# n'est pas câblée). Persistés via UserConfig (namespace 'batch_export').
+_CFG_KEY_COMBINE_PDF = 'manual_combine_pdf'
+_CFG_KEY_PDF_COMBINE_TITLE = 'manual_pdf_combine_title'
+
 
 class SheetItemVM(BaseViewModel):
     """Item bindable pour une feuille au sein d'une collection (mode « par
@@ -1123,6 +1130,42 @@ class MainViewModel(BaseViewModel):
         except Exception:
             pass
         self.notify_property(u'SeparerFormats')
+
+    # ------------------------------------------------------------------
+    # Mode « feuille par feuille » : PDF combiné (UI + persistance seulement)
+    # ------------------------------------------------------------------
+
+    @property
+    def CombinerPdf(self):
+        """Mode manuel : fusionner les feuilles sélectionnées en un seul PDF.
+
+        UI + persistance UNIQUEMENT à ce stade — aucun effet sur le moteur
+        d'export tant que la fusion réelle n'est pas câblée
+        (PdfExporterService/ExportOrchestrator inchangés)."""
+        return self._cfg_get(_CFG_KEY_COMBINE_PDF, u'0') == u'1'
+
+    @CombinerPdf.setter
+    def CombinerPdf(self, value):
+        value = bool(value)
+        if value == self.CombinerPdf:
+            return
+        self._cfg_set(_CFG_KEY_COMBINE_PDF, u'1' if value else u'0')
+        self.notify_property(u'CombinerPdf')
+
+    @property
+    def TitrePdfCombine(self):
+        """Titre du PDF combiné (mode manuel). Pertinent uniquement si
+        `CombinerPdf` est vrai ; le champ est désactivé sinon côté UI
+        (IsEnabled lié à `CombinerPdf`)."""
+        return self._cfg_get(_CFG_KEY_PDF_COMBINE_TITLE, u'')
+
+    @TitrePdfCombine.setter
+    def TitrePdfCombine(self, value):
+        value = value or u''
+        if value == self.TitrePdfCombine:
+            return
+        self._cfg_set(_CFG_KEY_PDF_COMBINE_TITLE, value)
+        self.notify_property(u'TitrePdfCombine')
 
     # ------------------------------------------------------------------
     # Page Paramètres : sélecteurs de setup PDF / DWG

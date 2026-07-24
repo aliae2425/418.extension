@@ -859,12 +859,15 @@
                   <StackPanel Grid.Column="0"
                               Orientation="Vertical"
                               VerticalAlignment="Center">
-                    <TextBlock Text="Sous-dossier et format"
+                    <TextBlock Text="Organisation de l'export"
                                Foreground="{DynamicResource TextSecondaryBrush}"
                                FontSize="11"
                                FontWeight="SemiBold"
                                Margin="0,0,0,6"/>
-                    <StackPanel Orientation="Horizontal">
+
+                    <!-- Mode « par jeu » : sous-dossier par jeu + séparation formats -->
+                    <StackPanel Orientation="Horizontal"
+                                Visibility="{Binding IsAuto, Converter={StaticResource BoolToVisibilityConverter}}">
                       <CheckBox Content="Sous-dossier par jeu"
                                 Style="{DynamicResource ToggleSwitchStyle}"
                                 IsChecked="{Binding CreerSousDossiers, Mode=TwoWay}"
@@ -872,6 +875,29 @@
                       <CheckBox Content="Séparer PDF / DWG"
                                 Style="{DynamicResource ToggleSwitchStyle}"
                                 IsChecked="{Binding SeparerFormats, Mode=TwoWay}"
+                                Margin="0,4"/>
+                    </StackPanel>
+
+                    <!-- Mode « feuille par feuille » : PDF combiné (+ titre) + séparation formats.
+                         Le champ titre n'est éditable que si « Combiné » est actif
+                         (IsEnabled lié à CombinerPdf). -->
+                    <StackPanel Orientation="Horizontal"
+                                Visibility="{Binding IsManual, Converter={StaticResource BoolToVisibilityConverter}}">
+                      <CheckBox Content="Combiné"
+                                Style="{DynamicResource ToggleSwitchStyle}"
+                                IsChecked="{Binding CombinerPdf, Mode=TwoWay}"
+                                VerticalAlignment="Center"
+                                Margin="0,4,12,4"/>
+                      <TextBox Text="{Binding TitrePdfCombine, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                               IsEnabled="{Binding CombinerPdf}"
+                               Width="200"
+                               VerticalAlignment="Center"
+                               ToolTip="Titre du PDF combiné"
+                               Margin="0,4,20,4"/>
+                      <CheckBox Content="Séparer PDF / DWG"
+                                Style="{DynamicResource ToggleSwitchStyle}"
+                                IsChecked="{Binding SeparerFormats, Mode=TwoWay}"
+                                VerticalAlignment="Center"
                                 Margin="0,4"/>
                     </StackPanel>
                   </StackPanel>
