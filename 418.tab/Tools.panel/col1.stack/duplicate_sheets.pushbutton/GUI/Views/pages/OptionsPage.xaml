@@ -1,0 +1,160 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Page Options — DataContext = OptionsPageVM (assigné par le Python).
+    Chargée via XamlReader.Load et injectée dans PageHost (PAS de x:Class,
+    PAS de code-behind). Tout brush/style de thème en DynamicResource.
+
+    Contrat de binding (Task 10) :
+    - Nommage : 12 TextBox TwoWay (colonnes Vue / N° feuille / Nom feuille).
+    - Inclusions : 11 CheckBox TwoWay.
+    - Réutilisation : 2 CheckBox TwoWay.
+    - Option de duplication : 3 RadioButton GroupName="dupopt", Tag lu côté
+      Python (RadioDuplicate/RadioDetailing/RadioDependent) pour peupler
+      ViewDuplicateOption.
+    - RunButton lance la duplication des feuilles sélectionnées.
+  -->
+
+  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                Padding="20">
+    <StackPanel Orientation="Vertical">
+
+      <!-- Section Nommage -->
+      <Border Style="{DynamicResource CardStyle}">
+        <StackPanel Orientation="Vertical">
+          <TextBlock Text="Nommage"
+                     Style="{DynamicResource SubHeaderTextBlockStyle}"
+                     Margin="0,0,0,10"/>
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Colonne Vue -->
+            <StackPanel Grid.Column="0" Orientation="Vertical" Margin="0,0,10,0">
+              <TextBlock Text="Vue"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         FontWeight="SemiBold"
+                         Margin="0,0,0,6"/>
+              <TextBlock Text="Rechercher" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="0,4,0,2"/>
+              <TextBox Text="{Binding ViewFind, Mode=TwoWay}"/>
+              <TextBlock Text="Remplacer" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="0,8,0,2"/>
+              <TextBox Text="{Binding ViewReplace, Mode=TwoWay}"/>
+              <TextBlock Text="Préfixe" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="0,8,0,2"/>
+              <TextBox Text="{Binding ViewPrefix, Mode=TwoWay}"/>
+              <TextBlock Text="Suffixe" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="0,8,0,2"/>
+              <TextBox Text="{Binding ViewSuffix, Mode=TwoWay}"/>
+            </StackPanel>
+
+            <!-- Colonne N° feuille -->
+            <StackPanel Grid.Column="1" Orientation="Vertical" Margin="0,0,10,0">
+              <TextBlock Text="N° feuille"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         FontWeight="SemiBold"
+                         Margin="0,0,0,6"/>
+              <TextBlock Text="Rechercher" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="0,4,0,2"/>
+              <TextBox Text="{Binding NumberFind, Mode=TwoWay}"/>
+              <TextBlock Text="Remplacer" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="0,8,0,2"/>
+              <TextBox Text="{Binding NumberReplace, Mode=TwoWay}"/>
+              <TextBlock Text="Préfixe" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="0,8,0,2"/>
+              <TextBox Text="{Binding NumberPrefix, Mode=TwoWay}"/>
+              <TextBlock Text="Suffixe" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="0,8,0,2"/>
+              <TextBox Text="{Binding NumberSuffix, Mode=TwoWay}"/>
+            </StackPanel>
+
+            <!-- Colonne Nom feuille -->
+            <StackPanel Grid.Column="2" Orientation="Vertical">
+              <TextBlock Text="Nom feuille"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         FontWeight="SemiBold"
+                         Margin="0,0,0,6"/>
+              <TextBlock Text="Rechercher" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="0,4,0,2"/>
+              <TextBox Text="{Binding NameFind, Mode=TwoWay}"/>
+              <TextBlock Text="Remplacer" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="0,8,0,2"/>
+              <TextBox Text="{Binding NameReplace, Mode=TwoWay}"/>
+              <TextBlock Text="Préfixe" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="0,8,0,2"/>
+              <TextBox Text="{Binding NamePrefix, Mode=TwoWay}"/>
+              <TextBlock Text="Suffixe" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="0,8,0,2"/>
+              <TextBox Text="{Binding NameSuffix, Mode=TwoWay}"/>
+            </StackPanel>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Section Éléments inclus -->
+      <Border Style="{DynamicResource CardStyle}">
+        <StackPanel Orientation="Vertical">
+          <TextBlock Text="Éléments inclus"
+                     Style="{DynamicResource SubHeaderTextBlockStyle}"
+                     Margin="0,0,0,10"/>
+          <WrapPanel Orientation="Horizontal">
+            <CheckBox Content="Vues" IsChecked="{Binding IncludeViews, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="180"/>
+            <CheckBox Content="Légendes" IsChecked="{Binding IncludeLegends, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="180"/>
+            <CheckBox Content="Nomenclatures" IsChecked="{Binding IncludeSchedules, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="180"/>
+            <CheckBox Content="Images" IsChecked="{Binding IncludeImages, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="180"/>
+            <CheckBox Content="Lignes" IsChecked="{Binding IncludeLines, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="180"/>
+            <CheckBox Content="Texte" IsChecked="{Binding IncludeText, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="180"/>
+            <CheckBox Content="Nuages de révision" IsChecked="{Binding IncludeClouds, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="180"/>
+            <CheckBox Content="DWG" IsChecked="{Binding IncludeDwgs, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="180"/>
+            <CheckBox Content="Symboles" IsChecked="{Binding IncludeSymbols, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="180"/>
+            <CheckBox Content="Cotes" IsChecked="{Binding IncludeDimensions, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="180"/>
+            <CheckBox Content="Révisions additionnelles" IsChecked="{Binding IncludeAdditionalRevisions, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="180"/>
+          </WrapPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- Section Réutiliser l'existant -->
+      <Border Style="{DynamicResource CardStyle}">
+        <StackPanel Orientation="Vertical">
+          <TextBlock Text="Réutiliser l'existant"
+                     Style="{DynamicResource SubHeaderTextBlockStyle}"
+                     Margin="0,0,0,10"/>
+          <StackPanel Orientation="Horizontal">
+            <CheckBox Content="Légendes" IsChecked="{Binding UseExistingLegends, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="180"/>
+            <CheckBox Content="Nomenclatures" IsChecked="{Binding UseExistingSchedules, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="180"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- Section Option de duplication de vue -->
+      <Border Style="{DynamicResource CardStyle}">
+        <StackPanel Orientation="Vertical">
+          <TextBlock Text="Option de duplication de vue"
+                     Style="{DynamicResource SubHeaderTextBlockStyle}"
+                     Margin="0,0,0,10"/>
+          <StackPanel Orientation="Horizontal">
+            <RadioButton x:Name="RadioDuplicate"
+                         GroupName="dupopt"
+                         Tag="duplicate"
+                         Content="Dupliquer"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         IsChecked="True"
+                         Margin="0,0,20,0"/>
+            <RadioButton x:Name="RadioDetailing"
+                         GroupName="dupopt"
+                         Tag="with_detailing"
+                         Content="Avec détails"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         Margin="0,0,20,0"/>
+            <RadioButton x:Name="RadioDependent"
+                         GroupName="dupopt"
+                         Tag="as_dependent"
+                         Content="Dépendante"
+                         Foreground="{DynamicResource TextPrimaryBrush}"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- Action -->
+      <Button x:Name="RunButton"
+              Content="Dupliquer les feuilles sélectionnées"
+              Style="{DynamicResource PrimaryActionButtonStyle}"
+              HorizontalAlignment="Right"
+              Margin="0,4,0,0"/>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
