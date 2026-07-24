@@ -1,0 +1,82 @@
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
+try:
+    from ui.base.BaseViewModel import BaseViewModel
+except Exception:
+    class BaseViewModel(object):
+        def __init__(self):
+            pass
+
+        def notify_property(self, name):
+            pass
+
+try:
+    from lib.viewmodels.SelectionPageVM import SelectionPageVM
+    from lib.viewmodels.OptionsPageVM import OptionsPageVM
+except Exception:
+    from viewmodels.SelectionPageVM import SelectionPageVM
+    from viewmodels.OptionsPageVM import OptionsPageVM
+
+
+class MainViewModel(BaseViewModel):
+    """VM racine : détient l'état de sélection partagé entre les pages,
+    décide de la page initiale (Sélection ou Options), expose le mode
+    courant pour le binding XAML, et orchestre le lancement de la
+    duplication via le service."""
+
+    def __init__(self, doc=None, uidoc=None, service=None):
+        super(MainViewModel, self).__init__()
+        self._doc = doc
+        self._uidoc = uidoc
+        self._service = service
+        self._mode = u'selection'
+        self.SelectedSheetIds = []
+        self.SelectionVM = None
+        self.OptionsVM = None
+
+    @property
+    def Titre(self):
+        return u'418 · Dupliquer les feuilles'
+
+    @property
+    def Mode(self):
+        return self._mode
+
+    @property
+    def IsSelection(self):
+        return self._mode == u'selection'
+
+    @property
+    def IsOptions(self):
+        return self._mode == u'options'
+
+    @staticmethod
+    def decide_initial_mode(has_selection):
+        return u'options' if has_selection else u'selection'
+
+    def set_mode(self, mode):
+        if mode != self._mode:
+            self._mode = mode
+            self.notify_property('Mode')
+            self.notify_property('IsSelection')
+            self.notify_property('IsOptions')
+
+    def charger(self, descripteurs, ids_courants):
+        ids_courants = list(ids_courants or [])
+        self.SelectedSheetIds = list(ids_courants)
+        self.SelectionVM = SelectionPageVM(descripteurs, ids_courants,
+                                           on_selection_changed=self._on_selection_changed)
+        self.OptionsVM = OptionsPageVM()
+        self.notify_property('SelectionVM')
+        self.notify_property('OptionsVM')
+        self.set_mode(self.decide_initial_mode(bool(ids_courants)))
+
+    def _on_selection_changed(self, ids):
+        self.SelectedSheetIds = list(ids)
+
+    def lancer(self, sheets_par_id):
+        if not self.SelectedSheetIds or self._service is None:
+            return 0
+        sheets = [sheets_par_id[i] for i in self.SelectedSheetIds if i in sheets_par_id]
+        return self._service.duplicate(sheets, self.OptionsVM.build_options())
