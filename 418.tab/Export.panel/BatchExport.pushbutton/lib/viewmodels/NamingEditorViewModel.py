@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 # ViewModel de l'éditeur de nommage (modale), mode TOKENS : édition d'un
-# motif texte unique avec jetons `{...}` insérables, presets nommés et
-# aperçu, via NamingService. Remplace l'ancien système à lignes
-# paramètre/préfixe/suffixe (NamingRowVM et consorts, supprimés).
+# motif texte unique avec jetons `{...}` insérables (filtrables par source)
+# et aperçu, via NamingService. Remplace l'ancien système à lignes
+# paramètre/préfixe/suffixe (NamingRowVM et consorts, supprimés). Les
+# presets nommés ont été retirés (voir historique git) : la modale ne gère
+# plus que motif + jetons + aperçu.
 from __future__ import unicode_literals
 
 try:
@@ -26,35 +28,63 @@ _TITRES = {
     u'set': u'Nommage des carnets',
 }
 
+# Mapping source -> nom de brush (clés définies dans Colors.xaml/ColorsDark.xaml).
+# 'feuille' réutilise l'accent existant ; 'carnet'/'projet' réutilisent les
+# brushes sémantiques déjà présentes dans le projet (badges EXPORT/DWG de
+# MainWindow.xaml), pas de nouvelle brush ajoutée pour ce mapping.
+_COULEUR_PAR_SOURCE = {
+    u'feuille': u'AccentBrush',
+    u'carnet': u'SuccessBrush',
+    u'projet': u'WarningBrush',
+}
+_COULEUR_DEFAUT = u'AccentBrush'
+
+# Libellés lisibles pour les boutons de filtre + valeur 'FiltreSource'.
+_SOURCES_DISPONIBLES = (
+    {'valeur': u'tout', 'libelle': u'Tout'},
+    {'valeur': u'projet', 'libelle': u'Projet'},
+    {'valeur': u'feuille', 'libelle': u'Feuille'},
+    {'valeur': u'carnet', 'libelle': u'Carnet'},
+)
+
 
 class TokenItemVM(object):
     """Item bindable pour un badge de jeton insérable.
 
-    Wrap un dict `{'token': ..., 'desc': ...}` (contrat de
+    Wrap un dict `{'token': ..., 'desc': ..., 'source': ...}` (contrat de
     `NamingService.available_tokens()`) en objet à propriétés réelles
-    (`.token`/`.desc`) -- WPF/IronPython ne résout pas de façon fiable un
-    binding `{Binding token}` directement sur une clé de dict Python (aucun
-    précédent de ce genre dans ce projet : SheetItemVM/CollectionItemVM sont
-    déjà de vraies instances). Nécessaire pour `Content="{Binding token}"`
-    et `ToolTip="{Binding desc}"` côté XAML.
+    (`.token`/`.desc`/`.source`/`.CouleurBrush`) -- WPF/IronPython ne résout
+    pas de façon fiable un binding `{Binding token}` directement sur une clé
+    de dict Python (aucun précédent de ce genre dans ce projet :
+    SheetItemVM/CollectionItemVM sont déjà de vraies instances). Nécessaire
+    pour `Content="{Binding token}"` et `ToolTip="{Binding desc}"` côté
+    XAML.
+
+    `.CouleurBrush` porte le NOM de la ressource brush à appliquer (ex.
+    "AccentBrush") -- pas un `Brush` .NET. Un `{Binding CouleurBrush}` direct
+    sur `Background` ne colorerait rien (BrushConverter ne résout pas un nom
+    de DynamicResource) : le XAML doit utiliser des `DataTrigger` sur
+    `.source` avec `Value="{DynamicResource ...}"` pour le rendu réel. Cette
+    propriété reste utile pour les tests et pour un éventuel converter futur.
     """
 
-    def __init__(self, token, desc):
+    def __init__(self, token, desc, source=None):
         self.token = token or u''
         self.desc = desc or u''
+        self.source = source or u''
+        self.CouleurBrush = _COULEUR_PAR_SOURCE.get(self.source, _COULEUR_DEFAUT)
 
 
-class PresetItemVM(object):
-    """Item bindable pour un preset nommé.
+class SourceItemVM(object):
+    """Item bindable pour un bouton/onglet de filtre de source.
 
-    Wrap un dict `{'name': ..., 'pattern': ...}` (contrat de
-    `NamingService.list_presets()`) en objet à propriétés réelles
-    (`.name`/`.pattern`), pour `DisplayMemberPath="name"` côté ComboBox.
+    `.valeur` : identifiant technique ('tout'/'projet'/'feuille'/'carnet'),
+    utilisé pour piloter `FiltreSource`. `.libelle` : texte affiché.
     """
 
-    def __init__(self, name, pattern):
-        self.name = name or u''
-        self.pattern = pattern or u''
+    def __init__(self, valeur, libelle):
+        self.valeur = valeur or u''
+        self.libelle = libelle or u''
 
 
 class NamingEditorViewModel(BaseViewModel):
@@ -65,7 +95,8 @@ class NamingEditorViewModel(BaseViewModel):
 
     Le motif (`Pattern`) est une chaîne éditable directement par
     l'utilisateur, enrichie de jetons `{...}` insérables via des badges
-    (voir `AvailableTokens`). Le VM n'a pas accès au curseur du TextBox --
+    (voir `TokensFiltres`, filtrés depuis `AvailableTokens` selon
+    `FiltreSource`). Le VM n'a pas accès au curseur du TextBox --
     l'insertion à la position du curseur est câblée côté VUE
     (NamingEditorView) ; `inserer_token` ci-dessous n'est qu'un repli qui
     ajoute le jeton en fin de motif (utilisable hors contexte WPF, ex. tests).
@@ -92,7 +123,7 @@ class NamingEditorViewModel(BaseViewModel):
                 pattern = u''
         self._pattern = pattern or u''
 
-        self._preset_selectionne = None
+        self._filtre_source = u'tout'
 
     # ------------------------------------------------------------------
     # Propriétés bindables
@@ -114,7 +145,7 @@ class NamingEditorViewModel(BaseViewModel):
         par le binding WPF lui-même -- renotifier `Pattern` ici repositionnerait
         le caret du TextBox en fin de texte à chaque caractère saisi. Seule
         `Apercu` (calculée à la demande) est notifiée, pour tenir l'aperçu à jour.
-        Les mutations programmatiques (preset, insertion de jeton) utilisent
+        Les mutations programmatiques (insertion de jeton) utilisent
         `_set_pattern` ci-dessous, qui notifie `Pattern` explicitement.
         """
         value = value or u''
@@ -124,8 +155,8 @@ class NamingEditorViewModel(BaseViewModel):
         self.notify_property(u'Apercu')
 
     def _set_pattern(self, value):
-        """Mutation programmatique du motif (preset, insertion de jeton) :
-        notifie `Pattern` (rafraîchit le TextBox lié) ET `Apercu`."""
+        """Mutation programmatique du motif (insertion de jeton) : notifie
+        `Pattern` (rafraîchit le TextBox lié) ET `Apercu`."""
         value = value or u''
         if value == self._pattern:
             return
@@ -136,41 +167,49 @@ class NamingEditorViewModel(BaseViewModel):
     @property
     def AvailableTokens(self):
         """Liste de `TokenItemVM` (adaptés depuis
-        `naming_service.available_tokens()` -> `[{'token','desc'}, ...]`)
-        pour les badges insérables, bindables en XAML (`.token`/`.desc`).
-        Best-effort : `[]` si le service est absent."""
+        `naming_service.available_tokens()` -> `[{'token','desc','source'}, ...]`)
+        -- ensemble complet, non filtré. Best-effort : `[]` si le service
+        est absent."""
         if self._naming_service is None:
             return []
         try:
             bruts = self._naming_service.available_tokens() or []
         except Exception:
             return []
-        return [TokenItemVM(d.get('token', u''), d.get('desc', u'')) for d in bruts]
+        return [
+            TokenItemVM(d.get('token', u''), d.get('desc', u''), d.get('source', u''))
+            for d in bruts
+        ]
 
     @property
-    def Presets(self):
-        """Liste de `PresetItemVM` (adaptés depuis
-        `naming_service.list_presets()` -> `[{'name','pattern'}, ...]`),
-        bindables en XAML (`.name`/`.pattern`). Best-effort : `[]` si le
-        service est absent ou si la lecture échoue."""
-        if self._naming_service is None:
-            return []
-        try:
-            bruts = self._naming_service.list_presets() or []
-        except Exception:
-            return []
-        return [PresetItemVM(d.get('name', u''), d.get('pattern', u'')) for d in bruts]
+    def FiltreSource(self):
+        return self._filtre_source
 
-    @property
-    def PresetSelectionne(self):
-        return self._preset_selectionne
-
-    @PresetSelectionne.setter
-    def PresetSelectionne(self, value):
-        if value == self._preset_selectionne:
+    @FiltreSource.setter
+    def FiltreSource(self, value):
+        value = (value or u'tout').strip().lower()
+        if not value:
+            value = u'tout'
+        if value == self._filtre_source:
             return
-        self._preset_selectionne = value
-        self.notify_property(u'PresetSelectionne')
+        self._filtre_source = value
+        self.notify_property(u'FiltreSource')
+        self.notify_property(u'TokensFiltres')
+
+    @property
+    def SourcesDisponibles(self):
+        """Liste de `SourceItemVM` pour les boutons/onglets de filtre
+        (Tout / Projet / Feuille / Carnet)."""
+        return [SourceItemVM(d['valeur'], d['libelle']) for d in _SOURCES_DISPONIBLES]
+
+    @property
+    def TokensFiltres(self):
+        """Sous-ensemble de `AvailableTokens` filtré par `FiltreSource`.
+        'tout' (valeur par défaut) retourne l'ensemble complet, sans filtre."""
+        tokens = self.AvailableTokens
+        if self._filtre_source == u'tout':
+            return tokens
+        return [t for t in tokens if t.source == self._filtre_source]
 
     @property
     def Apercu(self):
@@ -178,61 +217,6 @@ class NamingEditorViewModel(BaseViewModel):
         résolution contre un élément Revit réel -- amélioration future,
         hors périmètre ici pour ne pas coupler ce VM à un doc)."""
         return self._pattern
-
-    # ------------------------------------------------------------------
-    # Presets
-    # ------------------------------------------------------------------
-
-    def charger_preset(self, name):
-        """Charge le preset nommé `name` : remplace `Pattern` par son motif
-        et notifie. Best-effort : ne fait rien si le preset est introuvable
-        ou si le service est absent."""
-        if not name or self._naming_service is None:
-            return False
-        try:
-            presets = self._naming_service.list_presets() or []
-        except Exception:
-            presets = []
-        for p in presets:
-            if p.get('name') == name:
-                self._set_pattern(p.get('pattern', u'') or u'')
-                self._preset_selectionne = name
-                self.notify_property(u'PresetSelectionne')
-                return True
-        return False
-
-    def enregistrer_preset(self, name):
-        """Enregistre `Pattern` courant comme preset nommé `name`. Rafraîchit
-        `Presets` en cas de succès. Best-effort."""
-        name = (name or u'').strip()
-        if not name or self._naming_service is None:
-            return False
-        try:
-            ok = bool(self._naming_service.save_preset(name, self._pattern))
-        except Exception:
-            ok = False
-        if ok:
-            self._preset_selectionne = name
-            self.notify_property(u'Presets')
-            self.notify_property(u'PresetSelectionne')
-        return ok
-
-    def supprimer_preset(self, name):
-        """Supprime le preset nommé `name`. Rafraîchit `Presets` en cas de
-        succès. Best-effort."""
-        name = (name or u'').strip()
-        if not name or self._naming_service is None:
-            return False
-        try:
-            ok = bool(self._naming_service.delete_preset(name))
-        except Exception:
-            ok = False
-        if ok:
-            if self._preset_selectionne == name:
-                self._preset_selectionne = None
-                self.notify_property(u'PresetSelectionne')
-            self.notify_property(u'Presets')
-        return ok
 
     # ------------------------------------------------------------------
     # Insertion de jeton (repli sans curseur -- append en fin de motif)

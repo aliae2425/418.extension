@@ -17,23 +17,20 @@ import tempfile as _tf
 os.environ['PY418_CONFIG_DIR'] = _tf.mkdtemp(prefix='418test_')
 
 from lib.viewmodels.NamingEditorViewModel import (
-    NamingEditorViewModel, TokenItemVM, PresetItemVM,
+    NamingEditorViewModel, TokenItemVM, SourceItemVM,
 )
 
 
 class FakeNamingService(object):
     """Faux NamingService, mode jetons : `load` renvoie un pattern chaîne
     fixe (contrat `(pattern, rows)`, rows toujours `[]` côté nouveau
-    système), `save` capture ses arguments, `available_tokens`/
-    `list_presets`/`save_preset`/`delete_preset` répliquent le contrat du
-    vrai service (cf. NamingService)."""
+    système), `save` capture ses arguments, `available_tokens` réplique le
+    contrat du vrai service (cf. NamingService.available_tokens -> inclut
+    désormais 'source')."""
 
-    def __init__(self, pattern=u'{numero}_{nom}', presets=None):
+    def __init__(self, pattern=u'{numero}_{nom}'):
         self._pattern = pattern
-        self._presets = list(presets or [])
         self.save_calls = []
-        self.save_preset_calls = []
-        self.delete_preset_calls = []
 
     def load(self, kind):
         return (self._pattern, [])
@@ -45,24 +42,11 @@ class FakeNamingService(object):
 
     def available_tokens(self):
         return [
-            {'token': '{numero}', 'desc': 'Numéro de feuille'},
-            {'token': '{nom}', 'desc': 'Nom de la feuille'},
+            {'token': '{numero}', 'desc': 'Numéro de feuille', 'source': 'feuille'},
+            {'token': '{nom}', 'desc': 'Nom de la feuille', 'source': 'feuille'},
+            {'token': '{titre}', 'desc': 'Titre du carnet', 'source': 'carnet'},
+            {'token': '{projet_nom}', 'desc': 'Nom du projet', 'source': 'projet'},
         ]
-
-    def list_presets(self):
-        return list(self._presets)
-
-    def save_preset(self, name, pattern):
-        self.save_preset_calls.append((name, pattern))
-        self._presets = [p for p in self._presets if p.get('name') != name]
-        self._presets.append({'name': name, 'pattern': pattern})
-        return True
-
-    def delete_preset(self, name):
-        self.delete_preset_calls.append(name)
-        before = len(self._presets)
-        self._presets = [p for p in self._presets if p.get('name') != name]
-        return len(self._presets) != before
 
 
 class TestNamingEditorViewModelChargement(unittest.TestCase):
@@ -132,6 +116,70 @@ class TestNamingEditorViewModelAvailableTokens(unittest.TestCase):
         vm._naming_service = None
         self.assertEqual(vm.AvailableTokens, [])
 
+    def test_available_tokens_porte_la_source(self):
+        vm = NamingEditorViewModel('sheet', naming_service=FakeNamingService())
+        par_token = dict((t.token, t.source) for t in vm.AvailableTokens)
+        self.assertEqual(par_token['{numero}'], u'feuille')
+        self.assertEqual(par_token['{titre}'], u'carnet')
+        self.assertEqual(par_token['{projet_nom}'], u'projet')
+
+    def test_available_tokens_porte_une_couleur_brush(self):
+        vm = NamingEditorViewModel('sheet', naming_service=FakeNamingService())
+        par_token = dict((t.token, t.CouleurBrush) for t in vm.AvailableTokens)
+        self.assertEqual(par_token['{numero}'], u'AccentBrush')
+        self.assertEqual(par_token['{titre}'], u'SuccessBrush')
+        self.assertEqual(par_token['{projet_nom}'], u'WarningBrush')
+
+
+class TestNamingEditorViewModelFiltreSource(unittest.TestCase):
+    def setUp(self):
+        self.vm = NamingEditorViewModel('sheet', naming_service=FakeNamingService())
+
+    def test_filtre_source_defaut_est_tout(self):
+        self.assertEqual(self.vm.FiltreSource, u'tout')
+
+    def test_tokens_filtres_tout_retourne_tous_les_tokens(self):
+        self.assertEqual(len(self.vm.TokensFiltres), len(self.vm.AvailableTokens))
+
+    def test_tokens_filtres_selon_feuille(self):
+        self.vm.FiltreSource = u'feuille'
+        jetons = [t.token for t in self.vm.TokensFiltres]
+        self.assertEqual(set(jetons), {u'{numero}', u'{nom}'})
+
+    def test_tokens_filtres_selon_carnet(self):
+        self.vm.FiltreSource = u'carnet'
+        jetons = [t.token for t in self.vm.TokensFiltres]
+        self.assertEqual(jetons, [u'{titre}'])
+
+    def test_tokens_filtres_selon_projet(self):
+        self.vm.FiltreSource = u'projet'
+        jetons = [t.token for t in self.vm.TokensFiltres]
+        self.assertEqual(jetons, [u'{projet_nom}'])
+
+    def test_filtre_source_valeur_none_replie_sur_tout(self):
+        self.vm.FiltreSource = u'carnet'
+        self.vm.FiltreSource = None
+        self.assertEqual(self.vm.FiltreSource, u'tout')
+        self.assertEqual(len(self.vm.TokensFiltres), len(self.vm.AvailableTokens))
+
+    def test_sources_disponibles_expose_des_sourceitemvm(self):
+        sources = self.vm.SourcesDisponibles
+        self.assertTrue(len(sources) > 0)
+        for s in sources:
+            self.assertIsInstance(s, SourceItemVM)
+            self.assertTrue(s.valeur)
+            self.assertTrue(s.libelle)
+        valeurs = [s.valeur for s in sources]
+        self.assertIn(u'tout', valeurs)
+        self.assertIn(u'projet', valeurs)
+        self.assertIn(u'feuille', valeurs)
+        self.assertIn(u'carnet', valeurs)
+
+    def test_tokens_filtres_vide_sans_service(self):
+        self.vm._naming_service = None
+        self.vm.FiltreSource = u'feuille'
+        self.assertEqual(self.vm.TokensFiltres, [])
+
 
 class TestNamingEditorViewModelInsererToken(unittest.TestCase):
     def test_inserer_token_ajoute_en_fin_de_motif(self):
@@ -143,55 +191,6 @@ class TestNamingEditorViewModelInsererToken(unittest.TestCase):
         vm = NamingEditorViewModel('sheet', naming_service=FakeNamingService(pattern=u'{numero}'))
         vm.inserer_token(u'')
         self.assertEqual(vm.Pattern, u'{numero}')
-
-
-class TestNamingEditorViewModelPresets(unittest.TestCase):
-    def setUp(self):
-        self.service = FakeNamingService(
-            pattern=u'{numero}',
-            presets=[{'name': u'Standard', 'pattern': u'{numero}_{nom}'}],
-        )
-        self.vm = NamingEditorViewModel('sheet', naming_service=self.service)
-
-    def test_presets_exposes_des_presetitemvm(self):
-        presets = self.vm.Presets
-        self.assertEqual(len(presets), 1)
-        self.assertIsInstance(presets[0], PresetItemVM)
-        self.assertEqual(presets[0].name, u'Standard')
-        self.assertEqual(presets[0].pattern, u'{numero}_{nom}')
-
-    def test_charger_preset_remplace_le_pattern(self):
-        ok = self.vm.charger_preset(u'Standard')
-        self.assertTrue(ok)
-        self.assertEqual(self.vm.Pattern, u'{numero}_{nom}')
-        self.assertEqual(self.vm.PresetSelectionne, u'Standard')
-
-    def test_charger_preset_introuvable_retourne_false(self):
-        ok = self.vm.charger_preset(u'Inconnu')
-        self.assertFalse(ok)
-        self.assertEqual(self.vm.Pattern, u'{numero}')
-
-    def test_enregistrer_preset_appelle_le_service(self):
-        self.vm.Pattern = u'{numero}-{date}'
-        ok = self.vm.enregistrer_preset(u'Nouveau')
-        self.assertTrue(ok)
-        self.assertEqual(self.service.save_preset_calls, [(u'Nouveau', u'{numero}-{date}')])
-        noms = [p.name for p in self.vm.Presets]
-        self.assertIn(u'Nouveau', noms)
-
-    def test_enregistrer_preset_nom_vide_retourne_false(self):
-        ok = self.vm.enregistrer_preset(u'   ')
-        self.assertFalse(ok)
-
-    def test_supprimer_preset_appelle_le_service(self):
-        ok = self.vm.supprimer_preset(u'Standard')
-        self.assertTrue(ok)
-        self.assertEqual(self.service.delete_preset_calls, [u'Standard'])
-        self.assertEqual(self.vm.Presets, [])
-
-    def test_supprimer_preset_introuvable_retourne_false(self):
-        ok = self.vm.supprimer_preset(u'Inconnu')
-        self.assertFalse(ok)
 
 
 class TestNamingEditorViewModelEnregistrer(unittest.TestCase):
@@ -231,23 +230,25 @@ class TestNamingEditorViewModelEnregistrer(unittest.TestCase):
             def available_tokens(self):
                 return []
 
-            def list_presets(self):
-                return []
-
         vm = NamingEditorViewModel('sheet', naming_service=ServiceQuiLeve())
         self.assertFalse(vm.enregistrer())
 
 
-class TestTokenItemVMEtPresetItemVM(unittest.TestCase):
+class TestTokenItemVMEtSourceItemVM(unittest.TestCase):
     def test_tokenitemvm_valeurs_none_deviennent_chaine_vide(self):
-        item = TokenItemVM(None, None)
+        item = TokenItemVM(None, None, None)
         self.assertEqual(item.token, u'')
         self.assertEqual(item.desc, u'')
+        self.assertEqual(item.source, u'')
 
-    def test_presetitemvm_valeurs_none_deviennent_chaine_vide(self):
-        item = PresetItemVM(None, None)
-        self.assertEqual(item.name, u'')
-        self.assertEqual(item.pattern, u'')
+    def test_tokenitemvm_source_inconnue_replie_sur_couleur_defaut(self):
+        item = TokenItemVM(u'{x}', u'desc', u'source_bidon')
+        self.assertEqual(item.CouleurBrush, u'AccentBrush')
+
+    def test_sourceitemvm_valeurs_none_deviennent_chaine_vide(self):
+        item = SourceItemVM(None, None)
+        self.assertEqual(item.valeur, u'')
+        self.assertEqual(item.libelle, u'')
 
 
 if __name__ == '__main__':

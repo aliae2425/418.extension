@@ -411,10 +411,10 @@ class TestMainViewModelModeManuel(unittest.TestCase):
             self.assertTrue(s.ExportPdf)
             self.assertFalse(s.ExportDwg)
 
-    def test_filtres_manuel_contient_toutes_jeux_et_sets(self):
+    def test_filtres_manuel_contient_jeux_et_sets_sans_toutes_les_feuilles(self):
         self.vm.refresh_manuel()
         labels = [f.Label for f in self.vm.FiltresManuel]
-        self.assertEqual(labels[0], u'Toutes les feuilles')
+        self.assertNotIn(u'Toutes les feuilles', labels)
         self.assertIn(u'Jeu : Jeu A', labels)
         self.assertIn(u'Jeu : Jeu B', labels)
         self.assertIn(u'Impression : Set 1', labels)
@@ -422,12 +422,14 @@ class TestMainViewModelModeManuel(unittest.TestCase):
         for f in self.vm.FiltresManuel:
             self.assertIsInstance(f, FiltreItemVM)
 
-    def test_filtre_selectionne_par_defaut_est_toutes_les_feuilles(self):
+    def test_filtres_manuel_tous_inactifs_par_defaut(self):
         self.vm.refresh_manuel()
-        self.assertEqual(self.vm.FiltreManuelSelectionne.Label, u'Toutes les feuilles')
-        self.assertEqual(self.vm.FiltreManuelSelectionne.kind, u'all')
+        for f in self.vm.FiltresManuel:
+            self.assertFalse(f.IsActif)
 
-    def test_sheets_manuel_filtrees_sans_filtre_ni_recherche(self):
+    def test_sheets_manuel_filtrees_sans_filtre_actif_ni_recherche(self):
+        # Aucun filtre actif -> toutes les feuilles passent (sémantique
+        # multi-filtre OU : liste vide de filtres actifs = pas de restriction).
         self.vm.refresh_manuel()
         self.assertEqual(len(self.vm.SheetsManuelFiltrees), 3)
 
@@ -453,7 +455,7 @@ class TestMainViewModelModeManuel(unittest.TestCase):
     def test_filtre_par_collection_restreint_correctement(self):
         self.vm.refresh_manuel()
         filtre_jeu_a = next(f for f in self.vm.FiltresManuel if f.Label == u'Jeu : Jeu A')
-        self.vm.FiltreManuelSelectionne = filtre_jeu_a
+        filtre_jeu_a.IsActif = True
         filtrees = self.vm.SheetsManuelFiltrees
         numeros = sorted([s.Numero for s in filtrees])
         self.assertEqual(numeros, ['01', '02'])
@@ -461,7 +463,7 @@ class TestMainViewModelModeManuel(unittest.TestCase):
     def test_filtre_par_set_impression_restreint_correctement(self):
         self.vm.refresh_manuel()
         filtre_set1 = next(f for f in self.vm.FiltresManuel if f.Label == u'Impression : Set 1')
-        self.vm.FiltreManuelSelectionne = filtre_set1
+        filtre_set1.IsActif = True
         filtrees = self.vm.SheetsManuelFiltrees
         numeros = sorted([s.Numero for s in filtrees])
         self.assertEqual(numeros, ['01', '03'])
@@ -469,11 +471,35 @@ class TestMainViewModelModeManuel(unittest.TestCase):
     def test_filtre_set_et_recherche_combines(self):
         self.vm.refresh_manuel()
         filtre_set1 = next(f for f in self.vm.FiltresManuel if f.Label == u'Impression : Set 1')
-        self.vm.FiltreManuelSelectionne = filtre_set1
+        filtre_set1.IsActif = True
         self.vm.RechercheManuel = u'toiture'
         filtrees = self.vm.SheetsManuelFiltrees
         self.assertEqual(len(filtrees), 1)
         self.assertEqual(filtrees[0].Numero, '03')
+
+    def test_multi_filtre_ou_union_de_deux_filtres_actifs(self):
+        """2 filtres actifs -> union OU (pas intersection) : Jeu B (feuille
+        '03') + Set 2 (feuille '02') actifs ensemble doivent renvoyer
+        {'02', '03'}."""
+        self.vm.refresh_manuel()
+        filtre_jeu_b = next(f for f in self.vm.FiltresManuel if f.Label == u'Jeu : Jeu B')
+        filtre_set2 = next(f for f in self.vm.FiltresManuel if f.Label == u'Impression : Set 2')
+        filtre_jeu_b.IsActif = True
+        filtre_set2.IsActif = True
+        filtrees = self.vm.SheetsManuelFiltrees
+        numeros = sorted([s.Numero for s in filtrees])
+        self.assertEqual(numeros, ['02', '03'])
+
+    def test_multi_filtre_desactivation_retire_de_lunion(self):
+        self.vm.refresh_manuel()
+        filtre_jeu_a = next(f for f in self.vm.FiltresManuel if f.Label == u'Jeu : Jeu A')
+        filtre_jeu_b = next(f for f in self.vm.FiltresManuel if f.Label == u'Jeu : Jeu B')
+        filtre_jeu_a.IsActif = True
+        filtre_jeu_b.IsActif = True
+        self.assertEqual(len(self.vm.SheetsManuelFiltrees), 3)
+        filtre_jeu_b.IsActif = False
+        numeros = sorted([s.Numero for s in self.vm.SheetsManuelFiltrees])
+        self.assertEqual(numeros, ['01', '02'])
 
     def test_toggle_export_pdf_met_a_jour_nb_pdf(self):
         self.vm.refresh_manuel()
@@ -497,7 +523,7 @@ class TestMainViewModelModeManuel(unittest.TestCase):
         self.vm.refresh_manuel()
         self.vm.SheetsManuel[2].ExportDwg = True  # feuille '03' (Toiture)
         filtre_jeu_a = next(f for f in self.vm.FiltresManuel if f.Label == u'Jeu : Jeu A')
-        self.vm.FiltreManuelSelectionne = filtre_jeu_a
+        filtre_jeu_a.IsActif = True
         # Feuille '03' est hors Jeu A -> ne doit plus compter dans NbDwg.
         self.assertEqual(self.vm.NbDwg, 0)
 
@@ -518,7 +544,7 @@ class TestMainViewModelModeManuel(unittest.TestCase):
         self.vm.refresh_manuel()
         self.vm.SheetsManuel[2].ExportDwg = True  # '03' (Jeu B)
         filtre_jeu_a = next(f for f in self.vm.FiltresManuel if f.Label == u'Jeu : Jeu A')
-        self.vm.FiltreManuelSelectionne = filtre_jeu_a  # masque '03'
+        filtre_jeu_a.IsActif = True  # masque '03'
         selection = self.vm.selection_manuelle()
         numeros = [s.Numero for s in selection]
         self.assertIn('03', numeros)
@@ -526,19 +552,52 @@ class TestMainViewModelModeManuel(unittest.TestCase):
     def test_refresh_manuel_reinitialise_la_selection(self):
         self.vm.refresh_manuel()
         self.vm.SheetsManuel[0].ExportDwg = True
+        self.vm.SheetsManuel[0].Selected = True
         self.vm.refresh_manuel()
         for s in self.vm.SheetsManuel:
             self.assertTrue(s.ExportPdf)
             self.assertFalse(s.ExportDwg)
+            self.assertFalse(s.Selected)
+
+    def test_jeu_nom_renseigne_depuis_la_collection(self):
+        self.vm.refresh_manuel()
+        sheets_by_numero = {s.Numero: s for s in self.vm.SheetsManuel}
+        self.assertEqual(sheets_by_numero['01'].JeuNom, u'Jeu A')
+        self.assertEqual(sheets_by_numero['02'].JeuNom, u'Jeu A')
+        self.assertEqual(sheets_by_numero['03'].JeuNom, u'Jeu B')
+
+    def test_nom_projete_resolu_via_naming_service(self):
+        # FakeNamingService.resolve_for_element -> 'PROJETE-{numero}'.
+        self.vm.refresh_manuel()
+        for s in self.vm.SheetsManuel:
+            self.assertEqual(s.NomProjete, u'PROJETE-{}'.format(s.Numero))
+
+    def test_selected_toggle_recompte_nb_selected(self):
+        self.vm.refresh_manuel()
+        self.assertEqual(self.vm.NbSelected, 0)
+        self.vm.SheetsManuel[0].Selected = True
+        self.assertEqual(self.vm.NbSelected, 1)
+        self.vm.SheetsManuel[1].Selected = True
+        self.assertEqual(self.vm.NbSelected, 2)
+        self.vm.SheetsManuel[0].Selected = False
+        self.assertEqual(self.vm.NbSelected, 1)
+
+    def test_nb_selected_porte_sur_les_feuilles_filtrees(self):
+        self.vm.refresh_manuel()
+        self.vm.SheetsManuel[2].Selected = True  # '03' (Jeu B)
+        filtre_jeu_a = next(f for f in self.vm.FiltresManuel if f.Label == u'Jeu : Jeu A')
+        filtre_jeu_a.IsActif = True
+        self.assertEqual(self.vm.NbSelected, 0)
 
     def test_refresh_manuel_sans_service_ne_leve_pas(self):
         vm = MainViewModel(doc=None)
         vm.refresh_manuel()
         self.assertEqual(vm.SheetsManuel, [])
-        self.assertEqual(len(vm.FiltresManuel), 1)  # « Toutes les feuilles » seule
+        self.assertEqual(vm.FiltresManuel, [])  # aucune collection/set -> aucun filtre
         self.assertEqual(vm.NbFeuillesManuel, 0)
         self.assertEqual(vm.NbPdf, 0)
         self.assertEqual(vm.NbDwg, 0)
+        self.assertEqual(vm.NbSelected, 0)
         self.assertEqual(vm.selection_manuelle(), [])
 
 
@@ -550,6 +609,14 @@ class TestManualSheetVM(unittest.TestCase):
         item = ManualSheetVM('01', 'RDC')
         self.assertTrue(item.ExportPdf)
         self.assertFalse(item.ExportDwg)
+        self.assertFalse(item.Selected)
+        self.assertEqual(item.JeuNom, u'')
+        self.assertEqual(item.NomProjete, u'')
+
+    def test_jeu_nom_et_nom_projete_lecture_seule_depuis_constructeur(self):
+        item = ManualSheetVM('01', 'RDC', jeu_nom=u'Jeu A', nom_projete=u'01_RDC')
+        self.assertEqual(item.JeuNom, u'Jeu A')
+        self.assertEqual(item.NomProjete, u'01_RDC')
 
     def test_toggle_appelle_on_change(self):
         calls = []
@@ -558,6 +625,19 @@ class TestManualSheetVM(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         item.ExportDwg = True
         self.assertEqual(len(calls), 2)
+
+    def test_toggle_selected_notifie_et_appelle_on_change(self):
+        calls = []
+        item = ManualSheetVM('01', 'RDC', on_change=lambda: calls.append(1))
+        item.Selected = True
+        self.assertTrue(item.Selected)
+        self.assertEqual(len(calls), 1)
+
+    def test_selected_setter_idempotent_ne_rappelle_pas_on_change(self):
+        calls = []
+        item = ManualSheetVM('01', 'RDC', on_change=lambda: calls.append(1))
+        item.Selected = False  # déjà False par défaut
+        self.assertEqual(len(calls), 0)
 
     def test_setter_idempotent_ne_rappelle_pas_on_change(self):
         calls = []
@@ -975,6 +1055,166 @@ class TestMainViewModelGetNamingParams(unittest.TestCase):
         # étape (FilteredElementCollector etc.) et doit retourner [].
         vm = MainViewModel(doc=object())
         self.assertEqual(vm.get_naming_params(), [])
+
+
+class TestFiltreItemVM(unittest.TestCase):
+    """`FiltreItemVM` isolé : défaut `IsActif=False`, notify + callback
+    on_change, idempotence du setter (miroir de TestManualSheetVM)."""
+
+    def test_defaut_is_actif_false(self):
+        item = FiltreItemVM(u'Jeu : A', u'collection', coll_id='id-A')
+        self.assertFalse(item.IsActif)
+
+    def test_toggle_is_actif_appelle_on_change(self):
+        calls = []
+        item = FiltreItemVM(u'Jeu : A', u'collection', coll_id='id-A',
+                             on_change=lambda: calls.append(1))
+        item.IsActif = True
+        self.assertTrue(item.IsActif)
+        self.assertEqual(len(calls), 1)
+
+    def test_setter_idempotent_ne_rappelle_pas_on_change(self):
+        calls = []
+        item = FiltreItemVM(u'Jeu : A', u'collection', coll_id='id-A',
+                             on_change=lambda: calls.append(1))
+        item.IsActif = False  # déjà False par défaut
+        self.assertEqual(len(calls), 0)
+
+    def test_sans_on_change_ne_leve_pas(self):
+        item = FiltreItemVM(u'Jeu : A', u'collection', coll_id='id-A')
+        item.IsActif = True  # ne doit pas lever
+        self.assertTrue(item.IsActif)
+
+
+class FakeCollectionElemQualif(object):
+    """Faux élément de collection portant un booléen 'Export' direct, pour
+    exercer le tri par-jeu avec des cas où alpha et qualifié divergent
+    (cf. FakeSheetServiceTriMixte)."""
+
+    def __init__(self, export):
+        self.export = export
+
+
+class FakeSheetServiceTriMixte(object):
+    """Faux SheetCollectionService dédié au test de tri : 4 collections où
+    l'ordre alphabétique brut NE correspond PAS à l'ordre qualifié-d'abord
+    attendu -- nécessaire pour discriminer un tri par groupe (qualifiées
+    d'abord, alpha dans chaque groupe) d'un simple tri alpha global.
+
+    Jeux (Titre -> qualifié) :
+      'Abc' -> False, 'Nord' -> False, 'Sud' -> True, 'Zeb' -> True
+    Attendu après tri : ['Sud', 'Zeb', 'Abc', 'Nord']
+    (qualifiées d'abord par ordre alpha, puis non-qualifiées par ordre alpha)
+    """
+
+    def __init__(self):
+        self._defs = [
+            ('Abc', 'id-abc', False),
+            ('Nord', 'id-nord', False),
+            ('Sud', 'id-sud', True),
+            ('Zeb', 'id-zeb', True),
+        ]
+        self._elems = {cid: FakeCollectionElemQualif(exp) for (_, cid, exp) in self._defs}
+
+    def list_collections(self):
+        return [
+            {'Titre': titre, 'Id': cid, 'Elem': self._elems[cid]}
+            for (titre, cid, _exp) in self._defs
+        ]
+
+    def list_sheets(self, collection_id=None):
+        return []
+
+    def read_flag(self, elem, param_name):
+        if param_name == 'Export':
+            return bool(elem.export)
+        return False
+
+    def list_boolean_params(self):
+        return ['Export']
+
+
+class TestMainViewModelParJeuTri(unittest.TestCase):
+    """Tri de `Collections` (mode « par jeu ») : qualifiées (FlagExport=True)
+    d'abord, puis alphabétique du Titre (insensible à la casse) au sein de
+    chaque groupe."""
+
+    def setUp(self):
+        self.vm = MainViewModel(
+            doc=None,
+            sheet_service=FakeSheetServiceTriMixte(),
+            naming_service=FakeNamingService(),
+            destination_service=None,
+            config=FakeConfig(),
+        )
+        self.vm.ParamExport = 'Export'
+
+    def test_qualifiees_avant_non_qualifiees_puis_alpha(self):
+        self.vm.refresh_par_jeu()
+        titres = [c.Titre for c in self.vm.Collections]
+        self.assertEqual(titres, ['Sud', 'Zeb', 'Abc', 'Nord'])
+
+    def test_toutes_qualifiees_sont_groupees_en_tete(self):
+        self.vm.refresh_par_jeu()
+        qualifs = [c.Qualified for c in self.vm.Collections]
+        # Les True doivent précéder tous les False (groupement, pas
+        # d'entrelacement).
+        self.assertEqual(qualifs, sorted(qualifs, reverse=True))
+
+
+class TestMainViewModelPatternsApercu(unittest.TestCase):
+    """`PatternFeuilleApercu`/`PatternCarnetApercu` (page Réglages) :
+    lecture du motif brut via `_naming_service.load(kind)[0]`."""
+
+    class FakeNamingServiceMotifs(object):
+        def __init__(self, sheet_pattern=u'', set_pattern=u''):
+            self._sheet_pattern = sheet_pattern
+            self._set_pattern = set_pattern
+
+        def load(self, kind):
+            if kind == 'sheet':
+                return (self._sheet_pattern, [])
+            if kind == 'set':
+                return (self._set_pattern, [])
+            return (u'', [])
+
+        def resolve_for_element(self, elem, pattern):
+            return u''
+
+    def test_pattern_feuille_apercu_lit_le_motif_brut(self):
+        naming = self.FakeNamingServiceMotifs(sheet_pattern=u'{numero}-{nom}')
+        vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                            naming_service=naming, config=FakeConfig())
+        self.assertEqual(vm.PatternFeuilleApercu, u'{numero}-{nom}')
+
+    def test_pattern_carnet_apercu_lit_le_motif_brut(self):
+        naming = self.FakeNamingServiceMotifs(set_pattern=u'{nom_carnet}')
+        vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                            naming_service=naming, config=FakeConfig())
+        self.assertEqual(vm.PatternCarnetApercu, u'{nom_carnet}')
+
+    def test_patterns_apercu_vides_sans_naming_service(self):
+        vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                            naming_service=None, config=FakeConfig())
+        self.assertEqual(vm.PatternFeuilleApercu, u'')
+        self.assertEqual(vm.PatternCarnetApercu, u'')
+
+    def test_refresh_patterns_apercu_relit_apres_changement(self):
+        naming = self.FakeNamingServiceMotifs(sheet_pattern=u'V1')
+        vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                            naming_service=naming, config=FakeConfig())
+        self.assertEqual(vm.PatternFeuilleApercu, u'V1')
+        naming._sheet_pattern = u'V2'
+        vm.refresh_patterns_apercu()
+        self.assertEqual(vm.PatternFeuilleApercu, u'V2')
+
+    def test_refresh_manuel_relit_les_patterns_apercu(self):
+        naming = self.FakeNamingServiceMotifs(sheet_pattern=u'V1')
+        vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                            naming_service=naming, config=FakeConfig())
+        naming._sheet_pattern = u'V2'
+        vm.refresh_manuel()
+        self.assertEqual(vm.PatternFeuilleApercu, u'V2')
 
 
 if __name__ == '__main__':

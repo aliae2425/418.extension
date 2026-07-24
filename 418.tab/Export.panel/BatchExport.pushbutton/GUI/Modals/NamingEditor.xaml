@@ -14,7 +14,8 @@
     Éditeur de nommage (modale), mode TOKENS — coquille commune (barre
     commune Fluent). Remplace l'ancien éditeur à lignes
     paramètre/préfixe/suffixe : un seul champ motif texte + jetons `{...}`
-    insérables + presets nommés + aperçu.
+    insérables (filtrables par source) + aperçu. Les presets nommés ont été
+    retirés (voir historique git).
 
     Chargement
     - XAML chargé via XamlReader.Load (PAS de x:Class, PAS de code-behind).
@@ -26,12 +27,21 @@
     - TitleBar (x:Name="TitleBar") : BaseWindow y câble DragMove().
     - CloseButton (x:Name="CloseButton") : BaseWindow y câble Close().
 
+    Filtre de source (ItemsControl "SourceFilterItemsControl") : chaque item
+    est un SourceItemVM (.valeur/.libelle), affiché comme bouton d'onglet.
+    Même câblage bubbling que les jetons : voir NamingEditorView.wire_filtre_source().
+
     Jetons (ItemsControl "TokensItemsControl") : chaque item est un
-    TokenItemVM (.token/.desc), affiché comme badge cliquable. Le clic ne
-    peut pas être câblé par x:Name (généré dynamiquement dans le
+    TokenItemVM (.token/.desc/.source/.CouleurBrush), affiché comme badge
+    cliquable, coloré selon `.source` via DataTrigger (DynamicResource, pour
+    rester réactif au dark mode ; un binding direct sur CouleurBrush, qui
+    n'est qu'un NOM de ressource, ne serait pas résolu par BrushConverter).
+    Le clic ne peut pas être câblé par x:Name (généré dynamiquement dans le
     DataTemplate) -> UN SEUL AddHandler(Button.ClickEvent, ...) posé sur
     l'ItemsControl (bubbling), qui insère le jeton dans PatternTextBox à la
-    position du curseur : voir NamingEditorView.wire_tokens().
+    position du curseur : voir NamingEditorView.wire_tokens(). La liste est
+    liée à TokensFiltres (sous-ensemble de AvailableTokens selon FiltreSource),
+    dans un ScrollViewer à hauteur fixe pour ne pas faire grandir la fenêtre.
   -->
 
   <shell:WindowChrome.WindowChrome>
@@ -71,15 +81,15 @@
       <Grid Grid.Row="1" Margin="20,4,20,16">
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
-          <RowDefinition Height="Auto"/>
           <RowDefinition Height="*"/>
           <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Motif + jetons -->
+        <!-- Motif + filtre de source + jetons -->
         <Border Grid.Row="0" Style="{DynamicResource CardStyle}" Margin="0,0,0,12">
           <Grid>
             <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
               <RowDefinition Height="Auto"/>
               <RowDefinition Height="Auto"/>
               <RowDefinition Height="Auto"/>
@@ -99,8 +109,39 @@
                      FontFamily="Consolas"
                      Margin="0,0,0,10"/>
 
-            <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" MaxHeight="120">
-              <ItemsControl x:Name="TokensItemsControl" ItemsSource="{Binding AvailableTokens}">
+            <!-- Filtre de source : boutons d'onglet pilotant FiltreSource (VM).
+                 Item = SourceItemVM (.valeur/.libelle). Câblage bubbling :
+                 voir NamingEditorView.wire_filtre_source(). -->
+            <ItemsControl Grid.Row="3" x:Name="SourceFilterItemsControl" ItemsSource="{Binding SourcesDisponibles}" Margin="0,0,0,8">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Orientation="Horizontal"/>
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Content="{Binding libelle}"
+                          Style="{DynamicResource SecondaryActionButtonStyle}"
+                          Height="26"
+                          Padding="12,0"
+                          FontSize="11.5"
+                          Margin="0,0,6,0"/>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Jetons insérables, filtrés par FiltreSource (VM.TokensFiltres).
+                 Hauteur bloquée + défilement : l'ajout de jetons ne fait pas
+                 grandir la fenêtre. Item = TokenItemVM (.token/.desc/.source).
+                 Couleur du badge pilotée par DataTemplate.Triggers sur
+                 `.source` (DynamicResource -> réactif au dark mode) ; un
+                 style de bouton "plein" (SecondaryActionButtonStyle) n'est
+                 PAS utilisé ici : ses propres triggers IsMouseOver/IsPressed
+                 écraseraient la teinte de source au survol. Le Button reste
+                 juste une surface de clic transparente autour du Border
+                 coloré "badgeBorder". -->
+            <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto" MaxHeight="150">
+              <ItemsControl x:Name="TokensItemsControl" ItemsSource="{Binding TokensFiltres}">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
                     <WrapPanel Orientation="Horizontal"/>
@@ -108,14 +149,43 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <Button Content="{Binding token}"
-                            ToolTip="{Binding desc}"
-                            Style="{DynamicResource SecondaryActionButtonStyle}"
-                            Height="28"
-                            Padding="10,0"
-                            FontFamily="Consolas"
-                            FontSize="12"
-                            Margin="0,0,6,6"/>
+                    <Button ToolTip="{Binding desc}"
+                            Margin="0,0,6,6"
+                            Cursor="Hand"
+                            Background="{DynamicResource TransparentBrush}"
+                            BorderThickness="0"
+                            Padding="0">
+                      <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                          <ContentPresenter/>
+                        </ControlTemplate>
+                      </Button.Template>
+                      <Border x:Name="badgeBorder"
+                              CornerRadius="6"
+                              BorderThickness="1"
+                              Padding="10,4"
+                              Background="{DynamicResource AccentBrush}"
+                              BorderBrush="{DynamicResource AccentBrush}">
+                        <TextBlock Text="{Binding token}"
+                                   Foreground="{DynamicResource TextOnDangerBrush}"
+                                   FontFamily="Consolas"
+                                   FontSize="12"/>
+                      </Border>
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding source}" Value="feuille">
+                          <Setter TargetName="badgeBorder" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                          <Setter TargetName="badgeBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding source}" Value="carnet">
+                          <Setter TargetName="badgeBorder" Property="Background" Value="{DynamicResource SuccessBrush}"/>
+                          <Setter TargetName="badgeBorder" Property="BorderBrush" Value="{DynamicResource SuccessBrush}"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding source}" Value="projet">
+                          <Setter TargetName="badgeBorder" Property="Background" Value="{DynamicResource WarningBrush}"/>
+                          <Setter TargetName="badgeBorder" Property="BorderBrush" Value="{DynamicResource WarningBrush}"/>
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
+                    </Button>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
@@ -123,45 +193,8 @@
           </Grid>
         </Border>
 
-        <!-- Presets -->
-        <Border Grid.Row="1" Style="{DynamicResource CardStyle}" Margin="0,0,0,12">
-          <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto"/>
-              <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="Auto"/>
-              <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-
-            <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
-                       Text="Presets"
-                       Style="{DynamicResource SubHeaderTextBlockStyle}"
-                       Margin="0,0,0,8"/>
-
-            <ComboBox Grid.Row="1" Grid.Column="0"
-                      x:Name="PresetsComboBox"
-                      ItemsSource="{Binding Presets}"
-                      DisplayMemberPath="name"
-                      Margin="0,0,8,0"/>
-
-            <Button Grid.Row="1" Grid.Column="1"
-                    x:Name="SavePresetButton"
-                    Content="Enregistrer comme preset"
-                    Style="{DynamicResource SecondaryActionButtonStyle}"
-                    Margin="0,0,8,0"/>
-
-            <Button Grid.Row="1" Grid.Column="2"
-                    x:Name="DeletePresetButton"
-                    Content="Supprimer"
-                    Style="{DynamicResource SecondaryActionButtonStyle}"/>
-          </Grid>
-        </Border>
-
         <!-- Aperçu -->
-        <Border Grid.Row="2" Style="{DynamicResource CardStyle}" Margin="0,0,0,12">
+        <Border Grid.Row="1" Style="{DynamicResource CardStyle}" Margin="0,0,0,12">
           <StackPanel Orientation="Vertical">
             <TextBlock Text="Aperçu" FontWeight="SemiBold" Margin="0,0,0,6"/>
             <Border Background="{DynamicResource ControlFillBrush}"
@@ -175,7 +208,7 @@
         </Border>
 
         <!-- Footer -->
-        <DockPanel Grid.Row="3" LastChildFill="False">
+        <DockPanel Grid.Row="2" LastChildFill="False">
           <Button x:Name="CancelButton"
                   DockPanel.Dock="Right"
                   Content="Annuler"
