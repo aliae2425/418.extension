@@ -25,6 +25,11 @@ class TestSanitizeRevitName(unittest.TestCase):
     def test_conserve_texte_valide(self):
         self.assertEqual(sanitize_revit_name(u'Plan RDC 1-100'), u'Plan RDC 1-100')
 
+    def test_conserve_le_slash(self):
+        # Revit autorise « / » dans les noms (ex. échelle 1/100) : ne pas le retirer.
+        self.assertEqual(sanitize_revit_name(u'Coupe 1/100'), u'Coupe 1/100')
+        self.assertEqual(sanitize_revit_name(u'a\\b/c:d|e'), u'ab/cde')
+
     def test_vide_donne_sansnom(self):
         self.assertEqual(sanitize_revit_name(u'{}'), u'SansNom')
         self.assertEqual(sanitize_revit_name(u''), u'SansNom')

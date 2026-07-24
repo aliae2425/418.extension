@@ -13,7 +13,7 @@ def sanitize(name, max_len=_MAX_LEN):
     return name[:max_len]
 
 
-_INVALID_REVIT = re.compile(r'[\\/:{}\[\]|;<>?`~]')
+_INVALID_REVIT = re.compile(r'[\\:{}\[\]|;<>?`~]')
 
 
 def sanitize_revit_name(name):

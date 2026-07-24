@@ -47,8 +47,8 @@ class DuplicationSheetsService(object):
     """Service de duplication de feuilles Revit (vues, légendes, nomenclatures,
     lignes, cartouches de révision, images, texte, cotes, symboles, DWG).
 
-    Portage verbatim de la logique de l'ancien outil `duplicate_sheets`
-    (script EF `script.py`) vers un service découplé de l'UI."""
+    Portage de la logique de l'ancien outil `duplicate_sheets` monolithique
+    vers un service découplé de l'UI."""
 
     def __init__(self, doc):
         self._doc = doc
