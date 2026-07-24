@@ -95,15 +95,14 @@ _SURFACE_TITRES = {
 # Clés UserConfig (namespace 'batch_export') pour le mappage des paramètres
 # Oui/Non de collection -> rôle (export / carnet / dwg).
 #
-# `sheet_param_carnetcombo` et `sheet_param_dwgcombo` reprennent les clés
-# legacy déjà utilisées par ConfigManagerService.KEYS (profils/CSV).
-# `sheet_param_exportationcombo` est une clé NOUVELLE : le legacy
+# `sheet_param_carnetcombo` et `sheet_param_dwgcombo` reprennent des clés
+# legacy déjà présentes dans la config. `sheet_param_exportationcombo` est
+# une clé NOUVELLE : le legacy
 # (lib/services/core/ExportOrchestrator._get_ui_selected_param_names) lisait
 # le nom du paramètre "Export" directement depuis le contrôle UI
 # (ComboBox 'ExportationCombo') sans jamais le persister. On l'ajoute ici en
 # suivant la même convention de nommage (`sheet_param_` + nom du combo en
-# minuscules) pour permettre au VM de fonctionner sans UI. À reporter dans
-# `ConfigManagerService.KEYS` (profils/CSV) dans une tâche ultérieure.
+# minuscules) pour permettre au VM de fonctionner sans UI.
 _CFG_KEY_PARAM_EXPORT = 'sheet_param_exportationcombo'
 _CFG_KEY_PARAM_CARNET = 'sheet_param_carnetcombo'
 _CFG_KEY_PARAM_DWG = 'sheet_param_dwgcombo'
@@ -406,12 +405,6 @@ class MainViewModel(BaseViewModel):
         # reconstruite à chaque refresh_manuel(), jamais persistée.
         self._sheets_manuel = []
         self._filtres_manuel = []
-        # `FiltreManuelSelectionne` (sélection UNIQUE) est DÉPRÉCIÉ depuis le
-        # passage au multi-filtre à cases `IsActif` (voir `FiltreItemVM`) --
-        # conservé INERTE (getter/setter no-op côté recalcul) uniquement en
-        # filet de sécurité si un binding XAML résiduel y fait encore
-        # référence ; `SheetsManuelFiltrees` ne le lit plus jamais.
-        self._filtre_manuel_selectionne = None
         self._recherche_manuel = u''
 
         # Aperçu des conventions de nommage (page Réglages) : motifs bruts
@@ -885,11 +878,10 @@ class MainViewModel(BaseViewModel):
             ))
 
         self._filtres_manuel = filtres_out
-        self._filtre_manuel_selectionne = None
 
         self.refresh_patterns_apercu()
 
-        for name in (u'SheetsManuel', u'FiltresManuel', u'FiltreManuelSelectionne',
+        for name in (u'SheetsManuel', u'FiltresManuel',
                      u'SheetsManuelFiltrees', u'NbFeuillesManuel', u'NbPdf',
                      u'NbDwg', u'FiltresResume'):
             self.notify_property(name)
@@ -930,20 +922,6 @@ class MainViewModel(BaseViewModel):
         if n == 1:
             return u'1 filtre actif'
         return u'{} filtres actifs'.format(n)
-
-    @property
-    def FiltreManuelSelectionne(self):
-        """DÉPRÉCIÉ (sélection UNIQUE, remplacée par le multi-filtre à
-        cases `FiltreItemVM.IsActif`). Conservé INERTE : le setter ne
-        recalcule plus `SheetsManuelFiltrees` (qui n'en dépend plus) --
-        gardé uniquement en filet de sécurité pour un éventuel binding XAML
-        résiduel, afin qu'une affectation ne lève pas d'erreur."""
-        return self._filtre_manuel_selectionne
-
-    @FiltreManuelSelectionne.setter
-    def FiltreManuelSelectionne(self, value):
-        self._filtre_manuel_selectionne = value
-        self.notify_property(u'FiltreManuelSelectionne')
 
     @property
     def RechercheManuel(self):

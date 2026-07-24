@@ -398,9 +398,6 @@
               - RechercheManuel (TwoWay, PropertyChanged) : texte de recherche.
               - FiltresManuel : liste de FiltreItemVM (multi-sélection par
                 case à cocher, propriétés .Label / .IsActif TwoWay).
-                FiltreManuelSelectionne (sélection UNIQUE) est DÉPRÉCIÉ côté
-                VM (setter inerte) depuis le passage au multi-filtre : la
-                ComboBox correspondante a été retirée de cette vue.
               - NbFeuillesManuel / NbPdf / NbDwg : compteurs recalculés à
                 chaque changement de recherche/filtre/toggle.
               - SheetsManuelFiltrees : liste de ManualSheetVM (Numero, Nom,
