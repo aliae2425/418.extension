@@ -31,6 +31,7 @@ class MainWindowView(BaseWindow):
             return
         self._mount_pages()
         self._wire_nav()
+        self._wire_next()
         self._wire_run()
         self._wire_view_dup_option()
         self._sync_nav()
@@ -80,6 +81,20 @@ class MainWindowView(BaseWindow):
         btn = self._window.FindName(name)
         if btn is not None:
             btn.IsChecked = True
+
+    def _wire_next(self):
+        # Bouton « Suivant » de la page Sélection : mène à la page Options.
+        # On coche NavOptions, ce qui déclenche le handler de navigation
+        # existant (set_mode + affichage) et garde le rail synchronisé.
+        btn = self._page_selection.FindName('NextButton')
+        if btn is None:
+            return
+
+        def _on_next(sender, args):
+            nav_opt = self._window.FindName('NavOptions')
+            if nav_opt is not None:
+                nav_opt.IsChecked = True
+        btn.Click += _on_next
 
     def _wire_run(self):
         # Le bouton Run vit dans OptionsPage : le retrouver dans l'arbre de la page.

@@ -41,6 +41,14 @@ class TestSelectionPageVM(unittest.TestCase):
         vm.Items[0].IsSelected = False
         self.assertEqual(vm.selected_ids(), [2])
 
+    def test_has_selection_reflete_l_etat(self):
+        vm = self._vm([])
+        self.assertFalse(vm.HasSelection)
+        vm.Items[0].IsSelected = True
+        self.assertTrue(vm.HasSelection)
+        vm.Items[0].IsSelected = False
+        self.assertFalse(vm.HasSelection)
+
 
 if __name__ == '__main__':
     unittest.main()

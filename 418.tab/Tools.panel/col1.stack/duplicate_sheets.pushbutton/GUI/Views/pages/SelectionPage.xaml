@@ -12,6 +12,7 @@
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
 
     <TextBlock Grid.Row="0"
@@ -46,5 +47,15 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
     </ScrollViewer>
+
+    <!-- Bouton Suivant : actif uniquement si au moins une feuille est cochée
+         (IsEnabled lié à HasSelection). Le Python le câble vers la page Options. -->
+    <Button Grid.Row="2"
+            x:Name="NextButton"
+            Content="Suivant"
+            Style="{DynamicResource PrimaryActionButtonStyle}"
+            HorizontalAlignment="Right"
+            Margin="0,14,0,0"
+            IsEnabled="{Binding HasSelection}"/>
   </Grid>
 </UserControl>

@@ -32,6 +32,13 @@ class SelectionPageVM(BaseViewModel):
     def selected_ids(self):
         return [it.SheetId for it in self._items if it.IsSelected]
 
+    @property
+    def HasSelection(self):
+        """True si au moins une feuille est cochée. Pilote l'activation du
+        bouton « Suivant » (IsEnabled)."""
+        return any(it.IsSelected for it in self._items)
+
     def _on_item_toggle(self, item):
+        self.notify_property('HasSelection')
         if self._on_selection_changed is not None:
             self._on_selection_changed(self.selected_ids())
