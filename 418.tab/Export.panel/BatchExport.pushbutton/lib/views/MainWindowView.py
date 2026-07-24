@@ -26,6 +26,15 @@ except Exception:
     except Exception:
         NamingEditorView = None  # type: ignore
 
+# SPIKE (étape 0 découpage main window) : sous-VM de la page « par jeu ».
+try:
+    from viewmodels.AutoPageVM import AutoPageVM
+except Exception:
+    try:
+        from lib.viewmodels.AutoPageVM import AutoPageVM
+    except Exception:
+        AutoPageVM = None  # type: ignore
+
 
 def _xaml_path():
     here = os.path.dirname(os.path.abspath(__file__))
@@ -79,6 +88,48 @@ class MainWindowView(BaseWindow):
             self._vm.refresh_manuel()
         except Exception:
             pass
+        self._mount_auto_page_spike()
+
+    # ------------------------------------------------------------------
+    # SPIKE (étape 0) : charge GUI/Views/pages/AutoPage.xaml comme arbre
+    # séparé, lui pose son PROPRE DataContext (AutoPageVM) et l'insère dans
+    # le ContentControl AutoPageHost du shell. Les erreurs sont VOLONTAIREMENT
+    # imprimées (go/no-go du mécanisme d'arbre embarqué) plutôt qu'absorbées.
+    # ------------------------------------------------------------------
+    def _load_page(self, filename):
+        from System.Windows.Markup import XamlReader
+        from System.IO import FileStream, FileMode, FileAccess
+        here = os.path.dirname(os.path.abspath(__file__))
+        button = os.path.abspath(os.path.join(here, '..', '..'))
+        path = os.path.join(button, 'GUI', 'Views', 'pages', filename)
+        stream = FileStream(path, FileMode.Open, FileAccess.Read)
+        try:
+            return XamlReader.Load(stream)
+        finally:
+            try:
+                stream.Close()
+            except Exception:
+                pass
+
+    def _mount_auto_page_spike(self):
+        if self._window is None or AutoPageVM is None:
+            print('SPIKE AutoPage: window ou AutoPageVM indisponible (window={}, VM={})'.format(
+                self._window is not None, AutoPageVM is not None))
+            return
+        host = self._window.FindName('AutoPageHost')
+        if host is None:
+            print('SPIKE AutoPage: hote AutoPageHost introuvable dans le shell')
+            return
+        try:
+            collections = getattr(self._vm, 'Collections', None) or []
+            page_vm = AutoPageVM(collections)
+            page = self._load_page('AutoPage.xaml')
+            page.DataContext = page_vm
+            host.Content = page
+            print('SPIKE AutoPage: OK — page montee, {} collection(s), DataContext={}'.format(
+                len(collections), type(page_vm).__name__))
+        except Exception as e:
+            print('SPIKE AutoPage: ECHEC — {}'.format(e))
 
     def wire_export(self):
         if self._window is None:
