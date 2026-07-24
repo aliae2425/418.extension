@@ -195,6 +195,21 @@ class TestNamingServiceJetons(unittest.TestCase):
         for attendu in ('{numero}', '{nom}', '{date}', '{param:NOM}', '{param_projet:NOM}'):
             self.assertIn(attendu, tokens)
 
+    def test_available_tokens_porte_un_label_court(self):
+        """`label` : nom court sans qualifier de source (la couleur du badge
+        indique déjà l'origine) -- `{nom}` et `{projet_nom}` partagent
+        volontairement le même label 'nom'."""
+        entrees = self.service.available_tokens()
+        for entree in entrees:
+            self.assertIn('label', entree)
+            self.assertTrue(entree['label'])
+
+        par_token = dict((e['token'], e['label']) for e in entrees)
+        self.assertEqual(par_token['{numero}'], 'numéro')
+        self.assertEqual(par_token['{nom}'], 'nom')
+        self.assertEqual(par_token['{projet_nom}'], 'nom')
+        self.assertEqual(par_token['{date_annee}'], 'année')
+
 
 class TestNamingServicePersistence(unittest.TestCase):
     def setUp(self):

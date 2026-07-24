@@ -552,12 +552,10 @@ class TestMainViewModelModeManuel(unittest.TestCase):
     def test_refresh_manuel_reinitialise_la_selection(self):
         self.vm.refresh_manuel()
         self.vm.SheetsManuel[0].ExportDwg = True
-        self.vm.SheetsManuel[0].Selected = True
         self.vm.refresh_manuel()
         for s in self.vm.SheetsManuel:
             self.assertTrue(s.ExportPdf)
             self.assertFalse(s.ExportDwg)
-            self.assertFalse(s.Selected)
 
     def test_jeu_nom_renseigne_depuis_la_collection(self):
         self.vm.refresh_manuel()
@@ -572,23 +570,6 @@ class TestMainViewModelModeManuel(unittest.TestCase):
         for s in self.vm.SheetsManuel:
             self.assertEqual(s.NomProjete, u'PROJETE-{}'.format(s.Numero))
 
-    def test_selected_toggle_recompte_nb_selected(self):
-        self.vm.refresh_manuel()
-        self.assertEqual(self.vm.NbSelected, 0)
-        self.vm.SheetsManuel[0].Selected = True
-        self.assertEqual(self.vm.NbSelected, 1)
-        self.vm.SheetsManuel[1].Selected = True
-        self.assertEqual(self.vm.NbSelected, 2)
-        self.vm.SheetsManuel[0].Selected = False
-        self.assertEqual(self.vm.NbSelected, 1)
-
-    def test_nb_selected_porte_sur_les_feuilles_filtrees(self):
-        self.vm.refresh_manuel()
-        self.vm.SheetsManuel[2].Selected = True  # '03' (Jeu B)
-        filtre_jeu_a = next(f for f in self.vm.FiltresManuel if f.Label == u'Jeu : Jeu A')
-        filtre_jeu_a.IsActif = True
-        self.assertEqual(self.vm.NbSelected, 0)
-
     def test_refresh_manuel_sans_service_ne_leve_pas(self):
         vm = MainViewModel(doc=None)
         vm.refresh_manuel()
@@ -597,7 +578,6 @@ class TestMainViewModelModeManuel(unittest.TestCase):
         self.assertEqual(vm.NbFeuillesManuel, 0)
         self.assertEqual(vm.NbPdf, 0)
         self.assertEqual(vm.NbDwg, 0)
-        self.assertEqual(vm.NbSelected, 0)
         self.assertEqual(vm.selection_manuelle(), [])
 
 
@@ -609,7 +589,6 @@ class TestManualSheetVM(unittest.TestCase):
         item = ManualSheetVM('01', 'RDC')
         self.assertTrue(item.ExportPdf)
         self.assertFalse(item.ExportDwg)
-        self.assertFalse(item.Selected)
         self.assertEqual(item.JeuNom, u'')
         self.assertEqual(item.NomProjete, u'')
 
@@ -625,19 +604,6 @@ class TestManualSheetVM(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         item.ExportDwg = True
         self.assertEqual(len(calls), 2)
-
-    def test_toggle_selected_notifie_et_appelle_on_change(self):
-        calls = []
-        item = ManualSheetVM('01', 'RDC', on_change=lambda: calls.append(1))
-        item.Selected = True
-        self.assertTrue(item.Selected)
-        self.assertEqual(len(calls), 1)
-
-    def test_selected_setter_idempotent_ne_rappelle_pas_on_change(self):
-        calls = []
-        item = ManualSheetVM('01', 'RDC', on_change=lambda: calls.append(1))
-        item.Selected = False  # déjà False par défaut
-        self.assertEqual(len(calls), 0)
 
     def test_setter_idempotent_ne_rappelle_pas_on_change(self):
         calls = []

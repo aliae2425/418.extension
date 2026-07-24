@@ -239,6 +239,69 @@
         <Setter Property="Margin" Value="0,4"/>
     </Style>
 
+    <!-- ============================================================= -->
+    <!-- CheckBoxStyle (Fluent, keyed) : carré arrondi, coche accent    -->
+    <!-- quand cochée, hover. Appliqué EXPLICITEMENT via                -->
+    <!-- DynamicResource (ex: cases du menu déroulant de filtres, mode  -->
+    <!-- manuel) : ne remplace PAS le style implicite TargetType=       -->
+    <!-- CheckBox ci-dessus (qui reste le défaut de tout le socle,      -->
+    <!-- partagé avec Audit.pushbutton) ni ToggleSwitchStyle (cases     -->
+    <!-- PDF/DWG, rendu pill/interrupteur, cas d'usage différent).      -->
+    <!-- ============================================================= -->
+    <Style x:Key="CheckBoxStyle" TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontFamily" Value="Segoe UI"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Padding" Value="8,0,0,0"/>
+        <Setter Property="Margin" Value="0,4"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <StackPanel Orientation="Horizontal">
+                        <!-- Case carrée arrondie -->
+                        <Border x:Name="box"
+                                Width="18" Height="18"
+                                CornerRadius="4"
+                                Background="{DynamicResource ControlFillBrush}"
+                                BorderBrush="{DynamicResource ControlBorderBrush}"
+                                BorderThickness="1">
+                            <Path x:Name="checkMark"
+                                  Data="M 1 4.5 L 4.5 8 L 10.5 1"
+                                  Stroke="{DynamicResource TextOnAccentBrush}"
+                                  StrokeThickness="1.6"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round"
+                                  Width="11" Height="9"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  Visibility="Collapsed"/>
+                        </Border>
+                        <ContentPresenter x:Name="content"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center"
+                                          HorizontalAlignment="Left"/>
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="box" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="checkMark" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.6"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ScrollBar Style -->
     <Style x:Key="ScrollBarThumb" TargetType="{x:Type Thumb}">
         <Setter Property="OverridesDefaultStyle" Value="true"/>

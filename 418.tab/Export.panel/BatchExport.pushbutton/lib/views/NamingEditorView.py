@@ -46,9 +46,13 @@ class NamingEditorView(BaseWindow):
     # routed events WPF, ce handler capte le clic de N'IMPORTE QUEL badge
     # descendant, sans dépendre du DataTemplate (pas de x:Name/Click=
     # exploitable pour un item généré dynamiquement). Le jeton cliqué est lu
-    # défensivement : `btn.DataContext.token` (TokenItemVM) en priorité,
-    # repli sur `btn.Content` (déjà bindé à `token`) si le DataContext
-    # n'est pas exploitable pour une raison quelconque.
+    # EXCLUSIVEMENT via `btn.DataContext.token` (TokenItemVM) : le badge
+    # affiche désormais `.label` (nom court, sans qualifier de source -- la
+    # couleur du badge indique déjà l'origine), donc `btn.Content` ne peut
+    # PAS servir de repli -- le Button utilise un ControlTemplate custom, si
+    # bien que `.Content` est de toute façon le `Border` coloré, jamais une
+    # chaîne. Si le DataContext n'est pas exploitable, on abandonne
+    # silencieusement (no-op) plutôt que d'insérer un texte incorrect.
     # ------------------------------------------------------------------
 
     def wire_tokens(self):
@@ -74,11 +78,11 @@ class NamingEditorView(BaseWindow):
             except Exception:
                 token = None
             if not token:
-                try:
-                    token = btn.Content
-                except Exception:
-                    token = None
-            if not token:
+                # Pas de repli sur `btn.Content` : le badge affiche `.label`
+                # (nom court) et le Button a un ControlTemplate custom, donc
+                # `.Content` n'est de toute façon jamais le jeton complet
+                # (c'est le `Border` coloré). Sans DataContext exploitable,
+                # on abandonne plutôt que d'insérer une valeur incorrecte.
                 return
 
             try:

@@ -51,14 +51,21 @@ _SOURCES_DISPONIBLES = (
 class TokenItemVM(object):
     """Item bindable pour un badge de jeton insérable.
 
-    Wrap un dict `{'token': ..., 'desc': ..., 'source': ...}` (contrat de
-    `NamingService.available_tokens()`) en objet à propriétés réelles
-    (`.token`/`.desc`/`.source`/`.CouleurBrush`) -- WPF/IronPython ne résout
-    pas de façon fiable un binding `{Binding token}` directement sur une clé
-    de dict Python (aucun précédent de ce genre dans ce projet :
-    SheetItemVM/CollectionItemVM sont déjà de vraies instances). Nécessaire
-    pour `Content="{Binding token}"` et `ToolTip="{Binding desc}"` côté
-    XAML.
+    Wrap un dict `{'token': ..., 'desc': ..., 'source': ..., 'label': ...}`
+    (contrat de `NamingService.available_tokens()`) en objet à propriétés
+    réelles (`.token`/`.desc`/`.source`/`.label`/`.CouleurBrush`) --
+    WPF/IronPython ne résout pas de façon fiable un binding `{Binding token}`
+    directement sur une clé de dict Python (aucun précédent de ce genre dans
+    ce projet : SheetItemVM/CollectionItemVM sont déjà de vraies instances).
+    Nécessaire pour `ToolTip="{Binding desc}"` et le texte du badge
+    (`{Binding label}`) côté XAML.
+
+    `.label` : nom COURT affiché sur le badge (sans qualifier de source --
+    la couleur du badge indique déjà l'origine). `.token` reste le jeton
+    complet, celui réellement inséré dans le motif au clic -- jamais affiché
+    tel quel sur le badge. Repli sur `.token` si `label` est absent (ex.
+    ancien contrat de service sans cette clé), pour qu'un badge n'affiche
+    jamais un texte vide.
 
     `.CouleurBrush` porte le NOM de la ressource brush à appliquer (ex.
     "AccentBrush") -- pas un `Brush` .NET. Un `{Binding CouleurBrush}` direct
@@ -68,10 +75,11 @@ class TokenItemVM(object):
     propriété reste utile pour les tests et pour un éventuel converter futur.
     """
 
-    def __init__(self, token, desc, source=None):
+    def __init__(self, token, desc, source=None, label=None):
         self.token = token or u''
         self.desc = desc or u''
         self.source = source or u''
+        self.label = label or self.token
         self.CouleurBrush = _COULEUR_PAR_SOURCE.get(self.source, _COULEUR_DEFAUT)
 
 
@@ -167,7 +175,7 @@ class NamingEditorViewModel(BaseViewModel):
     @property
     def AvailableTokens(self):
         """Liste de `TokenItemVM` (adaptés depuis
-        `naming_service.available_tokens()` -> `[{'token','desc','source'}, ...]`)
+        `naming_service.available_tokens()` -> `[{'token','desc','source','label'}, ...]`)
         -- ensemble complet, non filtré. Best-effort : `[]` si le service
         est absent."""
         if self._naming_service is None:
@@ -177,7 +185,10 @@ class NamingEditorViewModel(BaseViewModel):
         except Exception:
             return []
         return [
-            TokenItemVM(d.get('token', u''), d.get('desc', u''), d.get('source', u''))
+            TokenItemVM(
+                d.get('token', u''), d.get('desc', u''), d.get('source', u''),
+                d.get('label', u''),
+            )
             for d in bruts
         ]
 

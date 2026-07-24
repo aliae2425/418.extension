@@ -183,6 +183,14 @@ class MainWindowView(BaseWindow):
 
         view.show()
 
+        # La modale est modale (ShowDialog) : au retour, rafraîchir l'aperçu
+        # de la convention dans la page Réglages (le motif a pu changer).
+        try:
+            if hasattr(self._vm, 'refresh_patterns_apercu'):
+                self._vm.refresh_patterns_apercu()
+        except Exception:
+            pass
+
     def wire_navigation(self):
         if self._window is None:
             return

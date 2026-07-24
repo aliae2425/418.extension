@@ -42,10 +42,10 @@ class FakeNamingService(object):
 
     def available_tokens(self):
         return [
-            {'token': '{numero}', 'desc': 'Numéro de feuille', 'source': 'feuille'},
-            {'token': '{nom}', 'desc': 'Nom de la feuille', 'source': 'feuille'},
-            {'token': '{titre}', 'desc': 'Titre du carnet', 'source': 'carnet'},
-            {'token': '{projet_nom}', 'desc': 'Nom du projet', 'source': 'projet'},
+            {'token': '{numero}', 'desc': 'Numéro de feuille', 'source': 'feuille', 'label': 'numéro'},
+            {'token': '{nom}', 'desc': 'Nom de la feuille', 'source': 'feuille', 'label': 'nom'},
+            {'token': '{titre}', 'desc': 'Titre du carnet', 'source': 'carnet', 'label': 'titre'},
+            {'token': '{projet_nom}', 'desc': 'Nom du projet', 'source': 'projet', 'label': 'nom'},
         ]
 
 
@@ -129,6 +129,17 @@ class TestNamingEditorViewModelAvailableTokens(unittest.TestCase):
         self.assertEqual(par_token['{numero}'], u'AccentBrush')
         self.assertEqual(par_token['{titre}'], u'SuccessBrush')
         self.assertEqual(par_token['{projet_nom}'], u'WarningBrush')
+
+    def test_available_tokens_porte_un_label_court(self):
+        """`.label` : nom court affiché sur le badge (sans qualifier de
+        source) -- `{nom}` et `{projet_nom}` partagent le même label 'nom',
+        seule la couleur (`.source`) distingue leur origine."""
+        vm = NamingEditorViewModel('sheet', naming_service=FakeNamingService())
+        par_token = dict((t.token, t.label) for t in vm.AvailableTokens)
+        self.assertEqual(par_token['{numero}'], u'numéro')
+        self.assertEqual(par_token['{nom}'], u'nom')
+        self.assertEqual(par_token['{titre}'], u'titre')
+        self.assertEqual(par_token['{projet_nom}'], u'nom')
 
 
 class TestNamingEditorViewModelFiltreSource(unittest.TestCase):
@@ -244,6 +255,18 @@ class TestTokenItemVMEtSourceItemVM(unittest.TestCase):
     def test_tokenitemvm_source_inconnue_replie_sur_couleur_defaut(self):
         item = TokenItemVM(u'{x}', u'desc', u'source_bidon')
         self.assertEqual(item.CouleurBrush, u'AccentBrush')
+
+    def test_tokenitemvm_label_explicite(self):
+        item = TokenItemVM(u'{numero}', u'desc', u'feuille', u'numéro')
+        self.assertEqual(item.label, u'numéro')
+        # Le jeton complet reste inchangé et distinct du label affiché.
+        self.assertEqual(item.token, u'{numero}')
+
+    def test_tokenitemvm_label_absent_replie_sur_token(self):
+        """Compat : un ancien contrat de service sans clé 'label' ne doit
+        jamais produire un badge vide -- repli sur `.token`."""
+        item = TokenItemVM(u'{numero}', u'desc', u'feuille')
+        self.assertEqual(item.label, u'{numero}')
 
     def test_sourceitemvm_valeurs_none_deviennent_chaine_vide(self):
         item = SourceItemVM(None, None)

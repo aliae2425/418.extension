@@ -437,7 +437,7 @@ class NamingService(object):
     # ------------------------------------------------------------------
 
     def available_tokens(self):
-        """Retourne `[{'token': '{numero}', 'desc': '...', 'source': '...'}, ...]` :
+        """Retourne `[{'token': '{numero}', 'desc': '...', 'source': '...', 'label': '...'}, ...]` :
         la liste des jetons spéciaux gérés, pour affichage de badges
         insérables dans l'éditeur de nommage. Inclut des entrées génériques
         pour les jetons paramétrés `{param:NOM}` / `{param_projet:NOM}`.
@@ -448,23 +448,30 @@ class NamingService(object):
         sont résolus par feuille au moment de l'export (pas une propriété
         figée du projet), même si leur valeur ne dépend pas de l'élément.
         `{param:NOM}` cible l'élément (feuille ou carnet) -> 'feuille'.
-        `{param_projet:NOM}` cible ProjectInformation -> 'projet'."""
+        `{param_projet:NOM}` cible ProjectInformation -> 'projet'.
+
+        `label` : nom COURT affiché sur le badge, SANS qualifier de source
+        (la couleur du badge indique déjà l'origine -- voir `.source` /
+        `TokenItemVM.CouleurBrush`). Le jeton complet (`token`) reste ce qui
+        est inséré au clic ; `label` n'est qu'un texte d'affichage. Notez
+        que `{nom}` et `{projet_nom}` partagent volontairement le même
+        label 'nom' : seule la couleur du badge distingue leur source."""
         return [
-            {'token': '{numero}', 'desc': 'Numéro de feuille', 'source': 'feuille'},
-            {'token': '{nom}', 'desc': 'Nom de la feuille (ou titre du carnet)', 'source': 'feuille'},
-            {'token': '{nom_tiret}', 'desc': 'Nom avec espaces remplacés par -', 'source': 'feuille'},
-            {'token': '{nom_underscore}', 'desc': 'Nom avec espaces remplacés par _', 'source': 'feuille'},
-            {'token': '{titre}', 'desc': 'Titre du carnet', 'source': 'carnet'},
-            {'token': '{date}', 'desc': 'Date du jour (AAAA-MM-JJ)', 'source': 'feuille'},
-            {'token': '{date_jour}', 'desc': 'Jour courant (JJ)', 'source': 'feuille'},
-            {'token': '{date_mois}', 'desc': 'Mois courant (MM)', 'source': 'feuille'},
-            {'token': '{date_annee}', 'desc': 'Année courante (AAAA)', 'source': 'feuille'},
-            {'token': '{projet_nom}', 'desc': 'Nom du projet', 'source': 'projet'},
-            {'token': '{projet_numero}', 'desc': 'Numéro du projet', 'source': 'projet'},
-            {'token': '{projet_client}', 'desc': 'Client du projet', 'source': 'projet'},
-            {'token': '{projet_statut}', 'desc': 'Statut du projet', 'source': 'projet'},
-            {'token': '{param:NOM}', 'desc': "Paramètre NOM sur l'élément", 'source': 'feuille'},
-            {'token': '{param_projet:NOM}', 'desc': 'Paramètre NOM du projet', 'source': 'projet'},
+            {'token': '{numero}', 'desc': 'Numéro de feuille', 'source': 'feuille', 'label': 'numéro'},
+            {'token': '{nom}', 'desc': 'Nom de la feuille (ou titre du carnet)', 'source': 'feuille', 'label': 'nom'},
+            {'token': '{nom_tiret}', 'desc': 'Nom avec espaces remplacés par -', 'source': 'feuille', 'label': 'nom (tirets)'},
+            {'token': '{nom_underscore}', 'desc': 'Nom avec espaces remplacés par _', 'source': 'feuille', 'label': 'nom (underscores)'},
+            {'token': '{titre}', 'desc': 'Titre du carnet', 'source': 'carnet', 'label': 'titre'},
+            {'token': '{date}', 'desc': 'Date du jour (AAAA-MM-JJ)', 'source': 'feuille', 'label': 'date'},
+            {'token': '{date_jour}', 'desc': 'Jour courant (JJ)', 'source': 'feuille', 'label': 'jour'},
+            {'token': '{date_mois}', 'desc': 'Mois courant (MM)', 'source': 'feuille', 'label': 'mois'},
+            {'token': '{date_annee}', 'desc': 'Année courante (AAAA)', 'source': 'feuille', 'label': 'année'},
+            {'token': '{projet_nom}', 'desc': 'Nom du projet', 'source': 'projet', 'label': 'nom'},
+            {'token': '{projet_numero}', 'desc': 'Numéro du projet', 'source': 'projet', 'label': 'numéro'},
+            {'token': '{projet_client}', 'desc': 'Client du projet', 'source': 'projet', 'label': 'client'},
+            {'token': '{projet_statut}', 'desc': 'Statut du projet', 'source': 'projet', 'label': 'statut'},
+            {'token': '{param:NOM}', 'desc': "Paramètre NOM sur l'élément", 'source': 'feuille', 'label': 'paramètre…'},
+            {'token': '{param_projet:NOM}', 'desc': 'Paramètre NOM du projet', 'source': 'projet', 'label': 'paramètre…'},
         ]
 
     # ------------------------------------------------------------------

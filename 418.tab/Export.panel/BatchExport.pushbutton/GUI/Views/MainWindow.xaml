@@ -401,11 +401,13 @@
                 FiltreManuelSelectionne (sélection UNIQUE) est DÉPRÉCIÉ côté
                 VM (setter inerte) depuis le passage au multi-filtre : la
                 ComboBox correspondante a été retirée de cette vue.
-              - NbFeuillesManuel / NbPdf / NbDwg / NbSelected : compteurs
-                recalculés à chaque changement de recherche/filtre/toggle.
-              - SheetsManuelFiltrees : liste de ManualSheetVM (Selected TwoWay,
-                Numero, Nom, JeuNom, NomProjete, ExportPdf TwoWay,
-                ExportDwg TwoWay).
+              - NbFeuillesManuel / NbPdf / NbDwg : compteurs recalculés à
+                chaque changement de recherche/filtre/toggle.
+              - SheetsManuelFiltrees : liste de ManualSheetVM (Numero, Nom,
+                JeuNom, NomProjete, ExportPdf TwoWay, ExportDwg TwoWay). Pas
+                de case de sélection de ligne : redondante avec ExportPdf/
+                ExportDwg (une ligne sans aucun format actif n'est jamais
+                exportée, cf. selection_manuelle()).
             -->
             <Grid Grid.Row="1"
                   Margin="20,16,20,8"
@@ -419,9 +421,42 @@
               <!--
                 Rangée recherche + filtre, côte à côte, ratio 2/3 - 1/3.
                 Gauche : TextBox de recherche pleine largeur de sa colonne.
-                Droite : liste de filtres multi-sélection (cases à cocher),
-                dans un ScrollViewer à hauteur fixe pour ne pas déséquilibrer
-                la rangée si FiltresManuel contient beaucoup d'items.
+                Droite : menu déroulant de filtres MULTI-SÉLECTION.
+
+                Approche retenue : ToggleButton + Popup (PAS de ComboBox).
+                Une ComboBox avec des CheckBox dans son ItemTemplate est
+                connue pour être fragile sans code-behind : cliquer sur un
+                item referme le popup (ClickMode="Press" du ToggleButton
+                interne, cf. ComboBoxStyle du socle) et/ou la ComboBox tente
+                de piloter SelectedItem/SelectedIndex, ce qui entre en
+                conflit avec la sélection multi-cases : comportement que ce
+                XAML (chargé via XamlReader.Load, sans code-behind pour
+                compenser) ne peut pas fiabiliser. Le couple ToggleButton +
+                Popup donne un contrôle total sur l'ouverture/fermeture et
+                laisse les CheckBox de l'ItemsControl interne gérer leur
+                propre toggle sans interférence.
+
+                - FiltreToggle (ToggleButton) : habillé d'un Border arrondi
+                  (ControlFillBrush/ControlBorderBrush, CornerRadius 8) pour
+                  s'aligner visuellement sur la TextBox de recherche à
+                  gauche : un ToggleButton nu n'a pas de style dans le
+                  socle (Styles.xaml n'en définit que pour l'intérieur des
+                  ControlTemplate Expander/ComboBox), donc chrome Win32 par
+                  défaut sans cet habillage.
+                - Texte affiché : résumé via {Binding FiltresResume}
+                  (MainViewModel), pas le Label d'un item : il n'y a pas de
+                  sélection unique à refléter.
+                - Popup : StaysOpen="False" (se ferme au clic extérieur) ;
+                  IsOpen bindé TWO-WAY sur FiltreToggle.IsChecked (pas
+                  one-way) : sans le TwoWay, un clic extérieur ferme le
+                  Popup mais laisse le ToggleButton visuellement coché (état
+                  désynchronisé, le menu ne se rouvre plus au clic suivant).
+                - DataContext du contenu du Popup fixé EXPLICITEMENT sur
+                  celui de FiltreToggle : l'héritage du DataContext à travers
+                  un Popup (fenêtre séparée dans l'arbre visuel) n'est pas
+                  fiable ; sans ce binding explicite, {Binding FiltresManuel}
+                  peut résoudre sur un DataContext vide et afficher une liste
+                  déroulante vide.
               -->
               <Grid Grid.Row="0" Margin="0,0,0,10">
                 <Grid.ColumnDefinitions>
@@ -444,31 +479,96 @@
                              FontSize="11"
                              FontWeight="SemiBold"
                              Margin="0,0,0,6"/>
-                  <ScrollViewer Height="72"
-                                VerticalScrollBarVisibility="Auto"
-                                HorizontalScrollBarVisibility="Disabled">
-                    <ItemsControl ItemsSource="{Binding FiltresManuel}">
-                      <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                          <StackPanel Orientation="Vertical"/>
-                        </ItemsPanelTemplate>
-                      </ItemsControl.ItemsPanel>
-                      <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                          <CheckBox IsChecked="{Binding IsActif, Mode=TwoWay}"
-                                    Content="{Binding Label}"/>
-                        </DataTemplate>
-                      </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                  </ScrollViewer>
+
+                  <ToggleButton x:Name="FiltreToggle"
+                                Height="35"
+                                Focusable="False"
+                                HorizontalContentAlignment="Stretch">
+                    <ToggleButton.Template>
+                      <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="FiltreToggleBorder"
+                                Background="{DynamicResource ControlFillBrush}"
+                                BorderBrush="{DynamicResource ControlBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="10,0">
+                          <Grid>
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="*"/>
+                              <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding FiltresResume}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       FontSize="12.5"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <Path Grid.Column="1"
+                                  Data="M 0 0 L 4 4 L 8 0 Z"
+                                  Fill="{DynamicResource TextPrimaryBrush}"
+                                  Width="8" Height="4"
+                                  Margin="8,0,0,0"
+                                  VerticalAlignment="Center"/>
+                          </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                          <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="FiltreToggleBorder" Property="Background" Value="{DynamicResource ControlFillHoverBrush}"/>
+                          </Trigger>
+                        </ControlTemplate.Triggers>
+                      </ControlTemplate>
+                    </ToggleButton.Template>
+                  </ToggleButton>
+
+                  <Popup x:Name="FiltrePopup"
+                         PlacementTarget="{Binding ElementName=FiltreToggle}"
+                         Placement="Bottom"
+                         IsOpen="{Binding IsChecked, ElementName=FiltreToggle, Mode=TwoWay}"
+                         StaysOpen="False"
+                         AllowsTransparency="True"
+                         Focusable="False"
+                         PopupAnimation="Slide">
+                    <!--
+                      DataContext explicite (cf. note ci-dessus) : celui de
+                      FiltreToggle, PAS d'héritage implicite à travers le Popup.
+                    -->
+                    <Border DataContext="{Binding ElementName=FiltreToggle, Path=DataContext}"
+                            Background="{DynamicResource ControlFillBrush}"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            MinWidth="180"
+                            Padding="4"
+                            SnapsToDevicePixels="True">
+                      <ScrollViewer MaxHeight="220"
+                                    VerticalScrollBarVisibility="Auto"
+                                    HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding FiltresManuel}">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                              <StackPanel Orientation="Vertical"/>
+                            </ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                              <CheckBox Style="{DynamicResource CheckBoxStyle}"
+                                        IsChecked="{Binding IsActif, Mode=TwoWay}"
+                                        Content="{Binding Label}"
+                                        Padding="6,4"/>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </ScrollViewer>
+                    </Border>
+                  </Popup>
                 </StackPanel>
               </Grid>
 
               <!--
                 Compteur : plusieurs TextBlock/littéraux (pas de MultiBinding),
                 calqué sur le badge de compte du mode « par jeu » (lignes 190-205).
-                NbSelected ajouté en fin de ligne (feuilles Selected=True parmi
-                les feuilles filtrées).
+                Plus de NbSelected (case de sélection de ligne retirée, cf.
+                note sur la Grid des lignes de feuille ci-dessous).
               -->
               <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
                 <TextBlock Text="{Binding NbFeuillesManuel}"
@@ -489,14 +589,7 @@
                            Foreground="{DynamicResource AccentBrush}"
                            FontWeight="SemiBold"
                            FontSize="12.5"/>
-                <TextBlock Text=" DWG · "
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontSize="12.5"/>
-                <TextBlock Text="{Binding NbSelected}"
-                           Foreground="{DynamicResource AccentBrush}"
-                           FontWeight="SemiBold"
-                           FontSize="12.5"/>
-                <TextBlock Text=" sélectionnées"
+                <TextBlock Text=" DWG"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="12.5"/>
               </StackPanel>
@@ -525,18 +618,26 @@
                               Margin="0,0,0,8">
                         <Grid>
                           <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="140"/>
                             <ColumnDefinition Width="90"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                           </Grid.ColumnDefinitions>
 
-                          <!-- Sélection de la ligne (inclusion dans l'export) -->
-                          <CheckBox Grid.Column="0"
-                                    IsChecked="{Binding Selected, Mode=TwoWay}"
-                                    VerticalAlignment="Center"
-                                    Margin="0,0,10,0"/>
+                          <!--
+                            Ordre demandé : nom du jeu AVANT le numéro de feuille.
+                            Pas de case de sélection de ligne : redondante avec
+                            les interrupteurs PDF/DWG (une feuille sans format
+                            actif n'est jamais exportée, cf. selection_manuelle()).
+                          -->
+                          <TextBlock Grid.Column="0"
+                                     Text="{Binding JeuNom}"
+                                     Foreground="{DynamicResource TextSecondaryBrush}"
+                                     FontSize="11"
+                                     VerticalAlignment="Center"
+                                     TextTrimming="CharacterEllipsis"
+                                     Margin="0,0,8,0"/>
 
                           <TextBlock Grid.Column="1"
                                      Text="{Binding Numero}"
@@ -546,33 +647,16 @@
                                      VerticalAlignment="Center"/>
 
                           <!--
-                            Nom + jeu + aperçu du nom projeté empilés
-                            verticalement : reste lisible à MinWidth=600
-                            sans reflow de colonnes (non praticable en WPF
-                            pur sur la largeur).
+                            Nom + aperçu du nom projeté empilés verticalement.
                           -->
                           <StackPanel Grid.Column="2"
                                       Orientation="Vertical"
                                       VerticalAlignment="Center"
                                       Margin="8,0">
-                            <Grid>
-                              <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                              </Grid.ColumnDefinitions>
-                              <TextBlock Grid.Column="0"
-                                         Text="{Binding Nom}"
-                                         Foreground="{DynamicResource TextPrimaryBrush}"
-                                         FontSize="12.5"
-                                         TextTrimming="CharacterEllipsis"/>
-                              <TextBlock Grid.Column="1"
-                                         Text="{Binding JeuNom}"
-                                         Foreground="{DynamicResource TextSecondaryBrush}"
-                                         FontSize="11"
-                                         Margin="8,0,0,0"
-                                         MaxWidth="120"
-                                         TextTrimming="CharacterEllipsis"/>
-                            </Grid>
+                            <TextBlock Text="{Binding Nom}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       FontSize="12.5"
+                                       TextTrimming="CharacterEllipsis"/>
                             <TextBlock Text="{Binding NomProjete}"
                                        Foreground="{DynamicResource TextSecondaryBrush}"
                                        FontFamily="Consolas"

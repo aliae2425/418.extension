@@ -178,29 +178,24 @@ class CollectionItemVM(BaseViewModel):
 
 class ManualSheetVM(BaseViewModel):
     """Item bindable pour une feuille en mode « feuille par feuille »
-    (sélection manuelle). `ExportPdf`/`ExportDwg`/`Selected` sont TWO-WAY
-    (cases à cocher) ; chaque toggle notifie sa propriété puis appelle
-    `on_change` (callback fourni par le VM parent) pour permettre la
-    recomputation des compteurs `NbPdf`/`NbDwg`/`NbSelected` sans que ce VM
-    connaisse `MainViewModel`.
+    (sélection manuelle). `ExportPdf`/`ExportDwg` sont TWO-WAY (cases à
+    cocher) ; chaque toggle notifie sa propriété puis appelle `on_change`
+    (callback fourni par le VM parent) pour permettre la recomputation des
+    compteurs `NbPdf`/`NbDwg` sans que ce VM connaisse `MainViewModel`.
 
     `JeuNom`/`NomProjete` sont en LECTURE SEULE : calculés une fois par
     `refresh_manuel()` (mapping CollectionId->Titre et résolution du
     pattern de nommage FEUILLE), jamais recalculés à la volée par ce VM.
 
-    Sémantique de `Selected` (proposition, voir docstring de
-    `selection_manuelle`) : coche d'inclusion de la ligne dans l'export,
-    INDÉPENDANTE des cases de format `ExportPdf`/`ExportDwg`. Ce draft
-    n'unifie pas encore les deux notions -- `selection_manuelle()` continue
-    de se baser uniquement sur ExportPdf/ExportDwg (comportement inchangé,
-    couvert par les tests existants) ; `Selected`/`NbSelected` sont exposés
-    en plus pour que l'UI/orchestrateur décide plus tard comment les
-    combiner (ex: une ligne cochée sans aucun format actif ne serait pas
-    exportée malgré `Selected=True`).
+    Pas de case de sélection de ligne (`Selected`) : elle a été retirée car
+    redondante avec les cases de format `ExportPdf`/`ExportDwg` -- une ligne
+    sans aucun format actif n'est de toute façon jamais reprise par
+    `selection_manuelle()` (qui se base UNIQUEMENT sur ExportPdf/ExportDwg,
+    comportement inchangé).
     """
 
     def __init__(self, numero, nom, collection_id=None, elem=None,
-                 export_pdf=True, export_dwg=False, selected=False,
+                 export_pdf=True, export_dwg=False,
                  jeu_nom=u'', nom_projete=u'', on_change=None):
         super(ManualSheetVM, self).__init__()
         self._numero = numero
@@ -209,7 +204,6 @@ class ManualSheetVM(BaseViewModel):
         self._elem = elem
         self._export_pdf = bool(export_pdf)
         self._export_dwg = bool(export_dwg)
-        self._selected = bool(selected)
         self._jeu_nom = jeu_nom or u''
         self._nom_projete = nom_projete or u''
         self._on_change = on_change
@@ -263,20 +257,6 @@ class ManualSheetVM(BaseViewModel):
             return
         self._export_dwg = value
         self.notify_property(u'ExportDwg')
-        if callable(self._on_change):
-            self._on_change()
-
-    @property
-    def Selected(self):
-        return self._selected
-
-    @Selected.setter
-    def Selected(self, value):
-        value = bool(value)
-        if value == self._selected:
-            return
-        self._selected = value
-        self.notify_property(u'Selected')
         if callable(self._on_change):
             self._on_change()
 
@@ -803,10 +783,10 @@ class MainViewModel(BaseViewModel):
         `_sheet_service`.
 
         Sélection ÉPHÉMÈRE : chaque appel reconstruit entièrement les
-        `ManualSheetVM` (défauts `ExportPdf=True`/`ExportDwg=False`/
-        `Selected=False`) et les `FiltreItemVM` (défaut `IsActif=False` :
-        aucun filtre actif -> toutes les feuilles visibles), sans tenter de
-        préserver l'état précédent.
+        `ManualSheetVM` (défauts `ExportPdf=True`/`ExportDwg=False`) et les
+        `FiltreItemVM` (défaut `IsActif=False` : aucun filtre actif ->
+        toutes les feuilles visibles), sans tenter de préserver l'état
+        précédent.
 
         `JeuNom` (par feuille) est renseigné via un mapping
         CollectionId->Titre construit depuis `list_collections()` (déjà
@@ -875,7 +855,7 @@ class MainViewModel(BaseViewModel):
 
             sheets_out.append(ManualSheetVM(
                 numero, nom, collection_id=coll_id, elem=elem,
-                export_pdf=True, export_dwg=False, selected=False,
+                export_pdf=True, export_dwg=False,
                 jeu_nom=jeu_nom, nom_projete=nom_projete,
                 on_change=self._on_manual_sheet_change,
             ))
@@ -911,22 +891,23 @@ class MainViewModel(BaseViewModel):
 
         for name in (u'SheetsManuel', u'FiltresManuel', u'FiltreManuelSelectionne',
                      u'SheetsManuelFiltrees', u'NbFeuillesManuel', u'NbPdf',
-                     u'NbDwg', u'NbSelected'):
+                     u'NbDwg', u'FiltresResume'):
             self.notify_property(name)
 
     def _on_manual_sheet_change(self):
         """Callback passé à chaque `ManualSheetVM` : un toggle ExportPdf/
-        ExportDwg/Selected impacte les compteurs (calculés à la volée sur
-        les feuilles FILTRÉES), jamais la liste ni les filtres eux-mêmes."""
-        for name in (u'NbPdf', u'NbDwg', u'NbSelected'):
+        ExportDwg impacte les compteurs (calculés à la volée sur les
+        feuilles FILTRÉES), jamais la liste ni les filtres eux-mêmes."""
+        for name in (u'NbPdf', u'NbDwg'):
             self.notify_property(name)
 
     def _on_filtre_change(self):
         """Callback passé à chaque `FiltreItemVM` : un toggle `IsActif`
         recalcule `SheetsManuelFiltrees` et les compteurs (union OU sur les
-        filtres actifs -- voir `SheetsManuelFiltrees`)."""
+        filtres actifs -- voir `SheetsManuelFiltrees`), ainsi que le résumé
+        affiché sur le ToggleButton du menu déroulant (`FiltresResume`)."""
         for name in (u'SheetsManuelFiltrees', u'NbFeuillesManuel', u'NbPdf',
-                     u'NbDwg', u'NbSelected'):
+                     u'NbDwg', u'FiltresResume'):
             self.notify_property(name)
 
     @property
@@ -936,6 +917,19 @@ class MainViewModel(BaseViewModel):
     @property
     def FiltresManuel(self):
         return self._filtres_manuel
+
+    @property
+    def FiltresResume(self):
+        """Texte de résumé affiché dans le ToggleButton du menu déroulant de
+        filtres (mode manuel) : nombre de filtres actifs, ou un texte
+        générique si aucun -- il n'y a pas de sélection UNIQUE à refléter
+        (multi-filtre, cf. `SheetsManuelFiltrees`)."""
+        n = len([f for f in self._filtres_manuel if f.IsActif])
+        if n <= 0:
+            return u'Filtres'
+        if n == 1:
+            return u'1 filtre actif'
+        return u'{} filtres actifs'.format(n)
 
     @property
     def FiltreManuelSelectionne(self):
@@ -962,7 +956,7 @@ class MainViewModel(BaseViewModel):
             return
         self._recherche_manuel = value
         for name in (u'RechercheManuel', u'SheetsManuelFiltrees',
-                     u'NbFeuillesManuel', u'NbPdf', u'NbDwg', u'NbSelected'):
+                     u'NbFeuillesManuel', u'NbPdf', u'NbDwg'):
             self.notify_property(name)
 
     def _sheet_matches_filtre(self, sheet, filtre):
@@ -1028,12 +1022,6 @@ class MainViewModel(BaseViewModel):
     def NbDwg(self):
         return len([s for s in self.SheetsManuelFiltrees if s.ExportDwg])
 
-    @property
-    def NbSelected(self):
-        """Nombre de feuilles `Selected=True` parmi les feuilles FILTRÉES
-        (même périmètre que `NbPdf`/`NbDwg`)."""
-        return len([s for s in self.SheetsManuelFiltrees if s.Selected])
-
     def selection_manuelle(self):
         """Retourne les `ManualSheetVM` cochées (ExportPdf OU ExportDwg),
         pour un futur export.
@@ -1043,12 +1031,9 @@ class MainViewModel(BaseViewModel):
         changement de filtre/recherche doit rester dans la sélection --
         seul `refresh_manuel()` réinitialise l'état des cases.
 
-        Choix (draft) : `Selected` (case d'inclusion de ligne, cf.
-        `ManualSheetVM`) N'EST PAS pris en compte ici -- le critère reste
-        UNIQUEMENT les cases de format ExportPdf/ExportDwg, comme avant
-        l'ajout de `Selected`. `Selected`/`NbSelected` sont exposés en plus
-        (pas encore consommés par l'export) pour laisser l'UI/orchestrateur
-        décider plus tard de la combinaison exacte des deux notions."""
+        Le critère reste UNIQUEMENT les cases de format ExportPdf/ExportDwg
+        (pas de case de sélection de ligne dédiée -- retirée car redondante,
+        cf. docstring de `ManualSheetVM`)."""
         return [s for s in self._sheets_manuel if s.ExportPdf or s.ExportDwg]
 
     # ------------------------------------------------------------------
