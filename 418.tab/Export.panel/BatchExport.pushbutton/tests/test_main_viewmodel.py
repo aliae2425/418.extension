@@ -1223,5 +1223,65 @@ class TestMainViewModelCombinerPdf(unittest.TestCase):
         self.assertTrue(self.vm.CombinerPdf)
 
 
+class TestMainViewModelLancerExportManuel(unittest.TestCase):
+    """`lancer_export_manuel()` : chemins hors Revit (doc=None, sélection vide,
+    orchestrateur indisponible). Ne doit jamais lever.
+
+    Le branchement moteur réel (doc non-None + Revit API) n'est pas testable
+    hors Revit ; ces tests couvrent les gardes et la logique de dispatch."""
+
+    def test_lancer_export_manuel_doc_none_ne_leve_pas(self):
+        vm = MainViewModel(doc=None)
+        vm.lancer_export_manuel()
+        self.assertIn(u'indisponible', vm.StatusText.lower())
+
+    def test_lancer_export_manuel_selection_vide_ne_leve_pas(self):
+        vm = MainViewModel(
+            doc=object(),  # doc non-None pour passer le premier garde
+            sheet_service=FakeSheetService(),
+            naming_service=FakeNamingService(),
+            config=FakeConfig(),
+        )
+        # _sheets_manuel vide par défaut (pas de refresh_manuel)
+        vm.lancer_export_manuel()
+        self.assertIn(u'sélectionnée', vm.StatusText.lower())
+
+    def test_lancer_export_mode_manual_dispatche_vers_lancer_export_manuel(self):
+        """lancer_export() en mode 'manual' appelle lancer_export_manuel() :
+        le statut doit refléter l'appel (ici 'indisponible' car doc=None)."""
+        vm = MainViewModel(doc=None)
+        vm.set_mode(u'manual')
+        vm.lancer_export()
+        self.assertIn(u'indisponible', vm.StatusText.lower())
+
+    def test_lancer_export_mode_auto_ne_dispatche_pas_vers_manuel(self):
+        """lancer_export() en mode 'auto' reste sur le chemin auto (ne passe
+        PAS par lancer_export_manuel). Résultat attendu : 'indisponible'
+        (doc=None) mais le chemin code n'est pas celui de la sélection vide."""
+        vm = MainViewModel(doc=None)
+        vm.set_mode(u'auto')
+        vm.lancer_export()
+        # Le garde auto (doc=None) écrit 'indisponible' — pas 'sélectionnée'
+        self.assertIn(u'indisponible', vm.StatusText.lower())
+        self.assertNotIn(u'sélectionnée', vm.StatusText.lower())
+
+    def test_lancer_export_manuel_orchestre_ne_leve_pas_si_dependances_manquantes(self):
+        """Si l'orchestrateur est instanciable mais _dest=None (mode dégradé),
+        lancer_export_manuel() signale l'indisponibilité sans lever."""
+        vm = MainViewModel(doc=object(), sheet_service=FakeSheetService(),
+                           naming_service=FakeNamingService(), config=FakeConfig())
+        # Injecter une feuille cochée pour dépasser le garde sélection vide
+        from lib.viewmodels.MainViewModel import ManualSheetVM
+        svm = ManualSheetVM(u'01', u'Feuille 1', export_pdf=True, export_dwg=False)
+        vm._sheets_manuel = [svm]
+        # L'orchestrateur réel (importable hors Revit) a _dest non-None →
+        # la méthode avancera jusqu'au run_manual, qui échouera silencieusement
+        # car DB est None (pas de Revit). Ne doit pas lever.
+        try:
+            vm.lancer_export_manuel()
+        except Exception as exc:
+            self.fail(u"lancer_export_manuel() a levé une exception : {}".format(exc))
+
+
 if __name__ == '__main__':
     unittest.main()

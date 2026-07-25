@@ -1,6 +1,20 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+import codecs
+import os
+
+# Chemin fixe du log — ancré dans le dossier du bouton pour que le chemin
+# ne change JAMAIS entre les rechargements pyRevit (qui créent chaque fois un
+# sous-dossier GUID dans %TEMP%, rendant _tout_ chemin basé sur %TEMP% instable).
+# Résolution : lib/viewmodels/ → lib/ → BatchExport.pushbutton/
+try:
+    _VIEWMODELS_DIR = os.path.dirname(os.path.abspath(__file__))
+    _PUSHBUTTON_DIR = os.path.dirname(os.path.dirname(_VIEWMODELS_DIR))
+    LIVE_LOG_PATH = os.path.join(_PUSHBUTTON_DIR, u'BatchExport_debug.log')
+except Exception:
+    LIVE_LOG_PATH = None
+
 try:
     from ui.base.BaseViewModel import BaseViewModel
 except Exception:
@@ -108,9 +122,8 @@ _CFG_KEY_PARAM_CARNET = 'sheet_param_carnetcombo'
 _CFG_KEY_PARAM_DWG = 'sheet_param_dwgcombo'
 
 # Mode « feuille par feuille » : export combiné en un seul PDF + titre de ce
-# PDF. UI + persistance UNIQUEMENT à ce stade (aucun branchement sur le moteur
-# d'export : le comportement d'export réel reste inchangé tant que la fusion
-# n'est pas câblée). Persistés via UserConfig (namespace 'batch_export').
+# PDF. Persistés via UserConfig (namespace 'batch_export'). Transmis à
+# ExportOrchestrator.run_manual() par lancer_export_manuel().
 _CFG_KEY_COMBINE_PDF = 'manual_combine_pdf'
 _CFG_KEY_PDF_COMBINE_TITLE = 'manual_pdf_combine_title'
 
@@ -428,6 +441,12 @@ class MainViewModel(BaseViewModel):
         # cf. refresh_patterns_apercu().
         self.refresh_patterns_apercu()
 
+        # Log de session : ouvert ici, reste ouvert toute la session.
+        self._log_file = None
+        self._log_path = None
+        self._init_session_log()
+        self._log_init_context()
+
     # ------------------------------------------------------------------
     # Mode / titre (existant)
     # ------------------------------------------------------------------
@@ -450,6 +469,7 @@ class MainViewModel(BaseViewModel):
             self.notify_property(name)
 
     def set_mode(self, mode):
+        self._log(u'MODE', u'{} → {}'.format(self._mode, mode))
         self.ActiveMode = mode
 
     @property
@@ -502,6 +522,7 @@ class MainViewModel(BaseViewModel):
         value = value or u''
         if value == self.ParamExport:
             return
+        self._log(u'CONFIG', u'ParamExport : "{}" → "{}"'.format(self.ParamExport, value))
         self._cfg_set(_CFG_KEY_PARAM_EXPORT, value)
         self.notify_property(u'ParamExport')
         self.refresh_par_jeu()
@@ -515,6 +536,7 @@ class MainViewModel(BaseViewModel):
         value = value or u''
         if value == self.ParamCarnet:
             return
+        self._log(u'CONFIG', u'ParamCarnet : "{}" → "{}"'.format(self.ParamCarnet, value))
         self._cfg_set(_CFG_KEY_PARAM_CARNET, value)
         self.notify_property(u'ParamCarnet')
         self.refresh_par_jeu()
@@ -528,6 +550,7 @@ class MainViewModel(BaseViewModel):
         value = value or u''
         if value == self.ParamDwg:
             return
+        self._log(u'CONFIG', u'ParamDwg : "{}" → "{}"'.format(self.ParamDwg, value))
         self._cfg_set(_CFG_KEY_PARAM_DWG, value)
         self.notify_property(u'ParamDwg')
         self.refresh_par_jeu()
@@ -756,6 +779,28 @@ class MainViewModel(BaseViewModel):
         self._nb_jeux_qualifies = nb_jeux_qualifies
         self._nb_feuilles_qualifiees = nb_feuilles_qualifiees
 
+        # Log du résultat du refresh (diff config ↔ qualification réelle)
+        self._log(u'AUTO',
+            u'refresh_par_jeu : {} jeux trouvés, {} qualifiés, {} feuilles qualifiées'.format(
+                len(collections_out), nb_jeux_qualifies, nb_feuilles_qualifiees))
+        self._log(u'AUTO',
+            u'  ParamExport="{}" ParamCarnet="{}" ParamDwg="{}"'.format(
+                param_export, param_carnet, param_dwg))
+        for c in collections_out:
+            etat = u'QUALIFIE' if c.Qualified else u'ignoré  '
+            self._log(u'AUTO',
+                u'  [{}] "{}" → Export={} Carnet={} DWG={} ({} feuilles)'.format(
+                    etat, c.Titre, c.FlagExport, c.FlagCarnet, c.FlagDwg,
+                    len(c.Sheets)))
+        if not collections_out:
+            self._log(u'AVERT',
+                u'  Aucune SheetCollection dans ce document '
+                u'(vérifiez que le projet utilise des Jeux de feuilles Revit)')
+        elif nb_jeux_qualifies == 0:
+            self._log(u'AVERT',
+                u'  Aucun jeu qualifié — param "{}" absent ou = 0 sur tous les jeux'.format(
+                    param_export or u'(non configuré)'))
+
         for name in (u'Collections', u'NbJeuxQualifies', u'NbFeuillesQualifiees'):
             self.notify_property(name)
 
@@ -887,6 +932,12 @@ class MainViewModel(BaseViewModel):
         self._filtres_manuel = filtres_out
 
         self.refresh_patterns_apercu()
+
+        self._log(u'MANUEL',
+            u'refresh_manuel : {} feuilles, {} filtres ({} jeux + {} sets impression)'.format(
+                len(sheets_out), len(filtres_out), len(raw_collections), len(raw_sets)))
+        if not sheets_out:
+            self._log(u'AVERT', u'  Aucune feuille trouvée dans le document')
 
         for name in (u'SheetsManuel', u'FiltresManuel',
                      u'SheetsManuelFiltrees', u'NbFeuillesManuel', u'NbPdf',
@@ -1064,6 +1115,7 @@ class MainViewModel(BaseViewModel):
             return
         if self._destination_service is None:
             return
+        self._log(u'CONFIG', u'Destination : "{}" → "{}"'.format(self.DestinationPath, path))
         try:
             self._destination_service.set(path)
         except Exception:
@@ -1139,9 +1191,8 @@ class MainViewModel(BaseViewModel):
     def CombinerPdf(self):
         """Mode manuel : fusionner les feuilles sélectionnées en un seul PDF.
 
-        UI + persistance UNIQUEMENT à ce stade — aucun effet sur le moteur
-        d'export tant que la fusion réelle n'est pas câblée
-        (PdfExporterService/ExportOrchestrator inchangés)."""
+        Persisté via UserConfig. Transmis à `ExportOrchestrator.run_manual()`
+        par `lancer_export_manuel()` pour piloter l'export combiné."""
         return self._cfg_get(_CFG_KEY_COMBINE_PDF, u'0') == u'1'
 
     @CombinerPdf.setter
@@ -1202,6 +1253,7 @@ class MainViewModel(BaseViewModel):
         value = value or u''
         if value == self.SetupPdf:
             return
+        self._log(u'CONFIG', u'SetupPdf : "{}" → "{}"'.format(self.SetupPdf, value))
         try:
             if self._pdf_service is not None:
                 self._pdf_service.set_saved_setup(value)
@@ -1233,6 +1285,7 @@ class MainViewModel(BaseViewModel):
         value = value or u''
         if value == self.SetupDwg:
             return
+        self._log(u'CONFIG', u'SetupDwg : "{}" → "{}"'.format(self.SetupDwg, value))
         try:
             if self._dwg_service is not None:
                 self._dwg_service.set_saved_setup(value)
@@ -1313,6 +1366,88 @@ class MainViewModel(BaseViewModel):
 
         return get_ctrl
 
+    # ------------------------------------------------------------------
+    # Log de session (diagnostic complet : actions UI + export)
+    # ------------------------------------------------------------------
+
+    def _init_session_log(self):
+        """Ouvre BatchExport_debug.log (chemin fixe, dans le dossier du bouton).
+
+        Le chemin est calculé UNE FOIS au niveau module (LIVE_LOG_PATH) pour
+        rester stable entre les rechargements pyRevit, qui créent un sous-dossier
+        GUID unique dans %TEMP% à chaque run. Codecs.open pour IronPython/CPython.
+        flush() après chaque write = le fichier est live dès qu'il est ouvert
+        dans VS Code (auto-refresh on disk change).
+        """
+        import datetime as _dt
+        try:
+            self._log_path = LIVE_LOG_PATH or os.path.join(
+                os.path.expanduser('~'), u'BatchExport_debug.log')
+            self._log_file = codecs.open(self._log_path, 'a', encoding='utf-8')
+            sep = u'=' * 68
+            self._log_file.write(u'\n{}\n'.format(sep))
+            self._log_file.write(u'SESSION  {}\n'.format(
+                _dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+            self._log_file.write(u'{}\n'.format(sep))
+            self._log_file.flush()
+            print(u'[BatchExport] Live log -> {}'.format(self._log_path))
+        except Exception as _e:
+            print(u'[BatchExport] ERREUR init log : {}'.format(_e))
+            self._log_file = None
+            self._log_path = None
+
+    def _log(self, category, message):
+        """Écrit une ligne [HH:MM:SS] [CATEGORIE] message dans le log."""
+        if self._log_file is None:
+            return
+        try:
+            import datetime as _dt
+            ts = _dt.datetime.now().strftime('%H:%M:%S')
+            line = u'[{}] [{:<8s}] {}\n'.format(ts, category, message or u'')
+            self._log_file.write(line)
+            self._log_file.flush()
+        except Exception as _e:
+            print(u'[BatchExport] ERREUR écriture log : {}'.format(_e))
+
+    def _log_init_context(self):
+        """Log le contexte complet au démarrage de la session."""
+        try:
+            doc_title = u'(aucun doc)'
+            if self._doc is not None:
+                try:
+                    doc_title = self._doc.Title
+                except Exception:
+                    doc_title = u'(doc inconnu)'
+            self._log(u'INIT', u'Document   : "{}"'.format(doc_title))
+            self._log(u'INIT', u'Mode       : {}'.format(self._mode))
+            self._log(u'INIT', u'ParamExport: "{}" | ParamCarnet: "{}" | ParamDwg: "{}"'.format(
+                self.ParamExport, self.ParamCarnet, self.ParamDwg))
+            self._log(u'INIT', u'Destination: "{}"'.format(self.DestinationPath))
+            self._log(u'INIT', u'SetupPdf   : "{}" | SetupDwg: "{}"'.format(
+                self.SetupPdf, self.SetupDwg))
+            self._log(u'INIT', u'CombinerPdf: {} | TitrePdf: "{}"'.format(
+                self.CombinerPdf, self.TitrePdfCombine))
+            self._log(u'INIT', u'SousDossiers: {} | FormatsSepar: {}'.format(
+                self.CreerSousDossiers, self.SeparerFormats))
+            if not self.ParamExport:
+                self._log(u'AVERT',
+                    u'ParamExport non configuré → mode AUTO ne qualifiera AUCUN jeu '
+                    u'(allez dans Réglages pour mapper le paramètre Export)')
+        except Exception:
+            pass
+
+    def _make_export_callbacks_with_log(self):
+        """Retourne (progress_cb, log_cb) qui alimentent StatusText ET le log de session."""
+        def progress_cb(current, total, message=u''):
+            self._on_export_progress(current, total, message)
+            self._log(u'PROGRESS', u'[{}/{}] {}'.format(current, total, message or u''))
+
+        def log_cb(message):
+            self._on_export_log(message)
+            self._log(u'LOG', message)
+
+        return progress_cb, log_cb
+
     def _on_export_progress(self, current, total, message=u''):
         try:
             total = max(int(total), 1)
@@ -1329,14 +1464,15 @@ class MainViewModel(BaseViewModel):
         self.StatusText = message or u''
 
     def lancer_export(self):
-        """Lance l'export du mode « par jeu » via `ExportOrchestrator`.
+        """Dispatch par mode : délègue à `lancer_export_manuel()` en mode
+        manuel, ou lance l'export « par jeu » via `ExportOrchestrator.run()`.
 
-        Hors Revit (`doc is None`) ou si l'orchestrateur est indisponible,
-        ne lève jamais : `StatusText` reflète l'indisponibilité et la
-        méthode retourne silencieusement. Toute exception levée pendant la
-        construction/l'exécution de l'orchestrateur est absorbée (try/except)
-        conformément aux conventions du projet (accès Revit protégé).
+        Ne lève jamais hors Revit : `StatusText` reflète l'indisponibilité.
         """
+        if self._mode == u'manual':
+            self.lancer_export_manuel()
+            return
+
         if self._doc is None:
             self.StatusText = u"Export indisponible (hors Revit)."
             return
@@ -1382,16 +1518,145 @@ class MainViewModel(BaseViewModel):
         self.StatusText = u"Préparation de l'export..."
         self.ProgressValue = 0
 
+        # --- Log config complète avant lancement ---
+        self._log(u'EXPORT', u'--- Export AUTO lancé ---')
+        self._log(u'EXPORT', u'ParamExport="{}" | ParamCarnet="{}" | ParamDwg="{}"'.format(
+            self.ParamExport, self.ParamCarnet, self.ParamDwg))
+        self._log(u'EXPORT', u'Destination="{}" | SousDossiers={} | FormatsSepar={}'.format(
+            self.DestinationPath, self.CreerSousDossiers, self.SeparerFormats))
+        self._log(u'EXPORT', u'SetupPdf="{}" | SetupDwg="{}"'.format(
+            self.SetupPdf, self.SetupDwg))
+        if not self.ParamExport:
+            self._log(u'AVERT',
+                u'ParamExport vide → aucun jeu ne sera qualifié (mappez dans Réglages)')
+
+        # --- Plan prévisionnel : ce que le programme va faire ---
+        try:
+            plans = orch.plan_exports_for_collections(self._doc, self._get_ctrl_adapter())
+            self._log(u'PLAN', u'{} jeux analysés :'.format(len(plans)))
+            for p in plans:
+                etat = u'EXPORT' if p.do_export else u'IGNORE'
+                self._log(u'PLAN',
+                    u'  [{}] "{}" → PDF={} DWG={} par_feuille={}'.format(
+                        etat, p.collection_name, p.do_pdf, p.do_dwg, p.per_sheet))
+            if not any(p.do_export for p in plans):
+                if plans:
+                    self._log(u'AVERT',
+                        u'  → Tous les jeux ignorés : '
+                        u'param "{}" absent/faux sur chaque SheetCollection'.format(
+                            self.ParamExport or u'(non configuré)'))
+                else:
+                    self._log(u'AVERT', u'  → Aucun jeu dans le document')
+        except Exception as _pe:
+            self._log(u'PLAN', u'Erreur calcul plan : {}'.format(_pe))
+
+        progress_cb, log_cb = self._make_export_callbacks_with_log()
+
         try:
             orch.run(
                 self._doc,
                 self._get_ctrl_adapter(),
-                progress_cb=self._on_export_progress,
-                log_cb=self._on_export_log,
+                progress_cb=progress_cb,
+                log_cb=log_cb,
+                destination=self.DestinationPath,
             )
         except Exception as exc:
             try:
-                self.StatusText = u"Erreur pendant l'export : {}".format(exc)
+                msg = u"Erreur pendant l'export : {}".format(exc)
             except Exception:
-                self.StatusText = u"Erreur pendant l'export."
+                msg = u"Erreur pendant l'export."
+            self.StatusText = msg
+            self._log(u'ERREUR', msg)
+
+        self._log(u'EXPORT', u'--- Fin export AUTO ---')
+        if self._log_path:
+            try:
+                self.StatusText = (self.StatusText or u'').rstrip() + u' | Log : {}'.format(
+                    self._log_path)
+            except Exception:
+                pass
+
+    def lancer_export_manuel(self):
+        """Lance l'export « feuille par feuille » via `ExportOrchestrator.run_manual()`.
+
+        Lit `selection_manuelle()` (feuilles cochées ExportPdf ou ExportDwg),
+        transmet `CombinerPdf` et `TitrePdfCombine` à l'orchestrateur.
+        Ne lève jamais : StatusText reflète toute indisponibilité ou erreur.
+        """
+        if self._doc is None:
+            self.StatusText = u"Export indisponible (hors Revit)."
             return
+
+        selection = self.selection_manuelle()
+        if not selection:
+            self.StatusText = u"Aucune feuille sélectionnée."
+            return
+
+        try:
+            try:
+                from lib.services.core.ExportOrchestrator import ExportOrchestrator
+            except Exception:
+                from services.core.ExportOrchestrator import ExportOrchestrator
+        except Exception:
+            self.StatusText = u"Export indisponible (orchestrateur introuvable)."
+            return
+
+        try:
+            orch = ExportOrchestrator()
+        except Exception:
+            self.StatusText = u"Export indisponible (initialisation impossible)."
+            return
+
+        try:
+            if getattr(orch, '_dest', None) is None:
+                self.StatusText = u"Export indisponible (dépendances internes manquantes)."
+                return
+        except Exception:
+            pass
+
+        self.StatusText = u"Préparation de l'export..."
+        self.ProgressValue = 0
+
+        # --- Log config + sélection complète avant lancement ---
+        n_pdf = len([s for s in selection if s.ExportPdf])
+        n_dwg = len([s for s in selection if s.ExportDwg])
+        self._log(u'EXPORT', u'--- Export MANUEL lancé ---')
+        self._log(u'EXPORT', u'{} feuilles sélectionnées : {} PDF, {} DWG'.format(
+            len(selection), n_pdf, n_dwg))
+        self._log(u'EXPORT', u'CombinerPdf={} | TitrePdf="{}"'.format(
+            self.CombinerPdf, self.TitrePdfCombine))
+        self._log(u'EXPORT', u'Destination="{}" | SetupPdf="{}" | SetupDwg="{}"'.format(
+            self.DestinationPath, self.SetupPdf, self.SetupDwg))
+        for s in selection:
+            elem_ok = u'Elem=OK' if s.Elem is not None else u'Elem=NULL!'
+            self._log(u'SÉLECT',
+                u'  {} | "{}" | Jeu:"{}" | PDF:{} DWG:{} | {}'.format(
+                    s.Numero, s.Nom, s.JeuNom, s.ExportPdf, s.ExportDwg, elem_ok))
+
+        progress_cb, log_cb = self._make_export_callbacks_with_log()
+
+        try:
+            orch.run_manual(
+                self._doc,
+                selection,
+                combine_pdf=self.CombinerPdf,
+                pdf_title=self.TitrePdfCombine,
+                progress_cb=progress_cb,
+                log_cb=log_cb,
+                destination=self.DestinationPath,
+            )
+        except Exception as exc:
+            try:
+                msg = u"Erreur pendant l'export : {}".format(exc)
+            except Exception:
+                msg = u"Erreur pendant l'export."
+            self.StatusText = msg
+            self._log(u'ERREUR', msg)
+
+        self._log(u'EXPORT', u'--- Fin export MANUEL ---')
+        if self._log_path:
+            try:
+                self.StatusText = (self.StatusText or u'').rstrip() + u' | Log : {}'.format(
+                    self._log_path)
+            except Exception:
+                pass
