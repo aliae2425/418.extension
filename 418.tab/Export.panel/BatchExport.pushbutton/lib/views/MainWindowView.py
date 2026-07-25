@@ -80,6 +80,7 @@ class MainWindowView(BaseWindow):
         self.wire_export()
         self.wire_destination()
         self.wire_naming_editors()
+        self.wire_bulk_edit()
         try:
             self._vm.refresh_par_jeu()
         except Exception:
@@ -261,3 +262,32 @@ class MainWindowView(BaseWindow):
             btn.Checked += _on_checked
         except Exception:
             pass
+
+    def wire_bulk_edit(self):
+        """Câble les 6 boutons de la toolbar multi-sélection (mode manuel)."""
+        if self._window is None:
+            return
+        vm = self._vm
+        mapping = (
+            ('BulkSelectAllButton',  lambda: vm.select_all_manuel()),
+            ('BulkDeselectAllButton', lambda: vm.deselect_all_manuel()),
+            ('BulkPdfOnButton',      lambda: vm.bulk_set_pdf(True)),
+            ('BulkPdfOffButton',     lambda: vm.bulk_set_pdf(False)),
+            ('BulkDwgOnButton',      lambda: vm.bulk_set_dwg(True)),
+            ('BulkDwgOffButton',     lambda: vm.bulk_set_dwg(False)),
+        )
+        for name, action in mapping:
+            btn = self._window.FindName(name)
+            if btn is None:
+                continue
+            def _make_handler(fn):
+                def _on_click(sender, args):
+                    try:
+                        fn()
+                    except Exception:
+                        pass
+                return _on_click
+            try:
+                btn.Click += _make_handler(action)
+            except Exception:
+                pass

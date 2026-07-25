@@ -98,6 +98,14 @@ except Exception:
     except Exception:
         DwgExporterService = None  # type: ignore
 
+try:
+    from lib.services.BulkEditService import BulkEditService
+except Exception:
+    try:
+        from services.BulkEditService import BulkEditService
+    except Exception:
+        BulkEditService = None  # type: ignore
+
 
 _MODES = (u'auto', u'manual', u'settings')
 _SURFACE_TITRES = {
@@ -206,11 +214,10 @@ class ManualSheetVM(BaseViewModel):
     `refresh_manuel()` (mapping CollectionId->Titre et résolution du
     pattern de nommage FEUILLE), jamais recalculés à la volée par ce VM.
 
-    Pas de case de sélection de ligne (`Selected`) : elle a été retirée car
-    redondante avec les cases de format `ExportPdf`/`ExportDwg` -- une ligne
-    sans aucun format actif n'est de toute façon jamais reprise par
-    `selection_manuelle()` (qui se base UNIQUEMENT sur ExportPdf/ExportDwg,
-    comportement inchangé).
+    `Selected` (case de sélection de ligne) est TWO-WAY et pilotée par
+    `BulkEditService` via `MainViewModel.select_all_manuel()` /
+    `deselect_all_manuel()`. Elle ne conditionne PAS `selection_manuelle()`
+    (qui se base UNIQUEMENT sur ExportPdf/ExportDwg).
     """
 
     def __init__(self, numero, nom, collection_id=None, elem=None,
@@ -226,6 +233,7 @@ class ManualSheetVM(BaseViewModel):
         self._jeu_nom = jeu_nom or u''
         self._nom_projete = nom_projete or u''
         self._on_change = on_change
+        self._selected = False
 
     @property
     def Numero(self):
@@ -276,6 +284,20 @@ class ManualSheetVM(BaseViewModel):
             return
         self._export_dwg = value
         self.notify_property(u'ExportDwg')
+        if callable(self._on_change):
+            self._on_change()
+
+    @property
+    def Selected(self):
+        return self._selected
+
+    @Selected.setter
+    def Selected(self, value):
+        value = bool(value)
+        if value == self._selected:
+            return
+        self._selected = value
+        self.notify_property(u'Selected')
         if callable(self._on_change):
             self._on_change()
 
@@ -424,6 +446,7 @@ class MainViewModel(BaseViewModel):
         # Données « feuille par feuille » (mode manuel). Sélection ÉPHÉMÈRE :
         # reconstruite à chaque refresh_manuel(), jamais persistée.
         self._sheets_manuel = []
+        self._bulk_svc = BulkEditService() if BulkEditService is not None else None
         self._filtres_manuel = []
         self._recherche_manuel = u''
 
@@ -946,9 +969,9 @@ class MainViewModel(BaseViewModel):
 
     def _on_manual_sheet_change(self):
         """Callback passé à chaque `ManualSheetVM` : un toggle ExportPdf/
-        ExportDwg impacte les compteurs (calculés à la volée sur les
-        feuilles FILTRÉES), jamais la liste ni les filtres eux-mêmes."""
-        for name in (u'NbPdf', u'NbDwg'):
+        ExportDwg/Selected impacte les compteurs (calculés à la volée sur
+        les feuilles FILTRÉES), jamais la liste ni les filtres eux-mêmes."""
+        for name in (u'NbPdf', u'NbDwg', u'NbSelected'):
             self.notify_property(name)
 
     def _on_filtre_change(self):
@@ -1058,6 +1081,11 @@ class MainViewModel(BaseViewModel):
     def NbDwg(self):
         return len([s for s in self.SheetsManuelFiltrees if s.ExportDwg])
 
+    @property
+    def NbSelected(self):
+        """Nombre de feuilles sélectionnées (Selected=True) parmi les feuilles filtrées."""
+        return len([s for s in self.SheetsManuelFiltrees if s.Selected])
+
     def selection_manuelle(self):
         """Retourne les `ManualSheetVM` cochées (ExportPdf OU ExportDwg),
         pour un futur export.
@@ -1071,6 +1099,52 @@ class MainViewModel(BaseViewModel):
         (pas de case de sélection de ligne dédiée -- retirée car redondante,
         cf. docstring de `ManualSheetVM`)."""
         return [s for s in self._sheets_manuel if s.ExportPdf or s.ExportDwg]
+
+    # ------------------------------------------------------------------
+    # Édition en masse (multi-sélection de lignes)
+    # ------------------------------------------------------------------
+
+    def select_all_manuel(self):
+        """Sélectionne toutes les feuilles affichées (SheetsManuelFiltrees)."""
+        if self._bulk_svc is None:
+            return
+        self._bulk_svc.select_all(self.SheetsManuelFiltrees)
+        self.notify_property(u'NbSelected')
+
+    def deselect_all_manuel(self):
+        """Désélectionne toutes les feuilles affichées."""
+        if self._bulk_svc is None:
+            return
+        self._bulk_svc.deselect_all(self.SheetsManuelFiltrees)
+        self.notify_property(u'NbSelected')
+
+    def bulk_set_pdf(self, value):
+        """Active ou désactive ExportPdf sur les feuilles sélectionnées."""
+        if self._bulk_svc is None:
+            return
+        selected = self._bulk_svc.get_selected(self.SheetsManuelFiltrees)
+        self._bulk_svc.apply(selected, u'ExportPdf', bool(value))
+
+    def bulk_set_dwg(self, value):
+        """Active ou désactive ExportDwg sur les feuilles sélectionnées."""
+        if self._bulk_svc is None:
+            return
+        selected = self._bulk_svc.get_selected(self.SheetsManuelFiltrees)
+        self._bulk_svc.apply(selected, u'ExportDwg', bool(value))
+
+    def bulk_toggle_pdf(self):
+        """Bascule ExportPdf sur les feuilles sélectionnées (tout ON → OFF, sinon → ON)."""
+        if self._bulk_svc is None:
+            return
+        selected = self._bulk_svc.get_selected(self.SheetsManuelFiltrees)
+        self._bulk_svc.toggle(selected, u'ExportPdf')
+
+    def bulk_toggle_dwg(self):
+        """Bascule ExportDwg sur les feuilles sélectionnées (tout ON → OFF, sinon → ON)."""
+        if self._bulk_svc is None:
+            return
+        selected = self._bulk_svc.get_selected(self.SheetsManuelFiltrees)
+        self._bulk_svc.toggle(selected, u'ExportDwg')
 
     # ------------------------------------------------------------------
     # Destination (Task « Parcourir ») : coordination VM -> DestinationService
