@@ -237,7 +237,7 @@
                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
 
-          <!-- Liste group&#233;e : une entr&#233;e par vue source -->
+          <!-- Liste group&#233;e par vue source -->
           <ItemsControl ItemsSource="{Binding PreviewGroups}">
             <ItemsControl.Style>
               <Style TargetType="ItemsControl">
@@ -254,47 +254,51 @@
                 <Border BorderBrush="{DynamicResource ControlBorderBrush}"
                         BorderThickness="0,0,0,1"
                         Padding="4,8">
-                  <Grid>
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="*"/>
-                      <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                      <RowDefinition Height="Auto"/>
-                      <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+                  <StackPanel Orientation="Vertical">
 
-                    <!-- En-t&#234;te : nom original -->
-                    <TextBlock Grid.Row="0" Grid.Column="0"
-                               Text="{Binding NomOriginal}"
-                               Foreground="{DynamicResource TextSecondaryBrush}"
-                               FontSize="11"
-                               Margin="0,0,0,3"/>
-
-                    <!-- Badge nombre de copies -->
-                    <Border Grid.Row="0" Grid.Column="1"
-                            Background="{DynamicResource ControlFillBrush}"
-                            BorderBrush="{DynamicResource ControlBorderBrush}"
-                            BorderThickness="1" CornerRadius="8"
-                            Padding="6,1" Margin="8,0,0,3"
-                            VerticalAlignment="Center">
-                      <TextBlock Text="{Binding CountLabel}"
+                    <!-- En-t&#234;te du groupe : vue d'origine + badge nombre de copies -->
+                    <DockPanel LastChildFill="True" Margin="0,0,0,5">
+                      <Border DockPanel.Dock="Right"
+                              Background="{DynamicResource ControlFillBrush}"
+                              BorderBrush="{DynamicResource ControlBorderBrush}"
+                              BorderThickness="1" CornerRadius="8"
+                              Padding="6,1" Margin="8,0,0,0"
+                              VerticalAlignment="Center">
+                        <TextBlock Text="{Binding CountLabel}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   FontSize="11"/>
+                      </Border>
+                      <TextBlock Text="{Binding NomOriginal}"
                                  Foreground="{DynamicResource TextSecondaryBrush}"
-                                 FontSize="11"/>
-                    </Border>
+                                 FontSize="11"
+                                 VerticalAlignment="Center"/>
+                    </DockPanel>
 
-                    <!-- Nom g&#233;n&#233;r&#233; avec fl&#232;che -->
-                    <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-                                Orientation="Horizontal" VerticalAlignment="Center">
-                      <TextBlock Text="&#8594;&#160;"
-                                 Foreground="{DynamicResource AccentBrush}"
-                                 FontSize="13" VerticalAlignment="Center"/>
-                      <TextBlock Text="{Binding NomGenere}"
-                                 Foreground="{DynamicResource TextPrimaryBrush}"
-                                 FontWeight="SemiBold"
-                                 FontSize="13" VerticalAlignment="Center"/>
-                    </StackPanel>
-                  </Grid>
+                    <!-- Copies g&#233;n&#233;r&#233;es (une par copie) -->
+                    <ItemsControl ItemsSource="{Binding Copies}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                            <TextBlock Text="{Binding IndexLabel}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       FontSize="11"
+                                       Width="18"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="&#8594;&#160;"
+                                       Foreground="{DynamicResource AccentBrush}"
+                                       FontSize="13"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding Nom}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       FontWeight="SemiBold"
+                                       FontSize="13"
+                                       VerticalAlignment="Center"/>
+                          </StackPanel>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                  </StackPanel>
                 </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>

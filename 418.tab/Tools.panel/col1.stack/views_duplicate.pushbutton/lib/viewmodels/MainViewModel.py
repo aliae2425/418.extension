@@ -64,13 +64,13 @@ class MainViewModel(BaseViewModel):
 
     def charger(self, descripteurs, ids_courants):
         ids_courants = list(ids_courants or [])
-        self._id_to_nom = {vid: nom for (vid, nom, _tl) in descripteurs}
+        self._id_to_item = {vid: (nom, tl) for (vid, nom, tl) in descripteurs}
         self.SelectedViewIds = list(ids_courants)
         self.SelectionVM = SelectionPageVM(descripteurs, ids_courants,
                                            on_selection_changed=self._on_selection_changed)
         self.OptionsVM = OptionsPageVM()
-        noms_initiaux = [self._id_to_nom[i] for i in ids_courants if i in self._id_to_nom]
-        self.OptionsVM.set_source_names(noms_initiaux)
+        items_initiaux = [self._id_to_item[i] for i in ids_courants if i in self._id_to_item]
+        self.OptionsVM.set_source_items(items_initiaux)
         self.notify_property('SelectionVM')
         self.notify_property('OptionsVM')
         self.set_mode(self.decide_initial_mode(bool(ids_courants)))
@@ -78,8 +78,8 @@ class MainViewModel(BaseViewModel):
     def _on_selection_changed(self, ids):
         self.SelectedViewIds = list(ids)
         if self.OptionsVM is not None:
-            noms = [self._id_to_nom[i] for i in ids if i in self._id_to_nom]
-            self.OptionsVM.set_source_names(noms)
+            items = [self._id_to_item[i] for i in ids if i in self._id_to_item]
+            self.OptionsVM.set_source_items(items)
 
     def lancer(self, views_par_id):
         if not self.SelectedViewIds or self._service is None:

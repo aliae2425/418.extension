@@ -22,14 +22,14 @@ except Exception:
     from services.RenameService import RenameService
 
 try:
-    from lib.viewmodels.PreviewGroupVM import PreviewGroupVM
+    from lib.viewmodels.PreviewGroupVM import PreviewGroupVM, PreviewCopyVM
 except Exception:
-    from viewmodels.PreviewGroupVM import PreviewGroupVM
+    from viewmodels.PreviewGroupVM import PreviewGroupVM, PreviewCopyVM
 
 
 class OptionsPageVM(BaseViewModel):
-    """VM de la page Options : mode de duplication, nombre de copies, nommage
-    (avec regex optionnel) et aperçu temps-réel des noms de vues générés."""
+    """VM de la page Options : mode de duplication, nombre de copies,
+    nommage (littéral ou regex + tokens) et aperçu temps-réel."""
 
     def __init__(self):
         super(OptionsPageVM, self).__init__()
@@ -40,7 +40,7 @@ class OptionsPageVM(BaseViewModel):
         self._Remplacer = u''
         self._Suffixe = u''
         self._UseRegex = False
-        self._source_names = []
+        self._source_items = []   # list of (nom, type_label)
         self._PreviewGroups = []
         self._RegexError = u''
 
@@ -142,23 +142,31 @@ class OptionsPageVM(BaseViewModel):
         return bool(self._PreviewGroups)
 
     # ------------------------------------------------------------------
+    # Alimentation des sources
+    # ------------------------------------------------------------------
+
+    def set_source_items(self, items):
+        """items : liste de tuples (nom, type_label)."""
+        self._source_items = list(items or [])
+        self._recompute_preview()
+
+    def set_source_names(self, names):
+        """Compatibilité : convertit une liste de noms en items sans type."""
+        self._source_items = [(nom, u'') for nom in (names or [])]
+        self._recompute_preview()
+
+    # ------------------------------------------------------------------
     # Logique de preview
     # ------------------------------------------------------------------
 
-    def set_source_names(self, names):
-        """Met à jour la liste de noms de vues sources et recalcule l'aperçu."""
-        self._source_names = list(names or [])
-        self._recompute_preview()
-
     def _build_rename_service(self):
-        svc = RenameService(
+        return RenameService(
             prefixe=self._Prefixe,
             rechercher=self._Rechercher,
             remplacer=self._Remplacer,
             suffixe=self._Suffixe,
             use_regex=self._UseRegex,
         )
-        return svc
 
     def _recompute_preview(self):
         try:
@@ -174,10 +182,15 @@ class OptionsPageVM(BaseViewModel):
             self.notify_property('RegexError')
             self.notify_property('HasRegexError')
 
-        self._PreviewGroups = [
-            PreviewGroupVM(nom, svc.apply(nom), count)
-            for nom in self._source_names
-        ]
+        groups = []
+        for nom, type_label in self._source_items:
+            ctx = {u'type': type_label} if type_label else {}
+            copies = [
+                PreviewCopyVM(i + 1, svc.apply(nom, index=i + 1, context=ctx))
+                for i in range(count)
+            ]
+            groups.append(PreviewGroupVM(nom, copies))
+        self._PreviewGroups = groups
         self.notify_property('PreviewGroups')
         self.notify_property('HasPreview')
 
