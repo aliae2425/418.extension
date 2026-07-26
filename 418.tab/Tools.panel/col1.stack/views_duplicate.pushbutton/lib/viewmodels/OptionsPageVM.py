@@ -39,7 +39,7 @@ class OptionsPageVM(BaseViewModel):
         self._Rechercher = u''
         self._Remplacer = u''
         self._Suffixe = u''
-        self._UseRegex = False
+        self._UseRegex = True
         self._source_items = []   # list of (nom, type_label)
         self._PreviewGroups = []
         self._RegexError = u''

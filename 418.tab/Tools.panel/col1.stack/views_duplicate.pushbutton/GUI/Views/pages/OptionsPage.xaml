@@ -125,54 +125,9 @@
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Vertical" Margin="0,0,8,0">
-              <!-- En-t&#234;te : label + toggle Regex -->
-              <DockPanel LastChildFill="False" Margin="0,0,0,4">
-                <TextBlock Text="Rechercher"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontSize="11" VerticalAlignment="Center"
-                           DockPanel.Dock="Left"/>
-                <Border DockPanel.Dock="Right"
-                        CornerRadius="8" Padding="5,1"
-                        Cursor="Hand">
-                  <Border.Style>
-                    <Style TargetType="Border">
-                      <Setter Property="Background" Value="{DynamicResource ControlFillBrush}"/>
-                      <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
-                      <Setter Property="BorderThickness" Value="1"/>
-                      <Style.Triggers>
-                        <DataTrigger Binding="{Binding UseRegex}" Value="True">
-                          <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
-                          <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-                        </DataTrigger>
-                      </Style.Triggers>
-                    </Style>
-                  </Border.Style>
-                  <CheckBox IsChecked="{Binding UseRegex, Mode=TwoWay}"
-                            Cursor="Hand"
-                            Padding="0" Margin="0"
-                            BorderThickness="0"
-                            Background="Transparent">
-                    <CheckBox.Template>
-                      <ControlTemplate TargetType="CheckBox">
-                        <TextBlock x:Name="lbl" Text=".*"
-                                   FontSize="10" FontFamily="Consolas"
-                                   VerticalAlignment="Center">
-                          <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                              <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                              <Style.Triggers>
-                                <DataTrigger Binding="{Binding UseRegex}" Value="True">
-                                  <Setter Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
-                                </DataTrigger>
-                              </Style.Triggers>
-                            </Style>
-                          </TextBlock.Style>
-                        </TextBlock>
-                      </ControlTemplate>
-                    </CheckBox.Template>
-                  </CheckBox>
-                </Border>
-              </DockPanel>
+              <TextBlock Text="Rechercher (regex)"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         FontSize="11" Margin="0,0,0,4"/>
               <TextBox Text="{Binding Rechercher, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
               <!-- Indicateur d'erreur regex -->
               <TextBlock Text="{Binding RegexError}"
