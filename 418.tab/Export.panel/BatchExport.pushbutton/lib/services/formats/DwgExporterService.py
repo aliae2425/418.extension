@@ -9,12 +9,21 @@ except Exception:
 import json
 
 class DwgExporterService(object):
-    def __init__(self, namespace='batch_export'):
-        try:
-            from ...core.UserConfig import UserConfig
-        except Exception:
+    def __init__(self, namespace='batch_export', config=None):
+        # `config` injecté = même UserConfig (socle) que le reste de l'app ->
+        # setups persistés dans data/<namespace>.json (cf. PdfExporterService).
+        if config is not None:
+            self._cfg = config
+        else:
             UserConfig = None  # type: ignore
-        self._cfg = UserConfig(namespace) if UserConfig is not None else None
+            try:
+                from core.UserConfig import UserConfig  # socle en priorité
+            except Exception:
+                try:
+                    from lib.core.UserConfig import UserConfig
+                except Exception:
+                    UserConfig = None  # type: ignore
+            self._cfg = UserConfig(namespace) if UserConfig is not None else None
         self._SETUP_KEY = 'dwg_setup_name'
         self._SEPARATE_KEY = 'dwg_separate_views'
         self._CUSTOM_KEY = 'custom_dwg_setups'
