@@ -121,28 +121,90 @@
               <TextBlock Text="Pr&#233;fixe"
                          Foreground="{DynamicResource TextSecondaryBrush}"
                          FontSize="11" Margin="0,0,0,4"/>
-              <TextBox Text="{Binding Prefixe, Mode=TwoWay}"/>
+              <TextBox Text="{Binding Prefixe, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Vertical" Margin="0,0,8,0">
-              <TextBlock Text="Rechercher"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         FontSize="11" Margin="0,0,0,4"/>
-              <TextBox Text="{Binding Rechercher, Mode=TwoWay}"/>
+              <!-- En-t&#234;te : label + toggle Regex -->
+              <DockPanel LastChildFill="False" Margin="0,0,0,4">
+                <TextBlock Text="Rechercher"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="11" VerticalAlignment="Center"
+                           DockPanel.Dock="Left"/>
+                <Border DockPanel.Dock="Right"
+                        CornerRadius="8" Padding="5,1"
+                        Cursor="Hand">
+                  <Border.Style>
+                    <Style TargetType="Border">
+                      <Setter Property="Background" Value="{DynamicResource ControlFillBrush}"/>
+                      <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+                      <Setter Property="BorderThickness" Value="1"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding UseRegex}" Value="True">
+                          <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+                          <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </Border.Style>
+                  <CheckBox IsChecked="{Binding UseRegex, Mode=TwoWay}"
+                            Cursor="Hand"
+                            Padding="0" Margin="0"
+                            BorderThickness="0"
+                            Background="Transparent">
+                    <CheckBox.Template>
+                      <ControlTemplate TargetType="CheckBox">
+                        <TextBlock x:Name="lbl" Text=".*"
+                                   FontSize="10" FontFamily="Consolas"
+                                   VerticalAlignment="Center">
+                          <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                              <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding UseRegex}" Value="True">
+                                  <Setter Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBlock.Style>
+                        </TextBlock>
+                      </ControlTemplate>
+                    </CheckBox.Template>
+                  </CheckBox>
+                </Border>
+              </DockPanel>
+              <TextBox Text="{Binding Rechercher, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+              <!-- Indicateur d'erreur regex -->
+              <TextBlock Text="{Binding RegexError}"
+                         Foreground="#E05252"
+                         FontSize="10"
+                         TextWrapping="Wrap"
+                         Margin="0,3,0,0">
+                <TextBlock.Style>
+                  <Style TargetType="TextBlock">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding HasRegexError}" Value="True">
+                        <Setter Property="Visibility" Value="Visible"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </TextBlock.Style>
+              </TextBlock>
             </StackPanel>
 
             <StackPanel Grid.Column="2" Orientation="Vertical" Margin="0,0,8,0">
               <TextBlock Text="Remplacer"
                          Foreground="{DynamicResource TextSecondaryBrush}"
                          FontSize="11" Margin="0,0,0,4"/>
-              <TextBox Text="{Binding Remplacer, Mode=TwoWay}"/>
+              <TextBox Text="{Binding Remplacer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
             </StackPanel>
 
             <StackPanel Grid.Column="3" Orientation="Vertical">
               <TextBlock Text="Suffixe"
                          Foreground="{DynamicResource TextSecondaryBrush}"
                          FontSize="11" Margin="0,0,0,4"/>
-              <TextBox Text="{Binding Suffixe, Mode=TwoWay}"/>
+              <TextBox Text="{Binding Suffixe, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
             </StackPanel>
           </Grid>
         </StackPanel>
