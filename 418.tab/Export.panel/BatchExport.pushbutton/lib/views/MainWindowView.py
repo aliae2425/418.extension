@@ -80,7 +80,7 @@ class MainWindowView(BaseWindow):
         self.wire_export()
         self.wire_destination()
         self.wire_naming_editors()
-        self.wire_bulk_edit()
+        self.wire_bulk_selection()
         try:
             self._vm.refresh_par_jeu()
         except Exception:
@@ -238,6 +238,56 @@ class MainWindowView(BaseWindow):
         except Exception:
             pass
 
+    def wire_bulk_selection(self):
+        """Câble la toolbar multi-sélection et les boutons de colonne PDF/DWG.
+
+        - Toolbar existante (BulkSelectAll/Deselect, BulkPdf/DwgOn/Off) →
+          méthodes correspondantes du VM.
+        - Nouveaux boutons ToggleAllPdf/Dwg (en-tête colonnes) →
+          vm.toggle_all_pdf() / toggle_all_dwg().
+        - SheetListControl.PreviewMouseLeftButtonDown →
+          sélection shift/ctrl via vm.handle_row_click().
+        """
+        if self._window is None:
+            return
+        vm = self._vm
+
+        bulk_bindings = (
+            (u'ToggleAllPdfButton', lambda: vm.toggle_all_pdf()),
+            (u'ToggleAllDwgButton', lambda: vm.toggle_all_dwg()),
+        )
+        for btn_name, action in bulk_bindings:
+            btn = self._window.FindName(btn_name)
+            if btn is None:
+                continue
+            self._bind_bulk_button(btn, action)
+
+        sheet_list = self._window.FindName(u'SheetListControl')
+        if sheet_list is None:
+            return
+
+        def _on_row_click(sender, args):
+            try:
+                _handle_sheet_row_click(vm, args)
+            except Exception:
+                pass
+        try:
+            sheet_list.PreviewMouseLeftButtonDown += _on_row_click
+        except Exception:
+            pass
+
+    @staticmethod
+    def _bind_bulk_button(btn, action):
+        def _handler(sender, args):
+            try:
+                action()
+            except Exception:
+                pass
+        try:
+            btn.Click += _handler
+        except Exception:
+            pass
+
     def wire_navigation(self):
         if self._window is None:
             return
@@ -263,31 +313,54 @@ class MainWindowView(BaseWindow):
         except Exception:
             pass
 
-    def wire_bulk_edit(self):
-        """Câble les 6 boutons de la toolbar multi-sélection (mode manuel)."""
-        if self._window is None:
-            return
-        vm = self._vm
-        mapping = (
-            ('BulkSelectAllButton',  lambda: vm.select_all_manuel()),
-            ('BulkDeselectAllButton', lambda: vm.deselect_all_manuel()),
-            ('BulkPdfOnButton',      lambda: vm.bulk_set_pdf(True)),
-            ('BulkPdfOffButton',     lambda: vm.bulk_set_pdf(False)),
-            ('BulkDwgOnButton',      lambda: vm.bulk_set_dwg(True)),
-            ('BulkDwgOffButton',     lambda: vm.bulk_set_dwg(False)),
-        )
-        for name, action in mapping:
-            btn = self._window.FindName(name)
-            if btn is None:
-                continue
-            def _make_handler(fn):
-                def _on_click(sender, args):
-                    try:
-                        fn()
-                    except Exception:
-                        pass
-                return _on_click
-            try:
-                btn.Click += _make_handler(action)
-            except Exception:
-                pass
+
+def _handle_sheet_row_click(vm, args):
+    """Interprète un PreviewMouseLeftButtonDown sur le SheetListControl.
+
+    Remonte l'arbre visuel depuis la source du clic jusqu'à trouver un
+    DataContext de type ManualSheetVM (détection duck-type : présence de
+    l'attribut ``ExportPdf``).  Si le clic est dans un CheckBox (toggles
+    PDF/DWG), on sort sans modifier la sélection.  Sinon, on délègue à
+    ``vm.handle_row_click(index, shift, ctrl)``.
+    """
+    try:
+        from System.Windows.Media import VisualTreeHelper
+        from System.Windows.Controls import CheckBox
+        from System.Windows.Input import Keyboard, ModifierKeys
+    except Exception:
+        return
+
+    source = args.OriginalSource
+    row_vm = None
+    current = source
+    while current is not None:
+        try:
+            if isinstance(current, CheckBox):
+                return   # clic dans un toggle PDF/DWG → ne pas interférer
+        except Exception:
+            pass
+        try:
+            dc = current.DataContext
+            if dc is not None and hasattr(dc, u'ExportPdf'):
+                row_vm = dc
+                break
+        except Exception:
+            pass
+        try:
+            current = VisualTreeHelper.GetParent(current)
+        except Exception:
+            break
+
+    if row_vm is None:
+        return
+
+    sheets = list(vm.SheetsManuelFiltrees)
+    try:
+        index = sheets.index(row_vm)
+    except ValueError:
+        return
+
+    shift_down = int(Keyboard.Modifiers & ModifierKeys.Shift) != 0
+    ctrl_down = int(Keyboard.Modifiers & ModifierKeys.Control) != 0
+
+    vm.handle_row_click(index, shift=shift_down, ctrl=ctrl_down)

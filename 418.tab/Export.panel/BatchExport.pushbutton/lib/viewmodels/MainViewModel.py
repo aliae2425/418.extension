@@ -106,6 +106,14 @@ except Exception:
     except Exception:
         BulkEditService = None  # type: ignore
 
+try:
+    from lib.services.ListSelectionService import ListSelectionService
+except Exception:
+    try:
+        from services.ListSelectionService import ListSelectionService
+    except Exception:
+        ListSelectionService = None  # type: ignore
+
 
 _MODES = (u'auto', u'manual', u'settings')
 _SURFACE_TITRES = {
@@ -222,7 +230,8 @@ class ManualSheetVM(BaseViewModel):
 
     def __init__(self, numero, nom, collection_id=None, elem=None,
                  export_pdf=True, export_dwg=False,
-                 jeu_nom=u'', nom_projete=u'', on_change=None):
+                 jeu_nom=u'', nom_projete=u'', on_change=None,
+                 on_format_change=None):
         super(ManualSheetVM, self).__init__()
         self._numero = numero
         self._nom = nom
@@ -233,6 +242,7 @@ class ManualSheetVM(BaseViewModel):
         self._jeu_nom = jeu_nom or u''
         self._nom_projete = nom_projete or u''
         self._on_change = on_change
+        self._on_format_change = on_format_change
         self._selected = False
 
     @property
@@ -270,6 +280,8 @@ class ManualSheetVM(BaseViewModel):
             return
         self._export_pdf = value
         self.notify_property(u'ExportPdf')
+        if callable(self._on_format_change):
+            self._on_format_change(self, u'ExportPdf', value)
         if callable(self._on_change):
             self._on_change()
 
@@ -284,6 +296,8 @@ class ManualSheetVM(BaseViewModel):
             return
         self._export_dwg = value
         self.notify_property(u'ExportDwg')
+        if callable(self._on_format_change):
+            self._on_format_change(self, u'ExportDwg', value)
         if callable(self._on_change):
             self._on_change()
 
@@ -447,6 +461,7 @@ class MainViewModel(BaseViewModel):
         # reconstruite à chaque refresh_manuel(), jamais persistée.
         self._sheets_manuel = []
         self._bulk_svc = BulkEditService() if BulkEditService is not None else None
+        self._selection_svc = ListSelectionService() if ListSelectionService is not None else None
         self._filtres_manuel = []
         self._recherche_manuel = u''
 
@@ -926,6 +941,7 @@ class MainViewModel(BaseViewModel):
                 export_pdf=True, export_dwg=False,
                 jeu_nom=jeu_nom, nom_projete=nom_projete,
                 on_change=self._on_manual_sheet_change,
+                on_format_change=self._on_format_propagate,
             ))
         self._sheets_manuel = sheets_out
 
@@ -954,6 +970,12 @@ class MainViewModel(BaseViewModel):
 
         self._filtres_manuel = filtres_out
 
+        if self._selection_svc is not None:
+            try:
+                self._selection_svc.reset()
+            except Exception:
+                pass
+
         self.refresh_patterns_apercu()
 
         self._log(u'MANUEL',
@@ -974,11 +996,35 @@ class MainViewModel(BaseViewModel):
         for name in (u'NbPdf', u'NbDwg', u'NbSelected'):
             self.notify_property(name)
 
+    def _on_format_propagate(self, source, prop, value):
+        """Propage `prop=value` à toute la sélection si `source` est sélectionné.
+
+        Déclenché par `ManualSheetVM.on_format_change` (ExportPdf/ExportDwg
+        uniquement). Le guard dans chaque setter (``if value == self._xxx: return``)
+        assure la convergence et évite les boucles infinies.
+        """
+        if not getattr(source, u'Selected', False):
+            return
+        if self._bulk_svc is None:
+            return
+        selected = self._bulk_svc.get_selected(self.SheetsManuelFiltrees)
+        for item in selected:
+            if item is not source:
+                try:
+                    setattr(item, prop, value)
+                except Exception:
+                    pass
+
     def _on_filtre_change(self):
         """Callback passé à chaque `FiltreItemVM` : un toggle `IsActif`
         recalcule `SheetsManuelFiltrees` et les compteurs (union OU sur les
         filtres actifs -- voir `SheetsManuelFiltrees`), ainsi que le résumé
         affiché sur le ToggleButton du menu déroulant (`FiltresResume`)."""
+        if self._selection_svc is not None:
+            try:
+                self._selection_svc.reset()
+            except Exception:
+                pass
         for name in (u'SheetsManuelFiltrees', u'NbFeuillesManuel', u'NbPdf',
                      u'NbDwg', u'FiltresResume'):
             self.notify_property(name)
@@ -1014,6 +1060,11 @@ class MainViewModel(BaseViewModel):
         if value == self._recherche_manuel:
             return
         self._recherche_manuel = value
+        if self._selection_svc is not None:
+            try:
+                self._selection_svc.reset()
+            except Exception:
+                pass
         for name in (u'RechercheManuel', u'SheetsManuelFiltrees',
                      u'NbFeuillesManuel', u'NbPdf', u'NbDwg'):
             self.notify_property(name)
@@ -1145,6 +1196,25 @@ class MainViewModel(BaseViewModel):
             return
         selected = self._bulk_svc.get_selected(self.SheetsManuelFiltrees)
         self._bulk_svc.toggle(selected, u'ExportDwg')
+
+    def toggle_all_pdf(self):
+        """Bascule ExportPdf sur TOUTES les feuilles filtrées (tout ON → OFF, sinon → ON)."""
+        if self._bulk_svc is None:
+            return
+        self._bulk_svc.toggle(self.SheetsManuelFiltrees, u'ExportPdf')
+
+    def toggle_all_dwg(self):
+        """Bascule ExportDwg sur TOUTES les feuilles filtrées (tout ON → OFF, sinon → ON)."""
+        if self._bulk_svc is None:
+            return
+        self._bulk_svc.toggle(self.SheetsManuelFiltrees, u'ExportDwg')
+
+    def handle_row_click(self, index, shift=False, ctrl=False):
+        """Délègue la sélection multi-items à `ListSelectionService`."""
+        if self._selection_svc is None:
+            return
+        self._selection_svc.handle_click(
+            self.SheetsManuelFiltrees, index, shift=shift, ctrl=ctrl)
 
     # ------------------------------------------------------------------
     # Destination (Task « Parcourir ») : coordination VM -> DestinationService
@@ -1464,9 +1534,7 @@ class MainViewModel(BaseViewModel):
                 _dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
             self._log_file.write(u'{}\n'.format(sep))
             self._log_file.flush()
-            print(u'[BatchExport] Live log -> {}'.format(self._log_path))
-        except Exception as _e:
-            print(u'[BatchExport] ERREUR init log : {}'.format(_e))
+        except Exception:
             self._log_file = None
             self._log_path = None
 
@@ -1480,8 +1548,8 @@ class MainViewModel(BaseViewModel):
             line = u'[{}] [{:<8s}] {}\n'.format(ts, category, message or u'')
             self._log_file.write(line)
             self._log_file.flush()
-        except Exception as _e:
-            print(u'[BatchExport] ERREUR écriture log : {}'.format(_e))
+        except Exception:
+            pass
 
     def _log_init_context(self):
         """Log le contexte complet au démarrage de la session."""

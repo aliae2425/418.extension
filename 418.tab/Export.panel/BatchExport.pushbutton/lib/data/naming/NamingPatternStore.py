@@ -52,10 +52,9 @@ class NamingPatternStore(object):
             return False
         try:
             self._cfg.set(kpat, pattern or '')
-        except Exception as e:
-            print("NamingPatternStore [001]: Error saving pattern '{}': {}".format(kpat, e))
+        except Exception:
+            pass
         try:
-            # Construction de la chaîne custom
             row_strs = []
             for r in rows or []:
                 name = r.get('Name', '')
@@ -63,10 +62,9 @@ class NamingPatternStore(object):
                 suffix = r.get('Suffix', '')
                 row_strs.append(u'[ "name": "{}", "prefixe": "{}", "suffixe": "{}" ]'.format(name, prefix, suffix))
             final_rows_str = u'[' + u', '.join(row_strs) + u']'
-            # print("rows_string:", final_rows_str)
             self._cfg.set(krows, final_rows_str)
-        except Exception as e:
-            print("NamingPatternStore [002]: Error saving rows '{}': {}".format(krows, e))
+        except Exception:
+            pass
         return True
 
     def load(self, kind):
@@ -85,8 +83,7 @@ class NamingPatternStore(object):
         try:
             raw = self._cfg.get(krows, '')
             rows = self._parse_rows_string(raw)
-        except Exception as e:
-            print("NamingPatternStore [003]: Error parsing rows string: {}".format(e))
+        except Exception:
             rows = []
         return (patt, rows)
 

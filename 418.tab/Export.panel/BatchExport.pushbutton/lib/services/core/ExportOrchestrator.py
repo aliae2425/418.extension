@@ -487,10 +487,6 @@ class ExportOrchestrator(object):
 
     def _export_pdf_sheet(self, doc, sheet, rows, base_folder, options, separate=True, overwrite=False, log_cb=None):
         def _log(msg):
-            try:
-                print(msg)
-            except Exception:
-                pass
             if log_cb:
                 try:
                     log_cb(msg)
@@ -576,10 +572,6 @@ class ExportOrchestrator(object):
 
     def _export_dwg_sheet(self, doc, sheet, rows, base_folder, options, overwrite=False, log_cb=None):
         def _log(msg):
-            try:
-                print(msg)
-            except Exception:
-                pass
             if log_cb:
                 try:
                     log_cb(msg)
@@ -692,10 +684,6 @@ class ExportOrchestrator(object):
 
     def _export_pdf_collection(self, doc, sheets, rows, base_folder, options, collection=None, overwrite=False, log_cb=None):
         def _log(msg):
-            try:
-                print(msg)
-            except Exception:
-                pass
             if log_cb:
                 try:
                     log_cb(msg)

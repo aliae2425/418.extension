@@ -1283,5 +1283,180 @@ class TestMainViewModelLancerExportManuel(unittest.TestCase):
             self.fail(u"lancer_export_manuel() a levé une exception : {}".format(exc))
 
 
+class TestListSelectionService(unittest.TestCase):
+    """Tests unitaires pour `ListSelectionService` (service pur Python)."""
+
+    def setUp(self):
+        from lib.services.ListSelectionService import ListSelectionService
+        self.svc = ListSelectionService()
+
+    def _items(self, n):
+        from lib.viewmodels.MainViewModel import ManualSheetVM
+        return [ManualSheetVM(str(i), u'Feuille {}'.format(i)) for i in range(n)]
+
+    def test_clic_simple_selectionne_uniquement_cet_index(self):
+        items = self._items(5)
+        self.svc.handle_click(items, 2)
+        selected = [i.Selected for i in items]
+        self.assertEqual(selected, [False, False, True, False, False])
+
+    def test_clic_simple_deselectionne_les_autres(self):
+        items = self._items(3)
+        items[0].Selected = True
+        items[1].Selected = True
+        self.svc.handle_click(items, 2)
+        self.assertFalse(items[0].Selected)
+        self.assertFalse(items[1].Selected)
+        self.assertTrue(items[2].Selected)
+
+    def test_ctrl_clic_bascule_sans_toucher_les_autres(self):
+        items = self._items(3)
+        self.svc.handle_click(items, 0)         # sélectionne 0, ancre=0
+        self.svc.handle_click(items, 1, ctrl=True)  # toggle 1 sans toucher 0
+        self.assertTrue(items[0].Selected)   # inchangé
+        self.assertTrue(items[1].Selected)   # togglé ON
+        self.assertFalse(items[2].Selected)
+
+    def test_shift_clic_selectionne_plage_inclusive(self):
+        items = self._items(5)
+        self.svc.handle_click(items, 1)          # ancre = 1
+        self.svc.handle_click(items, 4, shift=True)  # plage 1..4
+        selected = [i.Selected for i in items]
+        self.assertEqual(selected, [False, True, True, True, True])
+
+    def test_shift_clic_ne_deplace_pas_ancre(self):
+        items = self._items(5)
+        self.svc.handle_click(items, 2)
+        self.svc.handle_click(items, 4, shift=True)
+        self.svc.handle_click(items, 0, shift=True)  # ancre toujours = 2 → plage 0..2
+        selected = [i.Selected for i in items]
+        self.assertEqual(selected, [True, True, True, False, False])
+
+    def test_shift_sans_ancre_agit_comme_clic_simple(self):
+        items = self._items(4)
+        items[1].Selected = True
+        self.svc.handle_click(items, 3, shift=True)
+        selected = [i.Selected for i in items]
+        self.assertEqual(selected, [False, False, False, True])
+
+    def test_reset_reinitialise_ancre(self):
+        items = self._items(4)
+        self.svc.handle_click(items, 1)   # ancre = 1
+        self.svc.reset()
+        self.svc.handle_click(items, 3, shift=True)  # shift sans ancre → clic simple
+        selected = [i.Selected for i in items]
+        self.assertEqual(selected, [False, False, False, True])
+
+
+class TestFormatPropagate(unittest.TestCase):
+    """Propagation PDF/DWG à la sélection lors du toggle d'un item sélectionné."""
+
+    def _sheets(self, n):
+        return [ManualSheetVM(str(i), u'F{}'.format(i)) for i in range(n)]
+
+    def _make_propagate(self, sheets_ref, bulk):
+        def propagate(source, prop, value):
+            if not getattr(source, u'Selected', False):
+                return
+            selected = bulk.get_selected(sheets_ref[0])
+            for item in selected:
+                if item is not source:
+                    try:
+                        setattr(item, prop, value)
+                    except Exception:
+                        pass
+        return propagate
+
+    def setUp(self):
+        from lib.services.BulkEditService import BulkEditService
+        self.bulk = BulkEditService()
+
+    def test_toggle_pdf_propage_a_toute_la_selection(self):
+        sheets = self._sheets(3)
+        ref = [sheets]
+        propagate = self._make_propagate(ref, self.bulk)
+        for s in sheets:
+            s._on_format_change = propagate
+            s.Selected = True
+        sheets[0].ExportPdf = False
+        self.assertFalse(sheets[1].ExportPdf)
+        self.assertFalse(sheets[2].ExportPdf)
+
+    def test_toggle_dwg_propage_a_toute_la_selection(self):
+        sheets = self._sheets(3)
+        ref = [sheets]
+        propagate = self._make_propagate(ref, self.bulk)
+        for s in sheets:
+            s._on_format_change = propagate
+            s.Selected = True
+        sheets[1].ExportDwg = True
+        self.assertTrue(sheets[0].ExportDwg)
+        self.assertTrue(sheets[2].ExportDwg)
+
+    def test_toggle_ne_propage_pas_si_non_selectionne(self):
+        sheets = self._sheets(3)
+        ref = [sheets]
+        propagate = self._make_propagate(ref, self.bulk)
+        for s in sheets:
+            s._on_format_change = propagate
+        # Seul sheets[0] est sélectionné
+        sheets[0].Selected = True
+        sheets[0].ExportPdf = False
+        self.assertTrue(sheets[1].ExportPdf)   # inchangé
+        self.assertTrue(sheets[2].ExportPdf)   # inchangé
+
+
+class TestMainViewModelToggleAll(unittest.TestCase):
+    """Tests pour `toggle_all_pdf` / `toggle_all_dwg` et `handle_row_click`."""
+
+    def _make_vm(self):
+        from tests.test_main_viewmodel import (FakeSheetService,
+                                               FakeNamingService, FakeConfig)
+        vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                           naming_service=FakeNamingService(), config=FakeConfig())
+        vm.refresh_manuel()
+        return vm
+
+    def test_toggle_all_pdf_active_tous_si_au_moins_un_off(self):
+        vm = self._make_vm()
+        sheets = vm.SheetsManuelFiltrees
+        if not sheets:
+            return
+        sheets[0].ExportPdf = False   # au moins un off
+        vm.toggle_all_pdf()
+        self.assertTrue(all(s.ExportPdf for s in sheets))
+
+    def test_toggle_all_pdf_desactive_tous_si_tous_on(self):
+        vm = self._make_vm()
+        sheets = vm.SheetsManuelFiltrees
+        if not sheets:
+            return
+        for s in sheets:
+            s._export_pdf = True   # force sans callback
+        vm.toggle_all_pdf()
+        self.assertTrue(all(not s.ExportPdf for s in sheets))
+
+    def test_handle_row_click_selectionne_feuille(self):
+        vm = self._make_vm()
+        sheets = vm.SheetsManuelFiltrees
+        if not sheets:
+            return
+        vm.handle_row_click(0)
+        self.assertTrue(sheets[0].Selected)
+        if len(sheets) > 1:
+            self.assertFalse(sheets[1].Selected)
+
+    def test_handle_row_click_shift_selectionne_plage(self):
+        vm = self._make_vm()
+        sheets = vm.SheetsManuelFiltrees
+        if len(sheets) < 3:
+            return
+        vm.handle_row_click(0)
+        vm.handle_row_click(2, shift=True)
+        self.assertTrue(sheets[0].Selected)
+        self.assertTrue(sheets[1].Selected)
+        self.assertTrue(sheets[2].Selected)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -397,90 +397,75 @@
               </Grid>
 
               <!--
-                Compteur : plusieurs TextBlock/littéraux (pas de MultiBinding),
-                calqué sur le badge de compte du mode « par jeu » (lignes 190-205).
-                NbSelected est bindé dans la toolbar multi-sélection (Row 2).
+                Barre d'état : compteurs (feuilles · PDF · DWG · sélectionnées)
+                + boutons « Tout PDF » / « Tout DWG » pour basculer la colonne
+                sur toutes les feuilles filtrées.
               -->
-              <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
-                <TextBlock Text="{Binding NbFeuillesManuel}"
-                           Foreground="{DynamicResource AccentBrush}"
-                           FontWeight="SemiBold"
-                           FontSize="12.5"/>
-                <TextBlock Text=" feuilles · "
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontSize="12.5"/>
-                <TextBlock Text="{Binding NbPdf}"
-                           Foreground="{DynamicResource AccentBrush}"
-                           FontWeight="SemiBold"
-                           FontSize="12.5"/>
-                <TextBlock Text=" PDF · "
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontSize="12.5"/>
-                <TextBlock Text="{Binding NbDwg}"
-                           Foreground="{DynamicResource AccentBrush}"
-                           FontWeight="SemiBold"
-                           FontSize="12.5"/>
-                <TextBlock Text=" DWG"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontSize="12.5"/>
-              </StackPanel>
+              <Grid Grid.Row="1" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-              <!-- Toolbar multi-sélection -->
-              <StackPanel Grid.Row="2"
-                          Orientation="Horizontal"
-                          Margin="0,0,0,8">
-                <Button x:Name="BulkSelectAllButton"
-                        Content="Tout"
-                        Style="{DynamicResource SecondaryActionButtonStyle}"
-                        Padding="8,4"
-                        Margin="0,0,4,0"/>
-                <Button x:Name="BulkDeselectAllButton"
-                        Content="Aucun"
-                        Style="{DynamicResource SecondaryActionButtonStyle}"
-                        Padding="8,4"
-                        Margin="0,0,12,0"/>
-                <TextBlock Text="{Binding NbSelected}"
-                           Foreground="{DynamicResource AccentBrush}"
-                           FontWeight="SemiBold"
-                           FontSize="12"
-                           VerticalAlignment="Center"
-                           Margin="0,0,2,0"/>
-                <TextBlock Text=" sél. — "
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontSize="12"
-                           VerticalAlignment="Center"/>
-                <Button x:Name="BulkPdfOnButton"
-                        Content="PDF ✓"
-                        Style="{DynamicResource SecondaryActionButtonStyle}"
-                        Padding="8,4"
-                        Margin="0,0,4,0"/>
-                <Button x:Name="BulkPdfOffButton"
-                        Content="PDF ✗"
-                        Style="{DynamicResource SecondaryActionButtonStyle}"
-                        Padding="8,4"
-                        Margin="0,0,8,0"/>
-                <Button x:Name="BulkDwgOnButton"
-                        Content="DWG ✓"
-                        Style="{DynamicResource SecondaryActionButtonStyle}"
-                        Padding="8,4"
-                        Margin="0,0,4,0"/>
-                <Button x:Name="BulkDwgOffButton"
-                        Content="DWG ✗"
-                        Style="{DynamicResource SecondaryActionButtonStyle}"
-                        Padding="8,4"/>
-              </StackPanel>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding NbFeuillesManuel}"
+                             Foreground="{DynamicResource AccentBrush}"
+                             FontWeight="SemiBold"
+                             FontSize="12.5"/>
+                  <TextBlock Text=" feuilles · "
+                             Foreground="{DynamicResource TextSecondaryBrush}"
+                             FontSize="12.5"/>
+                  <TextBlock Text="{Binding NbPdf}"
+                             Foreground="{DynamicResource AccentBrush}"
+                             FontWeight="SemiBold"
+                             FontSize="12.5"/>
+                  <TextBlock Text=" PDF · "
+                             Foreground="{DynamicResource TextSecondaryBrush}"
+                             FontSize="12.5"/>
+                  <TextBlock Text="{Binding NbDwg}"
+                             Foreground="{DynamicResource AccentBrush}"
+                             FontWeight="SemiBold"
+                             FontSize="12.5"/>
+                  <TextBlock Text=" DWG · "
+                             Foreground="{DynamicResource TextSecondaryBrush}"
+                             FontSize="12.5"/>
+                  <TextBlock Text="{Binding NbSelected}"
+                             Foreground="{DynamicResource AccentBrush}"
+                             FontWeight="SemiBold"
+                             FontSize="12.5"/>
+                  <TextBlock Text=" sél."
+                             Foreground="{DynamicResource TextSecondaryBrush}"
+                             FontSize="12.5"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                  <Button x:Name="ToggleAllPdfButton"
+                          Content="Tout PDF"
+                          Style="{DynamicResource SecondaryActionButtonStyle}"
+                          Padding="8,3"
+                          Margin="0,0,4,0"
+                          FontSize="11"/>
+                  <Button x:Name="ToggleAllDwgButton"
+                          Content="Tout DWG"
+                          Style="{DynamicResource SecondaryActionButtonStyle}"
+                          Padding="8,3"
+                          FontSize="11"/>
+                </StackPanel>
+              </Grid>
 
               <!--
                 Liste des feuilles. ScrollViewer + ItemsControl, style carte
-                (CardStyle) par ligne pour rester cohérent avec les cartes de
-                collection du mode « par jeu ». Colonnes : case de sélection
-                de ligne (24) / JeuNom (140) / Numero (90) / [Nom + aperçu du
-                nom projeté empilés] (*) / tags PDF / DWG.
+                (CardStyle) par ligne. Colonnes : JeuNom (140) / Numero (90)
+                / [Nom + aperçu du nom projeté empilés] (*) / PDF (Auto) / DWG (Auto).
+                Clic sur une ligne → sélection via ListSelectionService
+                (shift/ctrl câblés dans MainWindowView.wire_bulk_selection).
+                Clic sur PDF/DWG d'un item sélectionné → propagé à toute la sélection.
               -->
               <ScrollViewer Grid.Row="3"
                             VerticalScrollBarVisibility="Auto"
                             HorizontalScrollBarVisibility="Disabled">
-                <ItemsControl ItemsSource="{Binding SheetsManuelFiltrees}">
+                <ItemsControl x:Name="SheetListControl"
+                              ItemsSource="{Binding SheetsManuelFiltrees}">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                       <StackPanel Orientation="Vertical"/>
@@ -489,27 +474,21 @@
 
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                      <Border Style="{DynamicResource CardStyle}"
+                      <Border x:Name="RowBorder"
+                              Style="{DynamicResource CardStyle}"
                               Padding="12,10"
                               Margin="0,0,0,8">
                         <Grid>
                           <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="24"/>    <!-- case sélection -->
-                            <ColumnDefinition Width="140"/>   <!-- JeuNom -->
-                            <ColumnDefinition Width="90"/>    <!-- Numero -->
+                            <ColumnDefinition Width="120"/>   <!-- JeuNom -->
+                            <ColumnDefinition Width="80"/>    <!-- Numero -->
                             <ColumnDefinition Width="*"/>     <!-- Nom + aperçu -->
                             <ColumnDefinition Width="Auto"/>  <!-- PDF -->
                             <ColumnDefinition Width="Auto"/>  <!-- DWG -->
                           </Grid.ColumnDefinitions>
 
-                          <!-- Case de sélection de ligne (multi-sélection) -->
-                          <CheckBox Grid.Column="0"
-                                    IsChecked="{Binding Selected, Mode=TwoWay}"
-                                    VerticalAlignment="Center"
-                                    Margin="0,0,4,0"/>
-
                           <!-- Ordre : nom du jeu AVANT le numéro de feuille -->
-                          <TextBlock Grid.Column="1"
+                          <TextBlock Grid.Column="0"
                                      Text="{Binding JeuNom}"
                                      Foreground="{DynamicResource TextSecondaryBrush}"
                                      FontSize="11"
@@ -517,7 +496,7 @@
                                      TextTrimming="CharacterEllipsis"
                                      Margin="0,0,8,0"/>
 
-                          <TextBlock Grid.Column="2"
+                          <TextBlock Grid.Column="1"
                                      Text="{Binding Numero}"
                                      Foreground="{DynamicResource TextSecondaryBrush}"
                                      FontFamily="Consolas"
@@ -527,7 +506,7 @@
                           <!--
                             Nom + aperçu du nom projeté empilés verticalement.
                           -->
-                          <StackPanel Grid.Column="3"
+                          <StackPanel Grid.Column="2"
                                       Orientation="Vertical"
                                       VerticalAlignment="Center"
                                       Margin="8,0">
@@ -544,20 +523,27 @@
                                        Margin="0,2,0,0"/>
                           </StackPanel>
 
-                          <CheckBox Grid.Column="4"
+                          <CheckBox Grid.Column="3"
                                     Content="PDF"
                                     Style="{DynamicResource ToggleSwitchStyle}"
                                     IsChecked="{Binding ExportPdf, Mode=TwoWay}"
-                                    Margin="0,0,16,0"
+                                    Margin="8,0,12,0"
                                     VerticalAlignment="Center"/>
 
-                          <CheckBox Grid.Column="5"
+                          <CheckBox Grid.Column="4"
                                     Content="DWG"
                                     Style="{DynamicResource ToggleSwitchStyle}"
                                     IsChecked="{Binding ExportDwg, Mode=TwoWay}"
                                     VerticalAlignment="Center"/>
                         </Grid>
                       </Border>
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding Selected}" Value="True">
+                          <Setter TargetName="RowBorder" Property="BorderBrush"    Value="{DynamicResource AccentBrush}"/>
+                          <Setter TargetName="RowBorder" Property="BorderThickness" Value="2"/>
+                          <Setter TargetName="RowBorder" Property="Background"     Value="#1A0078D4"/>
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
