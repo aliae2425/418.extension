@@ -8,3 +8,4 @@
 profil.json
 .claude/*
 .claude-flow/*
+**/*.log
