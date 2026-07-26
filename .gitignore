@@ -12,3 +12,4 @@ profil.json
 .claude-flow/*
 
 cherrypick.md
+**/*.log
