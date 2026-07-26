@@ -1,0 +1,13 @@
+{
+  "sheet_param_dwgcombo": "DWG", 
+  "separate_format_folders": "1", 
+  "dwg_setup_name": "Export Vrai couleur", 
+  "pdf_setup_name": "Export PDF", 
+  "sheet_param_carnetcombo": "Compilé", 
+  "pattern_set_rows": "[]", 
+  "pattern_set": "{date_annee}{date_mois}{date_jour}_{projet_client}-{titre}", 
+  "sheet_param_exportationcombo": "Export", 
+  "pattern_sheet": "{date_annee}{date_mois}{date_jour}_{projet_client}-{projet_numero}_{numero}-{nom}", 
+  "create_subfolders": "1", 
+  "pattern_sheet_rows": "[]"
+}
