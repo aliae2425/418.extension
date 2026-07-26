@@ -26,6 +26,14 @@ except Exception:
     except Exception:
         NamingEditorView = None  # type: ignore
 
+try:
+    from views.ExportDoneView import ExportDoneView
+except Exception:
+    try:
+        from lib.views.ExportDoneView import ExportDoneView
+    except Exception:
+        ExportDoneView = None  # type: ignore
+
 # SPIKE (étape 0 découpage main window) : sous-VM de la page « par jeu ».
 try:
     from viewmodels.AutoPageVM import AutoPageVM
@@ -81,6 +89,7 @@ class MainWindowView(BaseWindow):
         self.wire_destination()
         self.wire_naming_editors()
         self.wire_bulk_selection()
+        self._vm._on_export_done_cb = self._show_export_done
         try:
             self._vm.refresh_par_jeu()
         except Exception:
@@ -124,6 +133,21 @@ class MainWindowView(BaseWindow):
             page = self._load_page('AutoPage.xaml')
             page.DataContext = page_vm
             host.Content = page
+        except Exception:
+            pass
+
+    def _show_export_done(self, destination):
+        if ExportDoneView is None:
+            return
+        try:
+            view = ExportDoneView(destination)
+            view._load()
+            if view._window is not None and self._window is not None:
+                try:
+                    view._window.Owner = self._window
+                except Exception:
+                    pass
+            view.show()
         except Exception:
             pass
 

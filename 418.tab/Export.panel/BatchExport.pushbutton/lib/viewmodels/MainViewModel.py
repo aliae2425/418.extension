@@ -464,6 +464,7 @@ class MainViewModel(BaseViewModel):
         self._selection_svc = ListSelectionService() if ListSelectionService is not None else None
         self._filtres_manuel = []
         self._recherche_manuel = u''
+        self._on_export_done_cb = None
 
         # Aperçu des conventions de nommage (page Réglages) : motifs bruts
         # (chaînes à jetons ou anciens templates), recalculés par
@@ -1694,6 +1695,7 @@ class MainViewModel(BaseViewModel):
 
         progress_cb, log_cb = self._make_export_callbacks_with_log()
 
+        _export_ok = False
         try:
             orch.run(
                 self._doc,
@@ -1702,6 +1704,7 @@ class MainViewModel(BaseViewModel):
                 log_cb=log_cb,
                 destination=self.DestinationPath,
             )
+            _export_ok = True
         except Exception as exc:
             try:
                 msg = u"Erreur pendant l'export : {}".format(exc)
@@ -1711,12 +1714,13 @@ class MainViewModel(BaseViewModel):
             self._log(u'ERREUR', msg)
 
         self._log(u'EXPORT', u'--- Fin export AUTO ---')
-        if self._log_path:
-            try:
-                self.StatusText = (self.StatusText or u'').rstrip() + u' | Log : {}'.format(
-                    self._log_path)
-            except Exception:
-                pass
+        if _export_ok:
+            self.StatusText = u''
+            if callable(self._on_export_done_cb):
+                try:
+                    self._on_export_done_cb(self.DestinationPath)
+                except Exception:
+                    pass
 
     def lancer_export_manuel(self):
         """Lance l'export « feuille par feuille » via `ExportOrchestrator.run_manual()`.
@@ -1777,6 +1781,7 @@ class MainViewModel(BaseViewModel):
 
         progress_cb, log_cb = self._make_export_callbacks_with_log()
 
+        _export_ok = False
         try:
             orch.run_manual(
                 self._doc,
@@ -1787,6 +1792,7 @@ class MainViewModel(BaseViewModel):
                 log_cb=log_cb,
                 destination=self.DestinationPath,
             )
+            _export_ok = True
         except Exception as exc:
             try:
                 msg = u"Erreur pendant l'export : {}".format(exc)
@@ -1796,9 +1802,10 @@ class MainViewModel(BaseViewModel):
             self._log(u'ERREUR', msg)
 
         self._log(u'EXPORT', u'--- Fin export MANUEL ---')
-        if self._log_path:
-            try:
-                self.StatusText = (self.StatusText or u'').rstrip() + u' | Log : {}'.format(
-                    self._log_path)
-            except Exception:
-                pass
+        if _export_ok:
+            self.StatusText = u''
+            if callable(self._on_export_done_cb):
+                try:
+                    self._on_export_done_cb(self.DestinationPath)
+                except Exception:
+                    pass

@@ -1458,5 +1458,96 @@ class TestMainViewModelToggleAll(unittest.TestCase):
         self.assertTrue(sheets[2].Selected)
 
 
+class TestExportDoneCallback(unittest.TestCase):
+    """_on_export_done_cb : déclenché après export réussi, absent ou ignoré
+    sur les chemins d'échec (doc=None, sélection vide, exception)."""
+
+    def test_callback_absent_par_defaut(self):
+        vm = MainViewModel(doc=None)
+        self.assertIsNone(vm._on_export_done_cb)
+
+    def test_callback_non_appele_si_doc_none_auto(self):
+        calls = []
+        vm = MainViewModel(doc=None)
+        vm._on_export_done_cb = lambda dest: calls.append(dest)
+        vm.lancer_export()
+        self.assertEqual(len(calls), 0)
+
+    def test_callback_non_appele_si_doc_none_manuel(self):
+        calls = []
+        vm = MainViewModel(doc=None)
+        vm._on_export_done_cb = lambda dest: calls.append(dest)
+        vm.lancer_export_manuel()
+        self.assertEqual(len(calls), 0)
+
+    def test_callback_appele_apres_export_manuel_avec_doc_factice(self):
+        calls = []
+        dest_svc = FakeDestinationService(u'C:/Test/Export')
+        vm = MainViewModel(
+            doc=object(),
+            sheet_service=FakeSheetService(),
+            naming_service=FakeNamingService(),
+            destination_service=dest_svc,
+            config=FakeConfig(),
+        )
+        vm._on_export_done_cb = lambda dest: calls.append(dest)
+        svm = ManualSheetVM(u'01', u'Feuille 1', export_pdf=True, export_dwg=False)
+        vm._sheets_manuel = [svm]
+        vm.lancer_export_manuel()
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0], u'C:/Test/Export')
+
+    def test_status_text_vide_apres_export_manuel_reussi(self):
+        dest_svc = FakeDestinationService(u'C:/Test')
+        vm = MainViewModel(
+            doc=object(),
+            sheet_service=FakeSheetService(),
+            naming_service=FakeNamingService(),
+            destination_service=dest_svc,
+            config=FakeConfig(),
+        )
+        svm = ManualSheetVM(u'01', u'Feuille 1', export_pdf=True)
+        vm._sheets_manuel = [svm]
+        vm.lancer_export_manuel()
+        self.assertNotIn(u'Termin', vm.StatusText)
+        self.assertNotIn(u'Log', vm.StatusText)
+
+    def test_callback_non_appele_si_exception_dans_orchestrateur(self):
+        calls = []
+
+        class OrchestrateurtQuiLeve(object):
+            def __init__(self):
+                self._dest = object()
+                self._nstore = object()
+                self._pdf = object()
+                self._dwg = object()
+                self._cfg = object()
+
+            def run_manual(self, *a, **kw):
+                raise RuntimeError(u'échec simulé')
+
+        vm = MainViewModel(
+            doc=object(),
+            sheet_service=FakeSheetService(),
+            naming_service=FakeNamingService(),
+            destination_service=FakeDestinationService(u'C:/Test'),
+            config=FakeConfig(),
+        )
+        vm._on_export_done_cb = lambda dest: calls.append(dest)
+        svm = ManualSheetVM(u'01', u'Feuille 1', export_pdf=True)
+        vm._sheets_manuel = [svm]
+
+        import lib.services.core.ExportOrchestrator as _eo_mod
+        _orig = _eo_mod.ExportOrchestrator
+        _eo_mod.ExportOrchestrator = OrchestrateurtQuiLeve
+        try:
+            vm.lancer_export_manuel()
+        finally:
+            _eo_mod.ExportOrchestrator = _orig
+
+        self.assertEqual(len(calls), 0)
+        self.assertIn(u'erreur', vm.StatusText.lower())
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -349,7 +349,7 @@ class ExportOrchestrator(object):
                         ok, path = self._export_dwg_sheet(doc, sh, rows_sh, base_dwg, dwg_opt, overwrite=overwrite, log_cb=log_cb)
 
         if progress_cb:
-            progress_cb(total, max(total, 1), 'Terminé')
+            progress_cb(total, max(total, 1), u'')
         return True
 
     def run_manual(self, doc, sheet_vms, combine_pdf=False, pdf_title=u'',
@@ -429,7 +429,7 @@ class ExportOrchestrator(object):
             done += 1
 
         if progress_cb:
-            progress_cb(total, max(total, 1), u'Terminé')
+            progress_cb(total, max(total, 1), u'')
         return True
 
     # ------------------- Helpers noms/export ------------------- #
