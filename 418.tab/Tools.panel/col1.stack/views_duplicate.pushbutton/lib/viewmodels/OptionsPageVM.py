@@ -16,12 +16,15 @@ try:
 except Exception:
     from services.ViewsDuplicationOptions import ViewsDuplicationOptions
 
+try:
+    from lib.viewmodels.PreviewGroupVM import PreviewGroupVM
+except Exception:
+    from viewmodels.PreviewGroupVM import PreviewGroupVM
+
 
 class OptionsPageVM(BaseViewModel):
-    """VM de la page Options : mode de duplication et nombre de copies.
-
-    Chaque propriété PascalCase est bindable en WPF (TwoWay). Les propriétés
-    sont écrites en @property inline (getter/setter notifiant)."""
+    """VM de la page Options : mode de duplication, nombre de copies, nommage
+    et aperçu temps-réel des noms de vues générés."""
 
     def __init__(self):
         super(OptionsPageVM, self).__init__()
@@ -31,6 +34,12 @@ class OptionsPageVM(BaseViewModel):
         self._Rechercher = u''
         self._Remplacer = u''
         self._Suffixe = u''
+        self._source_names = []
+        self._PreviewGroups = []
+
+    # ------------------------------------------------------------------
+    # Propriétés bindables
+    # ------------------------------------------------------------------
 
     @property
     def ViewDuplicateOption(self):
@@ -51,6 +60,7 @@ class OptionsPageVM(BaseViewModel):
         if value != self._Count:
             self._Count = value
             self.notify_property('Count')
+            self._recompute_preview()
 
     @property
     def Prefixe(self):
@@ -61,6 +71,7 @@ class OptionsPageVM(BaseViewModel):
         if value != self._Prefixe:
             self._Prefixe = value
             self.notify_property('Prefixe')
+            self._recompute_preview()
 
     @property
     def Rechercher(self):
@@ -71,6 +82,7 @@ class OptionsPageVM(BaseViewModel):
         if value != self._Rechercher:
             self._Rechercher = value
             self.notify_property('Rechercher')
+            self._recompute_preview()
 
     @property
     def Remplacer(self):
@@ -81,6 +93,7 @@ class OptionsPageVM(BaseViewModel):
         if value != self._Remplacer:
             self._Remplacer = value
             self.notify_property('Remplacer')
+            self._recompute_preview()
 
     @property
     def Suffixe(self):
@@ -91,6 +104,44 @@ class OptionsPageVM(BaseViewModel):
         if value != self._Suffixe:
             self._Suffixe = value
             self.notify_property('Suffixe')
+            self._recompute_preview()
+
+    @property
+    def PreviewGroups(self):
+        return self._PreviewGroups
+
+    @property
+    def HasPreview(self):
+        return bool(self._PreviewGroups)
+
+    # ------------------------------------------------------------------
+    # Logique de preview
+    # ------------------------------------------------------------------
+
+    def set_source_names(self, names):
+        """Met à jour la liste de noms de vues sources et recalcule l'aperçu."""
+        self._source_names = list(names or [])
+        self._recompute_preview()
+
+    def _compute_name(self, original):
+        name = original
+        if self._Rechercher:
+            name = name.replace(self._Rechercher, self._Remplacer)
+        return self._Prefixe + name + self._Suffixe
+
+    def _recompute_preview(self):
+        try:
+            count = max(1, int(self._Count))
+        except (ValueError, TypeError):
+            count = 1
+        self._PreviewGroups = [
+            PreviewGroupVM(nom, self._compute_name(nom), count)
+            for nom in self._source_names
+        ]
+        self.notify_property('PreviewGroups')
+        self.notify_property('HasPreview')
+
+    # ------------------------------------------------------------------
 
     def build_options(self):
         """Construit un `ViewsDuplicationOptions` peuplé depuis l'état courant."""

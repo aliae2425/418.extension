@@ -148,25 +148,96 @@
         </StackPanel>
       </Border>
 
-      <!-- Carte 3 : aper&#231;u des noms cr&#233;&#233;s (placeholder) -->
+      <!-- Carte 3 : aper&#231;u des noms cr&#233;&#233;s, group&#233;s par vue d'origine -->
       <Border Style="{DynamicResource CardStyle}">
         <StackPanel Orientation="Vertical">
           <TextBlock Text="Aper&#231;u des noms cr&#233;&#233;s"
                      Style="{DynamicResource SubHeaderTextBlockStyle}"
                      Margin="0,0,0,10"/>
+
+          <!-- &#201;tat vide : aucune vue s&#233;lectionn&#233;e -->
           <Border Background="{DynamicResource ControlFillBrush}"
                   BorderBrush="{DynamicResource ControlBorderBrush}"
-                  BorderThickness="1"
-                  CornerRadius="6"
-                  Padding="16"
-                  MinHeight="72">
-            <TextBlock Text="&#9432;&#160;&#160;L&#8217;aper&#231;u des noms appara&#238;tra ici."
+                  BorderThickness="1" CornerRadius="6" Padding="16" MinHeight="56">
+            <Border.Style>
+              <Style TargetType="Border">
+                <Setter Property="Visibility" Value="Collapsed"/>
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding HasPreview}" Value="False">
+                    <Setter Property="Visibility" Value="Visible"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </Border.Style>
+            <TextBlock Text="S&#233;lectionnez des vues pour voir l&#8217;aper&#231;u."
                        Foreground="{DynamicResource TextSecondaryBrush}"
-                       FontStyle="Italic"
-                       FontSize="13"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"/>
+                       FontStyle="Italic" FontSize="13"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
+
+          <!-- Liste group&#233;e : une entr&#233;e par vue source -->
+          <ItemsControl ItemsSource="{Binding PreviewGroups}">
+            <ItemsControl.Style>
+              <Style TargetType="ItemsControl">
+                <Setter Property="Visibility" Value="Visible"/>
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding HasPreview}" Value="False">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </ItemsControl.Style>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border BorderBrush="{DynamicResource ControlBorderBrush}"
+                        BorderThickness="0,0,0,1"
+                        Padding="4,8">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- En-t&#234;te : nom original -->
+                    <TextBlock Grid.Row="0" Grid.Column="0"
+                               Text="{Binding NomOriginal}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="11"
+                               Margin="0,0,0,3"/>
+
+                    <!-- Badge nombre de copies -->
+                    <Border Grid.Row="0" Grid.Column="1"
+                            Background="{DynamicResource ControlFillBrush}"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            BorderThickness="1" CornerRadius="8"
+                            Padding="6,1" Margin="8,0,0,3"
+                            VerticalAlignment="Center">
+                      <TextBlock Text="{Binding CountLabel}"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"
+                                 FontSize="11"/>
+                    </Border>
+
+                    <!-- Nom g&#233;n&#233;r&#233; avec fl&#232;che -->
+                    <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                Orientation="Horizontal" VerticalAlignment="Center">
+                      <TextBlock Text="&#8594;&#160;"
+                                 Foreground="{DynamicResource AccentBrush}"
+                                 FontSize="13" VerticalAlignment="Center"/>
+                      <TextBlock Text="{Binding NomGenere}"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 FontWeight="SemiBold"
+                                 FontSize="13" VerticalAlignment="Center"/>
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
         </StackPanel>
       </Border>
 
