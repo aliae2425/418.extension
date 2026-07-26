@@ -50,6 +50,7 @@ class ExportOrchestrator(object):
         self._nstore = NamingPatternStore() if NamingPatternStore is not None else None
         self._nres = None  # Sera initialisé avec le doc dans run()
         self._NamingResolver_cls = NamingResolver
+        self._destination_override = None  # Chemin passé explicitement depuis le ViewModel
 
     # ------------------- Planification ------------------- #
     def _get_ui_selected_param_names(self, get_ctrl):
@@ -145,7 +146,10 @@ class ExportOrchestrator(object):
     def _get_destination_base(self, fmt_subfolder=None, collection_name=None):
         base = None
         try:
-            base = self._dest.get()
+            if self._destination_override:
+                base = self._destination_override
+            else:
+                base = self._dest.get()
         except Exception:
             base = None
         base = base or os.getcwd()
@@ -221,7 +225,14 @@ class ExportOrchestrator(object):
         return False
 
     # ------------------- Exécution ------------------- #
-    def run(self, doc, get_ctrl, progress_cb=None, log_cb=None, ui_win=None):
+    def run(self, doc, get_ctrl, progress_cb=None, log_cb=None, ui_win=None, destination=None):
+        self._destination_override = destination or None
+        try:
+            return self._run_impl(doc, get_ctrl, progress_cb=progress_cb, log_cb=log_cb, ui_win=ui_win)
+        finally:
+            self._destination_override = None
+
+    def _run_impl(self, doc, get_ctrl, progress_cb=None, log_cb=None, ui_win=None):
         # Initialiser le NamingResolver avec le document
         if self._NamingResolver_cls is not None and self._nres is None:
             try:
@@ -229,14 +240,30 @@ class ExportOrchestrator(object):
             except Exception:
                 self._nres = None
         
-        # UI status component for live updates
-        ui_comp = None
-        try:
-            from ...ui.components.CollectionPreviewComponent import CollectionPreviewComponent
-            ui_comp = CollectionPreviewComponent()
-        except Exception:
-            ui_comp = None
         plans = self.plan_exports_for_collections(doc, get_ctrl)
+
+        # Diagnostic immédiat si aucun plan ne qualifie
+        qualifying = [p for p in plans if p.do_export]
+        if not qualifying:
+            if log_cb:
+                try:
+                    if not plans:
+                        log_cb(u"Aucun jeu de feuilles trouvé dans ce document.")
+                    else:
+                        log_cb(
+                            u"Aucun jeu qualifié pour l'export ({} jeu(x) trouvé(s), "
+                            u"tous exclus par le mappage des paramètres). "
+                            u"Vérifiez les paramètres Export/Carnet/DWG dans Réglages.".format(len(plans))
+                        )
+                except Exception:
+                    pass
+            if progress_cb:
+                try:
+                    progress_cb(0, 1, u"Aucun export — voir statut.")
+                except Exception:
+                    pass
+            return True
+
         total = len(plans)
 
         # --- Check existing files ---
@@ -270,12 +297,6 @@ class ExportOrchestrator(object):
                 progress_cb(i, total, 'Collection: {}'.format(plan.collection_name))
             if not plan.do_export:
                 continue
-            try:
-                if ui_win is not None and ui_comp is not None:
-                    ui_comp.set_collection_status(ui_win, plan.collection_name, 'progress')
-                    ui_comp.refresh_grid(ui_win)
-            except Exception:
-                pass
 
             collection = self._find_collection_by_name(doc, plan.collection_name)
             sheets = self._get_collection_sheets(doc, collection) if collection is not None else []
@@ -291,51 +312,19 @@ class ExportOrchestrator(object):
                 for sh in sheets:
                     rows = self._get_rows_for_sheet(sh)
                     if plan.do_pdf and base_pdf:
-                        try:
-                            if ui_win is not None and ui_comp is not None:
-                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'PDF', 'progress')
-                                ui_comp.refresh_grid(ui_win)
-                        except Exception:
-                            pass
-                        ok, path = self._export_pdf_sheet(doc, sh, rows, base_pdf, pdf_opt, separate=pdf_sep, overwrite=overwrite)
-                        try:
-                            if ui_win is not None and ui_comp is not None:
-                                status = 'ok' if ok else 'error'
-                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'PDF', status)
-                                ui_comp.refresh_grid(ui_win)
-                        except Exception:
-                            pass
-                        if log_cb and not ok:
+                        if progress_cb:
                             try:
-                                log_cb(u"Erreur export PDF: {}".format(self._safe_sheet_name(sh)))
+                                progress_cb(i, total, u'{}: {} (PDF)'.format(plan.collection_name, self._safe_sheet_name(sh)))
                             except Exception:
                                 pass
+                        ok, path = self._export_pdf_sheet(doc, sh, rows, base_pdf, pdf_opt, separate=pdf_sep, overwrite=overwrite, log_cb=log_cb)
                     if plan.do_dwg and base_dwg:
-                        try:
-                            if ui_win is not None and ui_comp is not None:
-                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'progress')
-                                ui_comp.refresh_grid(ui_win)
-                        except Exception:
-                            pass
-                        ok, path = self._export_dwg_sheet(doc, sh, rows, base_dwg, dwg_opt, overwrite=overwrite)
-                        try:
-                            if ui_win is not None and ui_comp is not None:
-                                status = 'ok' if ok else 'error'
-                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', status)
-                                ui_comp.refresh_grid(ui_win)
-                        except Exception:
-                            pass
-                        if log_cb and not ok:
+                        if progress_cb:
                             try:
-                                log_cb(u"Erreur export DWG: {}".format(self._safe_sheet_name(sh)))
+                                progress_cb(i, total, u'{}: {} (DWG)'.format(plan.collection_name, self._safe_sheet_name(sh)))
                             except Exception:
                                 pass
-                try:
-                    if ui_win is not None and ui_comp is not None:
-                        ui_comp.set_collection_status(ui_win, plan.collection_name, 'ok')
-                        ui_comp.refresh_grid(ui_win)
-                except Exception:
-                    pass
+                        ok, path = self._export_dwg_sheet(doc, sh, rows, base_dwg, dwg_opt, overwrite=overwrite, log_cb=log_cb)
             else:
                 # Utiliser le pattern 'set' (carnet) s'il existe, sinon fallback sur sheet/default
                 rows = self._get_rows_for_set()
@@ -343,59 +332,104 @@ class ExportOrchestrator(object):
                     rows = self._get_rows_for_sheet(sheets[0]) if sheets else [{'Name': plan.collection_name, 'Prefix': '', 'Suffix': ''}]
 
                 if plan.do_pdf and base_pdf:
-                    try:
-                        if ui_win is not None and ui_comp is not None:
-                            name_preview = self._safe_sheet_name(sheets[0]) if sheets else plan.collection_name
-                            ui_comp.set_detail_status(ui_win, plan.collection_name, name_preview, 'PDF (combiné)', 'progress')
-                            ui_comp.refresh_grid(ui_win)
-                    except Exception:
-                        pass
-                    ok, path = self._export_pdf_collection(doc, sheets, rows, base_pdf, pdf_opt, collection=collection, overwrite=overwrite)
-                    try:
-                        if ui_win is not None and ui_comp is not None:
-                            name_preview = self._safe_sheet_name(sheets[0]) if sheets else plan.collection_name
-                            status = 'ok' if ok else 'error'
-                            ui_comp.set_detail_status(ui_win, plan.collection_name, name_preview, 'PDF (combiné)', status)
-                            ui_comp.refresh_grid(ui_win)
-                    except Exception:
-                        pass
-                    if log_cb and not ok:
+                    if progress_cb:
                         try:
-                            log_cb(u"Erreur export PDF combiné: {}".format(plan.collection_name))
+                            progress_cb(i, total, u'{}: PDF (combiné)'.format(plan.collection_name))
                         except Exception:
                             pass
+                    ok, path = self._export_pdf_collection(doc, sheets, rows, base_pdf, pdf_opt, collection=collection, overwrite=overwrite, log_cb=log_cb)
                 if plan.do_dwg and base_dwg:
                     for sh in sheets:
                         rows_sh = self._get_rows_for_sheet(sh)
-                        try:
-                            if ui_win is not None and ui_comp is not None:
-                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', 'progress')
-                                ui_comp.refresh_grid(ui_win)
-                        except Exception:
-                            pass
-                        ok, path = self._export_dwg_sheet(doc, sh, rows_sh, base_dwg, dwg_opt, overwrite=overwrite)
-                        try:
-                            if ui_win is not None and ui_comp is not None:
-                                status = 'ok' if ok else 'error'
-                                ui_comp.set_detail_status(ui_win, plan.collection_name, self._safe_sheet_name(sh), 'DWG', status)
-                                ui_comp.refresh_grid(ui_win)
-                        except Exception:
-                            pass
-                        if log_cb and not ok:
+                        if progress_cb:
                             try:
-                                log_cb(u"Erreur export DWG: {}".format(self._safe_sheet_name(sh)))
+                                progress_cb(i, total, u'{}: {} (DWG)'.format(plan.collection_name, self._safe_sheet_name(sh)))
                             except Exception:
                                 pass
-
-                try:
-                    if ui_win is not None and ui_comp is not None:
-                        ui_comp.set_collection_status(ui_win, plan.collection_name, 'ok')
-                        ui_comp.refresh_grid(ui_win)
-                except Exception:
-                    pass
+                        ok, path = self._export_dwg_sheet(doc, sh, rows_sh, base_dwg, dwg_opt, overwrite=overwrite, log_cb=log_cb)
 
         if progress_cb:
-            progress_cb(total, max(total, 1), 'Terminé')
+            progress_cb(total, max(total, 1), u'')
+        return True
+
+    def run_manual(self, doc, sheet_vms, combine_pdf=False, pdf_title=u'',
+                   progress_cb=None, log_cb=None, destination=None):
+        """Export manuel : feuilles sélectionnées une par une (ou PDF combiné).
+
+        sheet_vms  : liste de ManualSheetVM (ExportPdf / ExportDwg / Elem / Numero).
+        combine_pdf: fusionner toutes les feuilles PDF en un seul fichier.
+        pdf_title  : nom du fichier PDF combiné (ignoré si combine_pdf=False).
+        destination: chemin de destination explicite (prioritaire sur DestinationStore).
+        """
+        self._destination_override = destination or None
+        try:
+            return self._run_manual_impl(doc, sheet_vms, combine_pdf=combine_pdf,
+                                         pdf_title=pdf_title, progress_cb=progress_cb,
+                                         log_cb=log_cb)
+        finally:
+            self._destination_override = None
+
+    def _run_manual_impl(self, doc, sheet_vms, combine_pdf=False, pdf_title=u'',
+                         progress_cb=None, log_cb=None):
+        if self._NamingResolver_cls is not None and self._nres is None:
+            try:
+                self._nres = self._NamingResolver_cls(doc)
+            except Exception:
+                self._nres = None
+
+        pdf_vms = [s for s in (sheet_vms or []) if s.ExportPdf]
+        dwg_vms = [s for s in (sheet_vms or []) if s.ExportDwg]
+        total = len(pdf_vms) + len(dwg_vms)
+
+        if progress_cb:
+            progress_cb(0, max(total, 1), u'Préparation...')
+
+        pdf_opt = self._get_pdf_options(doc)
+        dwg_opt = self._get_dwg_options(doc)
+        pdf_sep = self._pdf.get_separate(False) if self._pdf is not None else False
+
+        done = 0
+
+        if pdf_vms:
+            base_pdf = self._get_destination_base('PDF', None)
+            if combine_pdf:
+                elems = [s.Elem for s in pdf_vms if s.Elem is not None]
+                rows = [{'Name': pdf_title or u'export', 'Prefix': u'', 'Suffix': u''}]
+                if progress_cb:
+                    progress_cb(done, max(total, 1), u'PDF combiné...')
+                ok, path = self._export_pdf_collection(doc, elems, rows, base_pdf, pdf_opt, log_cb=log_cb)
+                done += len(pdf_vms)
+            else:
+                for svm in pdf_vms:
+                    if svm.Elem is None:
+                        done += 1
+                        continue
+                    rows = self._get_rows_for_sheet(svm.Elem)
+                    if progress_cb:
+                        try:
+                            progress_cb(done, max(total, 1), u'{} (PDF)'.format(svm.Numero))
+                        except Exception:
+                            pass
+                    ok, path = self._export_pdf_sheet(doc, svm.Elem, rows, base_pdf, pdf_opt,
+                                                      separate=pdf_sep, log_cb=log_cb)
+                    done += 1
+
+        for svm in dwg_vms:
+            if svm.Elem is None:
+                done += 1
+                continue
+            rows = self._get_rows_for_sheet(svm.Elem)
+            base_dwg = self._get_destination_base('DWG', None)
+            if progress_cb:
+                try:
+                    progress_cb(done, max(total, 1), u'{} (DWG)'.format(svm.Numero))
+                except Exception:
+                    pass
+            ok, path = self._export_dwg_sheet(doc, svm.Elem, rows, base_dwg, dwg_opt, log_cb=log_cb)
+            done += 1
+
+        if progress_cb:
+            progress_cb(total, max(total, 1), u'')
         return True
 
     # ------------------- Helpers noms/export ------------------- #
@@ -451,7 +485,14 @@ class ExportOrchestrator(object):
         except Exception:
             return os.path.join(folder, file_no_ext + '.' + ext)
 
-    def _export_pdf_sheet(self, doc, sheet, rows, base_folder, options, separate=True, overwrite=False):
+    def _export_pdf_sheet(self, doc, sheet, rows, base_folder, options, separate=True, overwrite=False, log_cb=None):
+        def _log(msg):
+            if log_cb:
+                try:
+                    log_cb(msg)
+                except Exception:
+                    pass
+        label = self._safe_sheet_name(sheet)
         name_no_ext = self._resolve_name_no_ext(sheet, rows)
         try:
             self._dest.ensure(base_folder)
@@ -467,7 +508,8 @@ class ExportOrchestrator(object):
                     from System.Collections.Generic import List as Clist  # type: ignore
                     views = Clist[DB.ElementId]()
                     views.Add(sheet.Id)
-                except Exception:
+                except Exception as _ve:
+                    _log(u"PDF [{}] : préparation vues : {}".format(label, _ve))
                     views = None
                 try:
                     if hasattr(options, 'Combine'):
@@ -481,17 +523,28 @@ class ExportOrchestrator(object):
                         options.FileName = file_no_ext
                 except Exception:
                     pass
+                _log(u"PDF [{}] : dossier={!r} | fichier={!r}".format(label, folder, file_no_ext))
                 if views is not None:
                     try:
-                        ok = bool(doc.Export(folder, views, options))
+                        raw = doc.Export(folder, views, options)
+                        ok = bool(raw)
+                        _log(u"PDF [{}] : retour Export={!r} ok={}".format(label, raw, ok))
+                        if ok:
+                            expected = os.path.join(folder, file_no_ext + '.pdf')
+                            _log(u"PDF [{}] : fichier existe={} path={!r}".format(label, os.path.exists(expected), expected))
                     except Exception as _e1:
+                        _log(u"PDF [{}] : Export 3-arg echoue : {}".format(label, _e1))
                         try:
-                            ok = bool(doc.Export(folder, file_no_ext, views, options))
+                            raw = doc.Export(folder, file_no_ext, views, options)
+                            ok = bool(raw)
+                            _log(u"PDF [{}] : retour Export 4-arg={!r} ok={}".format(label, raw, ok))
                         except Exception as _e2:
-                            print('ExportOrchestrator [PDF-sheet]: Export API failed: {} / {}'.format(_e1, _e2))
+                            _log(u"PDF [{}] : Export API : {} / {}".format(label, _e1, _e2))
                             ok = False
+            elif options is None:
+                _log(u"PDF [{}] : options d'export non disponibles (PDFExportOptions introuvable ou config vide).".format(label))
         except Exception as _e:
-            print('ExportOrchestrator [PDF-sheet]: Unexpected error: {}'.format(_e))
+            _log(u"PDF [{}] : erreur inattendue : {}".format(label, _e))
             ok = False
         if not ok:
             try:
@@ -513,11 +566,18 @@ class ExportOrchestrator(object):
                     pass
                 ok = bool(pm.SubmitPrint(vs))
             except Exception as _e:
-                print('ExportOrchestrator [PDF-sheet]: PrintManager fallback failed: {}'.format(_e))
+                _log(u"PDF [{}] : PrintManager fallback : {}".format(label, _e))
                 ok = False
         return ok, path
 
-    def _export_dwg_sheet(self, doc, sheet, rows, base_folder, options, overwrite=False):
+    def _export_dwg_sheet(self, doc, sheet, rows, base_folder, options, overwrite=False, log_cb=None):
+        def _log(msg):
+            if log_cb:
+                try:
+                    log_cb(msg)
+                except Exception:
+                    pass
+        label = self._safe_sheet_name(sheet)
         name_no_ext = self._resolve_name_no_ext(sheet, rows)
         try:
             self._dest.ensure(base_folder)
@@ -538,19 +598,24 @@ class ExportOrchestrator(object):
                 from System.Collections.Generic import List as Clist  # type: ignore
                 views = Clist[DB.ElementId]()
                 views.Add(sheet.Id)
-                
+
                 # Force MergedViews to True to ensure single file output (no XREFs)
-                # This fixes the issue where XREFs (views) might be picked up instead of the sheet
                 try:
                     options.MergedViews = True
                 except Exception:
                     pass
 
                 # DWG export requires a prefix name in most overloads
-                # Export(folder, name, views, options)
-                ok = bool(doc.Export(tmp_dir, "export", views, options))
+                _log(u"DWG [{}] : tmp_dir={!r}".format(label, tmp_dir))
+                raw = doc.Export(tmp_dir, "export", views, options)
+                ok = bool(raw)
+                _log(u"DWG [{}] : retour Export={!r} ok={}".format(label, raw, ok))
+                if ok:
+                    _log(u"DWG [{}] : contenu tmp_dir={}".format(label, os.listdir(tmp_dir) if os.path.isdir(tmp_dir) else 'ABSENT'))
+            elif options is None:
+                _log(u"DWG [{}] : options d'export non disponibles (DWGExportOptions introuvable ou config vide).".format(label))
         except Exception as _e:
-            print('ExportOrchestrator [DWG-sheet]: Export API failed: {}'.format(_e))
+            _log(u"DWG [{}] : Export API : {}".format(label, _e))
             ok = False
         
         try:
@@ -617,9 +682,14 @@ class ExportOrchestrator(object):
             pass
         return ok, final_path
 
-    def _export_pdf_collection(self, doc, sheets, rows, base_folder, options, collection=None, overwrite=False):
+    def _export_pdf_collection(self, doc, sheets, rows, base_folder, options, collection=None, overwrite=False, log_cb=None):
+        def _log(msg):
+            if log_cb:
+                try:
+                    log_cb(msg)
+                except Exception:
+                    pass
         try:
-            # Résoudre le nom: utiliser la collection si fournie (pour accès aux params collection), sinon la 1ère feuille
             elem_to_resolve = collection if collection else (sheets[0] if sheets else None)
             name_no_ext = self._dest.sanitize('' if not elem_to_resolve else self._nres.resolve_for_element(elem_to_resolve, rows, empty_fallback=False)) if (self._dest is not None and self._nres is not None) else 'export'
         except Exception:
@@ -651,15 +721,28 @@ class ExportOrchestrator(object):
                         options.FileName = file_no_ext
                 except Exception:
                     pass
+                _log(u"PDF combiné [{}] : dossier={!r} | fichier={!r}".format(file_no_ext, folder, file_no_ext))
                 try:
-                    ok = bool(doc.Export(folder, views, options))
+                    raw = doc.Export(folder, views, options)
+                    ok = bool(raw)
+                    _log(u"PDF combiné [{}] : retour Export={!r} ok={}".format(file_no_ext, raw, ok))
+                    if ok:
+                        expected = os.path.join(folder, file_no_ext + '.pdf')
+                        _log(u"PDF combiné [{}] : fichier existe={} path={!r}".format(file_no_ext, os.path.exists(expected), expected))
                 except Exception as _e1:
+                    _log(u"PDF combiné [{}] : Export 3-arg echoue : {}".format(file_no_ext, _e1))
                     try:
-                        ok = bool(doc.Export(folder, file_no_ext, views, options))
+                        raw = doc.Export(folder, file_no_ext, views, options)
+                        ok = bool(raw)
+                        _log(u"PDF combiné [{}] : retour Export 4-arg={!r} ok={}".format(file_no_ext, raw, ok))
                     except Exception as _e2:
-                        print('ExportOrchestrator [PDF-collection]: Export API failed: {} / {}'.format(_e1, _e2))
+                        _log(u"PDF combiné [{}] : Export API : {} / {}".format(file_no_ext, _e1, _e2))
                         ok = False
+            elif options is None:
+                _log(u"PDF combiné : options d'export non disponibles.")
+            elif not sheets:
+                _log(u"PDF combiné : aucune feuille à exporter.")
         except Exception as _e:
-            print('ExportOrchestrator [PDF-collection]: Unexpected error: {}'.format(_e))
+            _log(u"PDF combiné : erreur inattendue : {}".format(_e))
             ok = False
         return ok, path

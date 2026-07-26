@@ -1,6 +1,19 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+# IMPORTANT : référencer les assemblies .NET AVANT d'importer
+# System.ComponentModel. Sous IronPython, l'assembly `System` (qui contient
+# INotifyPropertyChanged) n'est pas référencée par défaut ; sans ce préchargement,
+# l'import ci-dessous échoue silencieusement et BaseViewModel retombe sur la
+# branche `object` (notifications PropertyChanged inertes -> les bindings WPF ne
+# se rafraîchissent jamais). BaseViewModel pouvant être importé AVANT BaseWindow
+# (qui appelle déjà ensure_wpf), on doit garantir le référencement ici aussi.
+try:
+    from ui.helpers.wpf_runtime import ensure_wpf as _ensure_wpf
+    _ensure_wpf()
+except Exception:
+    pass
+
 try:
     from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
     _has_wpf = True

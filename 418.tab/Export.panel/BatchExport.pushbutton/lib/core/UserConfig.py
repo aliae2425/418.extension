@@ -15,7 +15,6 @@ class UserConfig(object):
     def _section(self):
         uc = _UC
         if uc is None:
-            print("UserConfig [001]: _UC is None")
             return None
         # S'assurer que la section existe si possible
         try:
@@ -24,8 +23,7 @@ class UserConfig(object):
             pass
         try:
             return uc.batch_export
-        except Exception as e:
-            print("UserConfig [002]: Could not access uc.batch_export: {}".format(e))
+        except Exception:
             return None
 
     # Lit une valeur (str)
@@ -47,39 +45,34 @@ class UserConfig(object):
     def set(self, key, value):
         sec = self._section()
         if sec is None:
-            print("UserConfig [003]: Section is None, cannot set '{}'".format(key))
             return False
         try:
             sval = u"{}".format(value)
         except Exception:
             sval = value
-        
-        # Non-error info removed
-        
+
         success = False
         # 1. Try set_option (pyRevit standard)
         if hasattr(sec, 'set_option'):
             try:
                 sec.set_option(key, sval)
                 success = True
-            except Exception as e:
-                print("UserConfig [004]: Failed to set_option '{}': {}".format(key, e))
-        
+            except Exception:
+                pass
+
         # 2. Try setattr (fallback)
         if not success:
             try:
                 setattr(sec, key, sval)
                 success = True
-            except Exception as e:
-                print("UserConfig [005]: Failed to setattr '{}': {}".format(key, e))
+            except Exception:
+                pass
 
         if success:
-            # Sauvegarde si API dispo
             try:
                 _UC.save_changes()
-                # Non-error info removed
-            except Exception as e:
-                print("UserConfig [006]: Failed to save_changes: {}".format(e))
+            except Exception:
+                pass
             return True
         return False
 

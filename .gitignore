@@ -6,6 +6,10 @@
 
 **/__pycache__
 profil.json
+# Dossier de données runtime commun (persistance des réglages par feature)
+/data/
 .claude/*
 .claude-flow/*
+
+cherrypick.md
 **/*.log
