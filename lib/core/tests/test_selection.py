@@ -44,6 +44,44 @@ class FakeUIDoc(object):
         self.Document = FakeDoc(by_id)
 
 
+class FakeView(object):
+    def __init__(self, is_template=False):
+        self.IsTemplate = is_template
+
+
+class TestIsDuplicableView(unittest.TestCase):
+    def setUp(self):
+        self._orig_View = selection.View
+        self._orig_ViewSheet = selection.ViewSheet
+        selection.View = FakeView
+
+    def tearDown(self):
+        selection.View = self._orig_View
+        selection.ViewSheet = self._orig_ViewSheet
+
+    def test_vue_normale_est_duplicable(self):
+        vue = FakeView(is_template=False)
+        selection.ViewSheet = None  # pas de ViewSheet dans ce contexte
+        self.assertTrue(selection._is_duplicable_view(vue))
+
+    def test_template_non_duplicable(self):
+        vue = FakeView(is_template=True)
+        selection.ViewSheet = None
+        self.assertFalse(selection._is_duplicable_view(vue))
+
+    def test_non_view_non_duplicable(self):
+        selection.ViewSheet = None
+        self.assertFalse(selection._is_duplicable_view(object()))
+
+    def test_viewsheet_non_duplicable(self):
+        # Une instance FakeView qui est aussi une FakeSheet (double héritage)
+        class FakeSheet(FakeView):
+            pass
+        selection.ViewSheet = FakeSheet
+        feuille = FakeSheet(is_template=False)
+        self.assertFalse(selection._is_duplicable_view(feuille))
+
+
 class TestGetSelectedSheets(unittest.TestCase):
     def setUp(self):
         self._orig = selection.ViewSheet

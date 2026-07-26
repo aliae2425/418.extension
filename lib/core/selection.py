@@ -36,6 +36,26 @@ def get_selected_views(uidoc):
     return out
 
 
+def _is_duplicable_view(view):
+    """Vrai si la vue peut être dupliquée (hors feuilles et templates)."""
+    if View is None:
+        return False
+    if not isinstance(view, View):
+        return False
+    if ViewSheet is not None and isinstance(view, ViewSheet):
+        return False
+    return not getattr(view, 'IsTemplate', False)
+
+
+def all_views(doc):
+    """Toutes les vues duplicables du document (hors feuilles et templates), triées par nom."""
+    if FilteredElementCollector is None or View is None:
+        return []
+    vues = [v for v in FilteredElementCollector(doc).OfClass(View).ToElements()
+            if _is_duplicable_view(v)]
+    return sorted(vues, key=lambda v: v.Name)
+
+
 def all_sheets(doc):
     """Toutes les `ViewSheet` du document, triées par `SheetNumber`."""
     if FilteredElementCollector is None or ViewSheet is None:

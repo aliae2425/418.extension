@@ -1,0 +1,61 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Page S&#233;lection &#8212; DataContext = SelectionPageVM (assign&#233; par le Python).
+    Charg&#233;e via XamlReader.Load et inject&#233;e dans PageHost (PAS de x:Class,
+    PAS de code-behind). Tout brush/style de th&#232;me en DynamicResource.
+  -->
+
+  <Grid Background="{DynamicResource TransparentBrush}"
+        Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <TextBlock Grid.Row="0"
+               Text="Vues &#224; dupliquer"
+               Style="{DynamicResource HeaderTextBlockStyle}"
+               Margin="0,0,0,14"/>
+
+    <ScrollViewer Grid.Row="1"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl ItemsSource="{Binding Items}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border BorderBrush="{DynamicResource ControlBorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="4,8">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                          Style="{DynamicResource CheckBoxStyle}"
+                          Margin="0,0,12,0"/>
+                <TextBlock Text="{Binding TypeLabel}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           FontWeight="Bold"
+                           Width="90"
+                           VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding Nom}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           VerticalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <!-- Bouton Suivant : actif uniquement si au moins une vue est coch&#233;e
+         (IsEnabled li&#233; &#224; HasSelection). Le Python le c&#226;ble vers la page Options. -->
+    <Button Grid.Row="2"
+            x:Name="NextButton"
+            Content="Suivant"
+            Style="{DynamicResource PrimaryActionButtonStyle}"
+            HorizontalAlignment="Right"
+            Margin="0,14,0,0"
+            IsEnabled="{Binding HasSelection}"/>
+  </Grid>
+</UserControl>
