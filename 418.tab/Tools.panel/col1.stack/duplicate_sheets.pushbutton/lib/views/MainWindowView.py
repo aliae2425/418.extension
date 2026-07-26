@@ -15,10 +15,8 @@ def _xaml_path():
 
 
 class MainWindowView(BaseWindow):
-    """Fenêtre racine « Dupliquer les feuilles » : coquille à rail (Sélection
-    / Options), sans modale bloquante. Monte les 2 pages, câble la
-    navigation, le bouton Run et les radios d'option de duplication de vue.
-    """
+    """Fenêtre racine « Dupliquer les feuilles » : rail 3 onglets
+    (Sélection / Paramètres / Nommage), sans modale bloquante."""
 
     def __init__(self, view_model, sheets_par_id):
         super(MainWindowView, self).__init__(_xaml_path(), view_model)
@@ -31,7 +29,8 @@ class MainWindowView(BaseWindow):
             return
         self._mount_pages()
         self._wire_nav()
-        self._wire_next()
+        self._wire_next_selection()
+        self._wire_next_params()
         self._wire_run()
         self._wire_view_dup_option()
         self._sync_nav()
@@ -52,23 +51,38 @@ class MainWindowView(BaseWindow):
 
     def _mount_pages(self):
         self._page_selection = self._load_page('SelectionPage.xaml', self._vm.SelectionVM)
-        self._page_options = self._load_page('OptionsPage.xaml', self._vm.OptionsVM)
+        self._page_params = self._load_page('ParamsPage.xaml', self._vm.OptionsVM)
+        self._page_nommage = self._load_page('OptionsPage.xaml', self._vm.OptionsVM)
         self._show_current_page()
 
     def _show_current_page(self):
         host = self._window.FindName('PageHost')
         if host is None:
             return
-        host.Content = self._page_options if self._vm.IsOptions else self._page_selection
+        if self._vm.IsOptions:
+            host.Content = self._page_nommage
+        elif self._vm.IsParams:
+            host.Content = self._page_params
+        else:
+            host.Content = self._page_selection
 
     def _wire_nav(self):
         nav_sel = self._window.FindName('NavSelection')
+        nav_par = self._window.FindName('NavParams')
         nav_opt = self._window.FindName('NavOptions')
+
         if nav_sel is not None:
             def _on_sel(sender, args):
                 self._vm.set_mode(u'selection')
                 self._show_current_page()
             nav_sel.Checked += _on_sel
+
+        if nav_par is not None:
+            def _on_par(sender, args):
+                self._vm.set_mode(u'params')
+                self._show_current_page()
+            nav_par.Checked += _on_par
+
         if nav_opt is not None:
             def _on_opt(sender, args):
                 self._vm.set_mode(u'options')
@@ -76,29 +90,43 @@ class MainWindowView(BaseWindow):
             nav_opt.Checked += _on_opt
 
     def _sync_nav(self):
-        # Coche le RadioButton correspondant au mode initial décidé par le VM.
-        name = 'NavOptions' if self._vm.IsOptions else 'NavSelection'
+        if self._vm.IsOptions:
+            name = 'NavOptions'
+        elif self._vm.IsParams:
+            name = 'NavParams'
+        else:
+            name = 'NavSelection'
         btn = self._window.FindName(name)
         if btn is not None:
             btn.IsChecked = True
 
-    def _wire_next(self):
-        # Bouton « Suivant » de la page Sélection : mène à la page Options.
-        # On coche NavOptions, ce qui déclenche le handler de navigation
-        # existant (set_mode + affichage) et garde le rail synchronisé.
+    def _wire_next_selection(self):
+        # « Suivant » de la page Sélection → Paramètres.
         btn = self._page_selection.FindName('NextButton')
         if btn is None:
             return
 
         def _on_next(sender, args):
-            nav_opt = self._window.FindName('NavOptions')
-            if nav_opt is not None:
-                nav_opt.IsChecked = True
+            nav = self._window.FindName('NavParams')
+            if nav is not None:
+                nav.IsChecked = True
+        btn.Click += _on_next
+
+    def _wire_next_params(self):
+        # « Suivant » de la page Paramètres → Nommage.
+        btn = self._page_params.FindName('NextToNommageButton')
+        if btn is None:
+            return
+
+        def _on_next(sender, args):
+            nav = self._window.FindName('NavOptions')
+            if nav is not None:
+                nav.IsChecked = True
         btn.Click += _on_next
 
     def _wire_run(self):
-        # Le bouton Run vit dans OptionsPage : le retrouver dans l'arbre de la page.
-        btn = self._page_options.FindName('RunButton')
+        # RunButton dans la page Nommage.
+        btn = self._page_nommage.FindName('RunButton')
         if btn is None:
             return
 
@@ -110,10 +138,9 @@ class MainWindowView(BaseWindow):
         btn.Click += _on_run
 
     def _wire_view_dup_option(self):
-        # Câblage obligatoire : sans lui, les radios restent inertes et
-        # l'option de duplication de vue reste silencieusement 'duplicate'.
+        # Les radios vivent dans ParamsPage.
         for name in ('RadioDuplicate', 'RadioDetailing', 'RadioDependent'):
-            rb = self._page_options.FindName(name)
+            rb = self._page_params.FindName(name)
             if rb is None:
                 continue
 

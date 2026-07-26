@@ -113,13 +113,19 @@
                          GroupName="nav"
                          Style="{DynamicResource NavRailButtonStyle}"
                          Content="&#x2611;"
-                         ToolTip="Sélection"
+                         ToolTip="S&#233;lection"
+                         Margin="0,0,0,6"/>
+            <RadioButton x:Name="NavParams"
+                         GroupName="nav"
+                         Style="{DynamicResource NavRailButtonStyle}"
+                         Content="&#x2699;"
+                         ToolTip="Param&#232;tres"
                          Margin="0,0,0,6"/>
             <RadioButton x:Name="NavOptions"
                          GroupName="nav"
                          Style="{DynamicResource NavRailButtonStyle}"
-                         Content="&#x2699;"
-                         ToolTip="Options"/>
+                         Content="&#x270E;"
+                         ToolTip="Nommage"/>
           </StackPanel>
         </DockPanel>
 

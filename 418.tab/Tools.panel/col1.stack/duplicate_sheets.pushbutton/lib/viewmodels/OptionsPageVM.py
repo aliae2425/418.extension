@@ -16,6 +16,16 @@ try:
 except Exception:
     from services.DuplicationOptions import DuplicationOptions
 
+try:
+    from lib.services.RenameService import RenameService
+except Exception:
+    from services.RenameService import RenameService
+
+try:
+    from lib.viewmodels.SheetPreviewGroupVM import SheetPreviewGroupVM
+except Exception:
+    from viewmodels.SheetPreviewGroupVM import SheetPreviewGroupVM
+
 
 class OptionsPageVM(BaseViewModel):
     """VM de la page Options : nommage + inclusions + option de duplication.
@@ -60,6 +70,9 @@ class OptionsPageVM(BaseViewModel):
         self._UseExistingLegends = defaults.use_existing_legends
         self._UseExistingSchedules = defaults.use_existing_schedules
         self._ViewDuplicateOption = defaults.view_duplicate_option
+        self._source_items = []   # list of (numero, nom)
+        self._PreviewGroups = []
+        self._RegexError = u''
 
     # -- Nommage vues ---------------------------------------------------
 
@@ -114,6 +127,7 @@ class OptionsPageVM(BaseViewModel):
         if value != self._NumberFind:
             self._NumberFind = value
             self.notify_property('NumberFind')
+            self._recompute_preview()
 
     @property
     def NumberReplace(self):
@@ -124,6 +138,7 @@ class OptionsPageVM(BaseViewModel):
         if value != self._NumberReplace:
             self._NumberReplace = value
             self.notify_property('NumberReplace')
+            self._recompute_preview()
 
     @property
     def NumberPrefix(self):
@@ -134,6 +149,7 @@ class OptionsPageVM(BaseViewModel):
         if value != self._NumberPrefix:
             self._NumberPrefix = value
             self.notify_property('NumberPrefix')
+            self._recompute_preview()
 
     @property
     def NumberSuffix(self):
@@ -144,6 +160,7 @@ class OptionsPageVM(BaseViewModel):
         if value != self._NumberSuffix:
             self._NumberSuffix = value
             self.notify_property('NumberSuffix')
+            self._recompute_preview()
 
     # -- Nommage feuille (nom) --------------------------------------------
 
@@ -156,6 +173,7 @@ class OptionsPageVM(BaseViewModel):
         if value != self._NameFind:
             self._NameFind = value
             self.notify_property('NameFind')
+            self._recompute_preview()
 
     @property
     def NameReplace(self):
@@ -166,6 +184,7 @@ class OptionsPageVM(BaseViewModel):
         if value != self._NameReplace:
             self._NameReplace = value
             self.notify_property('NameReplace')
+            self._recompute_preview()
 
     @property
     def NamePrefix(self):
@@ -176,6 +195,7 @@ class OptionsPageVM(BaseViewModel):
         if value != self._NamePrefix:
             self._NamePrefix = value
             self.notify_property('NamePrefix')
+            self._recompute_preview()
 
     @property
     def NameSuffix(self):
@@ -186,6 +206,7 @@ class OptionsPageVM(BaseViewModel):
         if value != self._NameSuffix:
             self._NameSuffix = value
             self.notify_property('NameSuffix')
+            self._recompute_preview()
 
     # -- Inclusions ---------------------------------------------------------
 
@@ -345,6 +366,55 @@ class OptionsPageVM(BaseViewModel):
         if value != self._ViewDuplicateOption:
             self._ViewDuplicateOption = value
             self.notify_property('ViewDuplicateOption')
+
+    # -- Preview en temps réel ----------------------------------------------
+
+    @property
+    def PreviewGroups(self):
+        return self._PreviewGroups
+
+    @property
+    def HasPreview(self):
+        return bool(self._PreviewGroups)
+
+    @property
+    def RegexError(self):
+        return self._RegexError
+
+    @property
+    def HasRegexError(self):
+        return bool(self._RegexError)
+
+    def set_source_items(self, items):
+        """items : liste de tuples (numero, nom)."""
+        self._source_items = list(items or [])
+        self._recompute_preview()
+
+    def _build_svc_number(self):
+        return RenameService(
+            prefixe=self._NumberPrefix, rechercher=self._NumberFind,
+            remplacer=self._NumberReplace, suffixe=self._NumberSuffix, use_regex=True)
+
+    def _build_svc_name(self):
+        return RenameService(
+            prefixe=self._NamePrefix, rechercher=self._NameFind,
+            remplacer=self._NameReplace, suffixe=self._NameSuffix, use_regex=True)
+
+    def _recompute_preview(self):
+        svc_n = self._build_svc_number()
+        svc_nm = self._build_svc_name()
+        errors = [e for e in (svc_n.regex_error, svc_nm.regex_error) if e]
+        new_error = u' | '.join(errors)
+        if new_error != self._RegexError:
+            self._RegexError = new_error
+            self.notify_property('RegexError')
+            self.notify_property('HasRegexError')
+        self._PreviewGroups = [
+            SheetPreviewGroupVM(num, nom, svc_n.apply(num), svc_nm.apply(nom))
+            for (num, nom) in self._source_items
+        ]
+        self.notify_property('PreviewGroups')
+        self.notify_property('HasPreview')
 
     # -- Production de l'objet de données ------------------------------------
 

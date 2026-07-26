@@ -48,32 +48,43 @@ class MainViewModel(BaseViewModel):
         return self._mode == u'selection'
 
     @property
+    def IsParams(self):
+        return self._mode == u'params'
+
+    @property
     def IsOptions(self):
         return self._mode == u'options'
 
     @staticmethod
     def decide_initial_mode(has_selection):
-        return u'options' if has_selection else u'selection'
+        return u'params' if has_selection else u'selection'
 
     def set_mode(self, mode):
         if mode != self._mode:
             self._mode = mode
             self.notify_property('Mode')
             self.notify_property('IsSelection')
+            self.notify_property('IsParams')
             self.notify_property('IsOptions')
 
     def charger(self, descripteurs, ids_courants):
         ids_courants = list(ids_courants or [])
+        self._id_to_item = {vid: (num, nom) for (vid, num, nom) in descripteurs}
         self.SelectedSheetIds = list(ids_courants)
         self.SelectionVM = SelectionPageVM(descripteurs, ids_courants,
                                            on_selection_changed=self._on_selection_changed)
         self.OptionsVM = OptionsPageVM()
+        items_initiaux = [self._id_to_item[i] for i in ids_courants if i in self._id_to_item]
+        self.OptionsVM.set_source_items(items_initiaux)
         self.notify_property('SelectionVM')
         self.notify_property('OptionsVM')
         self.set_mode(self.decide_initial_mode(bool(ids_courants)))
 
     def _on_selection_changed(self, ids):
         self.SelectedSheetIds = list(ids)
+        if self.OptionsVM is not None:
+            items = [self._id_to_item[i] for i in ids if i in self._id_to_item]
+            self.OptionsVM.set_source_items(items)
 
     def lancer(self, sheets_par_id):
         if not self.SelectedSheetIds or self._service is None:

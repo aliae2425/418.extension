@@ -19,15 +19,16 @@ class TestMainViewModel(unittest.TestCase):
     DESCR = [(1, u'A101', u'RDC'), (2, u'A102', u'R+1')]
 
     def test_decide_initial_mode(self):
-        self.assertEqual(MainViewModel.decide_initial_mode(True), u'options')
+        self.assertEqual(MainViewModel.decide_initial_mode(True), u'params')
         self.assertEqual(MainViewModel.decide_initial_mode(False), u'selection')
 
-    def test_charger_avec_selection_ouvre_options(self):
+    def test_charger_avec_selection_ouvre_params(self):
         vm = MainViewModel()
         vm.charger(self.DESCR, [1])
-        self.assertEqual(vm.Mode, u'options')
-        self.assertTrue(vm.IsOptions)
+        self.assertEqual(vm.Mode, u'params')
+        self.assertTrue(vm.IsParams)
         self.assertFalse(vm.IsSelection)
+        self.assertFalse(vm.IsOptions)
         self.assertEqual(vm.SelectedSheetIds, [1])
 
     def test_charger_sans_selection_ouvre_selection(self):

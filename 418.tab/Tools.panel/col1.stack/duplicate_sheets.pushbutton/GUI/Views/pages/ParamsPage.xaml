@@ -1,0 +1,123 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Page Param&#232;tres - DataContext = OptionsPageVM.
+    XamlReader.Load, pas de x:Class. Tout brush/style en DynamicResource.
+  -->
+
+  <UserControl.Resources>
+
+    <Style x:Key="RadioChipStyle" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontFamily" Value="Segoe UI"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Margin" Value="0,0,6,0"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="border"
+                    Background="{DynamicResource ControlFillBrush}"
+                    BorderBrush="{DynamicResource ControlBorderBrush}"
+                    BorderThickness="1" CornerRadius="14" Padding="14,6">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="border" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
+              </Trigger>
+              <MultiTrigger>
+                <MultiTrigger.Conditions>
+                  <Condition Property="IsMouseOver" Value="True"/>
+                  <Condition Property="IsChecked" Value="False"/>
+                </MultiTrigger.Conditions>
+                <Setter TargetName="border" Property="Background" Value="{DynamicResource ControlFillHoverBrush}"/>
+                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource ControlBorderHoverBrush}"/>
+              </MultiTrigger>
+              <MultiTrigger>
+                <MultiTrigger.Conditions>
+                  <Condition Property="IsMouseOver" Value="True"/>
+                  <Condition Property="IsChecked" Value="True"/>
+                </MultiTrigger.Conditions>
+                <Setter TargetName="border" Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
+              </MultiTrigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+  </UserControl.Resources>
+
+  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                Padding="14">
+    <StackPanel Orientation="Vertical">
+
+      <!-- Option de duplication de vue : radio pills inline -->
+      <Border Style="{DynamicResource CardStyle}" Padding="12,8">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <RadioButton x:Name="RadioDuplicate"
+                       GroupName="dupopt" Tag="duplicate"
+                       Content="Dupliquer"
+                       Style="{StaticResource RadioChipStyle}"
+                       IsChecked="True"/>
+          <RadioButton x:Name="RadioDetailing"
+                       GroupName="dupopt" Tag="with_detailing"
+                       Content="Avec d&#233;tails"
+                       Style="{StaticResource RadioChipStyle}"/>
+          <RadioButton x:Name="RadioDependent"
+                       GroupName="dupopt" Tag="as_dependent"
+                       Content="D&#233;pendante"
+                       Style="{StaticResource RadioChipStyle}"/>
+        </StackPanel>
+      </Border>
+
+      <!-- &#201;l&#233;ments inclus (collapsible) -->
+      <Border Style="{DynamicResource CardStyle}" Padding="12,6">
+        <Expander Style="{DynamicResource NavigationExpanderStyle}"
+                  Header="&#201;l&#233;ments inclus"
+                  IsExpanded="True"
+                  Padding="0">
+          <WrapPanel Orientation="Horizontal" Margin="0,6,0,2">
+            <CheckBox Content="Vues" IsChecked="{Binding IncludeViews, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="160"/>
+            <CheckBox Content="L&#233;gendes" IsChecked="{Binding IncludeLegends, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="160"/>
+            <CheckBox Content="Nomenclatures" IsChecked="{Binding IncludeSchedules, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="160"/>
+            <CheckBox Content="Images" IsChecked="{Binding IncludeImages, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="160"/>
+            <CheckBox Content="Lignes" IsChecked="{Binding IncludeLines, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="160"/>
+            <CheckBox Content="Texte" IsChecked="{Binding IncludeText, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="160"/>
+            <CheckBox Content="Nuages de r&#233;vision" IsChecked="{Binding IncludeClouds, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="160"/>
+            <CheckBox Content="DWG" IsChecked="{Binding IncludeDwgs, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="160"/>
+            <CheckBox Content="Symboles" IsChecked="{Binding IncludeSymbols, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="160"/>
+            <CheckBox Content="Cotes" IsChecked="{Binding IncludeDimensions, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="160"/>
+            <CheckBox Content="R&#233;visions additionnelles" IsChecked="{Binding IncludeAdditionalRevisions, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="160"/>
+          </WrapPanel>
+        </Expander>
+      </Border>
+
+      <!-- R&#233;utiliser l&#8217;existant (collapsible) -->
+      <Border Style="{DynamicResource CardStyle}" Padding="12,6">
+        <Expander Style="{DynamicResource NavigationExpanderStyle}"
+                  Header="R&#233;utiliser l&#8217;existant"
+                  IsExpanded="False"
+                  Padding="0">
+          <StackPanel Orientation="Horizontal" Margin="0,6,0,2">
+            <CheckBox Content="L&#233;gendes" IsChecked="{Binding UseExistingLegends, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="160"/>
+            <CheckBox Content="Nomenclatures" IsChecked="{Binding UseExistingSchedules, Mode=TwoWay}" Style="{DynamicResource CheckBoxStyle}" Width="160"/>
+          </StackPanel>
+        </Expander>
+      </Border>
+
+      <!-- Bouton Suivant -->
+      <Button x:Name="NextToNommageButton"
+              Content="Suivant &#8250;"
+              Style="{DynamicResource PrimaryActionButtonStyle}"
+              HorizontalAlignment="Right"
+              Margin="0,4,0,0"/>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
