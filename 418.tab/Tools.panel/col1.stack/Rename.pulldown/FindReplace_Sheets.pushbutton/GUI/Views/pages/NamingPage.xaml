@@ -1,0 +1,211 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Page Nommage — DataContext = NamingPageVM.
+    XamlReader.Load, pas de x:Class. Tout brush/style en DynamicResource.
+  -->
+
+  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                Padding="14">
+    <StackPanel Orientation="Vertical">
+
+      <!-- Grille nommage : 2 lignes (N&#176; feuille / Nom feuille) x 4 champs -->
+      <Border Style="{DynamicResource CardStyle}" Padding="12,10">
+        <StackPanel Orientation="Vertical">
+          <TextBlock Text="Nommage"
+                     Style="{DynamicResource SubHeaderTextBlockStyle}"
+                     Margin="0,0,0,8"/>
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- En-t&#234;tes colonnes -->
+            <TextBlock Grid.Row="0" Grid.Column="1"
+                       Text="Pr&#233;fixe"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="11" Margin="4,0,4,6"/>
+            <TextBlock Grid.Row="0" Grid.Column="2"
+                       Text="Rechercher (regex)"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="11" Margin="4,0,4,6"/>
+            <TextBlock Grid.Row="0" Grid.Column="3"
+                       Text="Remplacer"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="11" Margin="4,0,4,6"/>
+            <TextBlock Grid.Row="0" Grid.Column="4"
+                       Text="Suffixe"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="11" Margin="4,0,0,6"/>
+
+            <!-- Ligne N&#176; feuille -->
+            <TextBlock Grid.Row="1" Grid.Column="0"
+                       Text="N&#176; feuille"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       FontWeight="SemiBold" FontSize="12"
+                       VerticalAlignment="Top" Margin="0,5,10,4"/>
+            <TextBox Grid.Row="1" Grid.Column="1"
+                     Text="{Binding NumberPrefix, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Margin="4,0,4,4" VerticalAlignment="Top"/>
+            <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Vertical" Margin="4,0,4,4">
+              <TextBox Text="{Binding NumberFind, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+              <TextBlock Text="{Binding RegexError}"
+                         Foreground="#E05252" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0">
+                <TextBlock.Style>
+                  <Style TargetType="TextBlock">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding HasRegexError}" Value="True">
+                        <Setter Property="Visibility" Value="Visible"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </TextBlock.Style>
+              </TextBlock>
+            </StackPanel>
+            <TextBox Grid.Row="1" Grid.Column="3"
+                     Text="{Binding NumberReplace, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Margin="4,0,4,4" VerticalAlignment="Top"/>
+            <TextBox Grid.Row="1" Grid.Column="4"
+                     Text="{Binding NumberSuffix, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Margin="4,0,0,4" VerticalAlignment="Top"/>
+
+            <!-- Ligne Nom feuille -->
+            <TextBlock Grid.Row="2" Grid.Column="0"
+                       Text="Nom feuille"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       FontWeight="SemiBold" FontSize="12"
+                       VerticalAlignment="Top" Margin="0,5,10,0"/>
+            <TextBox Grid.Row="2" Grid.Column="1"
+                     Text="{Binding NamePrefix, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Margin="4,0,4,0" VerticalAlignment="Top"/>
+            <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Vertical" Margin="4,0,4,0">
+              <TextBox Text="{Binding NameFind, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+              <TextBlock Text="{Binding RegexError}"
+                         Foreground="#E05252" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0">
+                <TextBlock.Style>
+                  <Style TargetType="TextBlock">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding HasRegexError}" Value="True">
+                        <Setter Property="Visibility" Value="Visible"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </TextBlock.Style>
+              </TextBlock>
+            </StackPanel>
+            <TextBox Grid.Row="2" Grid.Column="3"
+                     Text="{Binding NameReplace, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Margin="4,0,4,0" VerticalAlignment="Top"/>
+            <TextBox Grid.Row="2" Grid.Column="4"
+                     Text="{Binding NameSuffix, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Margin="4,0,0,0" VerticalAlignment="Top"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Aper&#231;u des feuilles renomm&#233;es -->
+      <Border Style="{DynamicResource CardStyle}" Padding="12,10">
+        <StackPanel Orientation="Vertical">
+          <TextBlock Text="Aper&#231;u"
+                     Style="{DynamicResource SubHeaderTextBlockStyle}"
+                     Margin="0,0,0,8"/>
+
+          <Border Background="{DynamicResource ControlFillBrush}"
+                  BorderBrush="{DynamicResource ControlBorderBrush}"
+                  BorderThickness="1" CornerRadius="6" Padding="12" MinHeight="44">
+            <Border.Style>
+              <Style TargetType="Border">
+                <Setter Property="Visibility" Value="Collapsed"/>
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding HasPreview}" Value="False">
+                    <Setter Property="Visibility" Value="Visible"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </Border.Style>
+            <TextBlock Text="S&#233;lectionnez des feuilles pour voir l&#8217;aper&#231;u."
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontStyle="Italic" FontSize="12"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+
+          <ItemsControl ItemsSource="{Binding PreviewGroups}">
+            <ItemsControl.Style>
+              <Style TargetType="ItemsControl">
+                <Setter Property="Visibility" Value="Visible"/>
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding HasPreview}" Value="False">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </ItemsControl.Style>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border BorderBrush="{DynamicResource ControlBorderBrush}"
+                        BorderThickness="0,0,0,1" Padding="2,6">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="2*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="{Binding OriginalLabel}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="11" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Column="1"
+                               Text="&#8594;"
+                               Foreground="{DynamicResource AccentBrush}"
+                               FontSize="13" VerticalAlignment="Center"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Grid.Column="2"
+                               Text="{Binding NumeroGenere}"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               FontWeight="SemiBold" FontSize="13"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="3"
+                               Text="&#183;"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="13" VerticalAlignment="Center"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Grid.Column="4"
+                               Text="{Binding NomGenere}"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               FontWeight="SemiBold" FontSize="13"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <!-- Action -->
+      <Button x:Name="RunButton"
+              Content="Renommer les feuilles s&#233;lectionn&#233;es"
+              Style="{DynamicResource PrimaryActionButtonStyle}"
+              HorizontalAlignment="Right"
+              Margin="0,4,0,0"/>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

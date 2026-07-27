@@ -1,0 +1,53 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Grid Background="{DynamicResource TransparentBrush}"
+        Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <TextBlock Grid.Row="0"
+               Text="Vues &#224; renommer"
+               Style="{DynamicResource HeaderTextBlockStyle}"
+               Margin="0,0,0,14"/>
+
+    <ScrollViewer Grid.Row="1"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl ItemsSource="{Binding Items}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border BorderBrush="{DynamicResource ControlBorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="4,8">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                          Style="{DynamicResource CheckBoxStyle}"
+                          Margin="0,0,12,0"/>
+                <TextBlock Text="{Binding TypeLabel}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="11"
+                           Width="110"
+                           VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding Nom}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           VerticalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <Button Grid.Row="2"
+            x:Name="NextButton"
+            Content="Suivant"
+            Style="{DynamicResource PrimaryActionButtonStyle}"
+            HorizontalAlignment="Right"
+            Margin="0,14,0,0"
+            IsEnabled="{Binding HasSelection}"/>
+  </Grid>
+</UserControl>
