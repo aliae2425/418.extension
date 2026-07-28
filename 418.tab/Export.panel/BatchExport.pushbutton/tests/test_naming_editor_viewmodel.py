@@ -42,11 +42,22 @@ class FakeNamingService(object):
 
     def available_tokens(self):
         return [
+            {'token': '{date}', 'desc': 'Date du jour', 'source': 'systeme', 'label': 'date'},
             {'token': '{numero}', 'desc': 'Numéro de feuille', 'source': 'feuille', 'label': 'numéro'},
             {'token': '{nom}', 'desc': 'Nom de la feuille', 'source': 'feuille', 'label': 'nom'},
-            {'token': '{titre}', 'desc': 'Titre du carnet', 'source': 'carnet', 'label': 'titre'},
-            {'token': '{projet_nom}', 'desc': 'Nom du projet', 'source': 'projet', 'label': 'nom'},
+            {'token': '{titre}', 'desc': 'Titre du carnet (jeu)', 'source': 'jeu', 'label': 'titre'},
         ]
+
+    def project_param_tokens(self):
+        return [
+            {'token': '{param_projet:Client}', 'label': 'Client',
+             'desc': 'Projet — ACME', 'source': 'projet', 'value': 'ACME'},
+        ]
+
+    def resolve_project_values(self, pattern):
+        # Aperçu « projet seulement » : substitue {param_projet:Client} par sa
+        # valeur, laisse tout autre jeton littéral.
+        return (pattern or u'').replace(u'{param_projet:Client}', u'ACME')
 
 
 class TestNamingEditorViewModelChargement(unittest.TestCase):
@@ -83,11 +94,18 @@ class TestNamingEditorViewModelPattern(unittest.TestCase):
         vm.Pattern = None
         self.assertEqual(vm.Pattern, u'')
 
-    def test_apercu_reflete_le_pattern_courant(self):
+    def test_apercu_laisse_les_jetons_non_projet_litteraux(self):
+        # « Projet seulement » : {numero}/{nom} restent littéraux dans l'aperçu.
         vm = NamingEditorViewModel('sheet', naming_service=FakeNamingService(pattern=u'{numero}'))
         self.assertEqual(vm.Apercu, u'{numero}')
         vm.Pattern = u'{numero}_{nom}'
         self.assertEqual(vm.Apercu, u'{numero}_{nom}')
+
+    def test_apercu_resout_la_valeur_des_params_projet(self):
+        vm = NamingEditorViewModel('sheet', naming_service=FakeNamingService(pattern=u''))
+        vm.Pattern = u'{numero}_{param_projet:Client}'
+        # Seul le param projet est résolu en valeur ; {numero} reste littéral.
+        self.assertEqual(vm.Apercu, u'{numero}_ACME')
 
     def test_apercu_vide_sans_service(self):
         vm = NamingEditorViewModel('sheet', naming_service=None)
@@ -116,30 +134,38 @@ class TestNamingEditorViewModelAvailableTokens(unittest.TestCase):
         vm._naming_service = None
         self.assertEqual(vm.AvailableTokens, [])
 
+    def test_available_tokens_fusionne_les_params_projet_dynamiques(self):
+        """AvailableTokens = jetons statiques + params projet dynamiques
+        (project_param_tokens())."""
+        vm = NamingEditorViewModel('sheet', naming_service=FakeNamingService())
+        jetons = [t.token for t in vm.AvailableTokens]
+        self.assertIn(u'{param_projet:Client}', jetons)
+
     def test_available_tokens_porte_la_source(self):
         vm = NamingEditorViewModel('sheet', naming_service=FakeNamingService())
         par_token = dict((t.token, t.source) for t in vm.AvailableTokens)
+        self.assertEqual(par_token['{date}'], u'systeme')
         self.assertEqual(par_token['{numero}'], u'feuille')
-        self.assertEqual(par_token['{titre}'], u'carnet')
-        self.assertEqual(par_token['{projet_nom}'], u'projet')
+        self.assertEqual(par_token['{titre}'], u'jeu')
+        self.assertEqual(par_token['{param_projet:Client}'], u'projet')
 
     def test_available_tokens_porte_une_couleur_brush(self):
         vm = NamingEditorViewModel('sheet', naming_service=FakeNamingService())
         par_token = dict((t.token, t.CouleurBrush) for t in vm.AvailableTokens)
+        self.assertEqual(par_token['{date}'], u'MediumGrayBrush')
         self.assertEqual(par_token['{numero}'], u'AccentBrush')
         self.assertEqual(par_token['{titre}'], u'SuccessBrush')
-        self.assertEqual(par_token['{projet_nom}'], u'WarningBrush')
+        self.assertEqual(par_token['{param_projet:Client}'], u'WarningBrush')
 
     def test_available_tokens_porte_un_label_court(self):
         """`.label` : nom court affiché sur le badge (sans qualifier de
-        source) -- `{nom}` et `{projet_nom}` partagent le même label 'nom',
-        seule la couleur (`.source`) distingue leur origine."""
+        source). Pour un param projet, le label est le nom réel du paramètre."""
         vm = NamingEditorViewModel('sheet', naming_service=FakeNamingService())
         par_token = dict((t.token, t.label) for t in vm.AvailableTokens)
         self.assertEqual(par_token['{numero}'], u'numéro')
         self.assertEqual(par_token['{nom}'], u'nom')
         self.assertEqual(par_token['{titre}'], u'titre')
-        self.assertEqual(par_token['{projet_nom}'], u'nom')
+        self.assertEqual(par_token['{param_projet:Client}'], u'Client')
 
 
 class TestNamingEditorViewModelFiltreSource(unittest.TestCase):
@@ -152,23 +178,28 @@ class TestNamingEditorViewModelFiltreSource(unittest.TestCase):
     def test_tokens_filtres_tout_retourne_tous_les_tokens(self):
         self.assertEqual(len(self.vm.TokensFiltres), len(self.vm.AvailableTokens))
 
+    def test_tokens_filtres_selon_systeme(self):
+        self.vm.FiltreSource = u'systeme'
+        jetons = [t.token for t in self.vm.TokensFiltres]
+        self.assertEqual(jetons, [u'{date}'])
+
     def test_tokens_filtres_selon_feuille(self):
         self.vm.FiltreSource = u'feuille'
         jetons = [t.token for t in self.vm.TokensFiltres]
         self.assertEqual(set(jetons), {u'{numero}', u'{nom}'})
 
-    def test_tokens_filtres_selon_carnet(self):
-        self.vm.FiltreSource = u'carnet'
+    def test_tokens_filtres_selon_jeu(self):
+        self.vm.FiltreSource = u'jeu'
         jetons = [t.token for t in self.vm.TokensFiltres]
         self.assertEqual(jetons, [u'{titre}'])
 
     def test_tokens_filtres_selon_projet(self):
         self.vm.FiltreSource = u'projet'
         jetons = [t.token for t in self.vm.TokensFiltres]
-        self.assertEqual(jetons, [u'{projet_nom}'])
+        self.assertEqual(jetons, [u'{param_projet:Client}'])
 
     def test_filtre_source_valeur_none_replie_sur_tout(self):
-        self.vm.FiltreSource = u'carnet'
+        self.vm.FiltreSource = u'jeu'
         self.vm.FiltreSource = None
         self.assertEqual(self.vm.FiltreSource, u'tout')
         self.assertEqual(len(self.vm.TokensFiltres), len(self.vm.AvailableTokens))
@@ -182,9 +213,10 @@ class TestNamingEditorViewModelFiltreSource(unittest.TestCase):
             self.assertTrue(s.libelle)
         valeurs = [s.valeur for s in sources]
         self.assertIn(u'tout', valeurs)
-        self.assertIn(u'projet', valeurs)
+        self.assertIn(u'systeme', valeurs)
         self.assertIn(u'feuille', valeurs)
-        self.assertIn(u'carnet', valeurs)
+        self.assertIn(u'jeu', valeurs)
+        self.assertIn(u'projet', valeurs)
 
     def test_tokens_filtres_vide_sans_service(self):
         self.vm._naming_service = None

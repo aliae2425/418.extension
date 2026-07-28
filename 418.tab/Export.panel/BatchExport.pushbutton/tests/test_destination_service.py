@@ -52,6 +52,62 @@ class TestDestinationServiceSanitize(unittest.TestCase):
         self.assertEqual(self.service.sanitize(None), 'untitled')
 
 
+class TestDestinationServiceFlagsRobustes(unittest.TestCase):
+    """Les flags de séparation doivent être lus de façon ROBUSTE : la valeur
+    persistée peut revenir de pyRevit sous diverses représentations selon la
+    sérialisation ('1', 1, True, '"1"', 'true'...). Une comparaison stricte
+    `str(val) == '1'` casse pour True/'"1"'/'true' -> séparation non appliquée
+    alors que l'utilisateur a activé le toggle (cause candidate du bug #2)."""
+
+    def _svc(self, raw_sub, raw_sep):
+        cfg = FakeConfig()
+        cfg.set('create_subfolders', raw_sub)
+        cfg.set('separate_format_folders', raw_sep)
+        return DestinationService(doc=None, config=cfg)
+
+    def test_valeurs_vraies_diverses(self):
+        for v in (u'1', 1, True, u'"1"', u'true', u'True', u'YES', u' 1 '):
+            svc = self._svc(v, v)
+            self.assertTrue(svc.get_create_subfolders(), 'sub pour %r' % (v,))
+            self.assertTrue(svc.get_separate_formats(), 'sep pour %r' % (v,))
+
+    def test_valeurs_fausses_diverses(self):
+        for v in (u'0', 0, False, u'', None, u'"0"', u'false', u'no'):
+            svc = self._svc(v, v)
+            self.assertFalse(svc.get_create_subfolders(), 'sub pour %r' % (v,))
+            self.assertFalse(svc.get_separate_formats(), 'sep pour %r' % (v,))
+
+    def test_absent_par_defaut_faux(self):
+        svc = DestinationService(doc=None, config=FakeConfig())
+        self.assertFalse(svc.get_create_subfolders())
+        self.assertFalse(svc.get_separate_formats())
+
+
+class TestDestinationStoreFlagsRobustes(unittest.TestCase):
+    """Même robustesse côté DestinationStore (lu par ExportOrchestrator)."""
+
+    def _store(self, raw):
+        from lib.data.destination.DestinationStore import DestinationStore
+        cfg = FakeConfig()
+        cfg.set('create_subfolders', raw)
+        cfg.set('separate_format_folders', raw)
+        store = DestinationStore()
+        store._cfg = cfg
+        return store
+
+    def test_valeurs_vraies_diverses(self):
+        for v in (u'1', 1, True, u'"1"', u'true'):
+            store = self._store(v)
+            self.assertTrue(store.get_create_subfolders(), 'sub pour %r' % (v,))
+            self.assertTrue(store.get_separate_formats(), 'sep pour %r' % (v,))
+
+    def test_valeurs_fausses_diverses(self):
+        for v in (u'0', u'', None, u'"0"', u'false'):
+            store = self._store(v)
+            self.assertFalse(store.get_create_subfolders(), 'sub pour %r' % (v,))
+            self.assertFalse(store.get_separate_formats(), 'sep pour %r' % (v,))
+
+
 class TestDestinationServiceUniquePath(unittest.TestCase):
     def setUp(self):
         self.service = DestinationService(doc=None, config=FakeConfig())

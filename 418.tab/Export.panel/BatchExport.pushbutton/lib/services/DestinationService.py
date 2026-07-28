@@ -31,6 +31,22 @@ except Exception:
         NamingService = None  # type: ignore
 
 
+def _as_bool(val):
+    """Interprète une valeur de config booléenne de façon ROBUSTE.
+
+    La valeur persistée peut revenir sous diverses représentations selon la
+    sérialisation pyRevit ('1', 1, True, la chaîne '"1"' avec guillemets,
+    'true'...). Une comparaison stricte `str(val) == '1'` casse pour True /
+    '"1"' / 'true' -> le flag lu False alors qu'il a été activé (cause
+    candidate de la séparation non appliquée). On normalise ici : True pour
+    tout token vrai courant, False sinon (défaut sûr)."""
+    try:
+        s = u"{}".format(val).strip().strip('"').strip("'").strip().lower()
+    except Exception:
+        return False
+    return s in ('1', 'true', 'yes', 'on')
+
+
 class DestinationService(object):
     """Gère le dossier de destination et la construction des chemins d'export.
 
@@ -98,7 +114,7 @@ class DestinationService(object):
     def get_create_subfolders(self):
         try:
             val = self._cfg.get('create_subfolders', '0') if self._cfg is not None else '0'
-            return str(val) == '1'
+            return _as_bool(val)
         except Exception:
             return False
 
@@ -112,7 +128,7 @@ class DestinationService(object):
     def get_separate_formats(self):
         try:
             val = self._cfg.get('separate_format_folders', '0') if self._cfg is not None else '0'
-            return str(val) == '1'
+            return _as_bool(val)
         except Exception:
             return False
 

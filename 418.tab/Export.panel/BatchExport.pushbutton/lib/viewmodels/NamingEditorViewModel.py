@@ -29,12 +29,13 @@ _TITRES = {
 }
 
 # Mapping source -> nom de brush (clés définies dans Colors.xaml/ColorsDark.xaml).
-# 'feuille' réutilise l'accent existant ; 'carnet'/'projet' réutilisent les
-# brushes sémantiques déjà présentes dans le projet (badges EXPORT/DWG de
-# MainWindow.xaml), pas de nouvelle brush ajoutée pour ce mapping.
+# 'systeme' -> gris neutre (MediumGrayBrush) ; 'feuille' -> accent ;
+# 'jeu'/'projet' réutilisent les brushes sémantiques déjà présentes dans le
+# projet (badges EXPORT/DWG de MainWindow.xaml). Pas de nouvelle brush ajoutée.
 _COULEUR_PAR_SOURCE = {
+    u'systeme': u'MediumGrayBrush',
     u'feuille': u'AccentBrush',
-    u'carnet': u'SuccessBrush',
+    u'jeu': u'SuccessBrush',
     u'projet': u'WarningBrush',
 }
 _COULEUR_DEFAUT = u'AccentBrush'
@@ -42,9 +43,10 @@ _COULEUR_DEFAUT = u'AccentBrush'
 # Libellés lisibles pour les boutons de filtre + valeur 'FiltreSource'.
 _SOURCES_DISPONIBLES = (
     {'valeur': u'tout', 'libelle': u'Tout'},
-    {'valeur': u'projet', 'libelle': u'Projet'},
+    {'valeur': u'systeme', 'libelle': u'Système'},
     {'valeur': u'feuille', 'libelle': u'Feuille'},
-    {'valeur': u'carnet', 'libelle': u'Carnet'},
+    {'valeur': u'jeu', 'libelle': u'Jeu'},
+    {'valeur': u'projet', 'libelle': u'Projet'},
 )
 
 
@@ -86,7 +88,7 @@ class TokenItemVM(object):
 class SourceItemVM(object):
     """Item bindable pour un bouton/onglet de filtre de source.
 
-    `.valeur` : identifiant technique ('tout'/'projet'/'feuille'/'carnet'),
+    `.valeur` : identifiant technique ('tout'/'systeme'/'feuille'/'jeu'/'projet'),
     utilisé pour piloter `FiltreSource`. `.libelle` : texte affiché.
     """
 
@@ -174,16 +176,24 @@ class NamingEditorViewModel(BaseViewModel):
 
     @property
     def AvailableTokens(self):
-        """Liste de `TokenItemVM` (adaptés depuis
-        `naming_service.available_tokens()` -> `[{'token','desc','source','label'}, ...]`)
-        -- ensemble complet, non filtré. Best-effort : `[]` si le service
-        est absent."""
+        """Liste de `TokenItemVM` : jetons génériques statiques
+        (`available_tokens()` -> système / feuille / jeu) FUSIONNÉS avec les
+        paramètres projet dynamiques (`project_param_tokens()` -> énumérés
+        depuis ProjectInformation, catégorie 'projet'). Ensemble complet, non
+        filtré. Best-effort : `[]` si le service est absent, chaque source
+        gardée indépendamment si l'autre échoue."""
         if self._naming_service is None:
             return []
+        bruts = []
         try:
-            bruts = self._naming_service.available_tokens() or []
+            bruts = list(self._naming_service.available_tokens() or [])
         except Exception:
-            return []
+            bruts = []
+        try:
+            projet = self._naming_service.project_param_tokens() or []
+            bruts = bruts + list(projet)
+        except Exception:
+            pass
         return [
             TokenItemVM(
                 d.get('token', u''), d.get('desc', u''), d.get('source', u''),
@@ -224,9 +234,16 @@ class NamingEditorViewModel(BaseViewModel):
 
     @property
     def Apercu(self):
-        """Aperçu « template » : le motif courant tel quel (pas de
-        résolution contre un élément Revit réel -- amélioration future,
-        hors périmètre ici pour ne pas coupler ce VM à un doc)."""
+        """Aperçu « projet seulement » : les jetons de paramètre PROJET
+        (`{param_projet:NOM}` + legacy `{projet_*}`) sont résolus en leur
+        VALEUR réelle ; tout autre jeton (`{numero}`, `{nom}`, `{titre}`,
+        `{date}`) reste littéral. Repli sur le motif brut si le service est
+        absent ou ne fournit pas `resolve_project_values` (ex. tests)."""
+        if self._naming_service is not None:
+            try:
+                return self._naming_service.resolve_project_values(self._pattern)
+            except Exception:
+                pass
         return self._pattern
 
     # ------------------------------------------------------------------
