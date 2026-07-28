@@ -190,15 +190,29 @@ class TestNamingServiceJetons(unittest.TestCase):
         result = self.service.resolve_for_element(elem, rows)
         self.assertTrue(re.match(r'^\d{4}$', result))
 
-    def test_available_tokens_contient_les_jetons_speciaux(self):
+    def test_available_tokens_contient_les_jetons_generiques(self):
         tokens = [t['token'] for t in self.service.available_tokens()]
-        for attendu in ('{numero}', '{nom}', '{date}', '{param:NOM}', '{param_projet:NOM}'):
+        for attendu in ('{numero}', '{nom}', '{date}', '{param:NOM}', '{titre}'):
             self.assertIn(attendu, tokens)
 
+    def test_available_tokens_ne_contient_plus_les_raccourcis_projet(self):
+        """Les 4 raccourcis {projet_*} et le {param_projet:NOM} générique ont
+        été retirés de la liste statique (désormais énumérés dynamiquement
+        depuis ProjectInformation via project_param_tokens())."""
+        tokens = [t['token'] for t in self.service.available_tokens()]
+        for retire in ('{projet_nom}', '{projet_numero}', '{projet_client}',
+                       '{projet_statut}', '{param_projet:NOM}'):
+            self.assertNotIn(retire, tokens)
+
+    def test_available_tokens_categories_systeme_feuille_jeu(self):
+        par_token = dict((e['token'], e['source']) for e in self.service.available_tokens())
+        self.assertEqual(par_token['{date}'], 'systeme')
+        self.assertEqual(par_token['{date_annee}'], 'systeme')
+        self.assertEqual(par_token['{numero}'], 'feuille')
+        self.assertEqual(par_token['{param:NOM}'], 'feuille')
+        self.assertEqual(par_token['{titre}'], 'jeu')
+
     def test_available_tokens_porte_un_label_court(self):
-        """`label` : nom court sans qualifier de source (la couleur du badge
-        indique déjà l'origine) -- `{nom}` et `{projet_nom}` partagent
-        volontairement le même label 'nom'."""
         entrees = self.service.available_tokens()
         for entree in entrees:
             self.assertIn('label', entree)
@@ -207,8 +221,47 @@ class TestNamingServiceJetons(unittest.TestCase):
         par_token = dict((e['token'], e['label']) for e in entrees)
         self.assertEqual(par_token['{numero}'], 'numéro')
         self.assertEqual(par_token['{nom}'], 'nom')
-        self.assertEqual(par_token['{projet_nom}'], 'nom')
         self.assertEqual(par_token['{date_annee}'], 'année')
+
+
+class TestNamingServiceProjectParams(unittest.TestCase):
+    """Énumération des paramètres projet (ProjectInformation) + aperçu
+    'projet seulement'. Le cache ProjectInfo est pré-alimenté pour contourner
+    le collector DB indisponible hors Revit."""
+
+    def setUp(self):
+        self.service = NamingService(doc=None, config=FakeConfig())
+        elem = FakeElement(
+            {'Client': 'ACME', 'Numero de projet': 'P-2026', 'Adresse': '1 rue X'},
+            name='MonProjet')
+        self.service._project_info_elem_cache = elem
+
+    def test_project_param_tokens_nom_valeur_token_source(self):
+        toks = self.service.project_param_tokens()
+        par_nom = dict((t['label'], t) for t in toks)
+        self.assertIn('Client', par_nom)
+        self.assertEqual(par_nom['Client']['value'], 'ACME')
+        self.assertEqual(par_nom['Client']['token'], '{param_projet:Client}')
+        self.assertEqual(par_nom['Client']['source'], 'projet')
+
+    def test_project_param_tokens_vide_sans_project_info(self):
+        service = NamingService(doc=None, config=FakeConfig())
+        self.assertEqual(service.project_param_tokens(), [])
+
+    def test_resolve_project_values_resout_projet_et_laisse_le_reste_litteral(self):
+        pattern = '{numero}_{param_projet:Client}_{date}'
+        out = self.service.resolve_project_values(pattern)
+        self.assertEqual(out, '{numero}_ACME_{date}')
+
+    def test_resolve_project_values_legacy_projet_token_resolu(self):
+        # {projet_nom} (legacy, retiré de la palette) reste résolu (propriété
+        # .Name de ProjectInfo) -> non littéral.
+        out = self.service.resolve_project_values('{projet_nom}')
+        self.assertEqual(out, 'MonProjet')
+
+    def test_resolve_project_values_param_projet_inconnu_devient_vide(self):
+        out = self.service.resolve_project_values('{param_projet:Inexistant}')
+        self.assertEqual(out, '')
 
 
 class TestNamingServicePersistence(unittest.TestCase):
