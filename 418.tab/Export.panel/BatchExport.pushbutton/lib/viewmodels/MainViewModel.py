@@ -1697,7 +1697,10 @@ class MainViewModel(BaseViewModel):
             return
 
         try:
-            orch = ExportOrchestrator()
+            # Injecter la config partagée du VM : l'orchestrateur doit lire les
+            # MÊMES flags de séparation et motifs de nommage que ceux persistés
+            # par le VM/la modale (sinon il lit sa propre config '<absent>').
+            orch = ExportOrchestrator(config=self._cfg)
         except Exception:
             self.StatusText = u"Export indisponible (initialisation impossible)."
             return
@@ -1802,7 +1805,10 @@ class MainViewModel(BaseViewModel):
             return
 
         try:
-            orch = ExportOrchestrator()
+            # Injecter la config partagée du VM : l'orchestrateur doit lire les
+            # MÊMES flags de séparation et motifs de nommage que ceux persistés
+            # par le VM/la modale (sinon il lit sa propre config '<absent>').
+            orch = ExportOrchestrator(config=self._cfg)
         except Exception:
             self.StatusText = u"Export indisponible (initialisation impossible)."
             return

@@ -9,14 +9,36 @@ import os
 import re
 import datetime as _dt
 
+
+def _as_bool(val):
+    """Lecture ROBUSTE d'un flag booléen de config (cf. DestinationService).
+
+    Tolère '1', 1, True, la chaîne '"1"' (guillemets de sérialisation),
+    'true'/'yes'/'on'. Défaut sûr : False. Évite qu'une valeur activée mais
+    sérialisée autrement que la chaîne exacte '1' soit lue False (séparation
+    non appliquée)."""
+    try:
+        s = u"{}".format(val).strip().strip('"').strip("'").strip().lower()
+    except Exception:
+        return False
+    return s in ('1', 'true', 'yes', 'on')
+
+
 class DestinationStore(object):
-    def __init__(self, namespace='batch_export'):
-        # Config utilisateur
-        try:
-            from ...core.UserConfig import UserConfig
-        except Exception:
-            UserConfig = None  # type: ignore
-        self._cfg = UserConfig(namespace) if UserConfig is not None else None
+    def __init__(self, namespace='batch_export', config=None):
+        # Config utilisateur. `config` permet d'INJECTER l'instance UserConfig
+        # partagée du ViewModel : sans cela, l'orchestrateur crée sa propre
+        # UserConfig qui, en contexte pyRevit, ne voit PAS les valeurs écrites
+        # par le VM/la modale (instances de config distinctes -> flags de
+        # séparation et motifs de nommage lus '<absent>'). Cf. MainViewModel.
+        if config is not None:
+            self._cfg = config
+        else:
+            try:
+                from ...core.UserConfig import UserConfig
+            except Exception:
+                UserConfig = None  # type: ignore
+            self._cfg = UserConfig(namespace) if UserConfig is not None else None
         # Nommage (rows -> pattern)
         try:
             from ..naming.NamingResolver import NamingResolver
@@ -60,7 +82,7 @@ class DestinationStore(object):
     def get_create_subfolders(self):
         try:
             val = self._cfg.get('create_subfolders', '0') if self._cfg is not None else '0'
-            return str(val) == '1'
+            return _as_bool(val)
         except Exception:
             return False
 
@@ -74,7 +96,7 @@ class DestinationStore(object):
     def get_separate_formats(self):
         try:
             val = self._cfg.get('separate_format_folders', '0') if self._cfg is not None else '0'
-            return str(val) == '1'
+            return _as_bool(val)
         except Exception:
             return False
 

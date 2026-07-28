@@ -1598,7 +1598,7 @@ class TestExportDoneCallback(unittest.TestCase):
         calls = []
 
         class OrchestrateurtQuiLeve(object):
-            def __init__(self):
+            def __init__(self, namespace='batch_export', config=None):
                 self._dest = object()
                 self._nstore = object()
                 self._pdf = object()
