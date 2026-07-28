@@ -81,6 +81,9 @@ class MainWindowView(BaseWindow):
     def __init__(self, view_model):
         super(MainWindowView, self).__init__(_xaml_path(), view_model)
         self._vm = view_model
+        # VM de la page « par jeu » hébergée (fixé au montage) : conservé pour
+        # pouvoir re-synchroniser ses collections après chaque refresh_par_jeu.
+        self._auto_page_vm = None
 
     def _load(self):
         super(MainWindowView, self)._load()
@@ -133,6 +136,20 @@ class MainWindowView(BaseWindow):
             page = self._load_page('AutoPage.xaml')
             page.DataContext = page_vm
             host.Content = page
+            # Conserver le VM de la page et brancher le pont de re-synchro :
+            # refresh_par_jeu (setters de mapping, édition du nommage, etc.)
+            # invoquera _sync_auto_page pour pousser les nouvelles collections.
+            self._auto_page_vm = page_vm
+            self._vm._on_collections_changed_cb = self._sync_auto_page
+        except Exception:
+            pass
+
+    def _sync_auto_page(self):
+        """Pousse les collections courantes du MainViewModel vers l'AutoPageVM
+        hébergé (DataContext distinct). Best-effort, ne lève jamais."""
+        try:
+            if self._auto_page_vm is not None:
+                self._auto_page_vm.set_collections(getattr(self._vm, 'Collections', None) or [])
         except Exception:
             pass
 
@@ -259,6 +276,15 @@ class MainWindowView(BaseWindow):
         try:
             if hasattr(self._vm, 'refresh_patterns_apercu'):
                 self._vm.refresh_patterns_apercu()
+        except Exception:
+            pass
+        # Le motif a pu changer -> recalculer les aperçus par collection de la
+        # page « par jeu » (NomProjete des feuilles pour 'sheet', titre de
+        # carnet pour 'set'). refresh_par_jeu re-synchronise l'AutoPage via
+        # _on_collections_changed_cb.
+        try:
+            if hasattr(self._vm, 'refresh_par_jeu'):
+                self._vm.refresh_par_jeu()
         except Exception:
             pass
 

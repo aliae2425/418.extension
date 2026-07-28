@@ -186,6 +186,23 @@ class FakeNamingServicePatternSeul(object):
         return u'{}-JETON'.format(numero)
 
 
+class FakeNamingServiceCarnet(object):
+    """Faux NamingService exerçant l'aperçu de carnet : motif `set` non vide
+    résolu contre l'élément de COLLECTION (préfixe 'CARNET-' + nom du jeu),
+    motif `sheet` résolu contre la feuille (préfixe 'SHEET-' + numéro).
+    Distingue collection (attribut `name`) et feuille (attribut `numero`)."""
+
+    def load(self, kind):
+        if kind == 'set':
+            return ('{titre}-CARNET', [])
+        return ('{numero}-SHEET', [])
+
+    def resolve_for_element(self, elem, pattern_ou_rows):
+        if hasattr(elem, 'name'):
+            return u'CARNET-{}'.format(elem.name)
+        return u'SHEET-{}'.format(getattr(elem, 'numero', ''))
+
+
 class TestMainViewModelParJeu(unittest.TestCase):
     def setUp(self):
         self.sheet_service = FakeSheetService()
@@ -284,6 +301,71 @@ class TestMainViewModelParJeuPatternJetons(unittest.TestCase):
         self.assertTrue(len(self.naming_service.resolve_calls) > 0)
         for appel in self.naming_service.resolve_calls:
             self.assertEqual(appel, u'{numero}-JETON')
+
+
+class TestMainViewModelParJeuCarnetApercu(unittest.TestCase):
+    """Aperçu du titre de carnet (mode « par jeu ») : `CarnetApercu`
+    (motif `set` résolu contre la collection + `.pdf`) et
+    `CarnetApercuVisible` (`FlagCarnet and bool(CarnetApercu)`)."""
+
+    def setUp(self):
+        self.sheet_service = FakeSheetService()
+        self.naming_service = FakeNamingServiceCarnet()
+        self.vm = MainViewModel(
+            doc=None,
+            sheet_service=self.sheet_service,
+            naming_service=self.naming_service,
+            destination_service=None,
+            config=FakeConfig(),
+        )
+        self.vm.ParamExport = 'Export'
+        self.vm.ParamCarnet = 'Carnet'
+        self.vm.ParamDwg = 'Dwg'
+
+    def test_carnet_apercu_resolu_avec_extension_pdf(self):
+        self.vm.refresh_par_jeu()
+        jeu_a = self.vm.Collections[0]  # Jeu A qualifié + FlagCarnet
+        self.assertEqual(jeu_a.CarnetApercu, u'CARNET-A.pdf')
+
+    def test_carnet_apercu_visible_si_flag_carnet_et_apercu(self):
+        self.vm.refresh_par_jeu()
+        jeu_a = self.vm.Collections[0]
+        self.assertTrue(jeu_a.FlagCarnet)
+        self.assertTrue(jeu_a.CarnetApercuVisible)
+
+    def test_carnet_apercu_non_visible_sans_flag_carnet(self):
+        self.vm.refresh_par_jeu()
+        jeu_b = self.vm.Collections[1]  # Jeu B : pas de FlagCarnet
+        self.assertFalse(jeu_b.FlagCarnet)
+        self.assertFalse(jeu_b.CarnetApercuVisible)
+
+    def test_carnet_apercu_vide_et_non_visible_si_motif_set_vide(self):
+        class FakeNamingServiceSetVide(FakeNamingServiceCarnet):
+            def load(self, kind):
+                if kind == 'set':
+                    return ('', [])
+                return ('{numero}-SHEET', [])
+
+        vm = MainViewModel(
+            doc=None,
+            sheet_service=FakeSheetService(),
+            naming_service=FakeNamingServiceSetVide(),
+            destination_service=None,
+            config=FakeConfig(),
+        )
+        vm.ParamExport = 'Export'
+        vm.ParamCarnet = 'Carnet'
+        vm.refresh_par_jeu()
+        jeu_a = vm.Collections[0]
+        self.assertTrue(jeu_a.FlagCarnet)
+        self.assertEqual(jeu_a.CarnetApercu, u'')
+        self.assertFalse(jeu_a.CarnetApercuVisible)
+
+    def test_refresh_par_jeu_invoque_callback_collections_changed(self):
+        appels = []
+        self.vm._on_collections_changed_cb = lambda: appels.append(1)
+        self.vm.refresh_par_jeu()
+        self.assertEqual(len(appels), 1)
 
 
 class TestMainViewModelMappingParametres(unittest.TestCase):

@@ -569,11 +569,20 @@
               -> les badges/qualification du mode « par jeu » se mettent à
               jour immédiatement au changement.
             -->
-            <StackPanel Grid.Row="1"
-                        x:Name="PanneauParametres"
+            <!--
+              Les 4 cartes de réglages peuvent, une fois plusieurs Expanders
+              dépliés, dépasser la hauteur de la surface : on les loge dans un
+              ScrollViewer (barre au ras du bord de la surface, marge conservée
+              sur le StackPanel interne) — même patron que AutoPage / liste
+              manuelle. La Visibility IsSettings est portée par le ScrollViewer.
+            -->
+            <ScrollViewer Grid.Row="1"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Visibility="{Binding IsSettings, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel x:Name="PanneauParametres"
                         Orientation="Vertical"
-                        Margin="20,16,20,8"
-                        Visibility="{Binding IsSettings, Converter={StaticResource BoolToVisibilityConverter}}">
+                        Margin="20,16,20,8">
 
               <!--
                 Groupe 1 : Mappage des paramètres.
@@ -844,6 +853,7 @@
                 </Expander>
               </Border>
             </StackPanel>
+            </ScrollViewer>
 
             <!--
               Footer d'actions. Masqué en mode Paramètres (IsNotSettings ->

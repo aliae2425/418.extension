@@ -173,7 +173,8 @@ class SheetItemVM(BaseViewModel):
 class CollectionItemVM(BaseViewModel):
     """Item bindable pour une collection (jeu) au sein du mode « par jeu »."""
 
-    def __init__(self, titre, cid, flag_export, flag_carnet, flag_dwg, sheets):
+    def __init__(self, titre, cid, flag_export, flag_carnet, flag_dwg, sheets,
+                 carnet_apercu=u''):
         super(CollectionItemVM, self).__init__()
         self._titre = titre
         self._id = cid
@@ -181,6 +182,9 @@ class CollectionItemVM(BaseViewModel):
         self._flag_carnet = bool(flag_carnet)
         self._flag_dwg = bool(flag_dwg)
         self._sheets = sheets  # list[SheetItemVM]
+        # Aperçu du nom de fichier de carnet (motif `set` résolu + `.pdf`),
+        # ou '' si aucun motif carnet n'est configuré. Cf. refresh_par_jeu.
+        self._carnet_apercu = carnet_apercu or u''
 
     @property
     def Titre(self):
@@ -205,6 +209,17 @@ class CollectionItemVM(BaseViewModel):
     @property
     def Qualified(self):
         return self._flag_export
+
+    @property
+    def CarnetApercu(self):
+        return self._carnet_apercu
+
+    @property
+    def CarnetApercuVisible(self):
+        # Visible uniquement si le carnet est actif ET qu'un aperçu non vide
+        # a pu être résolu : évite d'afficher l'icône seule sans texte quand
+        # le motif `set` est absent/vide.
+        return bool(self._flag_carnet) and bool(self._carnet_apercu)
 
     @property
     def Sheets(self):
@@ -465,6 +480,11 @@ class MainViewModel(BaseViewModel):
         self._filtres_manuel = []
         self._recherche_manuel = u''
         self._on_export_done_cb = None
+        # Callback optionnel invoqué à la fin de refresh_par_jeu : permet à la
+        # vue de re-synchroniser la page « par jeu » hébergée (AutoPageVM),
+        # qui a son propre DataContext et ne suit pas notify_property(Collections)
+        # du MainViewModel. Défaut None (aucun effet hors Revit / tests).
+        self._on_collections_changed_cb = None
 
         # Aperçu des conventions de nommage (page Réglages) : motifs bruts
         # (chaînes à jetons ou anciens templates), recalculés par
@@ -737,6 +757,17 @@ class MainViewModel(BaseViewModel):
                 _pattern = u''
                 rows_sheet = []
 
+        # Motif carnet ('set') hissé une fois (comme _pattern/rows_sheet pour
+        # les feuilles), résolu par collection pour l'aperçu du titre de carnet.
+        _set_pattern = u''
+        set_rows = []
+        if self._naming_service is not None:
+            try:
+                _set_pattern, set_rows = self._naming_service.load('set')
+            except Exception:
+                _set_pattern = u''
+                set_rows = []
+
         raw_collections = []
         if self._sheet_service is not None:
             try:
@@ -801,8 +832,23 @@ class MainViewModel(BaseViewModel):
             if qualified:
                 nb_feuilles_qualifiees += len(sheets_out)
 
+            # Aperçu du titre de carnet : motif `set` résolu contre l'élément
+            # de collection + `.pdf` (extension du fichier produit à l'export).
+            # Même discipline try/except + garde motif que `nom_projete`.
+            carnet_apercu = u''
+            if (self._naming_service is not None and coll_elem is not None
+                    and (_set_pattern or set_rows)):
+                try:
+                    resolved = self._naming_service.resolve_for_element(
+                        coll_elem, _set_pattern or set_rows) or u''
+                except Exception:
+                    resolved = u''
+                if resolved:
+                    carnet_apercu = resolved + u'.pdf'
+
             collections_out.append(CollectionItemVM(
-                titre, coll_id, flag_export, flag_carnet, flag_dwg, sheets_out
+                titre, coll_id, flag_export, flag_carnet, flag_dwg, sheets_out,
+                carnet_apercu=carnet_apercu
             ))
 
         # Tri (stable) : collections QUALIFIÉES (FlagExport=True) d'abord,
@@ -842,6 +888,14 @@ class MainViewModel(BaseViewModel):
 
         for name in (u'Collections', u'NbJeuxQualifies', u'NbFeuillesQualifiees'):
             self.notify_property(name)
+
+        # Re-synchronise la page « par jeu » hébergée (AutoPageVM), dont le
+        # DataContext distinct ne suit pas notify_property(Collections).
+        if callable(self._on_collections_changed_cb):
+            try:
+                self._on_collections_changed_cb()
+            except Exception:
+                pass
 
     @property
     def Collections(self):
