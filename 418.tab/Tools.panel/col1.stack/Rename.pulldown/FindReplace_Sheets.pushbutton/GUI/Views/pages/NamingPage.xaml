@@ -40,10 +40,35 @@
                        Text="Rechercher (regex)"
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        FontSize="11" Margin="4,0,4,6"/>
-            <TextBlock Grid.Row="0" Grid.Column="3"
-                       Text="Remplacer"
-                       Foreground="{DynamicResource TextSecondaryBrush}"
-                       FontSize="11" Margin="4,0,4,6"/>
+            <!-- En-t&#234;te Remplacer + ic&#244;ne d'aide sur les tokens -->
+            <StackPanel Grid.Row="0" Grid.Column="3"
+                        Orientation="Horizontal" Margin="4,0,4,6">
+              <TextBlock Text="Remplacer"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         FontSize="11" VerticalAlignment="Center"/>
+              <TextBlock Text="&#9432;"
+                         Foreground="{DynamicResource AccentBrush}"
+                         FontSize="12" FontWeight="Bold"
+                         Margin="4,0,0,0" VerticalAlignment="Center"
+                         Cursor="Hand"
+                         ToolTipService.InitialShowDelay="150"
+                         ToolTipService.ShowDuration="30000">
+                <TextBlock.ToolTip>
+                  <ToolTip MaxWidth="340">
+                    <StackPanel Margin="2">
+                      <TextBlock Text="Tokens disponibles" FontWeight="Bold" Margin="0,0,0,6"/>
+                      <TextBlock Text="{}{date}  &#8212;  date du jour (AAAA-MM-JJ)" Margin="0,1"/>
+                      <TextBlock Text="{}{annee} &#8212;  ann&#233;e sur 4 chiffres" Margin="0,1"/>
+                      <TextBlock Text="{}{mois}  &#8212;  mois sur 2 chiffres" Margin="0,1"/>
+                      <TextBlock Text="{}{jour}  &#8212;  jour sur 2 chiffres" Margin="0,1"/>
+                      <TextBlock Text="{}{n}     &#8212;  num&#233;ro de la ligne (1, 2, 3&#8230;)" Margin="0,1"/>
+                      <TextBlock Text="Utilisables dans Pr&#233;fixe, Remplacer et Suffixe."
+                                 FontStyle="Italic" Margin="0,6,0,0"/>
+                    </StackPanel>
+                  </ToolTip>
+                </TextBlock.ToolTip>
+              </TextBlock>
+            </StackPanel>
             <TextBlock Grid.Row="0" Grid.Column="4"
                        Text="Suffixe"
                        Foreground="{DynamicResource TextSecondaryBrush}"

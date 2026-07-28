@@ -37,14 +37,14 @@ class RenameSheetsService(object):
             use_regex=True)
         count = 0
         with revit_transaction(self._doc, u'Renommer les feuilles'):
-            for sheet in sheets:
-                self._rename_number(sheet, svc_number)
-                self._rename_name(sheet, svc_name)
+            for index, sheet in enumerate(sheets, start=1):
+                self._rename_number(sheet, svc_number, index)
+                self._rename_name(sheet, svc_name, index)
                 count += 1
         return count
 
-    def _rename_number(self, sheet, svc):
-        new_val = sanitize_revit_name(svc.apply(sheet.SheetNumber))
+    def _rename_number(self, sheet, svc, index=1):
+        new_val = sanitize_revit_name(svc.apply(sheet.SheetNumber, index=index))
         if new_val == sheet.SheetNumber:
             return
         fail = 0
@@ -57,8 +57,8 @@ class RenameSheetsService(object):
                 candidate += u'*'
                 fail += 1
 
-    def _rename_name(self, sheet, svc):
-        new_val = sanitize_revit_name(svc.apply(sheet.Name))
+    def _rename_name(self, sheet, svc, index=1):
+        new_val = sanitize_revit_name(svc.apply(sheet.Name, index=index))
         if new_val == sheet.Name:
             return
         fail = 0
