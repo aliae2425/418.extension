@@ -5,14 +5,21 @@
     Page Sélection — DataContext = SelectionPageVM (assigné par le Python).
     Chargée via XamlReader.Load et injectée dans PageHost (PAS de x:Class,
     PAS de code-behind). Tout brush/style de thème en DynamicResource.
+
+    Sélection multi-items (clic simple / Ctrl / Shift) : la CheckBox est
+    display-only (IsHitTestVisible=False, binding OneWay) et TOUS les clics
+    sont captés par un handler UNIQUE sur l'ItemsControl (x:Name="ItemsList",
+    câblé côté Python dans MainWindowView._wire_selection_interactions) —
+    ceci évite tout double déclenchement entre la case et la ligne.
   -->
 
   <Grid Background="{DynamicResource TransparentBrush}"
         Margin="20">
     <Grid.RowDefinitions>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="*"/>
-      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>   <!-- titre -->
+      <RowDefinition Height="Auto"/>   <!-- recherche + actions -->
+      <RowDefinition Height="*"/>      <!-- liste -->
+      <RowDefinition Height="Auto"/>   <!-- bouton Suivant -->
     </Grid.RowDefinitions>
 
     <TextBlock Grid.Row="0"
@@ -20,17 +27,34 @@
                Style="{DynamicResource HeaderTextBlockStyle}"
                Margin="0,0,0,14"/>
 
-    <ScrollViewer Grid.Row="1"
+    <Grid Grid.Row="1" Margin="0,0,0,10">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <TextBox Grid.Column="0"
+               x:Name="SearchBox"
+               Text="{Binding FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+      <Button Grid.Column="1" x:Name="SelectAllButton" Content="Tout"
+              Style="{DynamicResource SecondaryActionButtonStyle}" Margin="8,0,0,0"/>
+      <Button Grid.Column="2" x:Name="DeselectAllButton" Content="Aucun"
+              Style="{DynamicResource SecondaryActionButtonStyle}" Margin="8,0,0,0"/>
+    </Grid>
+
+    <ScrollViewer Grid.Row="2"
                   VerticalScrollBarVisibility="Auto"
                   HorizontalScrollBarVisibility="Disabled">
-      <ItemsControl ItemsSource="{Binding Items}">
+      <ItemsControl x:Name="ItemsList" ItemsSource="{Binding FilteredItems}">
         <ItemsControl.ItemTemplate>
           <DataTemplate>
             <Border BorderBrush="{DynamicResource ControlBorderBrush}"
                     BorderThickness="0,0,0,1"
+                    Background="{DynamicResource TransparentBrush}"
                     Padding="4,8">
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                <CheckBox IsChecked="{Binding IsSelected, Mode=OneWay}"
+                          IsHitTestVisible="False"
                           Style="{DynamicResource CheckBoxStyle}"
                           Margin="0,0,12,0"/>
                 <TextBlock Text="{Binding Numero}"
@@ -50,7 +74,7 @@
 
     <!-- Bouton Suivant : actif uniquement si au moins une feuille est cochée
          (IsEnabled lié à HasSelection). Le Python le câble vers la page Options. -->
-    <Button Grid.Row="2"
+    <Button Grid.Row="3"
             x:Name="NextButton"
             Content="Suivant"
             Style="{DynamicResource PrimaryActionButtonStyle}"

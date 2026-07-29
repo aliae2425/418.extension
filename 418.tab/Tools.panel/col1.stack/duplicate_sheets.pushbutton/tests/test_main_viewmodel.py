@@ -40,7 +40,7 @@ class TestMainViewModel(unittest.TestCase):
     def test_toggle_dans_page_met_a_jour_etat_partage(self):
         vm = MainViewModel()
         vm.charger(self.DESCR, [])
-        vm.SelectionVM.Items[1].IsSelected = True  # coche A102 (id 2)
+        vm.SelectionVM.FilteredItems[1].IsSelected = True  # coche A102 (id 2)
         self.assertEqual(vm.SelectedSheetIds, [2])
 
     def test_set_mode(self):
