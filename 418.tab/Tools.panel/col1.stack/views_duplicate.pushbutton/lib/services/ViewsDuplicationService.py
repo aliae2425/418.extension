@@ -16,10 +16,10 @@ except Exception:
     revit_transaction = None
 
 try:
-    from lib.services.RenameService import RenameService
+    from core.rename_service import RenameService
 except Exception:
     try:
-        from services.RenameService import RenameService
+        from lib.core.rename_service import RenameService
     except Exception:
         RenameService = None
 

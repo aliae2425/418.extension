@@ -13,9 +13,9 @@ except Exception:
         return x or u'SansNom'
 
 try:
-    from lib.services.RenameService import RenameService
+    from core.rename_service import RenameService
 except Exception:
-    from services.RenameService import RenameService
+    from lib.core.rename_service import RenameService
 
 
 class RenameViewsService(object):

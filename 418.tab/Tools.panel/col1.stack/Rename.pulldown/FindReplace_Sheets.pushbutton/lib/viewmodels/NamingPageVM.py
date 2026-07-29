@@ -17,9 +17,9 @@ except Exception:
     from services.RenameOptions import RenameSheetOptions
 
 try:
-    from lib.services.RenameService import RenameService
+    from core.rename_service import RenameService
 except Exception:
-    from services.RenameService import RenameService
+    from lib.core.rename_service import RenameService
 
 try:
     from lib.viewmodels.SheetPreviewGroupVM import SheetPreviewGroupVM
