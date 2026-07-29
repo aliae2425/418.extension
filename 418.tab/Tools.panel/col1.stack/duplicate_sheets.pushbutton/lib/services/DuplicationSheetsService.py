@@ -35,6 +35,14 @@ except Exception:
     def sanitize_revit_name(x):
         return x or u'SansNom'
 
+try:
+    from lib.services.RenameService import RenameService
+except Exception:
+    try:
+        from services.RenameService import RenameService
+    except Exception:
+        RenameService = None
+
 
 _VIEW_DUP_MAP = {
     u'duplicate': 'Duplicate',
@@ -58,6 +66,44 @@ class DuplicationSheetsService(object):
         name = _VIEW_DUP_MAP.get(key, 'Duplicate')
         return getattr(ViewDuplicateOption, name)
 
+    def _resolve_name(self, source, prefixe, rechercher, remplacer, suffixe):
+        """Calcule le nom cible à partir de la valeur SOURCE.
+
+        Utilise RenameService (regex + tokens, use_regex=True) comme le fait
+        l'aperçu — appel sans index ni context. Fallback str.replace si
+        RenameService indisponible (import-guard). Applique sanitize_revit_name
+        sur le résultat."""
+        if RenameService is not None:
+            rename = RenameService(prefixe=prefixe, rechercher=rechercher,
+                                   remplacer=remplacer, suffixe=suffixe,
+                                   use_regex=True)
+            new_name = rename.apply(source)
+        else:
+            new_name = prefixe + source.replace(rechercher, remplacer) + suffixe
+        return sanitize_revit_name(new_name)
+
+    def _apply_unique(self, get_current, set_value, target):
+        """Assigne `target` en gérant les collisions de noms/numéros.
+
+        No-op si `target` == valeur courante du nouvel élément. Sinon tente
+        `target`, puis `target (2)`, `target (3)`… (candidat toujours basé sur
+        le target original) jusqu'au premier succès. Garde-fou : abandonne
+        après ~999 essais (valeur courante conservée)."""
+        if target == get_current():
+            return
+        try:
+            set_value(target)
+            return
+        except Exception:
+            pass
+        for n in range(2, 1000):
+            candidate = u'{0} ({1})'.format(target, n)
+            try:
+                set_value(candidate)
+                return
+            except Exception:
+                continue
+
     def duplicate(self, sheets, options):
         """Duplique chaque feuille de `sheets` (list de ViewSheet) selon
         `options` (DuplicationOptions). Retourne le nombre de feuilles créées."""
@@ -80,29 +126,18 @@ class DuplicationSheetsService(object):
         :param options:    DuplicationOptions
         :return:
         """
-        # CREATE VIEW NAME
-        current_name = view.Name
-        new_name = options.view_prefix + current_name.replace(options.view_find, options.view_replace) + options.view_suffix
-        # FILTER SPECIAL CHARACHTERS
-        new_name = sanitize_revit_name(new_name)
+        # NOM CIBLE DERIVE DE LA VUE SOURCE (regex + tokens via RenameService)
+        new_name = self._resolve_name(view.Name, options.view_prefix,
+                                      options.view_find, options.view_replace,
+                                      options.view_suffix)
 
-        fail_count = 0  # FAIL SAVE
-        while True:
-            # RENAME IF DIFFERENT
-            if new_name == new_view.Name:
-                break
+        def _get():
+            return new_view.Name
 
-            try:
-                # TRY TO RENAME
-                new_view.Name = new_name
-                break
-            except:
-                new_name += "*"
+        def _set(value):
+            new_view.Name = value
 
-            # STOP IF FAILED 5 TIMES
-            fail_count += 1
-            if fail_count > 5:
-                break
+        self._apply_unique(_get, _set, new_name)
 
     def update_sheet_name(self, sheet, new_sheet, options):
         # type:(ViewSheet, ViewSheet, object) -> None
@@ -112,30 +147,18 @@ class DuplicationSheetsService(object):
         :param options:     DuplicationOptions
         :return:
         """
-        # CREATE VIEW NAME
-        current_sheet_name = sheet.Name
+        # NOM CIBLE DERIVE DU NOM DE FEUILLE SOURCE (regex + tokens)
+        new_name = self._resolve_name(sheet.Name, options.name_prefix,
+                                      options.name_find, options.name_replace,
+                                      options.name_suffix)
 
-        new_name = options.name_prefix + current_sheet_name.replace(options.name_find, options.name_replace) + options.name_suffix
-        # FILTER SPECIAL CHARACHTERS
-        new_name = sanitize_revit_name(new_name)
+        def _get():
+            return new_sheet.Name
 
-        fail_count = 0  # FAIL SAVE
-        while True:
-            # RENAME IF DIFFERENT
-            if new_name == new_sheet.Name:
-                break
+        def _set(value):
+            new_sheet.Name = value
 
-            try:
-                # TRY TO RENAME
-                new_sheet.Name = new_name
-                break
-            except:
-                new_name += "*"
-
-            # STOP IF FAILED 5 TIMES
-            fail_count += 1
-            if fail_count > 5:
-                break
+        self._apply_unique(_get, _set, new_name)
 
     def update_sheet_number(self, sheet, new_sheet, options):
         # type:(ViewSheet, ViewSheet, object) -> None
@@ -145,29 +168,18 @@ class DuplicationSheetsService(object):
         :param options:     DuplicationOptions
         :return:
         """
-        # CREATE VIEW NAME
-        current_sheet_number = sheet.SheetNumber
+        # NUMERO CIBLE DERIVE DU NUMERO DE FEUILLE SOURCE (regex + tokens)
+        new_name = self._resolve_name(sheet.SheetNumber, options.number_prefix,
+                                      options.number_find, options.number_replace,
+                                      options.number_suffix)
 
-        new_name = options.number_prefix + current_sheet_number.replace(options.number_find, options.number_replace) + options.number_suffix
-        # FILTER SPECIAL CHARACHTERS
-        new_name = sanitize_revit_name(new_name)
+        def _get():
+            return new_sheet.SheetNumber
 
-        fail_count = 0  # FAIL SAVE
-        while True:
-            # RENAME IF DIFFERENT
-            if new_name == new_sheet.SheetNumber:
-                break
-            try:
-                # TRY TO RENAME
-                new_sheet.SheetNumber = new_name
-                break
-            except:
-                new_name += "*"
+        def _set(value):
+            new_sheet.SheetNumber = value
 
-            # STOP IF FAILED 5 TIMES
-            fail_count += 1
-            if fail_count > 5:
-                break
+        self._apply_unique(_get, _set, new_name)
 
     # ====================================================================
     # FONCTIONS DE DUPLICATION
