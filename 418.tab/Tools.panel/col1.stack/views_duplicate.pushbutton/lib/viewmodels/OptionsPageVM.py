@@ -201,4 +201,9 @@ class OptionsPageVM(BaseViewModel):
         return ViewsDuplicationOptions(
             view_duplicate_option=self._ViewDuplicateOption,
             count=self._Count,
+            prefixe=self._Prefixe,
+            rechercher=self._Rechercher,
+            remplacer=self._Remplacer,
+            suffixe=self._Suffixe,
+            use_regex=self._UseRegex,
         )

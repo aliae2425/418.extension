@@ -38,6 +38,25 @@ class TestViewsDuplicationOptions(unittest.TestCase):
         o = ViewsDuplicationOptions(count=-5)
         self.assertEqual(o.count, 1)
 
+    def test_champs_nommage_par_defaut(self):
+        o = ViewsDuplicationOptions()
+        self.assertEqual(o.prefixe, u'')
+        self.assertEqual(o.rechercher, u'')
+        self.assertEqual(o.remplacer, u'')
+        self.assertEqual(o.suffixe, u'')
+        self.assertEqual(o.use_regex, False)
+
+    def test_champs_nommage_surcharges(self):
+        o = ViewsDuplicationOptions(
+            prefixe=u'PFX_', rechercher=u'a', remplacer=u'b',
+            suffixe=u'_SFX', use_regex=True,
+        )
+        self.assertEqual(o.prefixe, u'PFX_')
+        self.assertEqual(o.rechercher, u'a')
+        self.assertEqual(o.remplacer, u'b')
+        self.assertEqual(o.suffixe, u'_SFX')
+        self.assertEqual(o.use_regex, True)
+
 
 if __name__ == '__main__':
     unittest.main()
