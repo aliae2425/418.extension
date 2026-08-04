@@ -5,6 +5,8 @@
 /.venv/*
 
 **/__pycache__
-profil.json
-.claude/*
-.claude-flow/*
+**/profil.json
+**/.claude/*
+**/.claude-flow/*
+**/*.log
+**/data/*
