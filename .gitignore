@@ -8,6 +8,7 @@
 profil.json
 # Dossier de données runtime commun (persistance des réglages par feature)
 /data/
+**/data
 **/.claude/*
 **/.claude-flow/*
 
