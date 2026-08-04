@@ -24,7 +24,7 @@ try:
 except Exception:
     Process = None
 
-__version__ = u'2.0.45'
+__version__ = u'2.1.0'
 
 
 class AboutViewModel(BaseViewModel):
