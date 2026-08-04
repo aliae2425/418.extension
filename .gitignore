@@ -8,8 +8,8 @@
 profil.json
 # Dossier de données runtime commun (persistance des réglages par feature)
 /data/
-.claude/*
-.claude-flow/*
+**/.claude/*
+**/.claude-flow/*
 
 cherrypick.md
 **/*.log
