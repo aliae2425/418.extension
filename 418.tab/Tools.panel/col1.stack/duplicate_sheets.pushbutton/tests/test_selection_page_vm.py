@@ -26,27 +26,27 @@ class TestSelectionPageVM(unittest.TestCase):
 
     def test_items_precoches_selon_selection(self):
         vm = self._vm([2])
-        etats = [(it.Numero, it.IsSelected) for it in vm.Items]
+        etats = [(it.Numero, it.IsSelected) for it in vm.FilteredItems]
         self.assertEqual(etats, [(u'A101', False), (u'A102', True), (u'A103', False)])
 
     def test_toggle_met_a_jour_selection_et_notifie(self):
         vm = self._vm([])
-        vm.Items[0].IsSelected = True
-        vm.Items[2].IsSelected = True
+        vm.FilteredItems[0].IsSelected = True
+        vm.FilteredItems[2].IsSelected = True
         self.assertEqual(sorted(vm.selected_ids()), [1, 3])
         self.assertEqual(self.changes[-1], [1, 3])
 
     def test_decoche_retire_de_la_selection(self):
         vm = self._vm([1, 2])
-        vm.Items[0].IsSelected = False
+        vm.FilteredItems[0].IsSelected = False
         self.assertEqual(vm.selected_ids(), [2])
 
     def test_has_selection_reflete_l_etat(self):
         vm = self._vm([])
         self.assertFalse(vm.HasSelection)
-        vm.Items[0].IsSelected = True
+        vm.FilteredItems[0].IsSelected = True
         self.assertTrue(vm.HasSelection)
-        vm.Items[0].IsSelected = False
+        vm.FilteredItems[0].IsSelected = False
         self.assertFalse(vm.HasSelection)
 
 

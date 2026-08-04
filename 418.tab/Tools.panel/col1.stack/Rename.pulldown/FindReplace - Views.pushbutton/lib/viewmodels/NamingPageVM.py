@@ -17,9 +17,9 @@ except Exception:
     from services.RenameOptions import RenameViewOptions
 
 try:
-    from lib.services.RenameService import RenameService
+    from core.rename_service import RenameService
 except Exception:
-    from services.RenameService import RenameService
+    from lib.core.rename_service import RenameService
 
 try:
     from lib.viewmodels.ViewPreviewVM import ViewPreviewVM
@@ -124,8 +124,8 @@ class NamingPageVM(BaseViewModel):
             self.notify_property('RegexError')
             self.notify_property('HasRegexError')
         self._PreviewGroups = [
-            ViewPreviewVM(nom, type_label, svc.apply(nom))
-            for (nom, type_label) in self._source_items
+            ViewPreviewVM(nom, type_label, svc.apply(nom, index=i))
+            for i, (nom, type_label) in enumerate(self._source_items, start=1)
         ]
         self.notify_property('PreviewGroups')
         self.notify_property('HasPreview')

@@ -30,6 +30,7 @@ class MainWindowView(BaseWindow):
         self._mount_pages()
         self._wire_nav()
         self._wire_next_selection()
+        self._wire_selection_interactions()
         self._wire_run()
         self._sync_nav()
 
@@ -93,6 +94,40 @@ class MainWindowView(BaseWindow):
             if nav is not None:
                 nav.IsChecked = True
         btn.Click += _on_next
+
+    def _wire_selection_interactions(self):
+        # Barre de recherche + boutons de masse + clic unique sur la liste
+        # (page Sélection). Cf. note en tête de SelectionPage.xaml.
+        page = self._page_selection
+        vm = self._vm.SelectionVM
+
+        # Boutons de masse
+        btn_all = page.FindName('SelectAllButton')
+        if btn_all is not None:
+            btn_all.Click += lambda s, a: vm.select_all()
+        btn_none = page.FindName('DeselectAllButton')
+        if btn_none is not None:
+            btn_none.Click += lambda s, a: vm.deselect_all()
+
+        # Un seul handler de clic sur la liste : remonte (index affiché + modificateurs)
+        lst = page.FindName('ItemsList')
+        if lst is None:
+            return
+
+        def _on_row_click(sender, args):
+            from System.Windows.Input import Keyboard, ModifierKeys
+            src = args.OriginalSource
+            item = getattr(src, 'DataContext', None)
+            filtered = list(vm.FilteredItems)
+            if item is None or item not in filtered:
+                return
+            index = filtered.index(item)
+            mods = Keyboard.Modifiers
+            shift = bool(int(mods) & int(ModifierKeys.Shift))
+            ctrl = bool(int(mods) & int(ModifierKeys.Control))
+            vm.handle_row_click(index, shift, ctrl)
+
+        lst.PreviewMouseLeftButtonDown += _on_row_click
 
     def _wire_run(self):
         btn = self._page_nommage.FindName('RunButton')

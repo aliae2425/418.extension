@@ -17,9 +17,9 @@ except Exception:
     from services.RenameOptions import RenameSheetOptions
 
 try:
-    from lib.services.RenameService import RenameService
+    from core.rename_service import RenameService
 except Exception:
-    from services.RenameService import RenameService
+    from lib.core.rename_service import RenameService
 
 try:
     from lib.viewmodels.SheetPreviewGroupVM import SheetPreviewGroupVM
@@ -182,8 +182,9 @@ class NamingPageVM(BaseViewModel):
             self.notify_property('RegexError')
             self.notify_property('HasRegexError')
         self._PreviewGroups = [
-            SheetPreviewGroupVM(num, nom, svc_n.apply(num), svc_nm.apply(nom))
-            for (num, nom) in self._source_items
+            SheetPreviewGroupVM(num, nom,
+                                svc_n.apply(num, index=i), svc_nm.apply(nom, index=i))
+            for i, (num, nom) in enumerate(self._source_items, start=1)
         ]
         self.notify_property('PreviewGroups')
         self.notify_property('HasPreview')

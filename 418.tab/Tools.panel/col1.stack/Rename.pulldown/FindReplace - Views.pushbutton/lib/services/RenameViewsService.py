@@ -13,9 +13,9 @@ except Exception:
         return x or u'SansNom'
 
 try:
-    from lib.services.RenameService import RenameService
+    from core.rename_service import RenameService
 except Exception:
-    from services.RenameService import RenameService
+    from lib.core.rename_service import RenameService
 
 
 class RenameViewsService(object):
@@ -33,8 +33,8 @@ class RenameViewsService(object):
             use_regex=True)
         count = 0
         with revit_transaction(self._doc, u'Renommer les vues'):
-            for view in views:
-                new_name = sanitize_revit_name(svc.apply(view.Name))
+            for index, view in enumerate(views, start=1):
+                new_name = sanitize_revit_name(svc.apply(view.Name, index=index))
                 if new_name == view.Name:
                     count += 1
                     continue

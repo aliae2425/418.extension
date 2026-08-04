@@ -54,6 +54,26 @@ class TestOptionsPageVM(unittest.TestCase):
         vm.ViewDuplicateOption = u'duplicate'  # identique au défaut
         self.assertEqual(notifications, [])
 
+    def test_champs_nommage_transportes_dans_options(self):
+        vm = OptionsPageVM()
+        vm.Prefixe = u'PFX_'
+        vm.Rechercher = u'Plan'
+        vm.Remplacer = u'Vue'
+        vm.Suffixe = u'_SFX'
+        vm.UseRegex = False
+        o = vm.build_options()
+        self.assertEqual(o.prefixe, u'PFX_')
+        self.assertEqual(o.rechercher, u'Plan')
+        self.assertEqual(o.remplacer, u'Vue')
+        self.assertEqual(o.suffixe, u'_SFX')
+        self.assertEqual(o.use_regex, False)
+
+    def test_use_regex_true_transporte(self):
+        vm = OptionsPageVM()
+        vm.UseRegex = True
+        o = vm.build_options()
+        self.assertEqual(o.use_regex, True)
+
 
 if __name__ == '__main__':
     unittest.main()

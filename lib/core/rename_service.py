@@ -3,9 +3,9 @@ from __future__ import unicode_literals
 import re as _re
 
 try:
-    from lib.services.TokenExpander import TokenExpander
+    from core.token_expander import TokenExpander
 except Exception:
-    from services.TokenExpander import TokenExpander
+    from lib.core.token_expander import TokenExpander
 
 
 class RenameService(object):
@@ -16,6 +16,12 @@ class RenameService(object):
         littéral  str.replace (défaut)
         regex     re.sub — regex invalide → regex_error non vide,
                   apply() retourne le nom intact (jamais d'exception)
+
+    Tokens
+    ──────
+        Les tokens ({date}, {n}, {type}…) sont résolus dans prefixe,
+        remplacer et suffixe via TokenExpander avant chaque apply().
+        Passer ``index`` et ``context`` à apply() pour les valoriser.
     """
 
     def __init__(self, prefixe=u'', rechercher=u'', remplacer=u'',
@@ -44,15 +50,24 @@ class RenameService(object):
 
     @property
     def regex_error(self):
+        """Message d'erreur si l'expression régulière est invalide, sinon vide."""
         return self._regex_error
 
     @property
     def is_valid(self):
+        """False si le mode regex est actif et l'expression invalide."""
         if self.use_regex and self.rechercher:
             return self._pattern is not None
         return True
 
     def apply(self, name, index=1, context=None):
+        """Retourne prefixe + substitution(name) + suffixe, tokens résolus.
+
+        Args:
+            name    : chaîne source
+            index   : numéro de la copie courante — alimente {n}
+            context : dict de tokens supplémentaires, ex. {'type': 'FloorPlan'}
+        """
         remplacer = self._expander.expand(self.remplacer, index=index, context=context)
         result = name
         if self.rechercher:
