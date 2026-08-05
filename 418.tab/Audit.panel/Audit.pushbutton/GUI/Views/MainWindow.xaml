@@ -123,13 +123,364 @@
               <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- Zone de contenu (vide pour l'instant) -->
-            <TextBlock Grid.Row="0"
-                       Text="Contenu Audit à venir"
-                       Foreground="{DynamicResource TextSecondaryBrush}"
-                       FontSize="14"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"/>
+            <!--
+              Zone de contenu : dashboard Audit.
+              Ressources de gravité partagées par pastilles/pills/lignes :
+                Critique -> ErrorBrush (rouge)
+                À revoir -> WarningBrush (orange)
+                Conforme -> SuccessBrush (vert)
+              Toutes via DynamicResource (XamlReader + merge après parse).
+            -->
+            <ScrollViewer Grid.Row="0"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Padding="20,18,20,18">
+              <StackPanel Orientation="Vertical">
+
+                <!-- Bandeau contexte modèle -->
+                <StackPanel Orientation="Horizontal"
+                            Margin="0,0,0,20">
+                  <TextBlock Text="{Binding Titre}"
+                             Style="{DynamicResource SubHeaderTextBlockStyle}"
+                             VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- ===== Vue d'ensemble ===== -->
+                <TextBlock Text="VUE D'ENSEMBLE"
+                           FontSize="11"
+                           FontWeight="Bold"
+                           Foreground="{DynamicResource TextDisabledBrush}"
+                           Margin="0,0,0,10"/>
+
+                <Grid Margin="0,0,0,24">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="260"/>
+                  </Grid.ColumnDefinitions>
+
+                  <!-- 1. Principaux problèmes critiques -->
+                  <Border Grid.Column="0" Style="{DynamicResource CardStyle}" Margin="0">
+                    <StackPanel>
+                      <TextBlock Text="Principaux problèmes critiques"
+                                 Style="{DynamicResource BodyTextBlockStyle}"
+                                 FontWeight="SemiBold"
+                                 FontSize="13"
+                                 Margin="0,0,0,10"/>
+                      <ItemsControl ItemsSource="{Binding TopCritiques}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Grid Margin="0,6">
+                              <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                              </Grid.ColumnDefinitions>
+
+                              <!-- Pastille de gravité -->
+                              <Border x:Name="SevBadge"
+                                      Grid.Column="0"
+                                      Background="{DynamicResource ErrorBrush}"
+                                      CornerRadius="5"
+                                      Padding="7,3"
+                                      VerticalAlignment="Top"
+                                      Margin="0,1,10,0">
+                                <TextBlock Text="{Binding Gravite}"
+                                           Foreground="{DynamicResource TextOnDangerBrush}"
+                                           FontSize="10"
+                                           FontWeight="Bold"/>
+                              </Border>
+
+                              <StackPanel Grid.Column="1">
+                                <TextBlock Text="{Binding Nom}"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                           FontSize="13"
+                                           TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding Emplacement}"
+                                           Foreground="{DynamicResource TextDisabledBrush}"
+                                           FontSize="11.5"
+                                           TextWrapping="Wrap"
+                                           Margin="0,2,0,0"/>
+                              </StackPanel>
+                            </Grid>
+
+                            <DataTemplate.Triggers>
+                              <DataTrigger Binding="{Binding Gravite}" Value="À revoir">
+                                <Setter TargetName="SevBadge" Property="Background" Value="{DynamicResource WarningBrush}"/>
+                              </DataTrigger>
+                              <DataTrigger Binding="{Binding Gravite}" Value="Conforme">
+                                <Setter TargetName="SevBadge" Property="Background" Value="{DynamicResource SuccessBrush}"/>
+                              </DataTrigger>
+                            </DataTemplate.Triggers>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </Border>
+
+                  <!-- 2. Répartition par thème -->
+                  <Border Grid.Column="2" Style="{DynamicResource CardStyle}" Margin="0">
+                    <StackPanel>
+                      <TextBlock Text="Éléments problématiques par thème"
+                                 Style="{DynamicResource BodyTextBlockStyle}"
+                                 FontWeight="SemiBold"
+                                 FontSize="13"
+                                 Margin="0,0,0,10"/>
+                      <ItemsControl ItemsSource="{Binding Cartes}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Grid Margin="0,7">
+                              <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                              </Grid.ColumnDefinitions>
+
+                              <TextBlock Grid.Column="0"
+                                         Text="{Binding Libelle}"
+                                         Foreground="{DynamicResource TextPrimaryBrush}"
+                                         FontSize="13"
+                                         VerticalAlignment="Center"/>
+
+                              <!-- Pastille de comptage, teintée par la pire gravité du thème -->
+                              <Border x:Name="CompteBadge"
+                                      Grid.Column="1"
+                                      Background="{DynamicResource ErrorBrush}"
+                                      CornerRadius="5"
+                                      Padding="8,3"
+                                      HorizontalAlignment="Right">
+                                <TextBlock Text="{Binding Compte}"
+                                           Foreground="{DynamicResource TextOnDangerBrush}"
+                                           FontSize="12"
+                                           FontWeight="Bold"/>
+                              </Border>
+                            </Grid>
+
+                            <DataTemplate.Triggers>
+                              <DataTrigger Binding="{Binding PireGravite}" Value="À revoir">
+                                <Setter TargetName="CompteBadge" Property="Background" Value="{DynamicResource WarningBrush}"/>
+                              </DataTrigger>
+                              <DataTrigger Binding="{Binding PireGravite}" Value="Conforme">
+                                <Setter TargetName="CompteBadge" Property="Background" Value="{DynamicResource SuccessBrush}"/>
+                              </DataTrigger>
+                              <DataTrigger Binding="{Binding Disponible}" Value="False">
+                                <Setter TargetName="CompteBadge" Property="Background" Value="{DynamicResource TextDisabledBrush}"/>
+                              </DataTrigger>
+                            </DataTemplate.Triggers>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+
+                      <!-- Légende -->
+                      <StackPanel Orientation="Horizontal"
+                                  Margin="0,12,0,0">
+                        <Ellipse Width="8" Height="8" Fill="{DynamicResource SuccessBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Conforme" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="5,0,14,0"/>
+                        <Ellipse Width="8" Height="8" Fill="{DynamicResource WarningBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="À revoir" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="5,0,14,0"/>
+                        <Ellipse Width="8" Height="8" Fill="{DynamicResource ErrorBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Critique" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="5,0,0,0"/>
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+
+                  <!-- 3. Score -->
+                  <Border Grid.Column="4" Style="{DynamicResource CardStyle}" Margin="0">
+                    <StackPanel HorizontalAlignment="Center">
+                      <StackPanel Orientation="Horizontal"
+                                  HorizontalAlignment="Center"
+                                  Margin="0,4,0,0">
+                        <TextBlock Text="{Binding ScoreVM.Score}"
+                                   FontSize="40"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text=" / 100"
+                                   FontSize="14"
+                                   Foreground="{DynamicResource TextDisabledBrush}"
+                                   VerticalAlignment="Bottom"
+                                   Margin="2,0,0,6"/>
+                      </StackPanel>
+
+                      <Border Background="{DynamicResource WarningBrush}"
+                              CornerRadius="12"
+                              Padding="12,6"
+                              HorizontalAlignment="Center"
+                              Margin="0,12,0,0">
+                        <TextBlock Text="{Binding ScoreVM.Verdict}"
+                                   Foreground="{DynamicResource TextOnDangerBrush}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"/>
+                      </Border>
+
+                      <StackPanel Orientation="Horizontal"
+                                  HorizontalAlignment="Center"
+                                  Margin="0,16,0,0">
+                        <StackPanel HorizontalAlignment="Center">
+                          <TextBlock Text="{Binding ScoreVM.NbCritiques}"
+                                     FontSize="17"
+                                     FontWeight="Bold"
+                                     Foreground="{DynamicResource ErrorBrush}"
+                                     HorizontalAlignment="Center"/>
+                          <TextBlock Text="critiques"
+                                     FontSize="11"
+                                     Foreground="{DynamicResource TextDisabledBrush}"
+                                     HorizontalAlignment="Center"/>
+                        </StackPanel>
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+                </Grid>
+
+                <!-- ===== Détail par thème ===== -->
+                <TextBlock Text="DÉTAIL PAR THÈME"
+                           FontSize="11"
+                           FontWeight="Bold"
+                           Foreground="{DynamicResource TextDisabledBrush}"
+                           Margin="0,0,0,10"/>
+
+                <ItemsControl ItemsSource="{Binding Cartes}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,10">
+                        <Expander Style="{DynamicResource CollectionExpanderStyle}"
+                                  IsExpanded="{Binding EstDeplie, Mode=TwoWay}">
+                          <Expander.Header>
+                            <Grid>
+                              <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                              </Grid.ColumnDefinitions>
+
+                              <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Libelle}"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"/>
+                              </StackPanel>
+
+                              <!-- Pill de comptage + pire gravité -->
+                              <Border x:Name="ThemePill"
+                                      Grid.Column="1"
+                                      Background="{DynamicResource ErrorBrush}"
+                                      CornerRadius="12"
+                                      Padding="10,4"
+                                      VerticalAlignment="Center">
+                                <TextBlock Foreground="{DynamicResource TextOnDangerBrush}"
+                                           FontSize="12"
+                                           FontWeight="Bold">
+                                  <TextBlock.Text>
+                                    <MultiBinding StringFormat="{}{0} · {1}">
+                                      <Binding Path="Compte"/>
+                                      <Binding Path="PireGravite"/>
+                                    </MultiBinding>
+                                  </TextBlock.Text>
+                                </TextBlock>
+                              </Border>
+                            </Grid>
+                          </Expander.Header>
+
+                          <!-- Corps déplié : soit indisponible, soit tableau des lignes -->
+                          <Grid Margin="0,10,0,0">
+                            <!-- Thème indisponible (check désactivé) -->
+                            <TextBlock x:Name="UnavailableMsg"
+                                       Text="Analyse indisponible pour ce thème."
+                                       Foreground="{DynamicResource TextDisabledBrush}"
+                                       FontSize="12.5"
+                                       Visibility="Collapsed"/>
+
+                            <!-- Tableau des lignes -->
+                            <StackPanel x:Name="RowsPanel">
+                              <!-- En-têtes -->
+                              <Grid Margin="12,0,12,6">
+                                <Grid.ColumnDefinitions>
+                                  <ColumnDefinition Width="2*"/>
+                                  <ColumnDefinition Width="2*"/>
+                                  <ColumnDefinition Width="1.4*"/>
+                                  <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="ÉLÉMENT" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource TextDisabledBrush}"/>
+                                <TextBlock Grid.Column="1" Text="EMPLACEMENT" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource TextDisabledBrush}"/>
+                                <TextBlock Grid.Column="2" Text="TYPE" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource TextDisabledBrush}"/>
+                                <TextBlock Grid.Column="3" Text="GRAVITÉ" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource TextDisabledBrush}"/>
+                              </Grid>
+
+                              <ItemsControl ItemsSource="{Binding Rows}">
+                                <ItemsControl.ItemTemplate>
+                                  <DataTemplate>
+                                    <Border BorderBrush="{DynamicResource ControlBorderBrush}"
+                                            BorderThickness="0,0,0,1"
+                                            Padding="12,9">
+                                      <Grid>
+                                        <Grid.ColumnDefinitions>
+                                          <ColumnDefinition Width="2*"/>
+                                          <ColumnDefinition Width="2*"/>
+                                          <ColumnDefinition Width="1.4*"/>
+                                          <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding Nom}"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   FontSize="13"
+                                                   FontWeight="Medium"
+                                                   TextWrapping="Wrap"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding Emplacement}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   FontSize="12.5"
+                                                   TextWrapping="Wrap"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding Type}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   FontSize="12"
+                                                   TextWrapping="Wrap"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="RowSev"
+                                                   Grid.Column="3"
+                                                   Text="{Binding Gravite}"
+                                                   Foreground="{DynamicResource ErrorBrush}"
+                                                   FontSize="11.5"
+                                                   FontWeight="Bold"
+                                                   VerticalAlignment="Center"/>
+                                      </Grid>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                      <DataTrigger Binding="{Binding Gravite}" Value="À revoir">
+                                        <Setter TargetName="RowSev" Property="Foreground" Value="{DynamicResource WarningBrush}"/>
+                                      </DataTrigger>
+                                      <DataTrigger Binding="{Binding Gravite}" Value="Conforme">
+                                        <Setter TargetName="RowSev" Property="Foreground" Value="{DynamicResource SuccessBrush}"/>
+                                      </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                  </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                              </ItemsControl>
+                            </StackPanel>
+                          </Grid>
+                        </Expander>
+                      </Border>
+
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding PireGravite}" Value="À revoir">
+                          <Setter TargetName="ThemePill" Property="Background" Value="{DynamicResource WarningBrush}"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding PireGravite}" Value="Conforme">
+                          <Setter TargetName="ThemePill" Property="Background" Value="{DynamicResource SuccessBrush}"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Disponible}" Value="False">
+                          <Setter TargetName="UnavailableMsg" Property="Visibility" Value="Visible"/>
+                          <Setter TargetName="RowsPanel" Property="Visibility" Value="Collapsed"/>
+                          <Setter TargetName="ThemePill" Property="Background" Value="{DynamicResource TextDisabledBrush}"/>
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+              </StackPanel>
+            </ScrollViewer>
 
             <!-- Footer d'actions -->
             <Border Grid.Row="1"
@@ -139,12 +490,12 @@
               <StackPanel Orientation="Horizontal"
                           HorizontalAlignment="Right">
                 <Button Content="Exporter le rapport"
+                        Command="{Binding exporter_cmd}"
                         Style="{DynamicResource SecondaryActionButtonStyle}"
-                        IsEnabled="True"
                         Margin="0,0,10,0"/>
-                <Button Content="Lancer l'audit"
-                        Style="{DynamicResource PrimaryActionButtonStyle}"
-                        IsEnabled="True"/>
+                <Button Content="Relancer l'audit"
+                        Command="{Binding relancer_cmd}"
+                        Style="{DynamicResource PrimaryActionButtonStyle}"/>
               </StackPanel>
             </Border>
           </Grid>
