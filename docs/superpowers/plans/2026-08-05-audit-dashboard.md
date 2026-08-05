@@ -322,12 +322,15 @@ class TestScore(unittest.TestCase):
         # purge poids 0.6 * 4 (a_revoir) + volume 0.05 = 2.45 -> 98 (round(97.55))
         self.assertEqual(ScoreService.calculer([_theme(u'purge', [A_REVOIR])]), 98)
 
-    def test_plancher_zero(self):
-        gros = _theme(u'cad', [CRITIQUE] * 500)
-        gros2 = _theme(u'warnings', [CRITIQUE] * 500)
-        gros3 = _theme(u'vues_feuilles', [CRITIQUE] * 500)
-        self.assertEqual(ScoreService.calculer([gros, gros2, gros3]), 82 - 82)  # >=0
-        self.assertTrue(ScoreService.calculer([gros, gros2, gros3]) >= 0)
+    def test_score_reste_borne_sous_forte_penalite(self):
+        # Sous forte pénalité (les 5 thèmes saturés de critiques), le score
+        # reste dans [0, 100] et fortement réduit. La pénalité max théorique
+        # (~81 sur les 5 thèmes) ne peut pas atteindre 0 : le max(0, …) est
+        # une garde défensive, on vérifie ici la borne, pas un plancher exact.
+        themes = [_theme(c, [CRITIQUE] * 200) for c in
+                  (u'warnings', u'cad', u'vues_feuilles', u'purge', u'nommage')]
+        score = ScoreService.calculer(themes)
+        self.assertTrue(0 <= score <= 30)
 
     def test_theme_indisponible_ignore(self):
         t = ThemeResult(cle=u'cad', libelle=u'CAD', disponible=False)
