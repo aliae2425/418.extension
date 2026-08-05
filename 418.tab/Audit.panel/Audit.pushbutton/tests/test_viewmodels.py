@@ -46,6 +46,30 @@ class TestVM(unittest.TestCase):
         self.assertEqual(len(card.Rows), 1)
         self.assertFalse(card.EstDeplie)
 
+    def test_theme_card_vm_ratio_avec_analyses(self):
+        # 3 problèmes sur 10 éléments analysés -> ratio 30%, label « 3 / 10 »
+        t = ThemeResult(cle=u'purge', libelle=u'À purger',
+                        issues=[AuditIssue(u'a', A_REVOIR),
+                                AuditIssue(u'b', A_REVOIR),
+                                AuditIssue(u'c', A_REVOIR)],
+                        analyses=10)
+        card = ThemeCardVM(t)
+        self.assertEqual(card.Analyses, 10)
+        self.assertEqual(card.CompteLabel, u'3 / 10')
+        self.assertEqual(card.RatioProblemePct, 30.0)
+
+    def test_theme_card_vm_ratio_sans_analyses(self):
+        # analyses inconnu (None) -> label = compte seul, ratio saturé si compte > 0
+        t = ThemeResult(cle=u'warn', libelle=u'Avertissements',
+                        issues=[AuditIssue(u'a', A_REVOIR),
+                                AuditIssue(u'b', A_REVOIR),
+                                AuditIssue(u'c', A_REVOIR)],
+                        analyses=None)
+        card = ThemeCardVM(t)
+        self.assertIsNone(card.Analyses)
+        self.assertEqual(card.CompteLabel, u'3')
+        self.assertEqual(card.RatioProblemePct, 100.0)
+
 
 if __name__ == '__main__':
     unittest.main()

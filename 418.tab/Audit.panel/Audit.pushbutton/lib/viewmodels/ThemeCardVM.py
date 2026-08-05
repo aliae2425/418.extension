@@ -45,6 +45,35 @@ class ThemeCardVM(BaseViewModel):
         return self._t.disponible
 
     @property
+    def Analyses(self):
+        # Nombre total d'éléments analysés pour ce thème (peut être None si
+        # le thème ne connaît pas de dénominateur, ex. avertissements bruts).
+        return self._t.analyses
+
+    @property
+    def CompteLabel(self):
+        # Texte prêt à afficher : « compte / total » si le total est connu,
+        # sinon le compte seul.
+        analyses = self._t.analyses
+        compte = self._t.compte
+        if isinstance(analyses, int) and analyses > 0:
+            return u'{} / {}'.format(compte, analyses)
+        return u'{}'.format(compte)
+
+    @property
+    def RatioProblemePct(self):
+        # Part de problèmes 0..100 pour la barre proportionnelle.
+        # Robuste si analyses est None : si des problèmes existent sans
+        # dénominateur, on sature à 100 %.
+        analyses = self._t.analyses
+        compte = self._t.compte
+        if isinstance(analyses, int) and analyses > 0:
+            return min(100.0, round(100.0 * compte / analyses, 1))
+        if compte > 0:
+            return 100.0
+        return 0.0
+
+    @property
     def EstDeplie(self):
         return self._deplie
 
