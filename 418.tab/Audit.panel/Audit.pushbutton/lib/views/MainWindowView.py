@@ -21,4 +21,18 @@ class MainWindowView(object):
         if self._win is None:
             print('MainWindowView: BaseWindow non disponible')
             return
+        # Câble la fermeture programmatique AVANT ShowDialog() (bloquant) :
+        # au moment de l'appel de on_fermer (clic utilisateur sur une ligne),
+        # la fenêtre est déjà chargée par BaseWindow._load(), donc _window
+        # est renseignée. Résolution paresseuse : évite de dépendre de
+        # l'ordre de chargement au moment du câblage.
+        if self._vm is not None:
+            def _fermer():
+                win = getattr(self._win, '_window', None)
+                if win is not None:
+                    try:
+                        win.Close()
+                    except Exception:
+                        pass
+            self._vm.on_fermer = _fermer
         self._win.show()

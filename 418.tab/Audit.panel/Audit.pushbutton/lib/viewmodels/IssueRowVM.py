@@ -12,6 +12,13 @@ try:
     from models.Severity import libelle as libelle_gravite
 except Exception:
     from lib.models.Severity import libelle as libelle_gravite
+try:
+    from ui.helpers.RelayCommand import RelayCommand
+except Exception:
+    try:
+        from lib.ui.helpers.RelayCommand import RelayCommand
+    except Exception:
+        RelayCommand = None
 
 
 class IssueRowVM(BaseViewModel):
@@ -21,7 +28,9 @@ class IssueRowVM(BaseViewModel):
         except Exception:
             pass
         self._i = issue
-        self.selectionner_cmd = None  # câblé en Task 13
+        self.selectionner_cmd = (
+            RelayCommand(lambda p: on_selectionner(self.ElementId))
+            if (RelayCommand and on_selectionner) else None)
 
     @property
     def Nom(self):

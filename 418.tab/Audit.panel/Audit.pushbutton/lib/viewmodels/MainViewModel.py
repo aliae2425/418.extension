@@ -37,27 +37,88 @@ class MainViewModel(BaseViewModel):
             pass
         self._doc = doc
         self._runner = runner or AuditRunner()
+        self._resultat = None
         self.Titre = u'Audit — Santé du modèle'
         self.ScoreVM = None
         self.Cartes = []
         self.TopCritiques = []
         self.Meta = {}
+        # Fournie par la View (fenêtre.Close) après chargement du XAML.
+        self.on_fermer = None
         self.relancer_cmd = RelayCommand(lambda p: self.lancer_audit()) if RelayCommand else None
-        self.exporter_cmd = None  # câblé Task 13
+        self.exporter_cmd = RelayCommand(lambda p: self._exporter()) if RelayCommand else None
         self.lancer_audit()
 
     def lancer_audit(self):
-        res = self._runner.run(self._doc)
+        # Exécute l'audit sous une barre de progression pyRevit si disponible ;
+        # dégrade silencieusement hors Revit / sans pyrevit.
+        res = None
+        try:
+            from pyrevit import forms
+            with forms.ProgressBar(title=u'Audit en cours…', indeterminate=True):
+                res = self._runner.run(self._doc)
+        except Exception:
+            res = self._runner.run(self._doc)
         self._appliquer(res)
 
     def _appliquer(self, res):
         self._resultat = res
         self.ScoreVM = ScoreVM(res)
-        self.Cartes = [ThemeCardVM(t) for t in res.themes]
-        self.TopCritiques = [IssueRowVM(i) for i in res.top_critiques]
+        self.Cartes = [ThemeCardVM(t, on_selectionner=self._selectionner_et_fermer) for t in res.themes]
+        self.TopCritiques = [IssueRowVM(i, on_selectionner=self._selectionner_et_fermer) for i in res.top_critiques]
         self.Meta = res.meta
         for prop in ('ScoreVM', 'Cartes', 'TopCritiques', 'Meta'):
             try:
                 self.notify_property(prop)
+            except Exception:
+                pass
+
+    def _exporter(self):
+        # Exporte le rapport HTML puis ouvre le dossier contenant. Entièrement
+        # gardé : ne doit jamais lever hors Revit ni si un import échoue.
+        try:
+            from services.ReportExporter import exporter
+        except Exception:
+            try:
+                from lib.services.ReportExporter import exporter
+            except Exception:
+                exporter = None
+        try:
+            from core.UserConfig import UserConfig
+            dossier = UserConfig('audit').get('report_dir', None)
+        except Exception:
+            dossier = None
+        try:
+            if exporter is not None:
+                chemin = exporter(self._resultat, dossier)
+                try:
+                    import os
+                    os.startfile(os.path.dirname(chemin))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def _selectionner_et_fermer(self, element_id):
+        # Sélectionne l'élément dans Revit (API directe, gardée : __revit__
+        # n'existe pas hors Revit -> NameError intercepté) puis ferme la
+        # fenêtre via le callback fourni par la View.
+        try:
+            from Autodesk.Revit.DB import ElementId
+            from System.Collections.Generic import List
+            uidoc = __revit__.ActiveUIDocument  # global injecté par pyRevit
+            if element_id is not None and uidoc is not None:
+                ids = List[ElementId]()
+                ids.Add(element_id)
+                uidoc.Selection.SetElementIds(ids)
+                try:
+                    uidoc.ShowElements(element_id)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        if getattr(self, 'on_fermer', None):
+            try:
+                self.on_fermer()
             except Exception:
                 pass
