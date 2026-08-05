@@ -4,10 +4,16 @@ import sys
 import os
 import unittest
 
-# Prérequis de test: ajouter lib au path (4 levels up from tests = button dir)
-_audit_tests_dir = os.path.dirname(os.path.abspath(__file__))
-_audit_button_dir = os.path.dirname(_audit_tests_dir)  # Audit.pushbutton/
-sys.path.insert(0, _audit_button_dir)
+# Prérequis de test: ajouter les DEUX chemins au sys.path
+_HERE = os.path.dirname(os.path.abspath(__file__))
+# 418.extension/lib (tests -> pushbutton -> Audit.panel -> 418.tab -> 418.extension)
+_SHARED_LIB = os.path.abspath(os.path.join(_HERE, '..', '..', '..', '..', 'lib'))
+if _SHARED_LIB not in sys.path:
+    sys.path.insert(0, _SHARED_LIB)
+# Dossier du bouton (pour 'from lib.models...')
+_BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
+if _BUTTON not in sys.path:
+    sys.path.insert(0, _BUTTON)
 
 from lib.models.Severity import OK, A_REVOIR, CRITIQUE, libelle, pire
 from lib.models.AuditIssue import AuditIssue
