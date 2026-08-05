@@ -58,5 +58,8 @@ class PurgeCheck(BaseCheck):
                 nom=cat, gravite=A_REVOIR,
                 emplacement=u'Projet', type_=u'Non utilisé',
                 message=u'{} élément(s) purgeable(s)'.format(n)))
+        # analyses laissé à None : le nombre total d'éléments inutilisés n'est
+        # pas une population comparable au compte groupé (issues par
+        # catégorie) ; analyses=None fait afficher une barre 100% problème.
         return ThemeResult(cle=self.cle, libelle=self.libelle,
-                           issues=issues, analyses=total)
+                           issues=issues)

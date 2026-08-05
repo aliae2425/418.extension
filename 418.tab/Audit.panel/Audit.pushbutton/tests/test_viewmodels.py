@@ -26,10 +26,32 @@ from lib.viewmodels.IssueRowVM import IssueRowVM
 
 class TestVM(unittest.TestCase):
     def test_score_vm(self):
-        vm = ScoreVM(AuditResult(score=72, top_critiques=[AuditIssue(u'a', CRITIQUE)]))
+        # NbCritiques compte les issues CRITIQUE réelles des thèmes,
+        # pas top_critiques (qui n'est qu'un top-5 toutes gravités confondues).
+        themes = [ThemeResult(cle=u'x', libelle=u'X',
+                              issues=[AuditIssue(u'a', CRITIQUE)])]
+        vm = ScoreVM(AuditResult(score=72, themes=themes,
+                                 top_critiques=[AuditIssue(u'a', CRITIQUE)]))
         self.assertEqual(vm.Score, 72)
         self.assertEqual(vm.NbCritiques, 1)
         self.assertTrue(len(vm.Verdict) > 0)
+
+    def test_score_vm_nb_critiques_compte_les_vrais_critiques(self):
+        # NbCritiques doit compter les CRITIQUE réels de tous les thèmes,
+        # pas len(top_critiques) (qui est le top-5 toutes gravités confondues).
+        themes = [ThemeResult(cle=u'cad', libelle=u'CAD', issues=[
+            AuditIssue(u'a', CRITIQUE),
+            AuditIssue(u'b', A_REVOIR),
+            AuditIssue(u'c', CRITIQUE),
+        ])]
+        # top_critiques délibérément différent : 1 seule issue, non critique.
+        result = AuditResult(score=50, themes=themes,
+                             top_critiques=[AuditIssue(u'x', A_REVOIR)])
+        vm = ScoreVM(result)
+        self.assertEqual(vm.NbCritiques, 2)
+        self.assertNotEqual(vm.NbCritiques, len(result.top_critiques))
+        total_issues = sum(len(t.issues) for t in themes)
+        self.assertNotEqual(vm.NbCritiques, total_issues)
 
     def test_issue_row_vm(self):
         row = IssueRowVM(AuditIssue(u'plan.dwg', CRITIQUE,

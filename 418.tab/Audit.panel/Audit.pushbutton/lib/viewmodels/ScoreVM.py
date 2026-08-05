@@ -9,6 +9,14 @@ except Exception:
     except Exception:
         BaseViewModel = object
 
+try:
+    from models.Severity import CRITIQUE
+except Exception:
+    try:
+        from lib.models.Severity import CRITIQUE
+    except Exception:
+        CRITIQUE = 2
+
 
 def _verdict(score):
     if score >= 85:
@@ -38,4 +46,11 @@ class ScoreVM(BaseViewModel):
 
     @property
     def NbCritiques(self):
-        return len(self._r.top_critiques)
+        # Compte les vraies issues de gravité CRITIQUE sur tous les thèmes
+        # (top_critiques n'est que le top-5 toutes gravités confondues).
+        total = 0
+        for t in (getattr(self._r, 'themes', None) or []):
+            for i in (getattr(t, 'issues', None) or []):
+                if getattr(i, 'gravite', None) == CRITIQUE:
+                    total += 1
+        return total

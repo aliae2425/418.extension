@@ -54,5 +54,8 @@ class WarningsCheck(BaseCheck):
                 nom=desc, gravite=gravite_pour(desc),
                 emplacement=u'Modèle', type_=u'Avertissement',
                 message=u'{} occurrence(s)'.format(n)))
+        # analyses laissé à None : le nombre total d'avertissements n'est pas
+        # une population comparable au compte groupé (issues distinctes par
+        # description) ; analyses=None fait afficher une barre 100% problème.
         return ThemeResult(cle=self.cle, libelle=self.libelle,
-                           issues=issues, analyses=len(warnings))
+                           issues=issues)
