@@ -13,14 +13,22 @@ except Exception:
     from lib.models.Severity import A_REVOIR, CRITIQUE
     from lib.models.AuditIssue import AuditIssue
     from lib.models.ThemeResult import ThemeResult
+try:
+    from config.AuditRules import charger as _charger
+except Exception:
+    try:
+        from lib.config.AuditRules import charger as _charger
+    except Exception:
+        _charger = None
 
-_MOTS_CRITIQUES = (u'dupliqu', u'identical', u'same place',
-                   u'même endroit', u'meme endroit', u'même place')
 
-
-def gravite_pour(description):
+def gravite_pour(description, rules=None):
+    """Critique si la description contient un des mots-clés de gravité (règles),
+    sinon À revoir."""
     d = (description or u'').lower()
-    for mot in _MOTS_CRITIQUES:
+    r = rules if rules is not None else (_charger() if _charger is not None else None)
+    mots = r.mots_critiques() if r is not None else []
+    for mot in mots:
         if mot in d:
             return CRITIQUE
     return A_REVOIR
@@ -51,7 +59,7 @@ class WarningsCheck(BaseCheck):
             groupes[desc] += 1
         for desc, n in groupes.items():
             issues.append(AuditIssue(
-                nom=desc, gravite=gravite_pour(desc),
+                nom=desc, gravite=gravite_pour(desc, self._rules),
                 emplacement=u'Modèle', type_=u'Avertissement',
                 message=u'{} occurrence(s)'.format(n)))
         # analyses laissé à None : le nombre total d'avertissements n'est pas

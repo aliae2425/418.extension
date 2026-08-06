@@ -14,6 +14,14 @@ except Exception:
     from lib.models.Severity import A_REVOIR, CRITIQUE
     from lib.models.AuditIssue import AuditIssue
     from lib.models.ThemeResult import ThemeResult
+try:
+    from config.AuditRules import charger as _charger, DEFAULTS as _DEF
+except Exception:
+    try:
+        from lib.config.AuditRules import charger as _charger, DEFAULTS as _DEF
+    except Exception:
+        _charger = None
+        _DEF = {u'vues_feuilles': {u'nom_defaut_regex': r'^(Niveau|Level|Quadrillage|Grid)\s*\d+$'}}
 
 try:
     from Autodesk.Revit.DB import (
@@ -21,13 +29,25 @@ try:
 except Exception:
     FilteredElementCollector = View = ViewType = ElementId = None
 
-_RE_DEFAUT = re.compile(r'^(Niveau|Level|Quadrillage|Grid)\s*\d+$')
+DEFAULT_NOM_DEFAUT_REGEX = _DEF[u'vues_feuilles'][u'nom_defaut_regex']
 
 
-def est_nom_par_defaut(nom):
+def _regex_nom_defaut(rules):
+    r = rules if rules is not None else (_charger() if _charger is not None else None)
+    pat = r.nom_defaut_regex() if r is not None else DEFAULT_NOM_DEFAUT_REGEX
+    try:
+        return re.compile(pat)
+    except Exception:
+        return re.compile(DEFAULT_NOM_DEFAUT_REGEX)
+
+
+def est_nom_par_defaut(nom, rules=None):
     if not nom:
         return False
-    return _RE_DEFAUT.match(nom) is not None
+    try:
+        return _regex_nom_defaut(rules).match(nom) is not None
+    except Exception:
+        return False
 
 
 class ViewsSheetsCheck(BaseCheck):
@@ -39,6 +59,7 @@ class ViewsSheetsCheck(BaseCheck):
             return ThemeResult(cle=self.cle, libelle=self.libelle, issues=[])
         issues = []
         analyses = 0
+        rgx_defaut = _regex_nom_defaut(self._rules)
         # Ids de vues placées sur une feuille (via Viewports).
         placees = set()
         try:
@@ -82,7 +103,11 @@ class ViewsSheetsCheck(BaseCheck):
                         nom=v.Name, gravite=A_REVOIR, element_id=v.Id,
                         emplacement=u'Vue', type_=u'Sans gabarit',
                         message=u'Aucun gabarit de vue appliqué'))
-                if est_nom_par_defaut(v.Name):
+                try:
+                    est_defaut = rgx_defaut.match(v.Name or u'') is not None
+                except Exception:
+                    est_defaut = False
+                if est_defaut:
                     issues.append(AuditIssue(
                         nom=v.Name, gravite=A_REVOIR, element_id=v.Id,
                         emplacement=u'Vue', type_=u'Nom par défaut',

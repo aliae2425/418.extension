@@ -14,8 +14,16 @@ try:
 except Exception:
     from lib.services import ScoreService as _score_default
 
+try:
+    from config.AuditRules import charger as _charger
+except Exception:
+    try:
+        from lib.config.AuditRules import charger as _charger
+    except Exception:
+        _charger = None
 
-def _default_checks():
+
+def _default_checks(rules=None):
     # Import tardif pour éviter les cycles ; chaque import gardé.
     checks = []
     for mod, cls in [
@@ -30,7 +38,7 @@ def _default_checks():
                 m = __import__(u'services.checks.' + mod, fromlist=[cls])
             except Exception:
                 m = __import__(u'lib.services.checks.' + mod, fromlist=[cls])
-            checks.append(getattr(m, cls)())
+            checks.append(getattr(m, cls)(rules))
         except Exception:
             pass
     return checks
@@ -56,8 +64,10 @@ def _top_critiques(themes, limite=5):
 
 
 class AuditRunner(object):
-    def __init__(self, checks=None, score_module=None):
-        self._checks = checks if checks is not None else _default_checks()
+    def __init__(self, checks=None, score_module=None, rules=None):
+        self._rules = rules if rules is not None else (
+            _charger() if _charger is not None else None)
+        self._checks = checks if checks is not None else _default_checks(self._rules)
         self._score = score_module or _score_default
 
     def run(self, doc):
@@ -71,7 +81,7 @@ class AuditRunner(object):
                     libelle=getattr(chk, 'libelle', u'?'),
                     disponible=False,
                     message=u'Contrôle indisponible : {}'.format(e)))
-        score = self._score.calculer(themes)
+        score = self._score.calculer(themes, self._rules)
         return AuditResult(themes=themes, score=score,
                            top_critiques=_top_critiques(themes),
                            meta=_meta(doc))

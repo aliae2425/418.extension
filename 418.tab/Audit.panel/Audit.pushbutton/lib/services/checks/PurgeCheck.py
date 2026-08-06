@@ -53,9 +53,10 @@ class PurgeCheck(BaseCheck):
             par_cat.setdefault(nom_cat, 0)
             par_cat[nom_cat] += 1
         issues = []
+        gravite = self._rules.purge_gravite()
         for cat, n in sorted(par_cat.items(), key=lambda kv: kv[1], reverse=True):
             issues.append(AuditIssue(
-                nom=cat, gravite=A_REVOIR,
+                nom=cat, gravite=gravite,
                 emplacement=u'Projet', type_=u'Non utilisé',
                 message=u'{} élément(s) purgeable(s)'.format(n)))
         # analyses laissé à None : le nombre total d'éléments inutilisés n'est

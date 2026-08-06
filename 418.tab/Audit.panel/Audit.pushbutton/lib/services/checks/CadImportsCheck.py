@@ -50,12 +50,14 @@ class CadImportsCheck(BaseCheck):
                     pass
                 if not est_lie:
                     issues.append(AuditIssue(
-                        nom=nom, gravite=CRITIQUE, element_id=inst.Id,
+                        nom=nom, gravite=self._rules.cad_gravite_import(),
+                        element_id=inst.Id,
                         emplacement=emplacement, type_=u'Import explosé',
                         message=u'Import CAD non lié (fragmente le modèle)'))
                 else:
                     issues.append(AuditIssue(
-                        nom=nom, gravite=A_REVOIR, element_id=inst.Id,
+                        nom=nom, gravite=self._rules.cad_gravite_lien(),
+                        element_id=inst.Id,
                         emplacement=emplacement, type_=u'Lien CAD',
                         message=u'Lien CAD présent'))
         except Exception as e:

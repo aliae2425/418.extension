@@ -9,35 +9,44 @@ except Exception:
     except Exception:
         A_REVOIR, CRITIQUE = 1, 2
 
-# Constantes v1 — réglables.
-POIDS_THEME = {
-    u'warnings': 1.0, u'cad': 1.0, u'vues_feuilles': 1.0,
-    u'purge': 0.6, u'nommage': 0.5,
-}
-POINTS_CRITIQUE = 10
-POINTS_A_REVOIR = 4
-VOLUME_FACTEUR = 0.05
-VOLUME_MAX = 8
+# Les poids/points/volume viennent des règles (AuditRules), plus de constantes
+# en dur ici : la source de vérité est audit_rules.json (fallback AuditRules.DEFAULTS).
+try:
+    from config.AuditRules import charger as _charger
+except Exception:
+    try:
+        from lib.config.AuditRules import charger as _charger
+    except Exception:
+        _charger = None
 
 
-def _severite_base(theme):
+def _rules(rules):
+    if rules is not None:
+        return rules
+    return _charger() if _charger is not None else None
+
+
+def _severite_base(theme, points):
     pg = theme.pire_gravite
     if pg == CRITIQUE:
-        return POINTS_CRITIQUE
+        return points[u'critique']
     if pg == A_REVOIR:
-        return POINTS_A_REVOIR
+        return points[u'a_revoir']
     return 0
 
 
-def penalite_theme(theme):
-    poids = POIDS_THEME.get(theme.cle, 1.0)
-    volume = min(VOLUME_MAX, VOLUME_FACTEUR * theme.compte)
-    return poids * _severite_base(theme) + volume
+def penalite_theme(theme, rules=None):
+    r = _rules(rules)
+    poids = r.score_poids().get(theme.cle, 1.0)
+    vol = r.score_volume()
+    volume = min(vol[u'max'], vol[u'facteur'] * theme.compte)
+    return poids * _severite_base(theme, r.score_points()) + volume
 
 
-def calculer(themes):
+def calculer(themes, rules=None):
+    r = _rules(rules)
     total = 0.0
     for t in themes:
         if getattr(t, 'disponible', True):
-            total += penalite_theme(t)
+            total += penalite_theme(t, r)
     return int(round(max(0, 100 - total)))

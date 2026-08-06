@@ -17,12 +17,14 @@ except Exception:
     from lib.models.ThemeResult import ThemeResult
 
 try:
-    from core.UserConfig import UserConfig
+    from config.AuditRules import charger as _charger, DEFAULTS as _DEF
 except Exception:
     try:
-        from lib.core.UserConfig import UserConfig
+        from lib.config.AuditRules import charger as _charger, DEFAULTS as _DEF
     except Exception:
-        UserConfig = None
+        _charger = None
+        _DEF = {u'nommage': {u'vue_regex': r'^[A-Z]{2,4}_\d{2}_.+',
+                             u'famille_regex': r'^[A-Z]{2,4}_.+'}}
 
 try:
     from Autodesk.Revit.DB import (
@@ -30,9 +32,9 @@ try:
 except Exception:
     FilteredElementCollector = View = Family = None
 
-# Convention par défaut : préfixe majuscules + underscore.
-DEFAULT_VIEW_REGEX = r'^[A-Z]{2,4}_\d{2}_.+'
-DEFAULT_FAMILY_REGEX = r'^[A-Z]{2,4}_.+'
+# Défauts ré-exportés depuis les règles (source unique : AuditRules.DEFAULTS).
+DEFAULT_VIEW_REGEX = _DEF[u'nommage'][u'vue_regex']
+DEFAULT_FAMILY_REGEX = _DEF[u'nommage'][u'famille_regex']
 
 
 def est_conforme(nom, pattern):
@@ -49,15 +51,12 @@ class NamingCheck(BaseCheck):
     libelle = u'Nommage'
 
     def _patterns(self):
-        vue, fam = DEFAULT_VIEW_REGEX, DEFAULT_FAMILY_REGEX
-        try:
-            if UserConfig is not None:
-                cfg = UserConfig('audit')
-                vue = cfg.get('naming_view_regex', vue) or vue
-                fam = cfg.get('naming_family_regex', fam) or fam
-        except Exception:
-            pass
-        return vue, fam
+        r = self._rules
+        if r is None and _charger is not None:
+            r = _charger()
+        if r is not None:
+            return r.vue_regex(), r.famille_regex()
+        return DEFAULT_VIEW_REGEX, DEFAULT_FAMILY_REGEX
 
     def run(self, doc):
         vue_re, fam_re = self._patterns()
