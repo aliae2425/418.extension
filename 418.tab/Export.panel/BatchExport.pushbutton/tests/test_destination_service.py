@@ -83,31 +83,6 @@ class TestDestinationServiceFlagsRobustes(unittest.TestCase):
         self.assertFalse(svc.get_separate_formats())
 
 
-class TestDestinationStoreFlagsRobustes(unittest.TestCase):
-    """Même robustesse côté DestinationStore (lu par ExportOrchestrator)."""
-
-    def _store(self, raw):
-        from lib.data.destination.DestinationStore import DestinationStore
-        cfg = FakeConfig()
-        cfg.set('create_subfolders', raw)
-        cfg.set('separate_format_folders', raw)
-        store = DestinationStore()
-        store._cfg = cfg
-        return store
-
-    def test_valeurs_vraies_diverses(self):
-        for v in (u'1', 1, True, u'"1"', u'true'):
-            store = self._store(v)
-            self.assertTrue(store.get_create_subfolders(), 'sub pour %r' % (v,))
-            self.assertTrue(store.get_separate_formats(), 'sep pour %r' % (v,))
-
-    def test_valeurs_fausses_diverses(self):
-        for v in (u'0', u'', None, u'"0"', u'false'):
-            store = self._store(v)
-            self.assertFalse(store.get_create_subfolders(), 'sub pour %r' % (v,))
-            self.assertFalse(store.get_separate_formats(), 'sep pour %r' % (v,))
-
-
 class TestDestinationServiceUniquePath(unittest.TestCase):
     def setUp(self):
         self.service = DestinationService(doc=None, config=FakeConfig())

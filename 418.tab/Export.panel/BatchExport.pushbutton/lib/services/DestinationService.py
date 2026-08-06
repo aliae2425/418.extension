@@ -1,12 +1,7 @@
 # -*- coding: utf-8 -*-
 # Service de destination : chemins/fichiers d'export + persistance du dossier.
-#
-# Consolide la logique historiquement portée par :
-#   - lib/data/destination/DestinationStore.py
-#
-# Objectif : un service unique, testable hors Revit, sans dépendance UI.
-# Les méthodes UI interactives (choose_destination_interactive/_explorer)
-# ne sont PAS migrées ici : elles relèvent de la vue (Phase 3+).
+# Source unique, testable hors Revit, sans dépendance UI. Utilisé par le
+# ViewModel ET par ExportOrchestrator (même instance de config injectée).
 
 from __future__ import unicode_literals
 
@@ -144,13 +139,7 @@ class DestinationService(object):
     # ------------------------------------------------------------------
 
     def ensure(self, path):
-        """Crée le dossier `path` s'il n'existe pas. Retourne le chemin.
-
-        Écart vs legacy : `DestinationStore.ensure` retournait `(ok: bool, err)`.
-        Ici on retourne directement `path` (cf. spec Task 2). Si les méthodes
-        `choose_destination_*` sont migrées en Phase 3, adapter leur
-        `ok, _ = self.ensure(chosen)` à ce nouveau contrat (plus de tuple).
-        """
+        """Crée le dossier `path` s'il n'existe pas. Retourne le chemin."""
         try:
             if not path:
                 return path
@@ -202,9 +191,8 @@ class DestinationService(object):
         """Construit un nom de fichier à partir du pattern (rows) via NamingService.
 
         Note : `build_pattern` produit un template littéral (`{Name}` non résolu
-        contre un élément concret) — comportement identique au legacy
-        `DestinationStore.build_filename_from_rows`. La résolution réelle par
-        élément (sheet/carnet) est reportée à la Phase 3 (branchement VM/orchestrateur).
+        contre un élément concret). La résolution réelle par élément
+        (sheet/carnet) est faite par `NamingService` côté orchestrateur.
         """
         pattern = ''
         try:

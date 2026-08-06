@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import datetime
+import heapq
+import itertools
 
 try:
     from models.ThemeResult import ThemeResult
@@ -23,25 +25,24 @@ except Exception:
         _charger = None
 
 
+try:
+    from services.checks.WarningsCheck import WarningsCheck
+    from services.checks.PurgeCheck import PurgeCheck
+    from services.checks.ViewsSheetsCheck import ViewsSheetsCheck
+    from services.checks.CadImportsCheck import CadImportsCheck
+    from services.checks.NamingCheck import NamingCheck
+except Exception:
+    from lib.services.checks.WarningsCheck import WarningsCheck
+    from lib.services.checks.PurgeCheck import PurgeCheck
+    from lib.services.checks.ViewsSheetsCheck import ViewsSheetsCheck
+    from lib.services.checks.CadImportsCheck import CadImportsCheck
+    from lib.services.checks.NamingCheck import NamingCheck
+
+_CHECKS = (WarningsCheck, PurgeCheck, ViewsSheetsCheck, CadImportsCheck, NamingCheck)
+
+
 def _default_checks(rules=None):
-    # Import tardif pour éviter les cycles ; chaque import gardé.
-    checks = []
-    for mod, cls in [
-        (u'WarningsCheck', u'WarningsCheck'),
-        (u'PurgeCheck', u'PurgeCheck'),
-        (u'ViewsSheetsCheck', u'ViewsSheetsCheck'),
-        (u'CadImportsCheck', u'CadImportsCheck'),
-        (u'NamingCheck', u'NamingCheck'),
-    ]:
-        try:
-            try:
-                m = __import__(u'services.checks.' + mod, fromlist=[cls])
-            except Exception:
-                m = __import__(u'lib.services.checks.' + mod, fromlist=[cls])
-            checks.append(getattr(m, cls)(rules))
-        except Exception:
-            pass
-    return checks
+    return [cls(rules) for cls in _CHECKS]
 
 
 def _meta(doc):
@@ -55,12 +56,8 @@ def _meta(doc):
 
 
 def _top_critiques(themes, limite=5):
-    toutes = []
-    for t in themes:
-        for i in t.issues:
-            toutes.append(i)
-    toutes.sort(key=lambda i: i.gravite, reverse=True)
-    return toutes[:limite]
+    toutes = list(itertools.chain.from_iterable(t.issues for t in themes))
+    return heapq.nlargest(limite, toutes, key=lambda i: i.gravite)
 
 
 class AuditRunner(object):

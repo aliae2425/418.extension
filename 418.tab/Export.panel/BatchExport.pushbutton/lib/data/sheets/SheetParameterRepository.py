@@ -14,7 +14,10 @@ class SheetParameterRepository(object):
         if self._config is not None:
             return self._config
         try:
-            from ...core.UserConfig import UserConfig
+            try:
+                from core.UserConfig import UserConfig
+            except Exception:
+                from lib.core.UserConfig import UserConfig
             return UserConfig('batch_export')
         except Exception:
             return None

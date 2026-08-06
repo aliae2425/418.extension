@@ -16,14 +16,17 @@ class NamingPatternStore(object):
     """
 
     def __init__(self, namespace='batch_export', config=None):
-        # `config` : injection de la config partagée du VM (cf. DestinationStore).
+        # `config` : injection de la config partagée du VM (cf. DestinationService).
         if config is not None:
             self._cfg = config
         else:
             try:
-                from ...core.UserConfig import UserConfig
+                from core.UserConfig import UserConfig
             except Exception:
-                UserConfig = None  # type: ignore
+                try:
+                    from lib.core.UserConfig import UserConfig
+                except Exception:
+                    UserConfig = None  # type: ignore
             self._cfg = UserConfig(namespace) if UserConfig is not None else None
         self._PATTERN_KEY = {'sheet': 'pattern_sheet', 'set': 'pattern_set'}
         self._ROWS_KEY = {'sheet': 'pattern_sheet_rows', 'set': 'pattern_set_rows'}

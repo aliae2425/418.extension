@@ -13,8 +13,5 @@ def libelle(niveau):
 
 
 def pire(niveaux):
-    p = OK
-    for n in niveaux:
-        if n > p:
-            p = n
-    return p
+    # `default=` de max() est Python 3 seulement -> concaténation (Py2/3).
+    return max(list(niveaux) + [OK])

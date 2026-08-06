@@ -33,17 +33,24 @@ class ExportOrchestrator(object):
             self._cfg = config
         else:
             try:
-                from ...core.UserConfig import UserConfig
+                from core.UserConfig import UserConfig
             except Exception:
-                UserConfig = None  # type: ignore
+                try:
+                    from lib.core.UserConfig import UserConfig
+                except Exception:
+                    UserConfig = None  # type: ignore
             self._cfg = UserConfig(namespace) if UserConfig is not None else None
         # Services
         try:
-            from ...services.formats.PdfExporterService import PdfExporterService
-            from ...services.formats.DwgExporterService import DwgExporterService
+            from services.formats.PdfExporterService import PdfExporterService
+            from services.formats.DwgExporterService import DwgExporterService
         except Exception:
-            PdfExporterService = None  # type: ignore
-            DwgExporterService = None  # type: ignore
+            try:
+                from lib.services.formats.PdfExporterService import PdfExporterService
+                from lib.services.formats.DwgExporterService import DwgExporterService
+            except Exception:
+                PdfExporterService = None  # type: ignore
+                DwgExporterService = None  # type: ignore
         # Injecter aussi la config partagée dans les services PDF/DWG : ils
         # lisent le SETUP d'impression (get_saved_setup) et l'option "séparer
         # par vue" depuis la config -> même bug '<absent>' que les flags sans
@@ -52,14 +59,19 @@ class ExportOrchestrator(object):
         self._dwg = DwgExporterService(config=config) if DwgExporterService is not None else None
         # Données auxiliaires
         try:
-            from ...data.destination.DestinationStore import DestinationStore
-            from ...data.naming.NamingPatternStore import NamingPatternStore
-            from ...data.naming.NamingResolver import NamingResolver
+            from services.DestinationService import DestinationService
+            from data.naming.NamingPatternStore import NamingPatternStore
+            from data.naming.NamingResolver import NamingResolver
         except Exception:
-            DestinationStore = None  # type: ignore
-            NamingPatternStore = None  # type: ignore
-            NamingResolver = None  # type: ignore
-        self._dest = DestinationStore(config=config) if DestinationStore is not None else None
+            try:
+                from lib.services.DestinationService import DestinationService
+                from lib.data.naming.NamingPatternStore import NamingPatternStore
+                from lib.data.naming.NamingResolver import NamingResolver
+            except Exception:
+                DestinationService = None  # type: ignore
+                NamingPatternStore = None  # type: ignore
+                NamingResolver = None  # type: ignore
+        self._dest = DestinationService(config=config) if DestinationService is not None else None
         self._nstore = NamingPatternStore(config=config) if NamingPatternStore is not None else None
         self._nres = None  # Sera initialisé avec le doc dans run()
         self._NamingResolver_cls = NamingResolver
@@ -69,9 +81,12 @@ class ExportOrchestrator(object):
         # chaînes à jetons enregistrées par la modale de nommage. Initialisé
         # avec le doc dans run()/run_manual(). C'est LA source de nommage.
         try:
-            from ...services.NamingService import NamingService
+            from services.NamingService import NamingService
         except Exception:
-            NamingService = None  # type: ignore
+            try:
+                from lib.services.NamingService import NamingService
+            except Exception:
+                NamingService = None  # type: ignore
         self._NamingService_cls = NamingService
         self._naming = None
         self._log_cb = None  # câblé pendant run() pour le diagnostic destination
@@ -419,7 +434,7 @@ class ExportOrchestrator(object):
         sheet_vms  : liste de ManualSheetVM (ExportPdf / ExportDwg / Elem / Numero).
         combine_pdf: fusionner toutes les feuilles PDF en un seul fichier.
         pdf_title  : nom du fichier PDF combiné (ignoré si combine_pdf=False).
-        destination: chemin de destination explicite (prioritaire sur DestinationStore).
+        destination: chemin de destination explicite (prioritaire sur DestinationService).
         """
         self._destination_override = destination or None
         try:
@@ -546,7 +561,7 @@ class ExportOrchestrator(object):
         n'itère que des rows et ne peut PAS résoudre un motif à jetons -> c'est
         la cause du carnet nommé 'untitled'). Repli sur `fallback` (nom LITTÉRAL,
         pas un lookup de paramètre) si le motif est absent ou résout vide.
-        Toujours assaini via DestinationStore.sanitize."""
+        Toujours assaini via DestinationService.sanitize."""
         pattern = u''
         try:
             if self._naming is not None:

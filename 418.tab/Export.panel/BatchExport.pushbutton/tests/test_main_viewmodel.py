@@ -1369,8 +1369,8 @@ class TestListSelectionService(unittest.TestCase):
     """Tests unitaires pour `ListSelectionService` (service pur Python)."""
 
     def setUp(self):
-        from lib.services.ListSelectionService import ListSelectionService
-        self.svc = ListSelectionService()
+        from core.list_selection import ListSelectionService
+        self.svc = ListSelectionService(prop=u'Selected')
 
     def _items(self, n):
         from lib.viewmodels.MainViewModel import ManualSheetVM
@@ -1450,7 +1450,7 @@ class TestFormatPropagate(unittest.TestCase):
         return propagate
 
     def setUp(self):
-        from lib.services.BulkEditService import BulkEditService
+        from core.bulk_edit import BulkEditService
         self.bulk = BulkEditService()
 
     def test_toggle_pdf_propage_a_toute_la_selection(self):

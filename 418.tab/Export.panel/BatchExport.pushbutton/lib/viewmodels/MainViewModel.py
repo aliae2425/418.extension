@@ -70,47 +70,35 @@ except Exception:
     except Exception:
         SheetParameterRepository = None  # type: ignore
 
-# ATTENTION -- ordre d'import INVERSE des autres services de ce fichier
-# (`lib.` d'abord). PdfExporterService/DwgExporterService utilisent des
-# imports RELATIFS internes (`from ...core.UserConfig import UserConfig`) qui
-# ne résolvent correctement QUE si leur package racine est `lib`
-# (donc `lib.services.formats.X`). Importés comme `services.formats.X`
-# (racine = `services`), les `...` remontent au-dessus de `lib` et l'import
-# interne de UserConfig retombe sur None sans lever -> `self._cfg = None`
-# côté service -> get/set_saved_setup deviennent des no-op silencieux et les
-# setups PDF/DWG choisis ne persisteraient JAMAIS (les listes, elles,
-# continueraient de se peupler car list_all_setups n'a besoin que de DB/doc :
-# bug invisible « les setups ne se sauvegardent pas »). Même raison que pour
-# l'import de ExportOrchestrator dans lancer_export().
 try:
-    from lib.services.formats.PdfExporterService import PdfExporterService
+    from services.formats.PdfExporterService import PdfExporterService
 except Exception:
     try:
-        from services.formats.PdfExporterService import PdfExporterService
+        from lib.services.formats.PdfExporterService import PdfExporterService
     except Exception:
         PdfExporterService = None  # type: ignore
 
 try:
-    from lib.services.formats.DwgExporterService import DwgExporterService
+    from services.formats.DwgExporterService import DwgExporterService
 except Exception:
     try:
-        from services.formats.DwgExporterService import DwgExporterService
+        from lib.services.formats.DwgExporterService import DwgExporterService
     except Exception:
         DwgExporterService = None  # type: ignore
 
 try:
-    from lib.services.BulkEditService import BulkEditService
+    from core.bulk_edit import BulkEditService
 except Exception:
     try:
-        from services.BulkEditService import BulkEditService
+        from lib.core.bulk_edit import BulkEditService
     except Exception:
         BulkEditService = None  # type: ignore
 
 try:
-    from lib.services.ListSelectionService import ListSelectionService
+    from core.list_selection import ListSelectionService
 except Exception:
     try:
-        from services.ListSelectionService import ListSelectionService
+        from lib.core.list_selection import ListSelectionService
     except Exception:
         ListSelectionService = None  # type: ignore
 
@@ -476,7 +464,8 @@ class MainViewModel(BaseViewModel):
         # reconstruite à chaque refresh_manuel(), jamais persistée.
         self._sheets_manuel = []
         self._bulk_svc = BulkEditService() if BulkEditService is not None else None
-        self._selection_svc = ListSelectionService() if ListSelectionService is not None else None
+        self._selection_svc = (ListSelectionService(prop=u'Selected')
+                               if ListSelectionService is not None else None)
         self._filtres_manuel = []
         self._recherche_manuel = u''
         self._on_export_done_cb = None
@@ -644,10 +633,7 @@ class MainViewModel(BaseViewModel):
         (legacy), dédoublonnés en conservant l'ordre d'apparition
         (feuilles d'abord, puis projet). Injecte `self._cfg` (config
         partagée du VM) au repository -- `SheetParameterRepository._get_cfg`
-        retourne alors directement cette instance sans dépendre de son
-        import relatif interne (`from ...core.UserConfig import UserConfig`),
-        qui ne résolvent correctement que si le package racine du module est
-        `lib` (cf. notes d'import plus haut dans ce fichier).
+        retourne alors directement cette instance au lieu d'en créer une.
 
         Ne lève jamais : retourne `[]` si `self._doc` est absent, si
         `SheetParameterRepository` n'a pas pu être importé, ou si la
@@ -1676,22 +1662,9 @@ class MainViewModel(BaseViewModel):
 
         try:
             try:
-                # Ordre d'import : `lib.services.core...` d'abord. Le module
-                # `ExportOrchestrator` utilise des imports relatifs (`from
-                # ...core.UserConfig`, `from ...data...`) qui ne résolvent
-                # correctement QUE si son package est `lib.services.core`
-                # (racine de package = `lib`). Importé comme
-                # `services.core.ExportOrchestrator` (package racine =
-                # `services`), les `...` remontent au-dessus de `lib` et
-                # tous les try/except internes retombent sur None
-                # (DestinationStore/NamingPatternStore/NamingResolver/
-                # PdfExporterService = None) sans lever -- l'export
-                # « fonctionnerait » silencieusement en mode dégradé
-                # (dossier courant, sans options). D'où l'ordre inverse de
-                # celui utilisé pour les autres services de ce fichier.
-                from lib.services.core.ExportOrchestrator import ExportOrchestrator
-            except Exception:
                 from services.core.ExportOrchestrator import ExportOrchestrator
+            except Exception:
+                from lib.services.core.ExportOrchestrator import ExportOrchestrator
         except Exception:
             self.StatusText = u"Export indisponible (orchestrateur introuvable)."
             return
