@@ -34,6 +34,13 @@
     <SolidColorBrush x:Key="SuccessBrush" Color="#56C271"/>
     <SolidColorBrush x:Key="WarningBrush" Color="#E5A93B"/>
 
+    <!-- Palette par thème du donut d'audit (une couleur distincte par section) -->
+    <SolidColorBrush x:Key="CatWarningsBrush" Color="#E5A93B"/>
+    <SolidColorBrush x:Key="CatPurgeBrush" Color="#9B7BEA"/>
+    <SolidColorBrush x:Key="CatVuesBrush" Color="#3B9BE5"/>
+    <SolidColorBrush x:Key="CatCadBrush" Color="#E5556E"/>
+    <SolidColorBrush x:Key="CatNommageBrush" Color="#2BB89B"/>
+
     <!-- Non-brush color resources (for properties expecting Color) -->
     <Color x:Key="ShadowColor">#000000</Color>
     <SolidColorBrush x:Key="LightGrayBrush" Color="#23272F"/>

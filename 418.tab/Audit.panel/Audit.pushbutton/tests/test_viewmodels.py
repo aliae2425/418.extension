@@ -53,6 +53,39 @@ class TestVM(unittest.TestCase):
         total_issues = sum(len(t.issues) for t in themes)
         self.assertNotEqual(vm.NbCritiques, total_issues)
 
+    def test_score_vm_niveau_par_bandes(self):
+        def niv(score):
+            return ScoreVM(AuditResult(score=score)).Niveau
+        self.assertEqual(niv(95), u'excellent')
+        self.assertEqual(niv(80), u'bon')
+        self.assertEqual(niv(60), u'correct')
+        self.assertEqual(niv(30), u'critique')
+        self.assertEqual(ScoreVM(AuditResult(score=60)).NiveauLibelle, u'Correct')
+
+    def test_score_vm_donut_un_segment_par_theme_avec_probleme(self):
+        themes = [
+            ThemeResult(cle=u'cad', libelle=u'CAD', issues=[AuditIssue(u'a', CRITIQUE)]),
+            ThemeResult(cle=u'purge', libelle=u'Purge',
+                        issues=[AuditIssue(u'b', A_REVOIR), AuditIssue(u'c', A_REVOIR)]),
+            ThemeResult(cle=u'vide', libelle=u'Vide', issues=[]),  # 0 problème -> pas de segment
+        ]
+        segs = ScoreVM(AuditResult(score=72, themes=themes)).DonutSegments
+        self.assertEqual(len(segs), 2)  # seuls les thèmes avec problèmes
+        for s in segs:
+            self.assertTrue(s.PathData.startswith(u'M '))
+            self.assertIn(u'Z', s.PathData)
+        # chaque segment porte l'identité du thème (couleur + légende)
+        self.assertEqual(segs[0].Cle, u'cad')
+        self.assertEqual(segs[0].Libelle, u'CAD')
+        self.assertEqual(segs[0].Compte, 1)
+        self.assertEqual(segs[1].Cle, u'purge')
+        self.assertEqual(segs[1].Compte, 2)
+
+    def test_score_vm_donut_sans_probleme_anneau_conforme(self):
+        segs = ScoreVM(AuditResult(score=100, themes=[])).DonutSegments
+        self.assertEqual(len(segs), 1)
+        self.assertEqual(segs[0].Cle, u'conforme')
+
     def test_issue_row_vm(self):
         row = IssueRowVM(AuditIssue(u'plan.dwg', CRITIQUE,
                                     emplacement=u'Vue', type_=u'Import'))
