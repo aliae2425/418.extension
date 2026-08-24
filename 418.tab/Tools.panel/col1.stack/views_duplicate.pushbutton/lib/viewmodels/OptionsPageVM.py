@@ -1,30 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-
-try:
-    from ui.base.BaseViewModel import BaseViewModel
-except Exception:
-    class BaseViewModel(object):
-        def __init__(self):
-            pass
-
-        def notify_property(self, name):
-            pass
-
-try:
-    from lib.services.ViewsDuplicationOptions import ViewsDuplicationOptions
-except Exception:
-    from services.ViewsDuplicationOptions import ViewsDuplicationOptions
-
-try:
-    from core.rename_service import RenameService
-except Exception:
-    from lib.core.rename_service import RenameService
-
-try:
-    from lib.viewmodels.PreviewGroupVM import PreviewGroupVM, PreviewCopyVM
-except Exception:
-    from viewmodels.PreviewGroupVM import PreviewGroupVM, PreviewCopyVM
+from ui.base.BaseViewModel import BaseViewModel
+from services.ViewsDuplicationOptions import ViewsDuplicationOptions
+from core.rename_service import RenameService
+from viewmodels.PreviewGroupVM import PreviewGroupVM, PreviewCopyVM
 
 
 class OptionsPageVM(BaseViewModel):

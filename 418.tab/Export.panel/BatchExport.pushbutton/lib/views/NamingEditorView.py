@@ -5,10 +5,7 @@
 from __future__ import unicode_literals
 import os
 
-try:
-    from ui.base.BaseWindow import BaseWindow
-except Exception:
-    BaseWindow = object
+from ui.base.BaseWindow import BaseWindow
 
 try:
     from System.Windows.Controls import Button

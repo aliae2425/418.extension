@@ -8,15 +8,16 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _SHARED_LIB = os.path.abspath(os.path.join(_HERE, '..', '..', '..', '..', 'lib'))
 if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
-_BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
-if _BUTTON not in sys.path:
-    sys.path.insert(0, _BUTTON)
+# Meme racine que pyRevit expose : <bouton>/lib.
+_BUTTON_LIB = os.path.abspath(os.path.join(_HERE, '..', 'lib'))
+if _BUTTON_LIB not in sys.path:
+    sys.path.insert(0, _BUTTON_LIB)
 
 # Isole la persistance UserConfig dans un dossier temporaire (jamais le config réel).
 import tempfile as _tf
 os.environ['PY418_CONFIG_DIR'] = _tf.mkdtemp(prefix='418test_')
 
-from lib.viewmodels.MainViewModel import MainViewModel, ManualSheetVM, FiltreItemVM
+from viewmodels.MainViewModel import MainViewModel, ManualSheetVM, FiltreItemVM
 
 
 class TestMainViewModel(unittest.TestCase):
@@ -748,7 +749,7 @@ class TestMainViewModelLancerExport(unittest.TestCase):
         self.assertEqual(vm.StatusText, u'Erreur export PDF: 01_RDC')
 
     def test_import_lib_services_core_resout_les_dependances_internes(self):
-        """Vérifie que `from lib.services.core.ExportOrchestrator import ...`
+        """Vérifie que `from services.core.ExportOrchestrator import ...`
         (chemin utilisé par `lancer_export()`) fait résoudre correctement les
         imports internes de l'orchestrateur.
 
@@ -757,7 +758,7 @@ class TestMainViewModelLancerExport(unittest.TestCase):
         motif de nommage). Ce test fige donc le fait que TOUTES ses
         dépendances sont bien résolues, pour que la moindre régression de
         packaging soit détectée hors Revit."""
-        from lib.services.core.ExportOrchestrator import ExportOrchestrator
+        from services.core.ExportOrchestrator import ExportOrchestrator
         orch = ExportOrchestrator()
         self.assertIsNotNone(orch._dest)
         self.assertIsNotNone(orch._pdf)
@@ -1343,7 +1344,7 @@ class TestMainViewModelLancerExportManuel(unittest.TestCase):
         vm = MainViewModel(doc=object(), sheet_service=FakeSheetService(),
                            naming_service=FakeNamingService(), config=FakeConfig())
         # Injecter une feuille cochée pour dépasser le garde sélection vide
-        from lib.viewmodels.MainViewModel import ManualSheetVM
+        from viewmodels.MainViewModel import ManualSheetVM
         svm = ManualSheetVM(u'01', u'Feuille 1', export_pdf=True, export_dwg=False)
         vm._sheets_manuel = [svm]
         # L'orchestrateur réel (importable hors Revit) a _dest non-None →
@@ -1363,7 +1364,7 @@ class TestListSelectionService(unittest.TestCase):
         self.svc = ListSelectionService(prop=u'Selected')
 
     def _items(self, n):
-        from lib.viewmodels.MainViewModel import ManualSheetVM
+        from viewmodels.MainViewModel import ManualSheetVM
         return [ManualSheetVM(str(i), u'Feuille {}'.format(i)) for i in range(n)]
 
     def test_clic_simple_selectionne_uniquement_cet_index(self):
@@ -1482,8 +1483,9 @@ class TestMainViewModelToggleAll(unittest.TestCase):
     """Tests pour `toggle_all_pdf` / `toggle_all_dwg` et `handle_row_click`."""
 
     def _make_vm(self):
-        from tests.test_main_viewmodel import (FakeSheetService,
-                                               FakeNamingService, FakeConfig)
+        # Les faux services sont définis au niveau module de CE fichier : les
+        # réimporter via `tests.test_main_viewmodel` créait un second objet
+        # module pour le même code.
         vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
                            naming_service=FakeNamingService(), config=FakeConfig())
         vm.refresh_manuel()
@@ -1608,7 +1610,7 @@ class TestExportDoneCallback(unittest.TestCase):
         svm = ManualSheetVM(u'01', u'Feuille 1', export_pdf=True)
         vm._sheets_manuel = [svm]
 
-        import lib.services.core.ExportOrchestrator as _eo_mod
+        import services.core.ExportOrchestrator as _eo_mod
         _orig = _eo_mod.ExportOrchestrator
         _eo_mod.ExportOrchestrator = OrchestrateurtQuiLeve
         try:

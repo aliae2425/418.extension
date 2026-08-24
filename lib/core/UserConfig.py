@@ -23,13 +23,7 @@ import json
 #
 # API publique : get / set.
 
-try:
-    from core.AppPaths import AppPaths as _AppPaths
-except Exception:
-    try:
-        from lib.core.AppPaths import AppPaths as _AppPaths
-    except Exception:
-        _AppPaths = None
+from core.AppPaths import AppPaths as _AppPaths
 
 
 def _config_dir():

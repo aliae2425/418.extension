@@ -1,11 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-
-try:
-    from ui.helpers.wpf_runtime import ensure_wpf as _ensure_wpf
-    _ensure_wpf()
-except Exception:
-    pass
+from ui.helpers.wpf_runtime import ensure_wpf as _ensure_wpf
+_ensure_wpf()
 
 try:
     from System.Windows.Markup import XamlReader
@@ -21,16 +17,8 @@ try:
 except Exception:
     WindowState = None
 
-try:
-    from ui.helpers.UIResourceLoader import UIResourceLoader
-except Exception:
-    UIResourceLoader = None
-
-try:
-    from ui.helpers.DarkMode import is_dark as _is_dark
-except Exception:
-    def _is_dark():
-        return False
+from ui.helpers.UIResourceLoader import UIResourceLoader
+from ui.helpers.DarkMode import is_dark as _is_dark
 
 
 class BaseWindow(object):
@@ -56,9 +44,7 @@ class BaseWindow(object):
                     stream.Close()
                 except Exception:
                     pass
-        if UIResourceLoader is not None:
-            loader = UIResourceLoader(self._window, dark=_is_dark())
-            loader.merge_theme()
+        UIResourceLoader(self._window, dark=_is_dark()).merge_theme()
         if self._vm is not None:
             self._window.DataContext = self._vm
         # Câblage du glisser-déposer par une barre de titre nommée « TitleBar ».

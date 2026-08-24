@@ -22,7 +22,6 @@ clr.AddReference('System')
 clr.AddReference('System.Drawing')
 from System import IO
 from System.Drawing import (GraphicsUnit, Graphics, Rectangle, Bitmap)
-
 from pyrevit import revit, forms, DB, UI
 
 doc = revit.doc

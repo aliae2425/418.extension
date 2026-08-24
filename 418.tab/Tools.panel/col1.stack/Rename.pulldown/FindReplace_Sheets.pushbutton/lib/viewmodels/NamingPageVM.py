@@ -1,30 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-
-try:
-    from ui.base.BaseViewModel import BaseViewModel
-except Exception:
-    class BaseViewModel(object):
-        def __init__(self):
-            pass
-
-        def notify_property(self, name):
-            pass
-
-try:
-    from lib.services.RenameOptions import RenameSheetOptions
-except Exception:
-    from services.RenameOptions import RenameSheetOptions
-
-try:
-    from core.rename_service import RenameService
-except Exception:
-    from lib.core.rename_service import RenameService
-
-try:
-    from lib.viewmodels.SheetPreviewGroupVM import SheetPreviewGroupVM
-except Exception:
-    from viewmodels.SheetPreviewGroupVM import SheetPreviewGroupVM
+from ui.base.BaseViewModel import BaseViewModel
+from services.RenameOptions import RenameSheetOptions
+from core.rename_service import RenameService
+from viewmodels.SheetPreviewGroupVM import SheetPreviewGroupVM
 
 
 class NamingPageVM(BaseViewModel):

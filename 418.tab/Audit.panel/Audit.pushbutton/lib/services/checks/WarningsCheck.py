@@ -1,32 +1,17 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-
-try:
-    from services.checks.BaseCheck import BaseCheck
-except Exception:
-    from lib.services.checks.BaseCheck import BaseCheck
-try:
-    from models import A_REVOIR, CRITIQUE
-    from models import AuditIssue
-    from models import ThemeResult
-except Exception:
-    from lib.models import A_REVOIR, CRITIQUE
-    from lib.models import AuditIssue
-    from lib.models import ThemeResult
-try:
-    from config.AuditRules import charger as _charger
-except Exception:
-    try:
-        from lib.config.AuditRules import charger as _charger
-    except Exception:
-        _charger = None
+from services.checks.BaseCheck import BaseCheck
+from models import A_REVOIR, CRITIQUE
+from models import AuditIssue
+from models import ThemeResult
+from config.AuditRules import charger as _charger
 
 
 def gravite_pour(description, rules=None):
     """Critique si la description contient un des mots-clés de gravité (règles),
     sinon À revoir."""
     d = (description or u'').lower()
-    r = rules if rules is not None else (_charger() if _charger is not None else None)
+    r = rules if rules is not None else _charger()
     mots = r.mots_critiques() if r is not None else []
     for mot in mots:
         if mot in d:

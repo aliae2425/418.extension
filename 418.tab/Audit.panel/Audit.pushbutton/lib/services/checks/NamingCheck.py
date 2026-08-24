@@ -2,29 +2,9 @@
 from __future__ import unicode_literals
 import re
 
-try:
-    from services.checks.BaseCheck import BaseCheck
-except Exception:
-    from lib.services.checks.BaseCheck import BaseCheck
-
-try:
-    from models import A_REVOIR
-    from models import AuditIssue
-    from models import ThemeResult
-except Exception:
-    from lib.models import A_REVOIR
-    from lib.models import AuditIssue
-    from lib.models import ThemeResult
-
-try:
-    from config.AuditRules import charger as _charger, DEFAULTS as _DEF
-except Exception:
-    try:
-        from lib.config.AuditRules import charger as _charger, DEFAULTS as _DEF
-    except Exception:
-        _charger = None
-        _DEF = {u'nommage': {u'vue_regex': r'^[A-Z]{2,4}_\d{2}_.+',
-                             u'famille_regex': r'^[A-Z]{2,4}_.+'}}
+from services.checks.BaseCheck import BaseCheck
+from models import A_REVOIR, AuditIssue, ThemeResult
+from config.AuditRules import charger as _charger, DEFAULTS as _DEF
 
 try:
     from Autodesk.Revit.DB import (

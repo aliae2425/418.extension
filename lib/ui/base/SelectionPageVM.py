@@ -9,38 +9,11 @@ from __future__ import unicode_literals
 # ne faisait que réexporter 8 membres) au-dessus de SelectionListController
 # (qui réexportait lui-même trois helpers sans état).
 
-try:
-    from ui.base.BaseViewModel import BaseViewModel
-except Exception:
-    try:
-        from lib.ui.base.BaseViewModel import BaseViewModel
-    except Exception:
-        class BaseViewModel(object):
-            def __init__(self):
-                pass
-
-            def notify_property(self, name):
-                pass
-
-try:
-    from core.list_selection import ListSelectionService
-except Exception:
-    from lib.core.list_selection import ListSelectionService
-
-try:
-    from core import text_filter
-except Exception:
-    from lib.core import text_filter
-
-try:
-    from core import bulk_edit
-except Exception:
-    from lib.core import bulk_edit
-
-try:
-    from ui.base.SelectionItemVM import SelectionItemVM
-except Exception:
-    from lib.ui.base.SelectionItemVM import SelectionItemVM
+from ui.base.BaseViewModel import BaseViewModel
+from core.list_selection import ListSelectionService
+from core import text_filter
+from core import bulk_edit
+from ui.base.SelectionItemVM import SelectionItemVM
 
 
 class SelectionPageVM(BaseViewModel):

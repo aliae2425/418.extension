@@ -2,37 +2,12 @@
 from __future__ import unicode_literals
 import os
 
-try:
-    from ui.base.BaseWindow import BaseWindow
-except Exception:
-    BaseWindow = object
+from ui.base.BaseWindow import BaseWindow
 
-# Modale d'édition de la convention de nommage (feuilles/carnets). Double
-# forme d'import (régime pyRevit vs régime tests standalone), cf. convention
-# du projet (voir MainViewModel.py).
-try:
-    from viewmodels.NamingEditorViewModel import NamingEditorViewModel
-except Exception:
-    try:
-        from lib.viewmodels.NamingEditorViewModel import NamingEditorViewModel
-    except Exception:
-        NamingEditorViewModel = None  # type: ignore
-
-try:
-    from views.NamingEditorView import NamingEditorView
-except Exception:
-    try:
-        from lib.views.NamingEditorView import NamingEditorView
-    except Exception:
-        NamingEditorView = None  # type: ignore
-
-try:
-    from views.ExportDoneView import ExportDoneView
-except Exception:
-    try:
-        from lib.views.ExportDoneView import ExportDoneView
-    except Exception:
-        ExportDoneView = None  # type: ignore
+# Modale d'édition de la convention de nommage (feuilles/carnets).
+from viewmodels.NamingEditorViewModel import NamingEditorViewModel
+from views.NamingEditorView import NamingEditorView
+from views.ExportDoneView import ExportDoneView
 
 
 def _xaml_path():

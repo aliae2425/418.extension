@@ -1,24 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-
-try:
-    from ui.base.BaseViewModel import BaseViewModel
-except Exception:
-    try:
-        from lib.ui.base.BaseViewModel import BaseViewModel
-    except Exception:
-        BaseViewModel = object
-try:
-    from models import libelle as libelle_gravite
-except Exception:
-    from lib.models import libelle as libelle_gravite
-try:
-    from ui.helpers.RelayCommand import RelayCommand
-except Exception:
-    try:
-        from lib.ui.helpers.RelayCommand import RelayCommand
-    except Exception:
-        RelayCommand = None
+from ui.base.BaseViewModel import BaseViewModel
+from models import libelle as libelle_gravite
+from ui.helpers.RelayCommand import RelayCommand
 
 
 class IssueRowVM(BaseViewModel):

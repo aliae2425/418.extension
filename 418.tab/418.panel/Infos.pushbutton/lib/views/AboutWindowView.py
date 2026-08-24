@@ -2,10 +2,7 @@
 from __future__ import unicode_literals
 import os
 
-try:
-    from ui.base.BaseWindow import BaseWindow
-except Exception:
-    BaseWindow = None
+from ui.base.BaseWindow import BaseWindow
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _XAML = os.path.join(_ROOT, 'GUI', 'Views', 'AboutWindow.xaml')

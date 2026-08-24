@@ -10,12 +10,13 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _SHARED_LIB = os.path.abspath(os.path.join(_HERE, '..', '..', '..', '..', 'lib'))
 if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
-# Dossier du bouton (pour 'from lib.models...')
-_BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
-if _BUTTON not in sys.path:
-    sys.path.insert(0, _BUTTON)
+# Dossier du bouton (pour 'from models...')
+# Meme racine que pyRevit expose : <bouton>/lib.
+_BUTTON_LIB = os.path.abspath(os.path.join(_HERE, '..', 'lib'))
+if _BUTTON_LIB not in sys.path:
+    sys.path.insert(0, _BUTTON_LIB)
 
-from lib.services.checks.NamingCheck import (
+from services.checks.NamingCheck import (
     est_conforme, DEFAULT_VIEW_REGEX, DEFAULT_FAMILY_REGEX)
 
 

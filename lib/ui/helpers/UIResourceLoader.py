@@ -13,11 +13,8 @@ def _load_wpf():
     même si la fenêtre s'affiche ensuite correctement. On appelle donc
     ``ensure_wpf`` puis on importe juste avant d'en avoir besoin.
     """
-    try:
-        from ui.helpers.wpf_runtime import ensure_wpf
-        ensure_wpf()
-    except Exception:
-        pass
+    from ui.helpers.wpf_runtime import ensure_wpf
+    ensure_wpf()
     try:
         from System import Uri, UriKind
         from System.Windows import ResourceDictionary
@@ -26,10 +23,7 @@ def _load_wpf():
         return None
 
 
-try:
-    from core.AppPaths import AppPaths as _AppPaths
-except Exception:
-    _AppPaths = None
+from core.AppPaths import AppPaths as _AppPaths
 
 
 class UIResourceLoader(object):

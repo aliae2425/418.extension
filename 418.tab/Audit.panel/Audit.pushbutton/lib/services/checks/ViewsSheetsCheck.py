@@ -2,26 +2,9 @@
 from __future__ import unicode_literals
 import re
 
-try:
-    from services.checks.BaseCheck import BaseCheck
-except Exception:
-    from lib.services.checks.BaseCheck import BaseCheck
-try:
-    from models import A_REVOIR, CRITIQUE
-    from models import AuditIssue
-    from models import ThemeResult
-except Exception:
-    from lib.models import A_REVOIR, CRITIQUE
-    from lib.models import AuditIssue
-    from lib.models import ThemeResult
-try:
-    from config.AuditRules import charger as _charger, DEFAULTS as _DEF
-except Exception:
-    try:
-        from lib.config.AuditRules import charger as _charger, DEFAULTS as _DEF
-    except Exception:
-        _charger = None
-        _DEF = {u'vues_feuilles': {u'nom_defaut_regex': r'^(Niveau|Level|Quadrillage|Grid)\s*\d+$'}}
+from services.checks.BaseCheck import BaseCheck
+from models import A_REVOIR, CRITIQUE, AuditIssue, ThemeResult
+from config.AuditRules import charger as _charger, DEFAULTS as _DEF
 
 try:
     from Autodesk.Revit.DB import (
@@ -33,7 +16,7 @@ DEFAULT_NOM_DEFAUT_REGEX = _DEF[u'vues_feuilles'][u'nom_defaut_regex']
 
 
 def _regex_nom_defaut(rules):
-    r = rules if rules is not None else (_charger() if _charger is not None else None)
+    r = rules if rules is not None else _charger()
     pat = r.nom_defaut_regex() if r is not None else DEFAULT_NOM_DEFAUT_REGEX
     try:
         return re.compile(pat)

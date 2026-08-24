@@ -8,10 +8,7 @@ try:
 except Exception:
     DB = None  # type: ignore
 
-try:
-    from services.formats.base import FormatExporterService
-except Exception:
-    from lib.services.formats.base import FormatExporterService
+from services.formats.base import FormatExporterService
 
 
 class DwgExporterService(FormatExporterService):

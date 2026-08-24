@@ -1,21 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-
-try:
-    from core.transaction import revit_transaction
-except Exception:
-    revit_transaction = None
-
-try:
-    from core.sanitize import sanitize_revit_name
-except Exception:
-    def sanitize_revit_name(x):
-        return x or u'SansNom'
-
-try:
-    from core.rename_service import RenameService
-except Exception:
-    from lib.core.rename_service import RenameService
+from core.transaction import revit_transaction
+from core.sanitize import sanitize_revit_name
+from core.rename_service import RenameService
 
 
 class RenameSheetsService(object):

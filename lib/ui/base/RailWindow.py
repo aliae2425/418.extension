@@ -13,21 +13,8 @@ import os
 #   - un attribut par onglet, nommé par `Onglet.vm_attr` (le DataContext de
 #     la page correspondante)
 
-try:
-    from ui.base.BaseWindow import BaseWindow
-except Exception:
-    try:
-        from lib.ui.base.BaseWindow import BaseWindow
-    except Exception:
-        BaseWindow = object
-
-try:
-    from core.AppPaths import AppPaths
-except Exception:
-    try:
-        from lib.core.AppPaths import AppPaths
-    except Exception:
-        AppPaths = None
+from ui.base.BaseWindow import BaseWindow
+from core.AppPaths import AppPaths
 
 
 class Onglet(object):

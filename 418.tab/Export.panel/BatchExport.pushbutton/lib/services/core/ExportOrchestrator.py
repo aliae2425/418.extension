@@ -4,6 +4,7 @@
 from __future__ import unicode_literals
 
 import os
+import shutil
 import tempfile
 from collections import namedtuple
 
@@ -32,51 +33,25 @@ class ExportOrchestrator(object):
         if config is not None:
             self._cfg = config
         else:
-            try:
-                from core.UserConfig import UserConfig
-            except Exception:
-                try:
-                    from lib.core.UserConfig import UserConfig
-                except Exception:
-                    UserConfig = None  # type: ignore
-            self._cfg = UserConfig(namespace) if UserConfig is not None else None
+            from core.UserConfig import UserConfig
+            self._cfg = UserConfig(namespace)
         # Services
-        try:
-            from services.formats.PdfExporterService import PdfExporterService
-            from services.formats.DwgExporterService import DwgExporterService
-        except Exception:
-            try:
-                from lib.services.formats.PdfExporterService import PdfExporterService
-                from lib.services.formats.DwgExporterService import DwgExporterService
-            except Exception:
-                PdfExporterService = None  # type: ignore
-                DwgExporterService = None  # type: ignore
+        from services.formats.PdfExporterService import PdfExporterService
+        from services.formats.DwgExporterService import DwgExporterService
         # Injecter aussi la config partagée dans les services PDF/DWG : ils
         # lisent le SETUP d'impression (get_saved_setup) depuis la config ->
         # même bug '<absent>' que les flags sans injection (PDF exporté avec un
         # setup PAR DÉFAUT, page/couleurs fausses).
-        self._pdf = PdfExporterService(config=config) if PdfExporterService is not None else None
-        self._dwg = DwgExporterService(config=config) if DwgExporterService is not None else None
+        self._pdf = PdfExporterService(config=config)
+        self._dwg = DwgExporterService(config=config)
         # Données auxiliaires
-        try:
-            from services.DestinationService import DestinationService
-        except Exception:
-            try:
-                from lib.services.DestinationService import DestinationService
-            except Exception:
-                DestinationService = None  # type: ignore
-        self._dest = DestinationService(config=config) if DestinationService is not None else None
+        from services.DestinationService import DestinationService
+        self._dest = DestinationService(config=config)
         self._destination_override = None  # Chemin passé explicitement depuis le ViewModel
         # NamingService : résout les motifs à JETONS ({numero}, {titre}, ...)
         # enregistrés par la modale de nommage. Initialisé avec le doc dans
         # run()/run_manual(). C'est LA source de nommage.
-        try:
-            from services.NamingService import NamingService
-        except Exception:
-            try:
-                from lib.services.NamingService import NamingService
-            except Exception:
-                NamingService = None  # type: ignore
+        from services.NamingService import NamingService
         self._NamingService_cls = NamingService
         self._naming = None
         self._log_cb = None  # câblé pendant run() pour le diagnostic destination
@@ -685,7 +660,6 @@ class ExportOrchestrator(object):
                             os.remove(final_path)
                         os.rename(exported_file, final_path)
                     except Exception:
-                        import shutil
                         shutil.copy2(exported_file, final_path)
                         try:
                             os.remove(exported_file)
@@ -694,7 +668,6 @@ class ExportOrchestrator(object):
 
                     # Copy referenced raster files from tmp to final folder to preserve XREFs
                     try:
-                        import shutil
                         exts = {'.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp', '.gif'}
                         for root, dirs, files in os.walk(tmp_dir):
                             rel = os.path.relpath(root, tmp_dir)
@@ -722,7 +695,6 @@ class ExportOrchestrator(object):
             
         try:
             if os.path.isdir(tmp_dir):
-                import shutil
                 shutil.rmtree(tmp_dir, ignore_errors=True)
         except Exception:
             pass

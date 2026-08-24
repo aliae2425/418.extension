@@ -1,18 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-
-try:
-    from services.checks.BaseCheck import BaseCheck
-except Exception:
-    from lib.services.checks.BaseCheck import BaseCheck
-try:
-    from models import A_REVOIR, CRITIQUE
-    from models import AuditIssue
-    from models import ThemeResult
-except Exception:
-    from lib.models import A_REVOIR, CRITIQUE
-    from lib.models import AuditIssue
-    from lib.models import ThemeResult
+from services.checks.BaseCheck import BaseCheck
+from models import A_REVOIR, CRITIQUE
+from models import AuditIssue
+from models import ThemeResult
 
 try:
     from Autodesk.Revit.DB import FilteredElementCollector, ImportInstance

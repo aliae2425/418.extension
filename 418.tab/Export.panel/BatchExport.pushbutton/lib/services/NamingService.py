@@ -25,13 +25,7 @@ try:
 except Exception:
     DB = None  # type: ignore
 
-try:
-    from core.UserConfig import UserConfig  # type: ignore
-except Exception:
-    try:
-        from lib.core.UserConfig import UserConfig  # type: ignore
-    except Exception:
-        UserConfig = None  # type: ignore
+from core.UserConfig import UserConfig  # type: ignore
 
 
 _TOKEN_RE = re.compile(r'\{([^{}]*)\}')

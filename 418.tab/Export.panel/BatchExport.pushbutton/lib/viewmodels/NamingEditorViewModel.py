@@ -6,21 +6,8 @@
 # presets nommés ont été retirés (voir historique git) : la modale ne gère
 # plus que motif + jetons + aperçu.
 from __future__ import unicode_literals
-
-try:
-    from ui.base.BaseViewModel import BaseViewModel
-except Exception:
-    BaseViewModel = object
-
-# Double forme d'import (régime pyRevit vs régime tests standalone),
-# cf. convention du projet (voir MainViewModel.py).
-try:
-    from services.NamingService import NamingService
-except Exception:
-    try:
-        from lib.services.NamingService import NamingService
-    except Exception:
-        NamingService = None  # type: ignore
+from ui.base.BaseViewModel import BaseViewModel
+from services.NamingService import NamingService
 
 
 _TITRES = {

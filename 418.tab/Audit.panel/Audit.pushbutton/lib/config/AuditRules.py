@@ -5,13 +5,7 @@ import io
 import json
 
 # Severity mappé depuis les valeurs texte du JSON. Import gardé (hors Revit OK).
-try:
-    from models import OK, A_REVOIR, CRITIQUE
-except Exception:
-    try:
-        from lib.models import OK, A_REVOIR, CRITIQUE
-    except Exception:
-        OK, A_REVOIR, CRITIQUE = 0, 1, 2
+from models import OK, A_REVOIR, CRITIQUE
 
 # ---------------------------------------------------------------------------
 # Règles livrées. Aucun audit_rules.json n'est fourni : ces valeurs SONT le

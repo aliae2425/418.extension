@@ -8,11 +8,12 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _SHARED_LIB = os.path.abspath(os.path.join(_HERE, '..', '..', '..', '..', '..', 'lib'))
 if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
-_BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
-if _BUTTON not in sys.path:
-    sys.path.insert(0, _BUTTON)
+# Meme racine que pyRevit expose : <bouton>/lib.
+_BUTTON_LIB = os.path.abspath(os.path.join(_HERE, '..', 'lib'))
+if _BUTTON_LIB not in sys.path:
+    sys.path.insert(0, _BUTTON_LIB)
 
-from lib.viewmodels.OptionsPageVM import OptionsPageVM
+from viewmodels.OptionsPageVM import OptionsPageVM
 
 
 class TestOptionsPageVM(unittest.TestCase):

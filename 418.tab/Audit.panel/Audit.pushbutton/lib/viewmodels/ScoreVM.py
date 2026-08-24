@@ -2,23 +2,8 @@
 from __future__ import unicode_literals
 import math
 
-try:
-    from ui.base.BaseViewModel import BaseViewModel
-except Exception:
-    try:
-        from lib.ui.base.BaseViewModel import BaseViewModel
-    except Exception:
-        BaseViewModel = object
-
-try:
-    from models import OK, CRITIQUE, libelle as _libelle
-except Exception:
-    try:
-        from lib.models import OK, CRITIQUE, libelle as _libelle
-    except Exception:
-        OK, CRITIQUE = 0, 2
-        def _libelle(n):
-            return {0: u'Conforme', 1: u'À revoir', 2: u'Critique'}.get(n, u'Inconnu')
+from ui.base.BaseViewModel import BaseViewModel
+from models import OK, CRITIQUE, libelle as _libelle
 
 # Géométrie du donut (repère 176x176, centre 88, anneau R=84 / IR=58).
 _CX = _CY = 88.0

@@ -6,18 +6,7 @@ from __future__ import unicode_literals
 # ne différaient que par le nom de l'identifiant et celui de la colonne de
 # gauche.
 
-try:
-    from ui.base.BaseViewModel import BaseViewModel
-except Exception:
-    try:
-        from lib.ui.base.BaseViewModel import BaseViewModel
-    except Exception:
-        class BaseViewModel(object):
-            def __init__(self):
-                pass
-
-            def notify_property(self, name):
-                pass
+from ui.base.BaseViewModel import BaseViewModel
 
 
 class SelectionItemVM(BaseViewModel):

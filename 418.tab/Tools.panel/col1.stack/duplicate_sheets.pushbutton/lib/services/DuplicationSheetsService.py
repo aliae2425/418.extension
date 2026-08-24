@@ -24,24 +24,9 @@ except Exception:
     ElementMulticategoryFilter = None
     List = None
 
-try:
-    from core.transaction import revit_transaction
-except Exception:
-    revit_transaction = None
-
-try:
-    from core.sanitize import sanitize_revit_name
-except Exception:
-    def sanitize_revit_name(x):
-        return x or u'SansNom'
-
-try:
-    from core.rename_service import RenameService
-except Exception:
-    try:
-        from lib.core.rename_service import RenameService
-    except Exception:
-        RenameService = None
+from core.transaction import revit_transaction
+from core.sanitize import sanitize_revit_name
+from core.rename_service import RenameService
 
 
 _VIEW_DUP_MAP = {

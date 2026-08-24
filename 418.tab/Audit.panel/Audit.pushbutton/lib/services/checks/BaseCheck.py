@@ -1,13 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-
-try:
-    from config.AuditRules import charger as _charger
-except Exception:
-    try:
-        from lib.config.AuditRules import charger as _charger
-    except Exception:
-        _charger = None
+from config.AuditRules import charger as _charger
 
 
 class BaseCheck(object):
@@ -18,10 +11,8 @@ class BaseCheck(object):
         # Règles injectées (tests) ou singleton chargé depuis audit_rules.json.
         if rules is not None:
             self._rules = rules
-        elif _charger is not None:
-            self._rules = _charger()
         else:
-            self._rules = None
+            self._rules = _charger()
 
     def run(self, doc):
         raise NotImplementedError

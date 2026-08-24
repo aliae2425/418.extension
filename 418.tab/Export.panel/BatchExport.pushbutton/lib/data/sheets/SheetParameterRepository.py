@@ -13,14 +13,8 @@ class SheetParameterRepository(object):
     def _get_cfg(self):
         if self._config is not None:
             return self._config
-        try:
-            try:
-                from core.UserConfig import UserConfig
-            except Exception:
-                from lib.core.UserConfig import UserConfig
-            return UserConfig('batch_export')
-        except Exception:
-            return None
+        from core.UserConfig import UserConfig
+        return UserConfig('batch_export')
 
     def is_boolean_param_definition(self, param_def):
         """Détecte un paramètre Oui/Non (compat versions)."""

@@ -11,13 +11,14 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _SHARED_LIB = os.path.abspath(os.path.join(_HERE, '..', '..', '..', '..', 'lib'))
 if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
-# Dossier du bouton (pour 'from lib.config...')
-_BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
-if _BUTTON not in sys.path:
-    sys.path.insert(0, _BUTTON)
+# Dossier du bouton (pour 'from config...')
+# Meme racine que pyRevit expose : <bouton>/lib.
+_BUTTON_LIB = os.path.abspath(os.path.join(_HERE, '..', 'lib'))
+if _BUTTON_LIB not in sys.path:
+    sys.path.insert(0, _BUTTON_LIB)
 
-from lib.config.AuditRules import AuditRules, DEFAULTS
-from lib.models import OK, A_REVOIR, CRITIQUE
+from config.AuditRules import AuditRules, DEFAULTS
+from models import OK, A_REVOIR, CRITIQUE
 
 
 class TestAuditRules(unittest.TestCase):

@@ -10,12 +10,13 @@ _SHARED_LIB = os.path.abspath(os.path.join(
     _HERE, '..', '..', '..', '..', 'lib'))  # -> 418.extension/lib
 if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
-# Rendre importable le lib local du bouton (pour 'from lib.viewmodels...').
-_BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
-if _BUTTON not in sys.path:
-    sys.path.insert(0, _BUTTON)
+# Rendre importable le lib local du bouton (pour 'from viewmodels...').
+# Meme racine que pyRevit expose : <bouton>/lib.
+_BUTTON_LIB = os.path.abspath(os.path.join(_HERE, '..', 'lib'))
+if _BUTTON_LIB not in sys.path:
+    sys.path.insert(0, _BUTTON_LIB)
 
-from lib.viewmodels.AboutViewModel import AboutViewModel, __version__
+from viewmodels.AboutViewModel import AboutViewModel, __version__
 
 
 class TestAboutViewModel(unittest.TestCase):

@@ -26,7 +26,9 @@ There is no build step, compiler, or linter. The development cycle is:
 
 To test a single pushbutton without reloading all of pyRevit, right-click its button → **Run script**.
 
-**Tests**: plain `unittest` scripts under each pushbutton's `tests/` (plus `lib/core/tests/`). They bootstrap `sys.path` themselves — run one with `python tests/test_x.py` from the pushbutton folder. No test runner, no framework, no fixtures. Revit imports are wrapped in `try/except` so pure-Python logic runs outside Revit.
+**Tests**: plain `unittest` scripts under each pushbutton's `tests/` (plus `lib/core/tests/`, `lib/ui/tests/`). They bootstrap `sys.path` themselves — run one with `python tests/test_x.py` from the pushbutton folder. No test runner, no framework, no fixtures. Revit imports are wrapped in `try/except` so pure-Python logic runs outside Revit.
+
+Le bootstrap de test insère **`<bouton>/lib`** et le socle `lib/` — les deux mêmes racines qu'en régime pyRevit. Les tests utilisent donc exactement la même forme d'import que le code (`from services.X import Y`).
 
 ## Extension layout
 
@@ -52,12 +54,14 @@ pyRevit puts this on `sys.path`, so it is imported as `core.X` / `ui.X` from any
 ```
 lib/
 ├── core/   AppPaths, UserConfig, sanitize, transaction, selection,
-│           selection_list, bulk_edit, list_selection, text_filter,
-│           token_expander, rename_service
+│           bulk_edit, list_selection, text_filter, token_expander,
+│           rename_service
 └── ui/
-    ├── base/     BaseViewModel, BaseWindow, SelectionPageVMBase
+    ├── base/     BaseViewModel, BaseWindow, RailWindow,
+    │             SelectionPageVM, SelectionItemVM
     ├── helpers/  UIResourceLoader, RelayCommand, DarkMode, wpf_runtime
-    └── GUI/resources/  Colors/Styles + variantes Dark (SEULE copie des thèmes)
+    ├── GUI/resources/  Colors/Styles + variantes Dark (SEULE copie des thèmes)
+    └── GUI/pages/      SelectionPage.xaml (SEULE copie, partagée par 4 outils)
 ```
 
 **Put shared logic here, not in a pushbutton.** Anything duplicated across two tools belongs in the socle.
@@ -68,16 +72,16 @@ lib/
 
 **UserConfig**: `lib/core/UserConfig.py`, unique implémentation. Persiste en JSON dans `418.extension/data/<namespace>.json` (indépendant de `pyrevit.userconfig`, qui ne persiste rien en mode admin). Clés insensibles à la casse. BatchExport utilise le namespace `'batch_export'`. Le VM crée UNE instance et l'injecte à tous les services.
 
-**AppPaths**: Never hardcode paths to XAML or resources. `AppPaths().resources_dir()` / `.data_dir()`.
+**AppPaths**: Never hardcode paths to XAML or resources. `AppPaths().resources_dir()` / `.pages_dir()` / `.data_dir()`.
 
-**Import guards**: cross-layer imports use the two-tier form — `from core.X import Y` first, `from lib.core.X import Y` as fallback, `None` last. Ne JAMAIS utiliser d'import relatif profond (`from ...core.X`) : selon la racine de package utilisée à l'import, il remonte au-dessus de `lib` et retombe silencieusement sur `None`.
+**Imports — UNE seule forme.** Toujours `from core.X import Y`, `from services.X import Y`, jamais de préfixe `lib.`, jamais de garde `try/except` autour d'un import du dépôt. Chaque `script.py` insère `<bouton>/lib` dans `sys.path` avant ses imports (bootstrap explicite en tête de fichier) ; les tests font de même. Un même fichier importé sous deux noms de module donnerait deux objets distincts, donc deux états séparés — c'est exactement le bug que la double forme provoquait sur `UserConfig`. Ne JAMAIS utiliser d'import relatif profond (`from ...core.X`). Réserver `try/except ImportError` aux seuls imports **externes** : `Autodesk.Revit`, `System.*`, `pyrevit`, `clr`.
 
-**Naming patterns**: A naming pattern is a list of row dicts: `[{"Name": "param_name", "Prefix": "…", "Suffix": "…"}, …]`. `NamingResolver` resolves these against a Revit element (sheet, collection, project info) or system values (date parts). `NamingService` gère en plus les motifs à jetons (`{numero}`, `{titre}`).
+**Naming patterns**: `NamingService` résout les motifs à jetons (`{numero}`, `{titre}`, `{param:NOM}`, `{param_projet:NOM}`) contre un élément Revit. C'est la SEULE source de nommage — l'ancien système de `rows` (`[{"Name":…, "Prefix":…, "Suffix":…}]`) et `NamingResolver` ont été supprimés.
 
-**Sanitization**: `lib/core/sanitize.py` (et `DestinationService.sanitize()` pour les noms de fichiers d'export). Max 180 chars, removes `\/:*?"<>|`.
+**Sanitization**: `lib/core/sanitize.py`, source unique. `sanitize()` pour les noms de fichiers (max 180, retire `\/:*?"<>|` + espaces/points finaux, `fallback` paramétrable) ; `sanitize_revit_name()` pour les noms d'éléments Revit. `DestinationService.sanitize()` n'est qu'un passe-plat avec `fallback='untitled'`.
 
-**Destination**: `DestinationService` est la source unique (dossier, flags sous-dossiers/séparation formats, unicité, chemins d'export). Utilisée par le VM ET par `ExportOrchestrator`.
+**Destination**: `DestinationService` est la source unique (dossier, flags sous-dossiers/séparation formats, unicité). Utilisée par le VM ET par `ExportOrchestrator`.
 
-**Sélection de liste**: `SelectionListController` (socle) + `SelectionPageVMBase` (socle). Une page Sélection d'outil ne fournit que ses items, son `id_getter` et ses `filter_getters`.
+**Outils à rail**: les 4 outils de `Tools.panel` héritent de `RailWindow` (socle) et ne déclarent que de la donnée — `ONGLETS`, `SUIVANTS`, `RUN`, `RADIOS`. Contrat côté VM : `Mode` (chaîne) + `set_mode()` + un attribut par onglet. La page Sélection est partagée (`lib/ui/GUI/pages/SelectionPage.xaml` + `SelectionPageVM.depuis_descripteurs()`) ; un outil peut la surcharger en déposant un `SelectionPage.xaml` dans son propre `GUI/Views/pages/`.
 
 **WPF loading**: `UIResourceLoader` merges resource dictionaries into the window before loading XAML. Always load resources before loading a window that references them.
