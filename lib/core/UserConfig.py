@@ -21,7 +21,7 @@ import json
 # configparser legacy de pyRevit : le code historique écrit p.ex. 'PathDossier'
 # et le relit en 'pathdossier'.
 #
-# API publique inchangée : get / set / get_list / set_list.
+# API publique : get / set.
 
 try:
     from core.AppPaths import AppPaths as _AppPaths
@@ -117,23 +117,3 @@ class UserConfig(object):
         except Exception:
             data[_norm(key)] = value
         return _write_file(path, data)
-
-    def set_list(self, key, values):
-        """Persiste une liste sous forme 'v1, v2, v3' lisible par get_list."""
-        return self.set(key, u', '.join(u'{}'.format(v) for v in values))
-
-    def get_list(self, key, default=None):
-        if default is None:
-            default = []
-        val = self.get(key, None)
-        if val is None:
-            return list(default)
-        try:
-            if isinstance(val, list):
-                return list(val)
-            s = val.strip()
-            if not s:
-                return list(default)
-            return [p.strip() for p in s.split(',') if p.strip()]
-        except Exception:
-            return list(default)

@@ -6,7 +6,6 @@ try:
 except Exception:
     DB = None  # type: ignore
 
-import json
 
 class PdfExporterService(object):
     def __init__(self, namespace='batch_export', config=None):
@@ -28,8 +27,6 @@ class PdfExporterService(object):
                     UserConfig = None  # type: ignore
             self._cfg = UserConfig(namespace) if UserConfig is not None else None
         self._SETUP_KEY = 'pdf_setup_name'
-        self._SEPARATE_KEY = 'pdf_separate_views'
-        self._CUSTOM_KEY = 'custom_pdf_setups'
 
     def _list_revit_setups(self, doc):
         if DB is None or doc is None:
@@ -75,57 +72,9 @@ class PdfExporterService(object):
             names.sort()
         return names
 
-    def _load_custom_list(self):
-        if self._cfg is None:
-            return []
-        try:
-            raw = self._cfg.get(self._CUSTOM_KEY, '')
-            if not raw:
-                return []
-            data = json.loads(raw)
-            return data if isinstance(data, list) else []
-        except Exception:
-            return []
-
-    # Liste toutes les config PDF (Revit + customs)
+    # Liste les setups PDF disponibles dans le document
     def list_all_setups(self, doc):
-        revit = self._list_revit_setups(doc)
-        custom = self.list_custom_setups()
-        s = {n: 'revit' for n in revit}
-        for n in custom:
-            s[n] = 'custom'
-        out = list(s.keys())
-        try:
-            out.sort(key=lambda x: x.lower())
-        except Exception:
-            out.sort()
-        return out
-
-    def list_custom_setups(self):
-        lst = self._load_custom_list()
-        out = []
-        for it in lst:
-            try:
-                nm = it.get('name')
-                if nm and nm not in out:
-                    out.append(nm)
-            except Exception:
-                continue
-        try:
-            out.sort(key=lambda x: x.lower())
-        except Exception:
-            out.sort()
-        return out
-
-    def get_custom_setup_data(self, name):
-        for it in self._load_custom_list():
-            try:
-                if it.get('name') == name:
-                    d = it.get('data')
-                    return d if isinstance(d, dict) else None
-            except Exception:
-                continue
-        return None
+        return self._list_revit_setups(doc)
 
     # Nom du setup sauvegardé
     def get_saved_setup(self, default=None):
@@ -143,49 +92,6 @@ class PdfExporterService(object):
             return bool(self._cfg.set(self._SETUP_KEY, name)) if self._cfg is not None else False
         except Exception:
             return False
-
-    # Export par vue séparée ?
-    def get_separate(self, default=False):
-        try:
-            raw = self._cfg.get(self._SEPARATE_KEY, '') if self._cfg is not None else ''
-            return True if raw == '1' else False if raw == '0' else default
-        except Exception:
-            return default
-
-    def set_separate(self, flag):
-        try:
-            return bool(self._cfg.set(self._SEPARATE_KEY, '1' if flag else '0')) if self._cfg is not None else False
-        except Exception:
-            return False
-
-    # Propriétés simples de DB.PDFExportOptions pouvant être recopiées
-    # depuis un setup custom JSON (dict). Liste établie à partir de
-    # RevitAPI.xml (Revit 2026) — HYPOTHÈSE NON VALIDÉE EN CONTEXTE RÉEL :
-    # les noms/valeurs (enums notamment) doivent être confirmés par un
-    # export réel dans Revit. Volontairement absents de cette liste :
-    # 'FileName' (géré par l'appelant, ExportOrchestrator, juste avant
-    # l'appel à Document.Export) et 'Combine' (idem).
-    _PDF_OPTION_FIELDS = (
-        'StopOnError',
-        'ReplaceHalftoneWithThinLines',
-        'MaskCoincidentLines',
-        'HideScopeBoxes',
-        'HideUnreferencedViewTags',
-        'HideReferencePlane',
-        'HideCropBoundaries',
-        'ViewLinksInBlue',
-        'OriginOffsetY',
-        'OriginOffsetX',
-        'PaperPlacement',
-        'ColorDepth',
-        'ExportQuality',
-        'RasterQuality',
-        'ZoomPercentage',
-        'ZoomType',
-        'AlwaysUseRaster',
-        'PaperFormat',
-        'PaperOrientation',
-    )
 
     def _find_revit_setup_element(self, doc, setup_name):
         # Recherche l'élément ExportPDFSettings par nom.
@@ -218,25 +124,6 @@ class PdfExporterService(object):
             pass
         return None
 
-    def _apply_custom_setup_data(self, options, data):
-        # Recopie best-effort des champs connus d'un setup custom JSON sur
-        # une instance DB.PDFExportOptions. À VALIDER DANS REVIT : les clés
-        # attendues dans `data` sont supposées correspondre 1:1 aux noms de
-        # propriétés de PDFExportOptions (voir _PDF_OPTION_FIELDS) ; aucun
-        # éditeur de setup custom PDF n'a été trouvé dans ce repo pour
-        # confirmer le schéma JSON réellement produit côté UI.
-        if options is None or not isinstance(data, dict):
-            return options
-        for field in self._PDF_OPTION_FIELDS:
-            if field not in data:
-                continue
-            try:
-                if hasattr(options, field):
-                    setattr(options, field, data[field])
-            except Exception:
-                continue
-        return options
-
     # Options API PDF
     def build_options(self, doc, setup_name=None):
         if DB is None or doc is None:
@@ -254,8 +141,8 @@ class PdfExporterService(object):
         if not name:
             return options
 
-        # 1) Setup natif Revit (DB.ExportPDFSettings) — chemin prioritaire,
-        # sur le modèle de DwgExporterService.build_options() qui utilise
+        # Setup natif Revit (DB.ExportPDFSettings), sur le modèle de
+        # DwgExporterService.build_options() qui utilise
         # ExportDWGSettings.GetDWGExportOptions(). HYPOTHÈSE (RevitAPI.xml,
         # non testée dans Revit) : ExportPDFSettings.GetOptions() retourne
         # une COPIE d'un DB.PDFExportOptions directement exploitable pour
@@ -274,14 +161,5 @@ class PdfExporterService(object):
         except Exception:
             pass
 
-        # 2) Setup custom JSON (pas d'élément Revit correspondant) —
-        # recopie best-effort des champs connus sur l'instance vierge.
-        try:
-            custom_data = self.get_custom_setup_data(name)
-            if custom_data:
-                options = self._apply_custom_setup_data(options, custom_data)
-        except Exception:
-            pass
-
-        # 3) Fallback : instance vierge (ou None si l'API est indisponible).
+        # Fallback : instance vierge (ou None si l'API est indisponible).
         return options

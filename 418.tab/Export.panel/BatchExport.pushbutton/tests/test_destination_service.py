@@ -159,49 +159,5 @@ class TestDestinationServiceFolder(unittest.TestCase):
         self.assertTrue(self.service.get_separate_formats())
 
 
-class TestDestinationServiceBuildExportPath(unittest.TestCase):
-    def setUp(self):
-        self.config = FakeConfig()
-        self.service = DestinationService(doc=None, config=self.config)
-
-    def test_build_export_path_utilise_pattern_et_extension(self):
-        rows = [{'Name': 'Numero_Feuille', 'Prefix': '', 'Suffix': '-'}]
-        tmpdir = tempfile.mkdtemp(prefix='destservice_build_')
-        try:
-            result = self.service.build_export_path(
-                rows=rows, folder=tmpdir, ext='pdf')
-            self.assertTrue(result.startswith(tmpdir))
-            self.assertTrue(result.endswith('.pdf'))
-            self.assertIn('Numero_Feuille', result)
-        finally:
-            shutil.rmtree(tmpdir, ignore_errors=True)
-
-    def test_build_export_path_ensure_dir_cree_dossier(self):
-        parent = tempfile.mkdtemp(prefix='destservice_build_ensure_')
-        try:
-            target_folder = os.path.join(parent, 'nouveau')
-            rows = [{'Name': 'X', 'Prefix': '', 'Suffix': ''}]
-            self.service.build_export_path(
-                rows=rows, folder=target_folder, ext='pdf', ensure_dir=True)
-            self.assertTrue(os.path.exists(target_folder))
-        finally:
-            shutil.rmtree(parent, ignore_errors=True)
-
-    def test_build_export_path_unique_evite_collision(self):
-        tmpdir = tempfile.mkdtemp(prefix='destservice_build_unique_')
-        try:
-            rows = [{'Name': 'X', 'Prefix': '', 'Suffix': ''}]
-            first = self.service.build_export_path(
-                rows=rows, folder=tmpdir, ext='pdf')
-            with open(first, 'w') as f:
-                f.write('x')
-            second = self.service.build_export_path(
-                rows=rows, folder=tmpdir, ext='pdf', unique=True)
-            self.assertNotEqual(first, second)
-            self.assertTrue(second.endswith(' (1).pdf'))
-        finally:
-            shutil.rmtree(tmpdir, ignore_errors=True)
-
-
 if __name__ == '__main__':
     unittest.main()

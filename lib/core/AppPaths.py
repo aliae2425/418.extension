@@ -23,9 +23,6 @@ class AppPaths(object):
             pass
         return d
 
-    def data_path(self, filename):
-        return os.path.join(self.data_dir(), filename)
-
     def resource_path(self, filename):
         return os.path.join(self.resources_dir(), filename)
 

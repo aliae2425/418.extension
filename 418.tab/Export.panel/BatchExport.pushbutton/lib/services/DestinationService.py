@@ -7,7 +7,6 @@ from __future__ import unicode_literals
 
 import os
 import re
-import datetime as _dt
 
 try:
     from core.UserConfig import UserConfig  # type: ignore
@@ -16,14 +15,6 @@ except Exception:
         from lib.core.UserConfig import UserConfig  # type: ignore
     except Exception:
         UserConfig = None  # type: ignore
-
-try:
-    from lib.services.NamingService import NamingService  # type: ignore
-except Exception:
-    try:
-        from .NamingService import NamingService  # type: ignore
-    except Exception:
-        NamingService = None  # type: ignore
 
 
 def _as_bool(val):
@@ -49,26 +40,20 @@ class DestinationService(object):
     - `unique_path` : évite les collisions de fichiers existants.
     - `ensure` : crée le dossier cible si besoin.
     - `get`/`set` : persistance du dossier de destination via UserConfig.
-    - `build_export_path` : construit un chemin de fichier complet à partir
-      d'un pattern de nommage (rows), en s'appuyant sur `NamingService`.
+
+    La résolution des motifs de nommage n'est PAS ici : elle appartient à
+    `NamingService`, appelé directement par `ExportOrchestrator`.
     """
 
     DEST_FOLDER_KEY = 'PathDossier'
 
-    def __init__(self, doc=None, config=None, namespace='batch_export', namer=None):
+    def __init__(self, doc=None, config=None, namespace='batch_export'):
         if config is not None:
             self._cfg = config
         elif UserConfig is not None:
             self._cfg = UserConfig(namespace)
         else:
             self._cfg = None
-
-        if namer is not None:
-            self._namer = namer
-        elif NamingService is not None:
-            self._namer = NamingService(doc=doc, config=self._cfg, namespace=namespace)
-        else:
-            self._namer = None
 
     # ------------------------------------------------------------------
     # Persistance du dossier de destination
@@ -182,43 +167,3 @@ class DestinationService(object):
             if not os.path.exists(cand):
                 return cand
             i += 1
-
-    # ------------------------------------------------------------------
-    # Construction du chemin d'export (s'appuie sur NamingService)
-    # ------------------------------------------------------------------
-
-    def build_filename_from_rows(self, rows, timestamp=False, ext='pdf'):
-        """Construit un nom de fichier à partir du pattern (rows) via NamingService.
-
-        Note : `build_pattern` produit un template littéral (`{Name}` non résolu
-        contre un élément concret). La résolution réelle par élément
-        (sheet/carnet) est faite par `NamingService` côté orchestrateur.
-        """
-        pattern = ''
-        try:
-            if self._namer is not None:
-                pattern = self._namer.build_pattern(rows or [])
-        except Exception:
-            pattern = ''
-        fname = self.sanitize(pattern)
-        if timestamp:
-            ts = _dt.datetime.now().strftime('%Y%m%d-%H%M%S')
-            fname = u"{}_{}".format(fname, ts)
-        ext = (ext or '').lstrip('.')
-        return u"{}.{}".format(fname, ext) if ext else fname
-
-    def build_export_path(self, rows=None, folder=None, timestamp=False,
-                           ext='pdf', ensure_dir=False, unique=False):
-        """Construit un chemin de fichier complet pour l'export.
-
-        - `rows` : pattern de nommage (list[dict]) -> template via NamingService.build_pattern.
-        - `folder` : dossier cible (fallback `self.get()`).
-        - `ensure_dir` : crée le dossier si absent.
-        - `unique` : suffixe (1), (2)... si le chemin existe déjà.
-        """
-        folder = folder or self.get()
-        if ensure_dir:
-            self.ensure(folder)
-        filename = self.build_filename_from_rows(rows or [], timestamp=timestamp, ext=ext)
-        full = os.path.join(folder, filename)
-        return self.unique_path(full) if unique else full

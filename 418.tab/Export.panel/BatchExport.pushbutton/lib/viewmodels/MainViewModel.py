@@ -469,11 +469,6 @@ class MainViewModel(BaseViewModel):
         self._filtres_manuel = []
         self._recherche_manuel = u''
         self._on_export_done_cb = None
-        # Callback optionnel invoqué à la fin de refresh_par_jeu : permet à la
-        # vue de re-synchroniser la page « par jeu » hébergée (AutoPageVM),
-        # qui a son propre DataContext et ne suit pas notify_property(Collections)
-        # du MainViewModel. Défaut None (aucun effet hors Revit / tests).
-        self._on_collections_changed_cb = None
 
         # Aperçu des conventions de nommage (page Réglages) : motifs bruts
         # (chaînes à jetons ou anciens templates), recalculés par
@@ -874,14 +869,6 @@ class MainViewModel(BaseViewModel):
 
         for name in (u'Collections', u'NbJeuxQualifies', u'NbFeuillesQualifiees'):
             self.notify_property(name)
-
-        # Re-synchronise la page « par jeu » hébergée (AutoPageVM), dont le
-        # DataContext distinct ne suit pas notify_property(Collections).
-        if callable(self._on_collections_changed_cb):
-            try:
-                self._on_collections_changed_cb()
-            except Exception:
-                pass
 
     @property
     def Collections(self):

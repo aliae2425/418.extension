@@ -361,12 +361,6 @@ class TestMainViewModelParJeuCarnetApercu(unittest.TestCase):
         self.assertEqual(jeu_a.CarnetApercu, u'')
         self.assertFalse(jeu_a.CarnetApercuVisible)
 
-    def test_refresh_par_jeu_invoque_callback_collections_changed(self):
-        appels = []
-        self.vm._on_collections_changed_cb = lambda: appels.append(1)
-        self.vm.refresh_par_jeu()
-        self.assertEqual(len(appels), 1)
-
 
 class TestMainViewModelMappingParametres(unittest.TestCase):
     """Mapping paramètres : getters par défaut + setters persistants (fausse config)."""
@@ -756,24 +750,20 @@ class TestMainViewModelLancerExport(unittest.TestCase):
     def test_import_lib_services_core_resout_les_dependances_internes(self):
         """Vérifie que `from lib.services.core.ExportOrchestrator import ...`
         (chemin utilisé par `lancer_export()`) fait résoudre correctement les
-        imports RELATIFS internes de l'orchestrateur (`from ...core.UserConfig`,
-        `from ...data...`, `from ...services.formats...`), qui exigent que le
-        package racine soit `lib` (donc `lib.services.core`).
+        imports internes de l'orchestrateur.
 
-        Importé sous `services.core.ExportOrchestrator` (package racine
-        `services`), ces `...` remonteraient au-dessus de `lib` et tous les
-        try/except internes retomberaient sur `None` -- l'orchestrateur
-        « fonctionnerait » alors en mode dégradé silencieux (dossier courant,
-        sans options de pattern/PDF/DWG). Ce test fige le chemin d'import
-        correct pour que toute régression de packaging (ex: `__init__.py`
-        manquant sous `lib/data/`) soit détectée hors Revit."""
+        Si l'un d'eux retombait sur `None`, l'orchestrateur « fonctionnerait »
+        en mode dégradé silencieux (dossier courant, sans options PDF/DWG ni
+        motif de nommage). Ce test fige donc le fait que TOUTES ses
+        dépendances sont bien résolues, pour que la moindre régression de
+        packaging soit détectée hors Revit."""
         from lib.services.core.ExportOrchestrator import ExportOrchestrator
         orch = ExportOrchestrator()
         self.assertIsNotNone(orch._dest)
-        self.assertIsNotNone(orch._nstore)
         self.assertIsNotNone(orch._pdf)
         self.assertIsNotNone(orch._dwg)
         self.assertIsNotNone(orch._cfg)
+        self.assertIsNotNone(orch._NamingService_cls)
 
 
 class FakeDestinationService(object):
@@ -1600,7 +1590,6 @@ class TestExportDoneCallback(unittest.TestCase):
         class OrchestrateurtQuiLeve(object):
             def __init__(self, namespace='batch_export', config=None):
                 self._dest = object()
-                self._nstore = object()
                 self._pdf = object()
                 self._dwg = object()
                 self._cfg = object()

@@ -7,11 +7,6 @@ try:
 except NameError:
     _str = str
 
-_AVAILABLE_TOKENS = (
-    u'{date}',   u'{annee}', u'{mois}', u'{jour}',
-    u'{n}',      u'{type}',
-)
-
 
 class TokenExpander(object):
     """Résout les tokens de génération de texte dans un template.
@@ -56,8 +51,3 @@ class TokenExpander(object):
         for key, value in ctx.items():
             result = result.replace(u'{' + key + u'}', _str(value))
         return result
-
-    @staticmethod
-    def available_tokens():
-        """Liste des tokens reconnus (pour affichage dans l'UI)."""
-        return list(_AVAILABLE_TOKENS)

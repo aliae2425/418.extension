@@ -52,34 +52,24 @@ class ExportOrchestrator(object):
                 PdfExporterService = None  # type: ignore
                 DwgExporterService = None  # type: ignore
         # Injecter aussi la config partagée dans les services PDF/DWG : ils
-        # lisent le SETUP d'impression (get_saved_setup) et l'option "séparer
-        # par vue" depuis la config -> même bug '<absent>' que les flags sans
-        # injection (PDF exporté avec un setup PAR DÉFAUT, page/couleurs fausses).
+        # lisent le SETUP d'impression (get_saved_setup) depuis la config ->
+        # même bug '<absent>' que les flags sans injection (PDF exporté avec un
+        # setup PAR DÉFAUT, page/couleurs fausses).
         self._pdf = PdfExporterService(config=config) if PdfExporterService is not None else None
         self._dwg = DwgExporterService(config=config) if DwgExporterService is not None else None
         # Données auxiliaires
         try:
             from services.DestinationService import DestinationService
-            from data.naming.NamingPatternStore import NamingPatternStore
-            from data.naming.NamingResolver import NamingResolver
         except Exception:
             try:
                 from lib.services.DestinationService import DestinationService
-                from lib.data.naming.NamingPatternStore import NamingPatternStore
-                from lib.data.naming.NamingResolver import NamingResolver
             except Exception:
                 DestinationService = None  # type: ignore
-                NamingPatternStore = None  # type: ignore
-                NamingResolver = None  # type: ignore
         self._dest = DestinationService(config=config) if DestinationService is not None else None
-        self._nstore = NamingPatternStore(config=config) if NamingPatternStore is not None else None
-        self._nres = None  # Sera initialisé avec le doc dans run()
-        self._NamingResolver_cls = NamingResolver
         self._destination_override = None  # Chemin passé explicitement depuis le ViewModel
-        # NamingService : résout les motifs à JETONS ({numero}, {titre}, ...).
-        # Contrairement à NamingResolver (rows uniquement), il comprend les
-        # chaînes à jetons enregistrées par la modale de nommage. Initialisé
-        # avec le doc dans run()/run_manual(). C'est LA source de nommage.
+        # NamingService : résout les motifs à JETONS ({numero}, {titre}, ...)
+        # enregistrés par la modale de nommage. Initialisé avec le doc dans
+        # run()/run_manual(). C'est LA source de nommage.
         try:
             from services.NamingService import NamingService
         except Exception:
@@ -264,8 +254,7 @@ class ExportOrchestrator(object):
             if plan.do_pdf and base_pdf:
                 if plan.per_sheet:
                     for sh in sheets:
-                        rows = self._get_rows_for_sheet(sh)
-                        name = self._resolve_name_no_ext(sh, rows)
+                        name = self._resolve_sheet_name(sh)
                         if os.path.exists(os.path.join(base_pdf, name + '.pdf')): return True
                 else:
                     # Collection PDF (carnet) : même nommage qu'à l'export réel.
@@ -277,8 +266,7 @@ class ExportOrchestrator(object):
             # Check DWG (always per sheet)
             if plan.do_dwg and base_dwg:
                 for sh in sheets:
-                    rows = self._get_rows_for_sheet(sh)
-                    name = self._resolve_name_no_ext(sh, rows)
+                    name = self._resolve_sheet_name(sh)
                     if os.path.exists(os.path.join(base_dwg, name + '.dwg')): return True
                     
         return False
@@ -293,19 +281,13 @@ class ExportOrchestrator(object):
 
     def _run_impl(self, doc, get_ctrl, progress_cb=None, log_cb=None, ui_win=None):
         self._log_cb = log_cb
-        # Initialiser le NamingResolver (legacy, rows) et le NamingService
-        # (jetons) avec le document.
-        if self._NamingResolver_cls is not None and self._nres is None:
-            try:
-                self._nres = self._NamingResolver_cls(doc)
-            except Exception:
-                self._nres = None
+        # Initialiser le NamingService (jetons) avec le document.
         if self._NamingService_cls is not None and self._naming is None:
             try:
                 self._naming = self._NamingService_cls(doc, config=self._external_cfg)
             except Exception:
                 self._naming = None
-        
+
         plans = self.plan_exports_for_collections(doc, get_ctrl)
 
         # Diagnostic immédiat si aucun plan ne qualifie
@@ -351,10 +333,6 @@ class ExportOrchestrator(object):
         if progress_cb:
             progress_cb(0, max(total, 1), 'Préparation...')
 
-        # Remove non-error logs
-
-        pdf_sep = self._pdf.get_separate(False) if self._pdf is not None else False
-        dwg_sep = self._dwg.get_separate(False) if self._dwg is not None else False
         # Diagnostic : confirmer que les services PDF/DWG lisent bien le SETUP
         # depuis la config injectée (et non '<absent>' -> setup par défaut).
         try:
@@ -385,43 +363,36 @@ class ExportOrchestrator(object):
 
             if plan.per_sheet:
                 for sh in sheets:
-                    rows = self._get_rows_for_sheet(sh)
                     if plan.do_pdf and base_pdf:
                         if progress_cb:
                             try:
                                 progress_cb(i, total, u'{}: {} (PDF)'.format(plan.collection_name, self._safe_sheet_name(sh)))
                             except Exception:
                                 pass
-                        ok, path = self._export_pdf_sheet(doc, sh, rows, base_pdf, pdf_opt, separate=pdf_sep, overwrite=overwrite, log_cb=log_cb)
+                        ok, path = self._export_pdf_sheet(doc, sh, base_pdf, pdf_opt, overwrite=overwrite, log_cb=log_cb)
                     if plan.do_dwg and base_dwg:
                         if progress_cb:
                             try:
                                 progress_cb(i, total, u'{}: {} (DWG)'.format(plan.collection_name, self._safe_sheet_name(sh)))
                             except Exception:
                                 pass
-                        ok, path = self._export_dwg_sheet(doc, sh, rows, base_dwg, dwg_opt, overwrite=overwrite, log_cb=log_cb)
+                        ok, path = self._export_dwg_sheet(doc, sh, base_dwg, dwg_opt, overwrite=overwrite, log_cb=log_cb)
             else:
-                # Utiliser le pattern 'set' (carnet) s'il existe, sinon fallback sur sheet/default
-                rows = self._get_rows_for_set()
-                if not rows:
-                    rows = self._get_rows_for_sheet(sheets[0]) if sheets else [{'Name': plan.collection_name, 'Prefix': '', 'Suffix': ''}]
-
                 if plan.do_pdf and base_pdf:
                     if progress_cb:
                         try:
                             progress_cb(i, total, u'{}: PDF (combiné)'.format(plan.collection_name))
                         except Exception:
                             pass
-                    ok, path = self._export_pdf_collection(doc, sheets, rows, base_pdf, pdf_opt, collection=collection, overwrite=overwrite, log_cb=log_cb)
+                    ok, path = self._export_pdf_collection(doc, sheets, base_pdf, pdf_opt, collection=collection, overwrite=overwrite, log_cb=log_cb)
                 if plan.do_dwg and base_dwg:
                     for sh in sheets:
-                        rows_sh = self._get_rows_for_sheet(sh)
                         if progress_cb:
                             try:
                                 progress_cb(i, total, u'{}: {} (DWG)'.format(plan.collection_name, self._safe_sheet_name(sh)))
                             except Exception:
                                 pass
-                        ok, path = self._export_dwg_sheet(doc, sh, rows_sh, base_dwg, dwg_opt, overwrite=overwrite, log_cb=log_cb)
+                        ok, path = self._export_dwg_sheet(doc, sh, base_dwg, dwg_opt, overwrite=overwrite, log_cb=log_cb)
 
         if progress_cb:
             progress_cb(total, max(total, 1), u'')
@@ -447,11 +418,6 @@ class ExportOrchestrator(object):
     def _run_manual_impl(self, doc, sheet_vms, combine_pdf=False, pdf_title=u'',
                          progress_cb=None, log_cb=None):
         self._log_cb = log_cb
-        if self._NamingResolver_cls is not None and self._nres is None:
-            try:
-                self._nres = self._NamingResolver_cls(doc)
-            except Exception:
-                self._nres = None
         if self._NamingService_cls is not None and self._naming is None:
             try:
                 self._naming = self._NamingService_cls(doc, config=self._external_cfg)
@@ -467,7 +433,6 @@ class ExportOrchestrator(object):
 
         pdf_opt = self._get_pdf_options(doc)
         dwg_opt = self._get_dwg_options(doc)
-        pdf_sep = self._pdf.get_separate(False) if self._pdf is not None else False
 
         done = 0
 
@@ -475,38 +440,37 @@ class ExportOrchestrator(object):
             base_pdf = self._get_destination_base('PDF', None)
             if combine_pdf:
                 elems = [s.Elem for s in pdf_vms if s.Elem is not None]
-                rows = [{'Name': pdf_title or u'export', 'Prefix': u'', 'Suffix': u''}]
                 if progress_cb:
                     progress_cb(done, max(total, 1), u'PDF combiné...')
-                ok, path = self._export_pdf_collection(doc, elems, rows, base_pdf, pdf_opt, log_cb=log_cb)
+                ok, path = self._export_pdf_collection(
+                    doc, elems, base_pdf, pdf_opt,
+                    titre_litteral=pdf_title or u'export', log_cb=log_cb)
                 done += len(pdf_vms)
             else:
                 for svm in pdf_vms:
                     if svm.Elem is None:
                         done += 1
                         continue
-                    rows = self._get_rows_for_sheet(svm.Elem)
                     if progress_cb:
                         try:
                             progress_cb(done, max(total, 1), u'{} (PDF)'.format(svm.Numero))
                         except Exception:
                             pass
-                    ok, path = self._export_pdf_sheet(doc, svm.Elem, rows, base_pdf, pdf_opt,
-                                                      separate=pdf_sep, log_cb=log_cb)
+                    ok, path = self._export_pdf_sheet(doc, svm.Elem, base_pdf, pdf_opt,
+                                                      log_cb=log_cb)
                     done += 1
 
         for svm in dwg_vms:
             if svm.Elem is None:
                 done += 1
                 continue
-            rows = self._get_rows_for_sheet(svm.Elem)
             base_dwg = self._get_destination_base('DWG', None)
             if progress_cb:
                 try:
                     progress_cb(done, max(total, 1), u'{} (DWG)'.format(svm.Numero))
                 except Exception:
                     pass
-            ok, path = self._export_dwg_sheet(doc, svm.Elem, rows, base_dwg, dwg_opt, log_cb=log_cb)
+            ok, path = self._export_dwg_sheet(doc, svm.Elem, base_dwg, dwg_opt, log_cb=log_cb)
             done += 1
 
         if progress_cb:
@@ -522,21 +486,6 @@ class ExportOrchestrator(object):
                 return getattr(sheet, 'Name', 'Sheet')
             except Exception:
                 return 'Sheet'
-
-    def _get_rows_for_sheet(self, sheet):
-        patt, rows = self._nstore.load('sheet') if self._nstore is not None else ('', [])
-        if not rows:
-            display_name = None
-            try:
-                display_name = sheet.SheetNumber + '_' + sheet.Name
-            except Exception:
-                display_name = getattr(sheet, 'Name', 'Sheet')
-            return [{'Name': display_name, 'Prefix': '', 'Suffix': ''}]
-        return rows
-
-    def _get_rows_for_set(self):
-        patt, rows = self._nstore.load('set') if self._nstore is not None else ('', [])
-        return rows
 
     def _collection_fallback_name(self, collection, sheets=None):
         """Nom de repli d'un carnet quand le motif 'set' est absent/vide :
@@ -557,11 +506,9 @@ class ExportOrchestrator(object):
     def _resolve_name(self, elem, kind, fallback=u''):
         """Résout le nom de fichier (sans extension) pour `elem` à partir du
         MOTIF À JETONS enregistré pour `kind` ('sheet' ou 'set'), via
-        NamingService (qui comprend les chaînes `{...}` ; NamingResolver, lui,
-        n'itère que des rows et ne peut PAS résoudre un motif à jetons -> c'est
-        la cause du carnet nommé 'untitled'). Repli sur `fallback` (nom LITTÉRAL,
-        pas un lookup de paramètre) si le motif est absent ou résout vide.
-        Toujours assaini via DestinationService.sanitize."""
+        NamingService. Repli sur `fallback` (nom LITTÉRAL, pas un lookup de
+        paramètre) si le motif est absent ou résout vide. Toujours assaini via
+        DestinationService.sanitize."""
         pattern = u''
         try:
             if self._naming is not None:
@@ -580,12 +527,9 @@ class ExportOrchestrator(object):
             return self._dest.sanitize(name)
         return name or u'untitled'
 
-    def _resolve_name_no_ext(self, elem, rows):
-        """Nom (sans extension) d'une FEUILLE. Résout le motif 'sheet' à jetons
-        via NamingService, repli sur `SheetNumber_Name`. Le paramètre `rows`
-        (legacy) est conservé pour compat d'appel mais n'est plus la source du
-        nommage -- les rows sont vides avec le nouveau système à jetons, ce qui
-        rendait le nom vide (cf. bug carnet 'untitled')."""
+    def _resolve_sheet_name(self, elem):
+        """Nom (sans extension) d'une FEUILLE : motif 'sheet' à jetons résolu
+        via NamingService, repli sur `SheetNumber_Name`."""
         return self._resolve_name(elem, 'sheet', fallback=self._safe_sheet_name(elem))
 
     def _unique_with_ext(self, folder, file_no_ext, ext, overwrite=False):
@@ -597,7 +541,7 @@ class ExportOrchestrator(object):
         except Exception:
             return os.path.join(folder, file_no_ext + '.' + ext)
 
-    def _export_pdf_sheet(self, doc, sheet, rows, base_folder, options, separate=True, overwrite=False, log_cb=None):
+    def _export_pdf_sheet(self, doc, sheet, base_folder, options, overwrite=False, log_cb=None):
         def _log(msg):
             if log_cb:
                 try:
@@ -605,7 +549,7 @@ class ExportOrchestrator(object):
                 except Exception:
                     pass
         label = self._safe_sheet_name(sheet)
-        name_no_ext = self._resolve_name_no_ext(sheet, rows)
+        name_no_ext = self._resolve_sheet_name(sheet)
         try:
             self._dest.ensure(base_folder)
         except Exception:
@@ -682,7 +626,7 @@ class ExportOrchestrator(object):
                 ok = False
         return ok, path
 
-    def _export_dwg_sheet(self, doc, sheet, rows, base_folder, options, overwrite=False, log_cb=None):
+    def _export_dwg_sheet(self, doc, sheet, base_folder, options, overwrite=False, log_cb=None):
         def _log(msg):
             if log_cb:
                 try:
@@ -690,7 +634,7 @@ class ExportOrchestrator(object):
                 except Exception:
                     pass
         label = self._safe_sheet_name(sheet)
-        name_no_ext = self._resolve_name_no_ext(sheet, rows)
+        name_no_ext = self._resolve_sheet_name(sheet)
         try:
             self._dest.ensure(base_folder)
         except Exception:
@@ -794,7 +738,8 @@ class ExportOrchestrator(object):
             pass
         return ok, final_path
 
-    def _export_pdf_collection(self, doc, sheets, rows, base_folder, options, collection=None, overwrite=False, log_cb=None):
+    def _export_pdf_collection(self, doc, sheets, base_folder, options, collection=None,
+                               titre_litteral=u'', overwrite=False, log_cb=None):
         def _log(msg):
             if log_cb:
                 try:
@@ -804,22 +749,17 @@ class ExportOrchestrator(object):
         # Nommage du PDF combiné, selon le contexte :
         #  - AUTO (carnet) : `collection` fournie -> résoudre le motif 'set' à
         #    jetons via NamingService, repli sur le titre de la collection.
-        #  - MANUEL (combiné) : `collection` None -> le nom est un TITRE
-        #    LITTÉRAL saisi par l'utilisateur, passé dans `rows[0]['Name']`
-        #    (à NE PAS résoudre comme un paramètre : c'était la cause du
-        #    'untitled' côté manuel aussi).
+        #  - MANUEL (combiné) : `collection` None -> `titre_litteral` est le
+        #    titre saisi par l'utilisateur, à NE PAS résoudre comme un motif
+        #    ni comme un nom de paramètre (c'était la cause du 'untitled').
         try:
             if collection is not None:
                 name_no_ext = self._resolve_name(
                     collection, 'set',
                     fallback=self._collection_fallback_name(collection, sheets))
             else:
-                literal = u''
-                try:
-                    literal = (rows[0].get('Name') if rows else u'') or u''
-                except Exception:
-                    literal = u''
-                name_no_ext = self._dest.sanitize(literal or u'export') if self._dest is not None else (literal or u'export')
+                literal = titre_litteral or u'export'
+                name_no_ext = self._dest.sanitize(literal) if self._dest is not None else literal
         except Exception:
             name_no_ext = u'export'
         try:
