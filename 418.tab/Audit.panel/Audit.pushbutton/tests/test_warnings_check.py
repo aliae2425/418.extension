@@ -15,7 +15,7 @@ _BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
 if _BUTTON not in sys.path:
     sys.path.insert(0, _BUTTON)
 
-from lib.models.Severity import A_REVOIR, CRITIQUE
+from lib.models import A_REVOIR, CRITIQUE
 from lib.services.checks.WarningsCheck import gravite_pour
 
 

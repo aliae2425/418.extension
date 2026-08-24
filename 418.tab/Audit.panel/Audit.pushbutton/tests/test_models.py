@@ -15,10 +15,10 @@ _BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
 if _BUTTON not in sys.path:
     sys.path.insert(0, _BUTTON)
 
-from lib.models.Severity import OK, A_REVOIR, CRITIQUE, libelle, pire
-from lib.models.AuditIssue import AuditIssue
-from lib.models.ThemeResult import ThemeResult
-from lib.models.AuditResult import AuditResult
+from lib.models import OK, A_REVOIR, CRITIQUE, libelle, pire
+from lib.models import AuditIssue
+from lib.models import ThemeResult
+from lib.models import AuditResult
 
 
 class TestSeverity(unittest.TestCase):

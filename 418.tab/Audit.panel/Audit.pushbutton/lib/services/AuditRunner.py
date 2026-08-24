@@ -5,11 +5,11 @@ import heapq
 import itertools
 
 try:
-    from models.ThemeResult import ThemeResult
-    from models.AuditResult import AuditResult
+    from models import ThemeResult
+    from models import AuditResult
 except Exception:
-    from lib.models.ThemeResult import ThemeResult
-    from lib.models.AuditResult import AuditResult
+    from lib.models import ThemeResult
+    from lib.models import AuditResult
 
 try:
     from services import ScoreService as _score_default

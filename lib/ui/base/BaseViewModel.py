@@ -59,20 +59,24 @@ def _resolve_brand_logo_path():
         return ''
 
 
+class _LogoMixin(object):
+    """Propriétés de logo communes aux deux variantes de BaseViewModel."""
+
+    @property
+    def LogoPath(self):
+        # Chemin absolu du logo commun, thème-aware. Bindable en Source.
+        return _resolve_logo_path()
+
+    @property
+    def BrandLogoPath(self):
+        # Logo pour la pastille de marque (fond foncé) : variante claire.
+        return _resolve_brand_logo_path()
+
+
 if _has_wpf:
-    class BaseViewModel(INotifyPropertyChanged):
+    class BaseViewModel(_LogoMixin, INotifyPropertyChanged):
         def __init__(self):
             self._pc_handlers = []
-
-        @property
-        def LogoPath(self):
-            # Chemin absolu du logo commun, thème-aware. Bindable en Source.
-            return _resolve_logo_path()
-
-        @property
-        def BrandLogoPath(self):
-            # Logo pour la pastille de marque (fond foncé) : variante claire.
-            return _resolve_brand_logo_path()
 
         def add_PropertyChanged(self, handler):
             self._pc_handlers.append(handler)
@@ -93,19 +97,9 @@ if _has_wpf:
                 except Exception:
                     pass
 else:
-    class BaseViewModel(object):
+    class BaseViewModel(_LogoMixin):
         def __init__(self):
             pass
-
-        @property
-        def LogoPath(self):
-            # Chemin absolu du logo commun, thème-aware. Bindable en Source.
-            return _resolve_logo_path()
-
-        @property
-        def BrandLogoPath(self):
-            # Logo pour la pastille de marque (fond foncé) : variante claire.
-            return _resolve_brand_logo_path()
 
         def notify_property(self, name):
             pass

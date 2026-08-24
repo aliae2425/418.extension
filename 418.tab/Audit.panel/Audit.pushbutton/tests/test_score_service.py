@@ -15,9 +15,9 @@ _BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
 if _BUTTON not in sys.path:
     sys.path.insert(0, _BUTTON)
 
-from lib.models.Severity import A_REVOIR, CRITIQUE
-from lib.models.AuditIssue import AuditIssue
-from lib.models.ThemeResult import ThemeResult
+from lib.models import A_REVOIR, CRITIQUE
+from lib.models import AuditIssue
+from lib.models import ThemeResult
 from lib.services import ScoreService
 
 

@@ -6,17 +6,17 @@ import json
 
 # Severity mappé depuis les valeurs texte du JSON. Import gardé (hors Revit OK).
 try:
-    from models.Severity import OK, A_REVOIR, CRITIQUE
+    from models import OK, A_REVOIR, CRITIQUE
 except Exception:
     try:
-        from lib.models.Severity import OK, A_REVOIR, CRITIQUE
+        from lib.models import OK, A_REVOIR, CRITIQUE
     except Exception:
         OK, A_REVOIR, CRITIQUE = 0, 1, 2
 
 # ---------------------------------------------------------------------------
-# Défauts en dur = fallback ultime, identiques aux constantes historiques.
-# Ce sont aussi les valeurs livrées dans audit_rules.json (comportement
-# inchangé tant que l'utilisateur n'édite pas le fichier).
+# Règles livrées. Aucun audit_rules.json n'est fourni : ces valeurs SONT le
+# comportement par défaut du plugin. Le fichier n'existe que si l'utilisateur
+# le crée pour surcharger une section (cf. audit_rules.schema.md).
 # ---------------------------------------------------------------------------
 DEFAULTS = {
     u'version': 1,
@@ -79,30 +79,26 @@ class AuditRules(object):
     """
 
     def __init__(self, chemin=None, data=None):
-        self._data = self._resoudre(chemin, data)
+        self._data = data if data is not None else self._charger_fichier(chemin)
 
-    # --- Chargement / fusion ------------------------------------------------
-    def _resoudre(self, chemin, data):
-        if data is not None:
-            return self._fusion_sections(data)
+    # --- Chargement ---------------------------------------------------------
+    def _charger_fichier(self, chemin):
+        """Contenu brut du JSON, ou `{}` si absent/illisible/non-objet.
+
+        `{}` suffit : `_section` fait déjà retomber CHAQUE section absente sur
+        son défaut, donc un fichier manquant et un fichier vide se comportent
+        de la même façon."""
         p = chemin or _JSON_PATH
         try:
             if os.path.isfile(p):
                 with io.open(p, 'r', encoding='utf-8') as f:
                     charge = json.load(f)
                 if isinstance(charge, dict):
-                    return self._fusion_sections(charge)
+                    return charge
                 print(u'AuditRules : racine JSON non-objet, défauts utilisés.')
         except Exception as e:
             print(u'AuditRules : JSON illisible ({}), défauts utilisés.'.format(e))
-        return dict(DEFAULTS)
-
-    def _fusion_sections(self, charge):
-        out = {}
-        for cle, defval in DEFAULTS.items():
-            val = charge.get(cle) if hasattr(charge, 'get') else None
-            out[cle] = val if val is not None else defval
-        return out
+        return {}
 
     # --- Accesseurs typés ---------------------------------------------------
     def _section(self, cle):

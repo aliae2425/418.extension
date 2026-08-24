@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 from core.list_selection import ListSelectionService
 from core.text_filter import TextFilterService
-from core.bulk_edit import BulkEditService
+from core import bulk_edit
 
 
 class SelectionListController(object):
@@ -25,7 +25,6 @@ class SelectionListController(object):
         self._prop = prop
         self._selection = ListSelectionService(prop=prop)
         self._filter = TextFilterService()
-        self._bulk = BulkEditService()
         self._filter_text = u''
         self._filtered = list(self._all)
         # Suivi local de la validité de l'ancre : ListSelectionService.reset()
@@ -64,10 +63,10 @@ class SelectionListController(object):
             self._has_anchor = True
 
     def select_all(self):
-        self._bulk.select_all(self._all, self._prop)
+        bulk_edit.select_all(self._all, self._prop)
 
     def deselect_all(self):
-        self._bulk.deselect_all(self._all, self._prop)
+        bulk_edit.deselect_all(self._all, self._prop)
 
     def selected_ids(self):
         return [self._id_getter(it) for it in self._all

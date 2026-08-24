@@ -6,9 +6,9 @@ import datetime
 from xml.sax.saxutils import escape as _xml_escape
 
 try:
-    from models.Severity import libelle as libelle_gravite
+    from models import libelle as libelle_gravite
 except Exception:
-    from lib.models.Severity import libelle as libelle_gravite
+    from lib.models import libelle as libelle_gravite
 
 try:
     from core.sanitize import sanitize

@@ -9,7 +9,7 @@ _SHARED_LIB = os.path.abspath(os.path.join(_HERE, '..', '..'))
 if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
 
-from core.bulk_edit import BulkEditService
+from core import bulk_edit
 
 
 # ---------------------------------------------------------------------------
@@ -29,7 +29,7 @@ class _Item(object):
 class TestGetSelected(unittest.TestCase):
 
     def setUp(self):
-        self.svc = BulkEditService()
+        self.svc = bulk_edit
 
     def test_liste_vide_retourne_vide(self):
         self.assertEqual(self.svc.get_selected([]), [])
@@ -80,7 +80,7 @@ class TestGetSelected(unittest.TestCase):
 class TestApply(unittest.TestCase):
 
     def setUp(self):
-        self.svc = BulkEditService()
+        self.svc = bulk_edit
 
     def test_liste_vide_ne_leve_pas(self):
         self.svc.apply([], u'Selected', True)  # doit passer silencieusement
@@ -121,7 +121,7 @@ class TestApply(unittest.TestCase):
 class TestToggle(unittest.TestCase):
 
     def setUp(self):
-        self.svc = BulkEditService()
+        self.svc = bulk_edit
 
     def test_liste_vide_ne_leve_pas(self):
         self.svc.toggle([], u'Selected')
@@ -189,7 +189,7 @@ class TestToggle(unittest.TestCase):
 class TestSelectAll(unittest.TestCase):
 
     def setUp(self):
-        self.svc = BulkEditService()
+        self.svc = bulk_edit
 
     def test_liste_vide_ne_leve_pas(self):
         self.svc.select_all([])
@@ -225,7 +225,7 @@ class TestSelectAll(unittest.TestCase):
 class TestDeselectAll(unittest.TestCase):
 
     def setUp(self):
-        self.svc = BulkEditService()
+        self.svc = bulk_edit
 
     def test_liste_vide_ne_leve_pas(self):
         self.svc.deselect_all([])
@@ -262,7 +262,7 @@ class TestIntegration(unittest.TestCase):
     """Enchaînements cohérents entre les méthodes — simule un usage réel."""
 
     def setUp(self):
-        self.svc = BulkEditService()
+        self.svc = bulk_edit
 
     def test_select_all_puis_get_selected_retourne_tout(self):
         items = [_Item(Selected=False), _Item(Selected=False), _Item(Selected=False)]

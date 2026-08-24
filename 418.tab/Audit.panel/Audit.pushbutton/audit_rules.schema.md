@@ -4,12 +4,16 @@ Ce fichier définit les règles de l'audit de maquette. Il est **édité à la m
 **versionnable**. Le plugin fonctionne **sans ce fichier** : s'il est absent (ou invalide),
 l'audit retombe sur ses défauts internes.
 
-## Fournir le plugin à une autre agence
+**Aucun `audit_rules.json` n'est livré.** Les défauts internes
+(`lib/config/AuditRules.py`, dict `DEFAULTS`) sont la référence : ils étaient auparavant
+recopiés à l'identique dans un fichier livré, ce qui imposait de maintenir les mêmes
+valeurs à deux endroits.
 
-Deux options :
-- **Partager tes règles** : laisse `audit_rules.json` suivi par git (comportement par défaut).
-- **Livrer sans tes règles** : ajoute `audit_rules.json` au `.gitignore` (ou supprime-le). Le
-  plugin tournera sur ses défauts, et l'autre agence créera son propre fichier.
+## Personnaliser les règles
+
+Créer `audit_rules.json` à la racine du pushbutton (à côté de `script.py`) et n'y mettre
+que les sections à surcharger — voir le schéma ci-dessous. Pour partager ses règles avec
+une autre agence, il suffit de versionner ce fichier.
 
 ## Sémantique de chargement
 

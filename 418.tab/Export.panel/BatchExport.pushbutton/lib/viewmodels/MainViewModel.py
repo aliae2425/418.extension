@@ -1,19 +1,14 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-import codecs
-import os
-
-# Chemin fixe du log — ancré dans le dossier du bouton pour que le chemin
-# ne change JAMAIS entre les rechargements pyRevit (qui créent chaque fois un
-# sous-dossier GUID dans %TEMP%, rendant _tout_ chemin basé sur %TEMP% instable).
-# Résolution : lib/viewmodels/ → lib/ → BatchExport.pushbutton/
+# Journal de diagnostic : le logger pyRevit écrit dans la fenêtre de sortie
+# du script (et respecte le niveau de verbosité choisi par l'utilisateur).
+# Hors Revit (tests standalone), `get_logger` est indisponible -> no-op.
 try:
-    _VIEWMODELS_DIR = os.path.dirname(os.path.abspath(__file__))
-    _PUSHBUTTON_DIR = os.path.dirname(os.path.dirname(_VIEWMODELS_DIR))
-    LIVE_LOG_PATH = os.path.join(_PUSHBUTTON_DIR, u'BatchExport_debug.log')
+    from pyrevit import script as _pyrevit_script
+    _LOGGER = _pyrevit_script.get_logger()
 except Exception:
-    LIVE_LOG_PATH = None
+    _LOGGER = None
 
 try:
     from ui.base.BaseViewModel import BaseViewModel
@@ -87,12 +82,12 @@ except Exception:
         DwgExporterService = None  # type: ignore
 
 try:
-    from core.bulk_edit import BulkEditService
+    from core import bulk_edit
 except Exception:
     try:
-        from lib.core.bulk_edit import BulkEditService
+        from lib.core import bulk_edit
     except Exception:
-        BulkEditService = None  # type: ignore
+        bulk_edit = None  # type: ignore
 
 try:
     from core.list_selection import ListSelectionService
@@ -226,7 +221,7 @@ class ManualSheetVM(BaseViewModel):
     pattern de nommage FEUILLE), jamais recalculés à la volée par ce VM.
 
     `Selected` (case de sélection de ligne) est TWO-WAY et pilotée par
-    `BulkEditService` via `MainViewModel.select_all_manuel()` /
+    `core.bulk_edit` via `MainViewModel.select_all_manuel()` /
     `deselect_all_manuel()`. Elle ne conditionne PAS `selection_manuelle()`
     (qui se base UNIQUEMENT sur ExportPdf/ExportDwg).
     """
@@ -463,7 +458,6 @@ class MainViewModel(BaseViewModel):
         # Données « feuille par feuille » (mode manuel). Sélection ÉPHÉMÈRE :
         # reconstruite à chaque refresh_manuel(), jamais persistée.
         self._sheets_manuel = []
-        self._bulk_svc = BulkEditService() if BulkEditService is not None else None
         self._selection_svc = (ListSelectionService(prop=u'Selected')
                                if ListSelectionService is not None else None)
         self._filtres_manuel = []
@@ -484,10 +478,6 @@ class MainViewModel(BaseViewModel):
         # cf. refresh_patterns_apercu().
         self.refresh_patterns_apercu()
 
-        # Log de session : ouvert ici, reste ouvert toute la session.
-        self._log_file = None
-        self._log_path = None
-        self._init_session_log()
         self._log_init_context()
 
     # ------------------------------------------------------------------
@@ -1033,9 +1023,9 @@ class MainViewModel(BaseViewModel):
         """
         if not getattr(source, u'Selected', False):
             return
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        selected = self._bulk_svc.get_selected(self.SheetsManuelFiltrees)
+        selected = bulk_edit.get_selected(self.SheetsManuelFiltrees)
         for item in selected:
             if item is not source:
                 try:
@@ -1185,57 +1175,57 @@ class MainViewModel(BaseViewModel):
 
     def select_all_manuel(self):
         """Sélectionne toutes les feuilles affichées (SheetsManuelFiltrees)."""
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        self._bulk_svc.select_all(self.SheetsManuelFiltrees)
+        bulk_edit.select_all(self.SheetsManuelFiltrees)
         self.notify_property(u'NbSelected')
 
     def deselect_all_manuel(self):
         """Désélectionne toutes les feuilles affichées."""
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        self._bulk_svc.deselect_all(self.SheetsManuelFiltrees)
+        bulk_edit.deselect_all(self.SheetsManuelFiltrees)
         self.notify_property(u'NbSelected')
 
     def bulk_set_pdf(self, value):
         """Active ou désactive ExportPdf sur les feuilles sélectionnées."""
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        selected = self._bulk_svc.get_selected(self.SheetsManuelFiltrees)
-        self._bulk_svc.apply(selected, u'ExportPdf', bool(value))
+        selected = bulk_edit.get_selected(self.SheetsManuelFiltrees)
+        bulk_edit.apply(selected, u'ExportPdf', bool(value))
 
     def bulk_set_dwg(self, value):
         """Active ou désactive ExportDwg sur les feuilles sélectionnées."""
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        selected = self._bulk_svc.get_selected(self.SheetsManuelFiltrees)
-        self._bulk_svc.apply(selected, u'ExportDwg', bool(value))
+        selected = bulk_edit.get_selected(self.SheetsManuelFiltrees)
+        bulk_edit.apply(selected, u'ExportDwg', bool(value))
 
     def bulk_toggle_pdf(self):
         """Bascule ExportPdf sur les feuilles sélectionnées (tout ON → OFF, sinon → ON)."""
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        selected = self._bulk_svc.get_selected(self.SheetsManuelFiltrees)
-        self._bulk_svc.toggle(selected, u'ExportPdf')
+        selected = bulk_edit.get_selected(self.SheetsManuelFiltrees)
+        bulk_edit.toggle(selected, u'ExportPdf')
 
     def bulk_toggle_dwg(self):
         """Bascule ExportDwg sur les feuilles sélectionnées (tout ON → OFF, sinon → ON)."""
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        selected = self._bulk_svc.get_selected(self.SheetsManuelFiltrees)
-        self._bulk_svc.toggle(selected, u'ExportDwg')
+        selected = bulk_edit.get_selected(self.SheetsManuelFiltrees)
+        bulk_edit.toggle(selected, u'ExportDwg')
 
     def toggle_all_pdf(self):
         """Bascule ExportPdf sur TOUTES les feuilles filtrées (tout ON → OFF, sinon → ON)."""
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        self._bulk_svc.toggle(self.SheetsManuelFiltrees, u'ExportPdf')
+        bulk_edit.toggle(self.SheetsManuelFiltrees, u'ExportPdf')
 
     def toggle_all_dwg(self):
         """Bascule ExportDwg sur TOUTES les feuilles filtrées (tout ON → OFF, sinon → ON)."""
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        self._bulk_svc.toggle(self.SheetsManuelFiltrees, u'ExportDwg')
+        bulk_edit.toggle(self.SheetsManuelFiltrees, u'ExportDwg')
 
     def handle_row_click(self, index, shift=False, ctrl=False):
         """Délègue la sélection multi-items à `ListSelectionService`."""
@@ -1492,90 +1482,35 @@ class MainViewModel(BaseViewModel):
         self._progress_value = v
         self.notify_property(u'ProgressValue')
 
-    class _ComboShim(object):
-        """Faux contrôle UI minimal : expose seulement `.SelectedItem`.
+    def _noms_params_mappes(self):
+        """Les trois noms de paramètres Oui/Non attendus par l'orchestrateur.
 
-        `ExportOrchestrator._get_ui_selected_param_names` fait
-        `str(getattr(ctrl, 'SelectedItem', None))` sur ce que renvoie
-        `get_ctrl(name)`. Historiquement `get_ctrl` retournait une vraie
-        ComboBox WPF (`.SelectedItem` = nom du paramètre choisi par
-        l'utilisateur). Ce shim reproduit uniquement l'attribut consommé,
-        sans dépendance WPF, pour que l'orchestrateur (non modifié) puisse
-        lire le mapping paramètres depuis le VM.
+        Le reste de sa configuration (destination, motifs de nommage, setups
+        PDF/DWG) est lu par l'orchestrateur lui-même depuis la MÊME instance
+        UserConfig, injectée à sa construction.
         """
-
-        def __init__(self, value):
-            self.SelectedItem = value if value else u''
-
-    def _get_ctrl_adapter(self):
-        """Construit `get_ctrl(name)` à partir du mapping VM (ParamExport/
-        ParamCarnet/ParamDwg), sans passer par des contrôles WPF réels.
-
-        Adaptation choisie (la moins invasive après lecture de
-        `ExportOrchestrator`) : l'orchestrateur n'a besoin, en dehors de
-        `doc`, que des TROIS noms de paramètres Oui/Non (Export/Carnet/DWG)
-        via `get_ctrl(name).SelectedItem`. Tout le reste (destination,
-        patterns de nommage, setups PDF/DWG) est lu par l'orchestrateur
-        lui-même depuis `UserConfig('batch_export')` — le MÊME namespace et
-        les MÊMES clés que `DestinationService`/`NamingService` (Phase 2)
-        utilisent pour persister (`PathDossier`, `pattern_sheet[_rows]`,
-        `pattern_set[_rows]`, `create_subfolders`, `separate_format_folders`,
-        etc.). Il n'y a donc pas besoin d'injecter `_destination_service`
-        ni `_naming_service` dans l'orchestrateur : la configuration est
-        déjà partagée de façon transparente via le namespace commun. Un
-        adaptateur plus large (dict de config direct) aurait nécessité de
-        modifier `ExportOrchestrator.run()` -- écarté au profit de ce petit
-        shim purement local au VM.
-        """
-        mapping = {
-            u'ExportationCombo': self.ParamExport,
-            u'CarnetCombo': self.ParamCarnet,
-            u'DWGCombo': self.ParamDwg,
-        }
-
-        def get_ctrl(name):
-            return MainViewModel._ComboShim(mapping.get(name, u''))
-
-        return get_ctrl
+        return (self.ParamExport, self.ParamCarnet, self.ParamDwg)
 
     # ------------------------------------------------------------------
     # Log de session (diagnostic complet : actions UI + export)
     # ------------------------------------------------------------------
 
-    def _init_session_log(self):
-        """Ouvre BatchExport_debug.log (chemin fixe, dans le dossier du bouton).
-
-        Le chemin est calculé UNE FOIS au niveau module (LIVE_LOG_PATH) pour
-        rester stable entre les rechargements pyRevit, qui créent un sous-dossier
-        GUID unique dans %TEMP% à chaque run. Codecs.open pour IronPython/CPython.
-        flush() après chaque write = le fichier est live dès qu'il est ouvert
-        dans VS Code (auto-refresh on disk change).
-        """
-        import datetime as _dt
-        try:
-            self._log_path = LIVE_LOG_PATH or os.path.join(
-                os.path.expanduser('~'), u'BatchExport_debug.log')
-            self._log_file = codecs.open(self._log_path, 'a', encoding='utf-8')
-            sep = u'=' * 68
-            self._log_file.write(u'\n{}\n'.format(sep))
-            self._log_file.write(u'SESSION  {}\n'.format(
-                _dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-            self._log_file.write(u'{}\n'.format(sep))
-            self._log_file.flush()
-        except Exception:
-            self._log_file = None
-            self._log_path = None
-
     def _log(self, category, message):
-        """Écrit une ligne [HH:MM:SS] [CATEGORIE] message dans le log."""
-        if self._log_file is None:
+        """Journalise `[CATEGORIE] message` via le logger pyRevit.
+
+        AVERT/ERREUR passent en warning/error pour ressortir dans la fenêtre
+        de sortie ; le reste est du debug (masqué sauf mode verbeux).
+        """
+        if _LOGGER is None:
             return
         try:
-            import datetime as _dt
-            ts = _dt.datetime.now().strftime('%H:%M:%S')
-            line = u'[{}] [{:<8s}] {}\n'.format(ts, category, message or u'')
-            self._log_file.write(line)
-            self._log_file.flush()
+            ligne = u'[{}] {}'.format(category, message or u'')
+            if category == u'ERREUR':
+                _LOGGER.error(ligne)
+            elif category == u'AVERT':
+                _LOGGER.warning(ligne)
+            else:
+                _LOGGER.debug(ligne)
         except Exception:
             pass
 
@@ -1692,7 +1627,9 @@ class MainViewModel(BaseViewModel):
 
         # --- Plan prévisionnel : ce que le programme va faire ---
         try:
-            plans = orch.plan_exports_for_collections(self._doc, self._get_ctrl_adapter())
+            p_export, p_carnet, p_dwg = self._noms_params_mappes()
+            plans = orch.plan_exports_for_collections(
+                self._doc, p_export, p_carnet, p_dwg)
             self._log(u'PLAN', u'{} jeux analysés :'.format(len(plans)))
             for p in plans:
                 etat = u'EXPORT' if p.do_export else u'IGNORE'
@@ -1714,9 +1651,10 @@ class MainViewModel(BaseViewModel):
 
         _export_ok = False
         try:
+            p_export, p_carnet, p_dwg = self._noms_params_mappes()
             orch.run(
                 self._doc,
-                self._get_ctrl_adapter(),
+                p_export, p_carnet, p_dwg,
                 progress_cb=progress_cb,
                 log_cb=log_cb,
                 destination=self.DestinationPath,

@@ -11,10 +11,10 @@ except Exception:
         BaseViewModel = object
 
 try:
-    from models.Severity import OK, CRITIQUE, libelle as _libelle
+    from models import OK, CRITIQUE, libelle as _libelle
 except Exception:
     try:
-        from lib.models.Severity import OK, CRITIQUE, libelle as _libelle
+        from lib.models import OK, CRITIQUE, libelle as _libelle
     except Exception:
         OK, CRITIQUE = 0, 2
         def _libelle(n):

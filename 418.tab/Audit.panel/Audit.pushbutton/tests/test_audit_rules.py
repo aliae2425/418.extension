@@ -17,7 +17,7 @@ if _BUTTON not in sys.path:
     sys.path.insert(0, _BUTTON)
 
 from lib.config.AuditRules import AuditRules, DEFAULTS
-from lib.models.Severity import OK, A_REVOIR, CRITIQUE
+from lib.models import OK, A_REVOIR, CRITIQUE
 
 
 class TestAuditRules(unittest.TestCase):

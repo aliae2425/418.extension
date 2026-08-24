@@ -9,9 +9,9 @@ except Exception:
     except Exception:
         BaseViewModel = object
 try:
-    from models.Severity import libelle as libelle_gravite
+    from models import libelle as libelle_gravite
 except Exception:
-    from lib.models.Severity import libelle as libelle_gravite
+    from lib.models import libelle as libelle_gravite
 try:
     from ui.helpers.RelayCommand import RelayCommand
 except Exception:

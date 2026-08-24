@@ -8,13 +8,13 @@ except Exception:
     from lib.services.checks.BaseCheck import BaseCheck
 
 try:
-    from models.Severity import A_REVOIR
-    from models.AuditIssue import AuditIssue
-    from models.ThemeResult import ThemeResult
+    from models import A_REVOIR
+    from models import AuditIssue
+    from models import ThemeResult
 except Exception:
-    from lib.models.Severity import A_REVOIR
-    from lib.models.AuditIssue import AuditIssue
-    from lib.models.ThemeResult import ThemeResult
+    from lib.models import A_REVOIR
+    from lib.models import AuditIssue
+    from lib.models import ThemeResult
 
 try:
     from config.AuditRules import charger as _charger, DEFAULTS as _DEF

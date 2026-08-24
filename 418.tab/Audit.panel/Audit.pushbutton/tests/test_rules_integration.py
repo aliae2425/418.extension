@@ -13,9 +13,9 @@ if _BUTTON not in sys.path:
     sys.path.insert(0, _BUTTON)
 
 from lib.config.AuditRules import AuditRules
-from lib.models.Severity import A_REVOIR, CRITIQUE
-from lib.models.AuditIssue import AuditIssue
-from lib.models.ThemeResult import ThemeResult
+from lib.models import A_REVOIR, CRITIQUE
+from lib.models import AuditIssue
+from lib.models import ThemeResult
 from lib.services import ScoreService
 from lib.services.checks.WarningsCheck import gravite_pour
 from lib.services.checks.ViewsSheetsCheck import est_nom_par_defaut

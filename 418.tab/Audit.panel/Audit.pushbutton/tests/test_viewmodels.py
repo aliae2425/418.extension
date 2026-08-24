@@ -15,10 +15,10 @@ _BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
 if _BUTTON not in sys.path:
     sys.path.insert(0, _BUTTON)
 
-from lib.models.Severity import CRITIQUE, A_REVOIR
-from lib.models.AuditIssue import AuditIssue
-from lib.models.ThemeResult import ThemeResult
-from lib.models.AuditResult import AuditResult
+from lib.models import CRITIQUE, A_REVOIR
+from lib.models import AuditIssue
+from lib.models import ThemeResult
+from lib.models import AuditResult
 from lib.viewmodels.ScoreVM import ScoreVM
 from lib.viewmodels.ThemeCardVM import ThemeCardVM
 from lib.viewmodels.IssueRowVM import IssueRowVM

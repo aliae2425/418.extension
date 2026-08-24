@@ -1440,8 +1440,8 @@ class TestFormatPropagate(unittest.TestCase):
         return propagate
 
     def setUp(self):
-        from core.bulk_edit import BulkEditService
-        self.bulk = BulkEditService()
+        from core import bulk_edit
+        self.bulk = bulk_edit
 
     def test_toggle_pdf_propage_a_toute_la_selection(self):
         sheets = self._sheets(3)

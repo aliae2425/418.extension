@@ -2,10 +2,10 @@
 from __future__ import unicode_literals
 
 try:
-    from models.Severity import A_REVOIR, CRITIQUE
+    from models import A_REVOIR, CRITIQUE
 except Exception:
     try:
-        from lib.models.Severity import A_REVOIR, CRITIQUE
+        from lib.models import A_REVOIR, CRITIQUE
     except Exception:
         A_REVOIR, CRITIQUE = 1, 2
 

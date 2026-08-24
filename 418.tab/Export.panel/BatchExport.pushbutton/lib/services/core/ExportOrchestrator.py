@@ -82,18 +82,6 @@ class ExportOrchestrator(object):
         self._log_cb = None  # câblé pendant run() pour le diagnostic destination
 
     # ------------------- Planification ------------------- #
-    def _get_ui_selected_param_names(self, get_ctrl):
-        names = {}
-        for cname in ('ExportationCombo', 'CarnetCombo', 'DWGCombo'):
-            ctrl = get_ctrl(cname)
-            val = None
-            try:
-                val = str(getattr(ctrl, 'SelectedItem', None)) if ctrl is not None else None
-            except Exception:
-                val = None
-            names[cname] = val
-        return names
-
     def _collect_collections(self, doc):
         out = []
         if DB is None or doc is None:
@@ -149,11 +137,9 @@ class ExportOrchestrator(object):
             pass
         return default
 
-    def plan_exports_for_collections(self, doc, get_ctrl):
-        names = self._get_ui_selected_param_names(get_ctrl)
-        pname_export = names.get('ExportationCombo')
-        pname_per_sheet = names.get('CarnetCombo')
-        pname_dwg = names.get('DWGCombo')
+    def plan_exports_for_collections(self, doc, pname_export, pname_per_sheet, pname_dwg):
+        """Qualifie chaque SheetCollection du document à partir des NOMS des
+        trois paramètres Oui/Non mappés côté UI (Export / Carnet / DWG)."""
         plans = []
         for coll, cname in self._collect_collections(doc):
             do_export = self._read_flag_from_param(coll, pname_export, default=False) if pname_export else False
@@ -272,14 +258,17 @@ class ExportOrchestrator(object):
         return False
 
     # ------------------- Exécution ------------------- #
-    def run(self, doc, get_ctrl, progress_cb=None, log_cb=None, ui_win=None, destination=None):
+    def run(self, doc, pname_export, pname_per_sheet, pname_dwg,
+            progress_cb=None, log_cb=None, destination=None):
         self._destination_override = destination or None
         try:
-            return self._run_impl(doc, get_ctrl, progress_cb=progress_cb, log_cb=log_cb, ui_win=ui_win)
+            return self._run_impl(doc, pname_export, pname_per_sheet, pname_dwg,
+                                  progress_cb=progress_cb, log_cb=log_cb)
         finally:
             self._destination_override = None
 
-    def _run_impl(self, doc, get_ctrl, progress_cb=None, log_cb=None, ui_win=None):
+    def _run_impl(self, doc, pname_export, pname_per_sheet, pname_dwg,
+                  progress_cb=None, log_cb=None):
         self._log_cb = log_cb
         # Initialiser le NamingService (jetons) avec le document.
         if self._NamingService_cls is not None and self._naming is None:
@@ -288,7 +277,8 @@ class ExportOrchestrator(object):
             except Exception:
                 self._naming = None
 
-        plans = self.plan_exports_for_collections(doc, get_ctrl)
+        plans = self.plan_exports_for_collections(
+            doc, pname_export, pname_per_sheet, pname_dwg)
 
         # Diagnostic immédiat si aucun plan ne qualifie
         qualifying = [p for p in plans if p.do_export]
