@@ -1,37 +1,27 @@
 # -*- coding: utf-8 -*-
 # Service d'accès aux réglages et options d'export PDF
 
+from __future__ import unicode_literals
+
 try:
     from Autodesk.Revit import DB  # type: ignore
 except Exception:
     DB = None  # type: ignore
 
+try:
+    from services.formats.base import FormatExporterService
+except Exception:
+    from lib.services.formats.base import FormatExporterService
 
-class PdfExporterService(object):
-    def __init__(self, namespace='batch_export', config=None):
-        # `config` injecté = on partage la MÊME UserConfig (socle) que le reste
-        # de l'app -> les setups persistent dans data/<namespace>.json. Sinon
-        # l'import relatif `...core.UserConfig` résout vers l'ANCIEN UserConfig
-        # local du bouton (dépendant de pyRevit, no-op en mode admin) et les
-        # setups ne se sauvegardaient jamais.
-        if config is not None:
-            self._cfg = config
-        else:
-            UserConfig = None  # type: ignore
-            try:
-                from core.UserConfig import UserConfig  # socle en priorité
-            except Exception:
-                try:
-                    from lib.core.UserConfig import UserConfig
-                except Exception:
-                    UserConfig = None  # type: ignore
-            self._cfg = UserConfig(namespace) if UserConfig is not None else None
-        self._SETUP_KEY = 'pdf_setup_name'
+
+class PdfExporterService(FormatExporterService):
+
+    SETUP_KEY = 'pdf_setup_name'
 
     def _list_revit_setups(self, doc):
         if DB is None or doc is None:
             return []
-        names = []
+        noms = []
         # NB : la classe API réelle est DB.ExportPDFSettings (et non
         # DB.PDFExportSettings, qui n'existe pas dans l'API Revit 2026 —
         # vérifié via RevitAPI.xml). Elle expose ExportPDFSettings.ListNames()
@@ -40,16 +30,12 @@ class PdfExporterService(object):
         try:
             if hasattr(DB, 'ExportPDFSettings'):
                 try:
-                    for nm in DB.ExportPDFSettings.ListNames(doc):
-                        if nm and nm not in names:
-                            names.append(nm)
+                    noms.extend(DB.ExportPDFSettings.ListNames(doc))
                 except Exception:
                     col = DB.FilteredElementCollector(doc).OfClass(DB.ExportPDFSettings).ToElements()
                     for s in col:
                         try:
-                            nm = s.Name
-                            if nm and nm not in names:
-                                names.append(nm)
+                            noms.append(s.Name)
                         except Exception:
                             continue
         except Exception:
@@ -59,39 +45,12 @@ class PdfExporterService(object):
             col = DB.FilteredElementCollector(doc).OfClass(DB.PrintSetting).ToElements()
             for s in col:
                 try:
-                    nm = s.Name
-                    if nm and nm not in names:
-                        names.append(nm)
+                    noms.append(s.Name)
                 except Exception:
                     continue
         except Exception:
             pass
-        try:
-            names.sort(key=lambda x: x.lower())
-        except Exception:
-            names.sort()
-        return names
-
-    # Liste les setups PDF disponibles dans le document
-    def list_all_setups(self, doc):
-        return self._list_revit_setups(doc)
-
-    # Nom du setup sauvegardé
-    def get_saved_setup(self, default=None):
-        try:
-            val = self._cfg.get(self._SETUP_KEY, '') if self._cfg is not None else None
-            return val or default
-        except Exception:
-            return default
-
-    # Définir le setup
-    def set_saved_setup(self, name):
-        if not name:
-            return False
-        try:
-            return bool(self._cfg.set(self._SETUP_KEY, name)) if self._cfg is not None else False
-        except Exception:
-            return False
+        return self._noms_tries(noms)
 
     def _find_revit_setup_element(self, doc, setup_name):
         # Recherche l'élément ExportPDFSettings par nom.

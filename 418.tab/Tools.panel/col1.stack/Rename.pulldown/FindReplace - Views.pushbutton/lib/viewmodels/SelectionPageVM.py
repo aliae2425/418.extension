@@ -2,9 +2,9 @@
 from __future__ import unicode_literals
 
 try:
-    from ui.base.SelectionPageVMBase import SelectionPageVMBase
+    from ui.base.SelectionPageVM import SelectionPageVM as _Base
 except Exception:
-    from lib.ui.base.SelectionPageVMBase import SelectionPageVMBase
+    from lib.ui.base.SelectionPageVM import SelectionPageVM as _Base
 
 try:
     from lib.viewmodels.ViewItemVM import ViewItemVM
@@ -12,7 +12,7 @@ except Exception:
     from viewmodels.ViewItemVM import ViewItemVM
 
 
-class SelectionPageVM(SelectionPageVMBase):
+class SelectionPageVM(_Base):
     """VM de la page Sélection : liste les vues."""
 
     def __init__(self, descripteurs, ids_selectionnes, on_selection_changed=None):
