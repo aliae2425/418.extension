@@ -19,14 +19,13 @@ import os
 
 import clr
 clr.AddReference('System')
+clr.AddReference('System.IO')
 clr.AddReference('System.Drawing')
 from System import IO
 from System.Drawing import (GraphicsUnit, Graphics, Rectangle, Bitmap)
 
-from pyrevit import revit, forms, DB, UI
-
-doc = revit.doc
-uidoc = revit.uidoc
+import rpw
+from rpw import doc, uidoc, DB, UI
 
 
 def get_selected_elements():
@@ -242,7 +241,7 @@ for element in elements:
 # Validation puis traitement.
 # --------------------------------------------------------------------------
 if not img_element or not crop_elements:
-    forms.alert(
+    rpw.ui.forms.Alert(
         'Selectionner UNE image + au moins une zone de pochage '
         '(region remplie ou ligne de detail).'
     )
@@ -257,13 +256,13 @@ else:
 
     if not img_info['path']:
         # Image integree au modele (pas de fichier externe sur disque).
-        forms.alert(
+        rpw.ui.forms.Alert(
             "Impossible de recuperer le chemin de l'image "
             "(elle est peut-etre integree au modele et non liee a un fichier)."
         )
     elif (not img_info['width'] or not img_info['height']
           or not img_info['width_px'] or not img_info['height_px']):
-        forms.alert(
+        rpw.ui.forms.Alert(
             "Dimensions de l'image invalides (largeur/hauteur nulle)."
         )
     else:
@@ -286,7 +285,7 @@ else:
             print('[CropImage] Termine : {} morceau(x) cree(s) sur {} zone(s).'
                   .format(placed, len(crop_elements)))
             if placed == 0:
-                forms.alert(
+                rpw.ui.forms.Alert(
                     "Aucune zone valide : verifier que les zones de pochage "
                     "sont bien situees sur l'image."
                 )

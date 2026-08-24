@@ -57,13 +57,20 @@ class ExportOrchestrator(object):
         # setup PAR DÉFAUT, page/couleurs fausses).
         self._pdf = PdfExporterService(config=config) if PdfExporterService is not None else None
         self._dwg = DwgExporterService(config=config) if DwgExporterService is not None else None
-        # Données auxiliaires
+        # Données auxiliaires. `_erreurs_import` retient POURQUOI un import a
+        # échoué : sans ça, un `_dest` à None ne dit rien et le VM n'affiche
+        # qu'un « dépendances internes manquantes » indiagnosticable. Cas déjà
+        # rencontré : un dossier `lib/core/` résiduel dans le bouton masquait
+        # le `core` du socle, faisant échouer les DEUX formes d'import.
+        self._erreurs_import = []
         try:
             from services.DestinationService import DestinationService
-        except Exception:
+        except Exception as e1:
             try:
                 from lib.services.DestinationService import DestinationService
-            except Exception:
+            except Exception as e2:
+                self._erreurs_import.append(
+                    u'DestinationService : {} / {}'.format(e1, e2))
                 DestinationService = None  # type: ignore
         self._dest = DestinationService(config=config) if DestinationService is not None else None
         self._destination_override = None  # Chemin passé explicitement depuis le ViewModel

@@ -1605,7 +1605,12 @@ class MainViewModel(BaseViewModel):
         # dans de mauvaises conditions.
         try:
             if getattr(orch, '_dest', None) is None:
-                self.StatusText = u"Export indisponible (dépendances internes manquantes)."
+                detail = u' ; '.join(getattr(orch, '_erreurs_import', None) or [])
+                self.StatusText = (
+                    u"Export indisponible — dépendance interne : {}".format(detail)
+                    if detail else
+                    u"Export indisponible (dépendances internes manquantes).")
+                self._log(u'ERREUR', self.StatusText)
                 return
         except Exception:
             pass
@@ -1713,7 +1718,12 @@ class MainViewModel(BaseViewModel):
 
         try:
             if getattr(orch, '_dest', None) is None:
-                self.StatusText = u"Export indisponible (dépendances internes manquantes)."
+                detail = u' ; '.join(getattr(orch, '_erreurs_import', None) or [])
+                self.StatusText = (
+                    u"Export indisponible — dépendance interne : {}".format(detail)
+                    if detail else
+                    u"Export indisponible (dépendances internes manquantes).")
+                self._log(u'ERREUR', self.StatusText)
                 return
         except Exception:
             pass
