@@ -27,8 +27,14 @@ class FormatExporterService(object):
         if config is not None:
             self._cfg = config
         else:
-            from core.UserConfig import UserConfig
-            self._cfg = UserConfig(namespace)
+            try:
+                from core.UserConfig import UserConfig
+            except Exception:
+                try:
+                    from lib.core.UserConfig import UserConfig
+                except Exception:
+                    UserConfig = None  # type: ignore
+            self._cfg = UserConfig(namespace) if UserConfig is not None else None
 
     # ------------------------------------------------------------------
     # Setups disponibles

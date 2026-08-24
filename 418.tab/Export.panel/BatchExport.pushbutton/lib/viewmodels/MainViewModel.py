@@ -10,20 +10,92 @@ try:
 except Exception:
     _LOGGER = None
 
-from ui.base.BaseViewModel import BaseViewModel
-from services.SheetCollectionService import SheetCollectionService
-from services.NamingService import NamingService
-from services.DestinationService import DestinationService
-from core.UserConfig import UserConfig
+try:
+    from ui.base.BaseViewModel import BaseViewModel
+except Exception:
+    BaseViewModel = object
+
+# ----------------------------------------------------------------------
+# Imports des services (Phase 2). Double forme pour supporter :
+#   - le régime pyRevit (sys.path = .../BatchExport.pushbutton/lib)
+#   - le régime tests standalone (sys.path = .../BatchExport.pushbutton,
+#     imports préfixés par `lib.`)
+# ----------------------------------------------------------------------
+try:
+    from services.SheetCollectionService import SheetCollectionService
+except Exception:
+    try:
+        from lib.services.SheetCollectionService import SheetCollectionService
+    except Exception:
+        SheetCollectionService = None  # type: ignore
+
+try:
+    from services.NamingService import NamingService
+except Exception:
+    try:
+        from lib.services.NamingService import NamingService
+    except Exception:
+        NamingService = None  # type: ignore
+
+try:
+    from services.DestinationService import DestinationService
+except Exception:
+    try:
+        from lib.services.DestinationService import DestinationService
+    except Exception:
+        DestinationService = None  # type: ignore
+
+try:
+    from core.UserConfig import UserConfig
+except Exception:
+    try:
+        from lib.core.UserConfig import UserConfig
+    except Exception:
+        UserConfig = None  # type: ignore
 
 # Répertoire (legacy) des paramètres de nommage disponibles (feuilles +
 # projet). Utilisé uniquement par `get_naming_params()` pour alimenter la
-# modale NamingEditorView.
-from data.sheets.SheetParameterRepository import SheetParameterRepository
-from services.formats.PdfExporterService import PdfExporterService
-from services.formats.DwgExporterService import DwgExporterService
-from core import bulk_edit
-from core.list_selection import ListSelectionService
+# modale NamingEditorView -- double forme d'import comme les autres services
+# de ce fichier.
+try:
+    from data.sheets.SheetParameterRepository import SheetParameterRepository
+except Exception:
+    try:
+        from lib.data.sheets.SheetParameterRepository import SheetParameterRepository
+    except Exception:
+        SheetParameterRepository = None  # type: ignore
+
+try:
+    from services.formats.PdfExporterService import PdfExporterService
+except Exception:
+    try:
+        from lib.services.formats.PdfExporterService import PdfExporterService
+    except Exception:
+        PdfExporterService = None  # type: ignore
+
+try:
+    from services.formats.DwgExporterService import DwgExporterService
+except Exception:
+    try:
+        from lib.services.formats.DwgExporterService import DwgExporterService
+    except Exception:
+        DwgExporterService = None  # type: ignore
+
+try:
+    from core import bulk_edit
+except Exception:
+    try:
+        from lib.core import bulk_edit
+    except Exception:
+        bulk_edit = None  # type: ignore
+
+try:
+    from core.list_selection import ListSelectionService
+except Exception:
+    try:
+        from lib.core.list_selection import ListSelectionService
+    except Exception:
+        ListSelectionService = None  # type: ignore
 
 
 _MODES = (u'auto', u'manual', u'settings')
@@ -1510,7 +1582,14 @@ class MainViewModel(BaseViewModel):
             self.StatusText = u"Export indisponible (hors Revit)."
             return
 
-        from services.core.ExportOrchestrator import ExportOrchestrator
+        try:
+            try:
+                from services.core.ExportOrchestrator import ExportOrchestrator
+            except Exception:
+                from lib.services.core.ExportOrchestrator import ExportOrchestrator
+        except Exception:
+            self.StatusText = u"Export indisponible (orchestrateur introuvable)."
+            return
 
         try:
             # Injecter la config partagée du VM : l'orchestrateur doit lire les
@@ -1614,7 +1693,14 @@ class MainViewModel(BaseViewModel):
             self.StatusText = u"Aucune feuille sélectionnée."
             return
 
-        from services.core.ExportOrchestrator import ExportOrchestrator
+        try:
+            try:
+                from lib.services.core.ExportOrchestrator import ExportOrchestrator
+            except Exception:
+                from services.core.ExportOrchestrator import ExportOrchestrator
+        except Exception:
+            self.StatusText = u"Export indisponible (orchestrateur introuvable)."
+            return
 
         try:
             # Injecter la config partagée du VM : l'orchestrateur doit lire les

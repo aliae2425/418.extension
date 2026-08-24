@@ -10,8 +10,18 @@ except Exception:
     ViewDuplicateOption = None
     Transaction = None
 
-from core.transaction import revit_transaction
-from core.rename_service import RenameService
+try:
+    from core.transaction import revit_transaction
+except Exception:
+    revit_transaction = None
+
+try:
+    from core.rename_service import RenameService
+except Exception:
+    try:
+        from lib.core.rename_service import RenameService
+    except Exception:
+        RenameService = None
 
 _VIEW_DUP_MAP = {
     u'duplicate': 'Duplicate',
@@ -110,7 +120,7 @@ class ViewsDuplicationService(object):
 
         # Transaction réelle seulement si l'API Revit est disponible ;
         # sinon context manager nul pour permettre l'exécution hors Revit.
-        if Transaction is not None:
+        if revit_transaction is not None and Transaction is not None:
             cm = revit_transaction
         else:
             cm = _null_transaction

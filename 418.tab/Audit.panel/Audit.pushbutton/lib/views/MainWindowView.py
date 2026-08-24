@@ -2,7 +2,10 @@
 from __future__ import unicode_literals
 import os
 
-from ui.base.BaseWindow import BaseWindow
+try:
+    from ui.base.BaseWindow import BaseWindow
+except Exception:
+    BaseWindow = None
 
 # Chemin : lib/views/ -> lib/ -> pushbutton/
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

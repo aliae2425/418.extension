@@ -3,9 +3,21 @@ from __future__ import unicode_literals
 
 import os
 
-from ui.base.BaseViewModel import BaseViewModel
-from ui.helpers.DarkMode import is_dark
-from ui.helpers.RelayCommand import RelayCommand
+try:
+    from ui.base.BaseViewModel import BaseViewModel
+except Exception:
+    BaseViewModel = object
+
+try:
+    from ui.helpers.DarkMode import is_dark
+except Exception:
+    def is_dark():
+        return False
+
+try:
+    from ui.helpers.RelayCommand import RelayCommand
+except Exception:
+    RelayCommand = None
 
 try:
     from System.Diagnostics import Process

@@ -1,16 +1,29 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-from models import A_REVOIR, CRITIQUE
+
+try:
+    from models import A_REVOIR, CRITIQUE
+except Exception:
+    try:
+        from lib.models import A_REVOIR, CRITIQUE
+    except Exception:
+        A_REVOIR, CRITIQUE = 1, 2
 
 # Les poids/points/volume viennent des règles (AuditRules), plus de constantes
 # en dur ici : la source de vérité est audit_rules.json (fallback AuditRules.DEFAULTS).
-from config.AuditRules import charger as _charger
+try:
+    from config.AuditRules import charger as _charger
+except Exception:
+    try:
+        from lib.config.AuditRules import charger as _charger
+    except Exception:
+        _charger = None
 
 
 def _rules(rules):
     if rules is not None:
         return rules
-    return _charger()
+    return _charger() if _charger is not None else None
 
 
 def _severite_base(theme, points):

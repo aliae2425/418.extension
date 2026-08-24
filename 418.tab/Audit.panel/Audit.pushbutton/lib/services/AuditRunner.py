@@ -4,17 +4,39 @@ import datetime
 import heapq
 import itertools
 
-from models import ThemeResult
-from models import AuditResult
-from services import ScoreService as _score_default
-from config.AuditRules import charger as _charger
+try:
+    from models import ThemeResult
+    from models import AuditResult
+except Exception:
+    from lib.models import ThemeResult
+    from lib.models import AuditResult
+
+try:
+    from services import ScoreService as _score_default
+except Exception:
+    from lib.services import ScoreService as _score_default
+
+try:
+    from config.AuditRules import charger as _charger
+except Exception:
+    try:
+        from lib.config.AuditRules import charger as _charger
+    except Exception:
+        _charger = None
 
 
-from services.checks.WarningsCheck import WarningsCheck
-from services.checks.PurgeCheck import PurgeCheck
-from services.checks.ViewsSheetsCheck import ViewsSheetsCheck
-from services.checks.CadImportsCheck import CadImportsCheck
-from services.checks.NamingCheck import NamingCheck
+try:
+    from services.checks.WarningsCheck import WarningsCheck
+    from services.checks.PurgeCheck import PurgeCheck
+    from services.checks.ViewsSheetsCheck import ViewsSheetsCheck
+    from services.checks.CadImportsCheck import CadImportsCheck
+    from services.checks.NamingCheck import NamingCheck
+except Exception:
+    from lib.services.checks.WarningsCheck import WarningsCheck
+    from lib.services.checks.PurgeCheck import PurgeCheck
+    from lib.services.checks.ViewsSheetsCheck import ViewsSheetsCheck
+    from lib.services.checks.CadImportsCheck import CadImportsCheck
+    from lib.services.checks.NamingCheck import NamingCheck
 
 _CHECKS = (WarningsCheck, PurgeCheck, ViewsSheetsCheck, CadImportsCheck, NamingCheck)
 

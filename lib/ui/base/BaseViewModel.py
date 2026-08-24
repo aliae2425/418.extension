@@ -8,8 +8,11 @@ from __future__ import unicode_literals
 # branche `object` (notifications PropertyChanged inertes -> les bindings WPF ne
 # se rafraîchissent jamais). BaseViewModel pouvant être importé AVANT BaseWindow
 # (qui appelle déjà ensure_wpf), on doit garantir le référencement ici aussi.
-from ui.helpers.wpf_runtime import ensure_wpf as _ensure_wpf
-_ensure_wpf()
+try:
+    from ui.helpers.wpf_runtime import ensure_wpf as _ensure_wpf
+    _ensure_wpf()
+except Exception:
+    pass
 
 try:
     from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
@@ -18,12 +21,22 @@ except Exception:
     INotifyPropertyChanged = object
     _has_wpf = False
 
-from core.AppPaths import AppPaths as _AppPaths
-from ui.helpers.DarkMode import is_dark as _is_dark
+try:
+    from core.AppPaths import AppPaths as _AppPaths
+except Exception:
+    _AppPaths = None
+
+try:
+    from ui.helpers.DarkMode import is_dark as _is_dark
+except Exception:
+    def _is_dark():
+        return False
 
 
 def _resolve_logo_path():
     # Chemin absolu du logo selon le thème ; '' si indisponible.
+    if _AppPaths is None:
+        return ''
     try:
         dark = bool(_is_dark())
     except Exception:
@@ -38,6 +51,8 @@ def _resolve_brand_logo_path():
     # Logo de la pastille de marque : le fond (dégradé accent) est TOUJOURS
     # foncé dans les deux thèmes, on force donc la variante claire (logo blanc)
     # pour garder le contraste. '' si indisponible.
+    if _AppPaths is None:
+        return ''
     try:
         return _AppPaths().logo_path(dark=True)
     except Exception:

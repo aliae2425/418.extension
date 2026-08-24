@@ -7,8 +7,18 @@ from __future__ import unicode_literals
 
 import os
 
-from core.UserConfig import UserConfig  # type: ignore
-from core.sanitize import sanitize as _sanitize  # type: ignore
+try:
+    from core.UserConfig import UserConfig  # type: ignore
+except Exception:
+    try:
+        from lib.core.UserConfig import UserConfig  # type: ignore
+    except Exception:
+        UserConfig = None  # type: ignore
+
+try:
+    from core.sanitize import sanitize as _sanitize  # type: ignore
+except Exception:
+    from lib.core.sanitize import sanitize as _sanitize  # type: ignore
 
 
 def _as_bool(val):

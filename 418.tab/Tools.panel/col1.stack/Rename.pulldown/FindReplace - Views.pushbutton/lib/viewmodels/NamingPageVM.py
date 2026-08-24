@@ -1,9 +1,30 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-from ui.base.BaseViewModel import BaseViewModel
-from services.RenameOptions import RenameViewOptions
-from core.rename_service import RenameService
-from viewmodels.ViewPreviewVM import ViewPreviewVM
+
+try:
+    from ui.base.BaseViewModel import BaseViewModel
+except Exception:
+    class BaseViewModel(object):
+        def __init__(self):
+            pass
+
+        def notify_property(self, name):
+            pass
+
+try:
+    from lib.services.RenameOptions import RenameViewOptions
+except Exception:
+    from services.RenameOptions import RenameViewOptions
+
+try:
+    from core.rename_service import RenameService
+except Exception:
+    from lib.core.rename_service import RenameService
+
+try:
+    from lib.viewmodels.ViewPreviewVM import ViewPreviewVM
+except Exception:
+    from viewmodels.ViewPreviewVM import ViewPreviewVM
 
 
 class NamingPageVM(BaseViewModel):

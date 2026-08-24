@@ -8,15 +8,14 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _SHARED_LIB = os.path.abspath(os.path.join(_HERE, '..', '..', '..', '..', 'lib'))
 if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
-# Meme racine que pyRevit expose : <bouton>/lib.
-_BUTTON_LIB = os.path.abspath(os.path.join(_HERE, '..', 'lib'))
-if _BUTTON_LIB not in sys.path:
-    sys.path.insert(0, _BUTTON_LIB)
+_BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
+if _BUTTON not in sys.path:
+    sys.path.insert(0, _BUTTON)
 
 import tempfile as _tf
 os.environ['PY418_CONFIG_DIR'] = _tf.mkdtemp(prefix='418test_')
 
-from services.core.ExportOrchestrator import ExportOrchestrator
+from lib.services.core.ExportOrchestrator import ExportOrchestrator
 
 
 class FakeNaming(object):
@@ -117,7 +116,7 @@ class TestConfigInjection(unittest.TestCase):
     def test_motif_carnet_lu_depuis_config_injectee(self):
         # NamingService injecté avec la même config -> load('set') = '{titre}'.
         cfg = self._shared_cfg()
-        from services.NamingService import NamingService
+        from lib.services.NamingService import NamingService
         orch = ExportOrchestrator(config=cfg)
         orch._naming = NamingService(config=cfg)
         nom = orch._resolve_name(FakeColl(u'02.1_Plans'), 'set', fallback=u'FB')

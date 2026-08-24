@@ -2,7 +2,10 @@
 from __future__ import unicode_literals
 import os
 
-from ui.base.BaseWindow import BaseWindow
+try:
+    from ui.base.BaseWindow import BaseWindow
+except Exception:
+    BaseWindow = object  # type: ignore
 
 
 def _xaml_path():

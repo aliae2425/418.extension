@@ -1,8 +1,25 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-from ui.base.BaseViewModel import BaseViewModel
-from ui.base.SelectionPageVM import SelectionPageVM
-from viewmodels.OptionsPageVM import OptionsPageVM
+
+try:
+    from ui.base.BaseViewModel import BaseViewModel
+except Exception:
+    class BaseViewModel(object):
+        def __init__(self):
+            pass
+
+        def notify_property(self, name):
+            pass
+
+try:
+    from ui.base.SelectionPageVM import SelectionPageVM
+except Exception:
+    from lib.ui.base.SelectionPageVM import SelectionPageVM
+
+try:
+    from lib.viewmodels.OptionsPageVM import OptionsPageVM
+except Exception:
+    from viewmodels.OptionsPageVM import OptionsPageVM
 
 
 class MainViewModel(BaseViewModel):

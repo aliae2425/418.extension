@@ -2,7 +2,10 @@
 from __future__ import unicode_literals
 import re as _re
 
-from core.token_expander import TokenExpander
+try:
+    from core.token_expander import TokenExpander
+except Exception:
+    from lib.core.token_expander import TokenExpander
 
 
 class RenameService(object):

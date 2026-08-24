@@ -10,16 +10,15 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _SHARED_LIB = os.path.abspath(os.path.join(_HERE, '..', '..', '..', '..', 'lib'))
 if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
-# Dossier du bouton (pour 'from models...')
-# Meme racine que pyRevit expose : <bouton>/lib.
-_BUTTON_LIB = os.path.abspath(os.path.join(_HERE, '..', 'lib'))
-if _BUTTON_LIB not in sys.path:
-    sys.path.insert(0, _BUTTON_LIB)
+# Dossier du bouton (pour 'from lib.models...')
+_BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
+if _BUTTON not in sys.path:
+    sys.path.insert(0, _BUTTON)
 
-from models import OK, A_REVOIR, CRITIQUE, libelle, pire
-from models import AuditIssue
-from models import ThemeResult
-from models import AuditResult
+from lib.models import OK, A_REVOIR, CRITIQUE, libelle, pire
+from lib.models import AuditIssue
+from lib.models import ThemeResult
+from lib.models import AuditResult
 
 
 class TestSeverity(unittest.TestCase):

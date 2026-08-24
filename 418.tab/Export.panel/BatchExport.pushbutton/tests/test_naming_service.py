@@ -9,16 +9,15 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _SHARED_LIB = os.path.abspath(os.path.join(_HERE, '..', '..', '..', '..', 'lib'))
 if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
-# Meme racine que pyRevit expose : <bouton>/lib.
-_BUTTON_LIB = os.path.abspath(os.path.join(_HERE, '..', 'lib'))
-if _BUTTON_LIB not in sys.path:
-    sys.path.insert(0, _BUTTON_LIB)
+_BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
+if _BUTTON not in sys.path:
+    sys.path.insert(0, _BUTTON)
 
 # Isole la persistance UserConfig dans un dossier temporaire (jamais le config réel).
 import tempfile as _tf
 os.environ['PY418_CONFIG_DIR'] = _tf.mkdtemp(prefix='418test_')
 
-from services.NamingService import NamingService
+from lib.services.NamingService import NamingService
 
 
 class FakeParameter(object):

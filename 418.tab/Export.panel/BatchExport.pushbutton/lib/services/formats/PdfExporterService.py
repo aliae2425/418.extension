@@ -8,7 +8,10 @@ try:
 except Exception:
     DB = None  # type: ignore
 
-from services.formats.base import FormatExporterService
+try:
+    from services.formats.base import FormatExporterService
+except Exception:
+    from lib.services.formats.base import FormatExporterService
 
 
 class PdfExporterService(FormatExporterService):

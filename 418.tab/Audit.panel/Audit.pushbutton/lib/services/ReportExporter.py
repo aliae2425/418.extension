@@ -4,8 +4,16 @@ import os
 import io
 import datetime
 from xml.sax.saxutils import escape as _xml_escape
-from models import libelle as libelle_gravite
-from core.sanitize import sanitize
+
+try:
+    from models import libelle as libelle_gravite
+except Exception:
+    from lib.models import libelle as libelle_gravite
+
+try:
+    from core.sanitize import sanitize
+except Exception:
+    from lib.core.sanitize import sanitize
 
 
 def _esc(txt):

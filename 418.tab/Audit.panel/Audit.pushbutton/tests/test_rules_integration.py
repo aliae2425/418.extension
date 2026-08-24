@@ -8,19 +8,18 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _SHARED_LIB = os.path.abspath(os.path.join(_HERE, '..', '..', '..', '..', 'lib'))
 if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
-# Meme racine que pyRevit expose : <bouton>/lib.
-_BUTTON_LIB = os.path.abspath(os.path.join(_HERE, '..', 'lib'))
-if _BUTTON_LIB not in sys.path:
-    sys.path.insert(0, _BUTTON_LIB)
+_BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
+if _BUTTON not in sys.path:
+    sys.path.insert(0, _BUTTON)
 
-from config.AuditRules import AuditRules
-from models import A_REVOIR, CRITIQUE
-from models import AuditIssue
-from models import ThemeResult
-from services import ScoreService
-from services.checks.WarningsCheck import gravite_pour
-from services.checks.ViewsSheetsCheck import est_nom_par_defaut
-from services.checks.NamingCheck import NamingCheck
+from lib.config.AuditRules import AuditRules
+from lib.models import A_REVOIR, CRITIQUE
+from lib.models import AuditIssue
+from lib.models import ThemeResult
+from lib.services import ScoreService
+from lib.services.checks.WarningsCheck import gravite_pour
+from lib.services.checks.ViewsSheetsCheck import est_nom_par_defaut
+from lib.services.checks.NamingCheck import NamingCheck
 
 
 def _theme(cle, gravites):

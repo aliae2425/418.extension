@@ -1,15 +1,32 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-import os
 
-from core.UserConfig import UserConfig
-from ui.base.BaseViewModel import BaseViewModel
-from ui.helpers.RelayCommand import RelayCommand
-from services.AuditRunner import AuditRunner
-from services.ReportExporter import exporter
-from viewmodels.ScoreVM import ScoreVM
-from viewmodels.ThemeCardVM import ThemeCardVM
-from viewmodels.IssueRowVM import IssueRowVM
+try:
+    from ui.base.BaseViewModel import BaseViewModel
+except Exception:
+    try:
+        from lib.ui.base.BaseViewModel import BaseViewModel
+    except Exception:
+        BaseViewModel = object
+try:
+    from ui.helpers.RelayCommand import RelayCommand
+except Exception:
+    try:
+        from lib.ui.helpers.RelayCommand import RelayCommand
+    except Exception:
+        RelayCommand = None
+try:
+    from services.AuditRunner import AuditRunner
+except Exception:
+    from lib.services.AuditRunner import AuditRunner
+try:
+    from viewmodels.ScoreVM import ScoreVM
+    from viewmodels.ThemeCardVM import ThemeCardVM
+    from viewmodels.IssueRowVM import IssueRowVM
+except Exception:
+    from lib.viewmodels.ScoreVM import ScoreVM
+    from lib.viewmodels.ThemeCardVM import ThemeCardVM
+    from lib.viewmodels.IssueRowVM import IssueRowVM
 
 
 class MainViewModel(BaseViewModel):
@@ -57,18 +74,28 @@ class MainViewModel(BaseViewModel):
                 pass
 
     def _exporter(self):
-        """Exporte le rapport HTML puis ouvre le dossier contenant.
-
-        Gardé : ni un dossier de destination illisible ni l'absence de
-        `os.startfile` (hors Windows) ne doivent empêcher l'export lui-même.
-        """
+        # Exporte le rapport HTML puis ouvre le dossier contenant. Entièrement
+        # gardé : ne doit jamais lever hors Revit ni si un import échoue.
         try:
+            from services.ReportExporter import exporter
+        except Exception:
+            try:
+                from lib.services.ReportExporter import exporter
+            except Exception:
+                exporter = None
+        try:
+            from core.UserConfig import UserConfig
             dossier = UserConfig('audit').get('report_dir', None)
         except Exception:
             dossier = None
-        chemin = exporter(self._resultat, dossier)
         try:
-            os.startfile(os.path.dirname(chemin))
+            if exporter is not None:
+                chemin = exporter(self._resultat, dossier)
+                try:
+                    import os
+                    os.startfile(os.path.dirname(chemin))
+                except Exception:
+                    pass
         except Exception:
             pass
 

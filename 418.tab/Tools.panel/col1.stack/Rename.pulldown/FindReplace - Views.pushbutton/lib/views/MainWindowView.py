@@ -2,7 +2,10 @@
 from __future__ import unicode_literals
 import os
 
-from ui.base.RailWindow import RailWindow, Onglet
+try:
+    from ui.base.RailWindow import RailWindow, Onglet
+except Exception:
+    from lib.ui.base.RailWindow import RailWindow, Onglet
 
 _BOUTON = os.path.abspath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)), '..', '..'))

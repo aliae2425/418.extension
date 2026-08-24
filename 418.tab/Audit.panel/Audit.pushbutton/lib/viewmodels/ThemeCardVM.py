@@ -1,8 +1,21 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-from ui.base.BaseViewModel import BaseViewModel
-from models import libelle as libelle_gravite
-from viewmodels.IssueRowVM import IssueRowVM
+
+try:
+    from ui.base.BaseViewModel import BaseViewModel
+except Exception:
+    try:
+        from lib.ui.base.BaseViewModel import BaseViewModel
+    except Exception:
+        BaseViewModel = object
+try:
+    from models import libelle as libelle_gravite
+except Exception:
+    from lib.models import libelle as libelle_gravite
+try:
+    from viewmodels.IssueRowVM import IssueRowVM
+except Exception:
+    from lib.viewmodels.IssueRowVM import IssueRowVM
 
 
 class ThemeCardVM(BaseViewModel):
