@@ -2,15 +2,22 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <!--
-    Page Sélection — DataContext = SelectionPageVM (assigné par le Python).
-    Chargée via XamlReader.Load et injectée dans PageHost (PAS de x:Class,
-    PAS de code-behind). Tout brush/style de thème en DynamicResource.
+    Page Sélection PARTAGÉE par les 4 outils (dupliquer/renommer × feuilles/vues).
+    DataContext = SelectionPageVM (assigné par le Python). Chargée via
+    XamlReader.Load et injectée dans PageHost (PAS de x:Class, PAS de
+    code-behind). Tout brush/style de thème en DynamicResource.
+
+    Ce qui variait entre les 4 copies est désormais bindé :
+      - le titre          -> {Binding TitrePage}
+      - la colonne gauche -> {Binding ColonneGauche}, dont le rendu suit
+        {Binding EstIdentifiant} : un numéro de feuille s'affiche en gras
+        (identifiant), un type de vue en texte secondaire plus petit.
 
     Sélection multi-items (clic simple / Ctrl / Shift) : la CheckBox est
     display-only (IsHitTestVisible=False, binding OneWay) et TOUS les clics
     sont captés par un handler UNIQUE sur l'ItemsControl (x:Name="ItemsList",
-    câblé côté Python dans MainWindowView._wire_selection_interactions) —
-    ceci évite tout double déclenchement entre la case et la ligne.
+    câblé côté Python dans RailWindow._wire_selection_interactions) — ceci
+    évite tout double déclenchement entre la case et la ligne.
   -->
 
   <Grid Background="{DynamicResource TransparentBrush}"
@@ -23,7 +30,7 @@
     </Grid.RowDefinitions>
 
     <TextBlock Grid.Row="0"
-               Text="Feuilles &#224; renommer"
+               Text="{Binding TitrePage}"
                Style="{DynamicResource HeaderTextBlockStyle}"
                Margin="0,0,0,14"/>
 
@@ -57,11 +64,26 @@
                           IsHitTestVisible="False"
                           Style="{DynamicResource CheckBoxStyle}"
                           Margin="0,0,12,0"/>
-                <TextBlock Text="{Binding Numero}"
-                           Foreground="{DynamicResource TextPrimaryBrush}"
-                           FontWeight="Bold"
-                           Width="90"
-                           VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding ColonneGauche}"
+                           VerticalAlignment="Center">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <!-- Défaut : métadonnée (type de vue) -->
+                      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                      <Setter Property="FontSize" Value="11"/>
+                      <Setter Property="Width" Value="110"/>
+                      <Style.Triggers>
+                        <!-- Identifiant (numéro de feuille) -->
+                        <DataTrigger Binding="{Binding EstIdentifiant}" Value="True">
+                          <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                          <Setter Property="FontWeight" Value="Bold"/>
+                          <Setter Property="FontSize" Value="12"/>
+                          <Setter Property="Width" Value="90"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
                 <TextBlock Text="{Binding Nom}"
                            Foreground="{DynamicResource TextPrimaryBrush}"
                            VerticalAlignment="Center"/>
@@ -72,8 +94,9 @@
       </ItemsControl>
     </ScrollViewer>
 
-    <!-- Bouton Suivant : actif uniquement si au moins une feuille est cochée
-         (IsEnabled lié à HasSelection). Le Python le câble vers la page Options. -->
+    <!-- Bouton Suivant : actif uniquement si au moins un item est coché
+         (IsEnabled lié à HasSelection). Le Python le câble vers la page
+         suivante du rail. -->
     <Button Grid.Row="3"
             x:Name="NextButton"
             Content="Suivant"

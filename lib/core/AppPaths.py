@@ -12,6 +12,10 @@ class AppPaths(object):
     def resources_dir(self):
         return os.path.join(_lib_dir, 'ui', 'GUI', 'resources')
 
+    def pages_dir(self):
+        # Pages XAML partagées par plusieurs outils (ex. SelectionPage.xaml).
+        return os.path.join(_lib_dir, 'ui', 'GUI', 'pages')
+
     def data_dir(self):
         # Dossier de données commun à TOUTES les features (persistance des
         # réglages, caches, etc.) : 418.extension/data/. Créé si absent.

@@ -37,6 +37,11 @@ try:
 except Exception:
     from lib.core import bulk_edit
 
+try:
+    from ui.base.SelectionItemVM import SelectionItemVM
+except Exception:
+    from lib.ui.base.SelectionItemVM import SelectionItemVM
+
 
 class SelectionPageVM(BaseViewModel):
     """Recherche + multi-sélection sur une liste d'items.
@@ -44,6 +49,7 @@ class SelectionPageVM(BaseViewModel):
     `items` : ItemVM déjà construits par la sous-classe.
     `id_getter` : item -> identifiant renvoyé par `selected_ids()`.
     `filter_getters` : liste de item -> texte, testés par la recherche.
+    `titre` : titre affiché en tête de page (« Feuilles à dupliquer »...).
 
     Comportement de sélection :
     - clic simple / Ctrl+clic : bascule l'item (accumulation, pas d'exclusif)
@@ -53,12 +59,13 @@ class SelectionPageVM(BaseViewModel):
     """
 
     def __init__(self, items, id_getter, filter_getters,
-                 on_selection_changed=None, prop=u'IsSelected'):
+                 on_selection_changed=None, prop=u'IsSelected', titre=u''):
         super(SelectionPageVM, self).__init__()
         self._all = list(items or [])
         self._id_getter = id_getter
         self._filter_getters = list(filter_getters or [])
         self._prop = prop
+        self._titre = titre
         self._on_selection_changed = on_selection_changed
         self._selection = ListSelectionService(prop=prop)
         self._filter_text = u''
@@ -67,6 +74,32 @@ class SelectionPageVM(BaseViewModel):
         # reset() sans l'exposer. On suit l'information ici pour savoir si un
         # Shift doit produire une plage ou retomber sur une bascule.
         self._has_anchor = False
+
+    @classmethod
+    def depuis_descripteurs(cls, descripteurs, ids_selectionnes, titre,
+                            est_identifiant=True, on_selection_changed=None):
+        """Construit la page depuis des triplets `(id, colonne_gauche, nom)`.
+
+        Couvre les 4 outils : la seule variation est `est_identifiant` (numéro
+        de feuille en gras vs type de vue en texte secondaire) et le titre.
+        """
+        selset = set(ids_selectionnes or [])
+        items = []
+        vm = cls([], id_getter=lambda it: it.Id,
+                 filter_getters=[lambda it: it.ColonneGauche, lambda it: it.Nom],
+                 on_selection_changed=on_selection_changed, titre=titre)
+        for (iid, colonne_gauche, nom) in descripteurs:
+            items.append(SelectionItemVM(
+                iid, colonne_gauche, nom, iid in selset, vm._on_item_toggle,
+                est_identifiant=est_identifiant))
+        vm._all = items
+        vm._filtered = list(items)
+        return vm
+
+    # --- Titre ---------------------------------------------------------------
+    @property
+    def TitrePage(self):
+        return self._titre
 
     # --- Recherche -----------------------------------------------------------
     @property
