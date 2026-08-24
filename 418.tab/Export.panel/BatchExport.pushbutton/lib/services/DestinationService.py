@@ -6,7 +6,6 @@
 from __future__ import unicode_literals
 
 import os
-import re
 
 try:
     from core.UserConfig import UserConfig  # type: ignore
@@ -15,6 +14,11 @@ except Exception:
         from lib.core.UserConfig import UserConfig  # type: ignore
     except Exception:
         UserConfig = None  # type: ignore
+
+try:
+    from core.sanitize import sanitize as _sanitize  # type: ignore
+except Exception:
+    from lib.core.sanitize import sanitize as _sanitize  # type: ignore
 
 
 def _as_bool(val):
@@ -138,23 +142,14 @@ class DestinationService(object):
     # Nettoyage / unicité des noms de fichiers
     # ------------------------------------------------------------------
 
-    def sanitize(self, name, replacement="_"):
+    def sanitize(self, name):
         """Nettoie `name` pour en faire un nom de fichier Windows valide.
 
-        Retire les caractères interdits `\\ / : * ? " < > |`, tronque
-        à 180 caractères. Retourne 'untitled' si vide après nettoyage.
+        Délègue au socle (`core.sanitize.sanitize`) : source unique. Seul le
+        nom de repli diffère ici, pour rester compatible avec les fichiers
+        d'export déjà produits.
         """
-        if not name:
-            return "untitled"
-        invalid = re.compile(r"[\\\\/:*?\"<>|]+")
-        trim = re.compile(r"[\s\.]+$")
-        base = name.replace(os.sep, replacement).replace('/', replacement)
-        base = invalid.sub(replacement, base)
-        base = base.strip()
-        base = trim.sub('', base)
-        if len(base) > 180:
-            base = base[:180]
-        return base or 'untitled'
+        return _sanitize(name, fallback=u'untitled')
 
     def unique_path(self, path):
         """Retourne `path` inchangé s'il n'existe pas, sinon suffixe (1), (2)..."""

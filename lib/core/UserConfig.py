@@ -77,12 +77,16 @@ def _write_file(path, data):
     try:
         with io.open(tmp, 'w', encoding='utf-8') as f:
             f.write(json.dumps(data, ensure_ascii=False, indent=2))
+        # os.replace (Py3) est atomique et écrase la cible : contrairement à
+        # remove-puis-rename, il ne laisse aucune fenêtre où la config a été
+        # effacée mais pas encore remplacée. Repli explicite sous IronPython
+        # 2.7, où os.replace n'existe pas et où os.rename refuse d'écraser.
         try:
+            os.replace(tmp, path)
+        except AttributeError:
             if os.path.exists(path):
                 os.remove(path)
-        except Exception:
-            pass
-        os.rename(tmp, path)
+            os.rename(tmp, path)
         return True
     except Exception:
         try:

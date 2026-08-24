@@ -3,17 +3,24 @@ from __future__ import unicode_literals
 import os
 import io
 import datetime
+from xml.sax.saxutils import escape as _xml_escape
 
 try:
     from models.Severity import libelle as libelle_gravite
 except Exception:
     from lib.models.Severity import libelle as libelle_gravite
 
+try:
+    from core.sanitize import sanitize
+except Exception:
+    from lib.core.sanitize import sanitize
+
 
 def _esc(txt):
+    """Échappe pour du contenu HTML. `escape` couvre & < > ; on ajoute le
+    guillemet double, utilisé tel quel dans les attributs du gabarit."""
     s = u'' if txt is None else u'{}'.format(txt)
-    return (s.replace(u'&', u'&amp;').replace(u'<', u'&lt;')
-             .replace(u'>', u'&gt;').replace(u'"', u'&quot;'))
+    return _xml_escape(s, {u'"': u'&quot;'})
 
 
 def construire_html(res):
@@ -54,28 +61,11 @@ def construire_html(res):
     return u'\n'.join(parts)
 
 
-def _sanitize(nom):
-    try:
-        from core.sanitize import sanitize
-    except Exception:
-        try:
-            from lib.core.sanitize import sanitize
-        except Exception:
-            sanitize = None
-    if sanitize is not None:
-        try:
-            return sanitize(nom)
-        except Exception:
-            pass
-    interdits = u'\\/:*?"<>|'
-    return u''.join(c for c in (nom or u'audit') if c not in interdits)[:180]
-
-
 def exporter(res, dossier=None):
     meta = res.meta or {}
     if dossier is None:
         dossier = os.path.expanduser(u'~/Documents')
-    fichier = _sanitize(meta.get('fichier', u'modele'))
+    fichier = sanitize(meta.get('fichier', u'modele'))
     date = datetime.datetime.now().strftime('%Y%m%d')
     chemin = os.path.join(dossier, u'Audit_{}_{}.html'.format(fichier, date))
     html = construire_html(res)
