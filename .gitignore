@@ -11,6 +11,8 @@ profil.json
 **/data
 **/.claude/*
 **/.claude-flow/*
+# Artefacts d'agents (briefs/rapports de tâches, jamais du code livrable)
+/.superpowers/
 
 cherrypick.md
 **/*.log
