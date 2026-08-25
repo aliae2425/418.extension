@@ -25,9 +25,19 @@ class TestAlignement(unittest.TestCase):
         deltas = deltas_alignement(bornes, 'max')
         self.assertEqual([b[1] + d for b, d in zip(bornes, deltas)], [6.0] * 3)
 
+    def test_centre_cale_les_centres_sur_le_milieu_de_letendue(self):
+        bornes = [(0.0, 2.0), (5.0, 6.0), (-3.0, 1.0)]   # étendue globale -3 -> 6
+        deltas = deltas_alignement(bornes, 'centre')
+        centres = [(b[0] + b[1]) / 2 + d for b, d in zip(bornes, deltas)]
+        self.assertEqual(centres, [1.5] * 3)
+
+    def test_centre_ne_bouge_pas_une_selection_deja_centree(self):
+        bornes = [(-1.0, 1.0), (-2.0, 2.0)]
+        self.assertEqual(deltas_alignement(bornes, 'centre'), [0.0, 0.0])
+
     def test_les_tailles_sont_preservees(self):
         bornes = [(0.0, 10.0), (5.0, 6.0)]
-        for op in ('min', 'max'):
+        for op in ('min', 'max', 'centre'):
             deltas = deltas_alignement(bornes, op)
             for (mini, maxi), d in zip(bornes, deltas):
                 self.assertAlmostEqual((maxi + d) - (mini + d), maxi - mini)

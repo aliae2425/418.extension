@@ -29,6 +29,8 @@ MODES = {
     'droite':    ('right', 'max'),
     'bas':       ('up',    'min'),
     'haut':      ('up',    'max'),
+    'centre_h':  ('right', 'centre'),
+    'centre_v':  ('up',    'centre'),
     'repartir_h': ('right', 'repartir'),
     'repartir_v': ('up',    'repartir'),
 }
@@ -40,8 +42,12 @@ def deltas_alignement(bornes, operation):
     """Déplacements à appliquer pour aligner sur le bord extrême.
 
     `bornes` : liste de couples (mini, maxi) projetés sur l'axe.
-    `operation` : 'min' (bord le plus bas/gauche) ou 'max'.
+    `operation` : 'min' (bord le plus bas/gauche), 'max', ou 'centre'
+    (centres calés sur le milieu de l'étendue globale de la sélection).
     """
+    if operation == 'centre':
+        cible = (min(b[0] for b in bornes) + max(b[1] for b in bornes)) / 2
+        return [cible - (b[0] + b[1]) / 2 for b in bornes]
     if operation == 'min':
         cible = min(b[0] for b in bornes)
         return [cible - b[0] for b in bornes]
