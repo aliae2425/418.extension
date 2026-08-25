@@ -26,8 +26,8 @@ class TestAboutViewModel(unittest.TestCase):
         self.assertEqual(self.vm.Nom, u'418.extension')
 
     def test_version_contient_numero(self):
-        self.assertEqual(self.vm.Version, u'Version 1.2.12')
-        self.assertEqual(__version__, u'1.2.12')
+        # Pas de numéro en dur : le test rougirait à chaque bump de version.
+        self.assertEqual(self.vm.Version, u'Version {0}'.format(__version__))
 
     def test_description_non_vide(self):
         self.assertTrue(len(self.vm.Description) > 0)

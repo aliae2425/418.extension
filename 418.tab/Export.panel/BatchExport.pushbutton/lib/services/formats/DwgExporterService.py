@@ -1,132 +1,37 @@
 # -*- coding: utf-8 -*-
 # Service d'accès aux réglages et options d'export DWG
 
+from __future__ import unicode_literals
+
 try:
     from Autodesk.Revit import DB  # type: ignore
 except Exception:
     DB = None  # type: ignore
 
-import json
+try:
+    from services.formats.base import FormatExporterService
+except Exception:
+    from lib.services.formats.base import FormatExporterService
 
-class DwgExporterService(object):
-    def __init__(self, namespace='batch_export', config=None):
-        # `config` injecté = même UserConfig (socle) que le reste de l'app ->
-        # setups persistés dans data/<namespace>.json (cf. PdfExporterService).
-        if config is not None:
-            self._cfg = config
-        else:
-            UserConfig = None  # type: ignore
-            try:
-                from core.UserConfig import UserConfig  # socle en priorité
-            except Exception:
-                try:
-                    from lib.core.UserConfig import UserConfig
-                except Exception:
-                    UserConfig = None  # type: ignore
-            self._cfg = UserConfig(namespace) if UserConfig is not None else None
-        self._SETUP_KEY = 'dwg_setup_name'
-        self._SEPARATE_KEY = 'dwg_separate_views'
-        self._CUSTOM_KEY = 'custom_dwg_setups'
+
+class DwgExporterService(FormatExporterService):
+
+    SETUP_KEY = 'dwg_setup_name'
 
     def _list_revit_setups(self, doc):
         if DB is None or doc is None:
             return []
-        names = []
+        noms = []
         try:
             col = DB.FilteredElementCollector(doc).OfClass(DB.ExportDWGSettings).ToElements()
             for s in col:
                 try:
-                    nm = s.Name
-                    if nm and nm not in names:
-                        names.append(nm)
+                    noms.append(s.Name)
                 except Exception:
                     continue
         except Exception:
             pass
-        try:
-            names.sort(key=lambda x: x.lower())
-        except Exception:
-            names.sort()
-        return names
-
-    def _load_custom_list(self):
-        if self._cfg is None:
-            return []
-        try:
-            raw = self._cfg.get(self._CUSTOM_KEY, '')
-            if not raw:
-                return []
-            data = json.loads(raw)
-            return data if isinstance(data, list) else []
-        except Exception:
-            return []
-
-    def list_all_setups(self, doc):
-        revit = self._list_revit_setups(doc)
-        custom = self.list_custom_setups()
-        s = {n: 'revit' for n in revit}
-        for n in custom:
-            s[n] = 'custom'
-        out = list(s.keys())
-        try:
-            out.sort(key=lambda x: x.lower())
-        except Exception:
-            out.sort()
-        return out
-
-    def list_custom_setups(self):
-        lst = self._load_custom_list()
-        out = []
-        for it in lst:
-            try:
-                nm = it.get('name')
-                if nm and nm not in out:
-                    out.append(nm)
-            except Exception:
-                continue
-        try:
-            out.sort(key=lambda x: x.lower())
-        except Exception:
-            out.sort()
-        return out
-
-    def get_custom_setup_data(self, name):
-        for it in self._load_custom_list():
-            try:
-                if it.get('name') == name:
-                    d = it.get('data')
-                    return d if isinstance(d, dict) else None
-            except Exception:
-                continue
-        return None
-
-    def get_saved_setup(self, default=None):
-        try:
-            val = self._cfg.get(self._SETUP_KEY, '') if self._cfg is not None else None
-            return val or default
-        except Exception:
-            return default
-
-    def set_saved_setup(self, name):
-        if not name:
-            return False
-        try:
-            return bool(self._cfg.set(self._SETUP_KEY, name)) if self._cfg is not None else False
-        except Exception:
-            return False
-
-    def get_separate(self, default=False):
-        try:
-            raw = self._cfg.get(self._SEPARATE_KEY, '') if self._cfg is not None else ''
-            return True if raw == '1' else False if raw == '0' else default
-        except Exception:
-            return default
-
-    def set_separate(self, flag):
-        try:
-            return bool(self._cfg.set(self._SEPARATE_KEY, '1' if flag else '0')) if self._cfg is not None else False
-        except Exception:
-            return False
+        return self._noms_tries(noms)
 
     def build_options(self, doc, setup_name=None):
         if DB is None or doc is None:

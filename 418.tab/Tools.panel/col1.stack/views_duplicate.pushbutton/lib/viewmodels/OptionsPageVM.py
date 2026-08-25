@@ -17,9 +17,9 @@ except Exception:
     from services.ViewsDuplicationOptions import ViewsDuplicationOptions
 
 try:
-    from lib.services.RenameService import RenameService
+    from core.rename_service import RenameService
 except Exception:
-    from services.RenameService import RenameService
+    from lib.core.rename_service import RenameService
 
 try:
     from lib.viewmodels.PreviewGroupVM import PreviewGroupVM, PreviewCopyVM
@@ -201,4 +201,9 @@ class OptionsPageVM(BaseViewModel):
         return ViewsDuplicationOptions(
             view_duplicate_option=self._ViewDuplicateOption,
             count=self._Count,
+            prefixe=self._Prefixe,
+            rechercher=self._Rechercher,
+            remplacer=self._Remplacer,
+            suffixe=self._Suffixe,
+            use_regex=self._UseRegex,
         )

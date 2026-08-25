@@ -186,6 +186,23 @@ class FakeNamingServicePatternSeul(object):
         return u'{}-JETON'.format(numero)
 
 
+class FakeNamingServiceCarnet(object):
+    """Faux NamingService exerçant l'aperçu de carnet : motif `set` non vide
+    résolu contre l'élément de COLLECTION (préfixe 'CARNET-' + nom du jeu),
+    motif `sheet` résolu contre la feuille (préfixe 'SHEET-' + numéro).
+    Distingue collection (attribut `name`) et feuille (attribut `numero`)."""
+
+    def load(self, kind):
+        if kind == 'set':
+            return ('{titre}-CARNET', [])
+        return ('{numero}-SHEET', [])
+
+    def resolve_for_element(self, elem, pattern_ou_rows):
+        if hasattr(elem, 'name'):
+            return u'CARNET-{}'.format(elem.name)
+        return u'SHEET-{}'.format(getattr(elem, 'numero', ''))
+
+
 class TestMainViewModelParJeu(unittest.TestCase):
     def setUp(self):
         self.sheet_service = FakeSheetService()
@@ -284,6 +301,65 @@ class TestMainViewModelParJeuPatternJetons(unittest.TestCase):
         self.assertTrue(len(self.naming_service.resolve_calls) > 0)
         for appel in self.naming_service.resolve_calls:
             self.assertEqual(appel, u'{numero}-JETON')
+
+
+class TestMainViewModelParJeuCarnetApercu(unittest.TestCase):
+    """Aperçu du titre de carnet (mode « par jeu ») : `CarnetApercu`
+    (motif `set` résolu contre la collection + `.pdf`) et
+    `CarnetApercuVisible` (`FlagCarnet and bool(CarnetApercu)`)."""
+
+    def setUp(self):
+        self.sheet_service = FakeSheetService()
+        self.naming_service = FakeNamingServiceCarnet()
+        self.vm = MainViewModel(
+            doc=None,
+            sheet_service=self.sheet_service,
+            naming_service=self.naming_service,
+            destination_service=None,
+            config=FakeConfig(),
+        )
+        self.vm.ParamExport = 'Export'
+        self.vm.ParamCarnet = 'Carnet'
+        self.vm.ParamDwg = 'Dwg'
+
+    def test_carnet_apercu_resolu_avec_extension_pdf(self):
+        self.vm.refresh_par_jeu()
+        jeu_a = self.vm.Collections[0]  # Jeu A qualifié + FlagCarnet
+        self.assertEqual(jeu_a.CarnetApercu, u'CARNET-A.pdf')
+
+    def test_carnet_apercu_visible_si_flag_carnet_et_apercu(self):
+        self.vm.refresh_par_jeu()
+        jeu_a = self.vm.Collections[0]
+        self.assertTrue(jeu_a.FlagCarnet)
+        self.assertTrue(jeu_a.CarnetApercuVisible)
+
+    def test_carnet_apercu_non_visible_sans_flag_carnet(self):
+        self.vm.refresh_par_jeu()
+        jeu_b = self.vm.Collections[1]  # Jeu B : pas de FlagCarnet
+        self.assertFalse(jeu_b.FlagCarnet)
+        self.assertFalse(jeu_b.CarnetApercuVisible)
+
+    def test_carnet_apercu_vide_et_non_visible_si_motif_set_vide(self):
+        class FakeNamingServiceSetVide(FakeNamingServiceCarnet):
+            def load(self, kind):
+                if kind == 'set':
+                    return ('', [])
+                return ('{numero}-SHEET', [])
+
+        vm = MainViewModel(
+            doc=None,
+            sheet_service=FakeSheetService(),
+            naming_service=FakeNamingServiceSetVide(),
+            destination_service=None,
+            config=FakeConfig(),
+        )
+        vm.ParamExport = 'Export'
+        vm.ParamCarnet = 'Carnet'
+        vm.refresh_par_jeu()
+        jeu_a = vm.Collections[0]
+        self.assertTrue(jeu_a.FlagCarnet)
+        self.assertEqual(jeu_a.CarnetApercu, u'')
+        self.assertFalse(jeu_a.CarnetApercuVisible)
 
 
 class TestMainViewModelMappingParametres(unittest.TestCase):
@@ -672,26 +748,22 @@ class TestMainViewModelLancerExport(unittest.TestCase):
         self.assertEqual(vm.StatusText, u'Erreur export PDF: 01_RDC')
 
     def test_import_lib_services_core_resout_les_dependances_internes(self):
-        """Vérifie que `from lib.services.core.ExportOrchestrator import ...`
+        """Vérifie que `from lib.services.ExportOrchestrator import ...`
         (chemin utilisé par `lancer_export()`) fait résoudre correctement les
-        imports RELATIFS internes de l'orchestrateur (`from ...core.UserConfig`,
-        `from ...data...`, `from ...services.formats...`), qui exigent que le
-        package racine soit `lib` (donc `lib.services.core`).
+        imports internes de l'orchestrateur.
 
-        Importé sous `services.core.ExportOrchestrator` (package racine
-        `services`), ces `...` remonteraient au-dessus de `lib` et tous les
-        try/except internes retomberaient sur `None` -- l'orchestrateur
-        « fonctionnerait » alors en mode dégradé silencieux (dossier courant,
-        sans options de pattern/PDF/DWG). Ce test fige le chemin d'import
-        correct pour que toute régression de packaging (ex: `__init__.py`
-        manquant sous `lib/data/`) soit détectée hors Revit."""
-        from lib.services.core.ExportOrchestrator import ExportOrchestrator
+        Si l'un d'eux retombait sur `None`, l'orchestrateur « fonctionnerait »
+        en mode dégradé silencieux (dossier courant, sans options PDF/DWG ni
+        motif de nommage). Ce test fige donc le fait que TOUTES ses
+        dépendances sont bien résolues, pour que la moindre régression de
+        packaging soit détectée hors Revit."""
+        from lib.services.ExportOrchestrator import ExportOrchestrator
         orch = ExportOrchestrator()
         self.assertIsNotNone(orch._dest)
-        self.assertIsNotNone(orch._nstore)
         self.assertIsNotNone(orch._pdf)
         self.assertIsNotNone(orch._dwg)
         self.assertIsNotNone(orch._cfg)
+        self.assertIsNotNone(orch._NamingService_cls)
 
 
 class FakeDestinationService(object):
@@ -1287,8 +1359,8 @@ class TestListSelectionService(unittest.TestCase):
     """Tests unitaires pour `ListSelectionService` (service pur Python)."""
 
     def setUp(self):
-        from lib.services.ListSelectionService import ListSelectionService
-        self.svc = ListSelectionService()
+        from core.list_selection import ListSelectionService
+        self.svc = ListSelectionService(prop=u'Selected')
 
     def _items(self, n):
         from lib.viewmodels.MainViewModel import ManualSheetVM
@@ -1368,8 +1440,8 @@ class TestFormatPropagate(unittest.TestCase):
         return propagate
 
     def setUp(self):
-        from lib.services.BulkEditService import BulkEditService
-        self.bulk = BulkEditService()
+        from core import bulk_edit
+        self.bulk = bulk_edit
 
     def test_toggle_pdf_propage_a_toute_la_selection(self):
         sheets = self._sheets(3)
@@ -1516,9 +1588,8 @@ class TestExportDoneCallback(unittest.TestCase):
         calls = []
 
         class OrchestrateurtQuiLeve(object):
-            def __init__(self):
+            def __init__(self, namespace='batch_export', config=None):
                 self._dest = object()
-                self._nstore = object()
                 self._pdf = object()
                 self._dwg = object()
                 self._cfg = object()
@@ -1537,7 +1608,7 @@ class TestExportDoneCallback(unittest.TestCase):
         svm = ManualSheetVM(u'01', u'Feuille 1', export_pdf=True)
         vm._sheets_manuel = [svm]
 
-        import lib.services.core.ExportOrchestrator as _eo_mod
+        import lib.services.ExportOrchestrator as _eo_mod
         _orig = _eo_mod.ExportOrchestrator
         _eo_mod.ExportOrchestrator = OrchestrateurtQuiLeve
         try:

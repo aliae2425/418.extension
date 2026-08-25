@@ -12,42 +12,60 @@ _BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
 if _BUTTON not in sys.path:
     sys.path.insert(0, _BUTTON)
 
-from lib.viewmodels.SelectionPageVM import SelectionPageVM
+from lib.viewmodels.MainViewModel import MainViewModel
+
+# La page Sélection elle-même est couverte par lib/ui/tests/test_selection_page_vm.py.
+# Ici on vérifie le raccordement propre à l'outil « feuilles » : les
+# descripteurs arrivent déjà dans l'ordre attendu (id, numéro, nom), et le
+# numéro de feuille doit être rendu comme un IDENTIFIANT (gras) et non comme
+# une métadonnée.
 
 
-class TestSelectionPageVM(unittest.TestCase):
+class TestChargementSelectionFeuilles(unittest.TestCase):
     def setUp(self):
-        self.descripteurs = [(1, u'A101', u'RDC'), (2, u'A102', u'R+1'), (3, u'A103', u'R+2')]
-        self.changes = []
+        self.descripteurs = [(1, u'A101', u'RDC'),
+                             (2, u'A102', u'R+1'),
+                             (3, u'A103', u'R+2')]
 
-    def _vm(self, ids):
-        return SelectionPageVM(self.descripteurs, ids,
-                               on_selection_changed=lambda l: self.changes.append(list(l)))
+    def _vm(self, ids_courants):
+        vm = MainViewModel(doc=None, uidoc=None, service=None)
+        vm.charger(self.descripteurs, ids_courants)
+        return vm
 
-    def test_items_precoches_selon_selection(self):
-        vm = self._vm([2])
-        etats = [(it.Numero, it.IsSelected) for it in vm.Items]
-        self.assertEqual(etats, [(u'A101', False), (u'A102', True), (u'A103', False)])
-
-    def test_toggle_met_a_jour_selection_et_notifie(self):
+    def test_colonne_gauche_est_le_numero(self):
         vm = self._vm([])
-        vm.Items[0].IsSelected = True
-        vm.Items[2].IsSelected = True
-        self.assertEqual(sorted(vm.selected_ids()), [1, 3])
-        self.assertEqual(self.changes[-1], [1, 3])
+        items = vm.SelectionVM.FilteredItems
+        self.assertEqual([it.ColonneGauche for it in items],
+                         [u'A101', u'A102', u'A103'])
+        self.assertEqual([it.Nom for it in items], [u'RDC', u'R+1', u'R+2'])
+
+    def test_numero_rendu_comme_identifiant(self):
+        vm = self._vm([])
+        self.assertTrue(vm.SelectionVM.FilteredItems[0].EstIdentifiant)
+
+    def test_items_precoches_selon_selection_courante(self):
+        vm = self._vm([2])
+        self.assertEqual([it.IsSelected for it in vm.SelectionVM.FilteredItems],
+                         [False, True, False])
+
+    def test_toggle_remonte_jusqu_au_vm_racine(self):
+        vm = self._vm([])
+        vm.SelectionVM.FilteredItems[0].IsSelected = True
+        vm.SelectionVM.FilteredItems[2].IsSelected = True
+        self.assertEqual(sorted(vm.SelectedSheetIds), [1, 3])
 
     def test_decoche_retire_de_la_selection(self):
         vm = self._vm([1, 2])
-        vm.Items[0].IsSelected = False
-        self.assertEqual(vm.selected_ids(), [2])
+        vm.SelectionVM.FilteredItems[0].IsSelected = False
+        self.assertEqual(vm.SelectedSheetIds, [2])
 
-    def test_has_selection_reflete_l_etat(self):
+    def test_recherche_porte_sur_le_numero_et_sur_le_nom(self):
         vm = self._vm([])
-        self.assertFalse(vm.HasSelection)
-        vm.Items[0].IsSelected = True
-        self.assertTrue(vm.HasSelection)
-        vm.Items[0].IsSelected = False
-        self.assertFalse(vm.HasSelection)
+        vm.SelectionVM.FilterText = u'a102'
+        self.assertEqual([it.Nom for it in vm.SelectionVM.FilteredItems], [u'R+1'])
+        vm.SelectionVM.FilterText = u'rdc'
+        self.assertEqual([it.ColonneGauche for it in vm.SelectionVM.FilteredItems],
+                         [u'A101'])
 
 
 if __name__ == '__main__':

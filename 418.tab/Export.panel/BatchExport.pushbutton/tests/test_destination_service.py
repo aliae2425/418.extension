@@ -52,6 +52,37 @@ class TestDestinationServiceSanitize(unittest.TestCase):
         self.assertEqual(self.service.sanitize(None), 'untitled')
 
 
+class TestDestinationServiceFlagsRobustes(unittest.TestCase):
+    """Les flags de séparation doivent être lus de façon ROBUSTE : la valeur
+    persistée peut revenir de pyRevit sous diverses représentations selon la
+    sérialisation ('1', 1, True, '"1"', 'true'...). Une comparaison stricte
+    `str(val) == '1'` casse pour True/'"1"'/'true' -> séparation non appliquée
+    alors que l'utilisateur a activé le toggle (cause candidate du bug #2)."""
+
+    def _svc(self, raw_sub, raw_sep):
+        cfg = FakeConfig()
+        cfg.set('create_subfolders', raw_sub)
+        cfg.set('separate_format_folders', raw_sep)
+        return DestinationService(doc=None, config=cfg)
+
+    def test_valeurs_vraies_diverses(self):
+        for v in (u'1', 1, True, u'"1"', u'true', u'True', u'YES', u' 1 '):
+            svc = self._svc(v, v)
+            self.assertTrue(svc.get_create_subfolders(), 'sub pour %r' % (v,))
+            self.assertTrue(svc.get_separate_formats(), 'sep pour %r' % (v,))
+
+    def test_valeurs_fausses_diverses(self):
+        for v in (u'0', 0, False, u'', None, u'"0"', u'false', u'no'):
+            svc = self._svc(v, v)
+            self.assertFalse(svc.get_create_subfolders(), 'sub pour %r' % (v,))
+            self.assertFalse(svc.get_separate_formats(), 'sep pour %r' % (v,))
+
+    def test_absent_par_defaut_faux(self):
+        svc = DestinationService(doc=None, config=FakeConfig())
+        self.assertFalse(svc.get_create_subfolders())
+        self.assertFalse(svc.get_separate_formats())
+
+
 class TestDestinationServiceUniquePath(unittest.TestCase):
     def setUp(self):
         self.service = DestinationService(doc=None, config=FakeConfig())
@@ -128,48 +159,23 @@ class TestDestinationServiceFolder(unittest.TestCase):
         self.assertTrue(self.service.get_separate_formats())
 
 
-class TestDestinationServiceBuildExportPath(unittest.TestCase):
-    def setUp(self):
-        self.config = FakeConfig()
-        self.service = DestinationService(doc=None, config=self.config)
+class TestPasDeMasquageDuSocle(unittest.TestCase):
+    """Aucun sous-dossier du bouton ne doit porter le nom d'un package du socle.
 
-    def test_build_export_path_utilise_pattern_et_extension(self):
-        rows = [{'Name': 'Numero_Feuille', 'Prefix': '', 'Suffix': '-'}]
-        tmpdir = tempfile.mkdtemp(prefix='destservice_build_')
-        try:
-            result = self.service.build_export_path(
-                rows=rows, folder=tmpdir, ext='pdf')
-            self.assertTrue(result.startswith(tmpdir))
-            self.assertTrue(result.endswith('.pdf'))
-            self.assertIn('Numero_Feuille', result)
-        finally:
-            shutil.rmtree(tmpdir, ignore_errors=True)
+    En import relatif implicite (Python 2 / IronPython, pas d'`absolute_import`
+    dans le dépôt), un dossier `core/` dans un package fait échouer tous les
+    `from core.X import Y` de ce package : il cherche `<package>/core/X`. C'est
+    ce qui a tué DestinationService deux fois (via `lib/core/`, puis via
+    `lib/services/core/`).
+    """
 
-    def test_build_export_path_ensure_dir_cree_dossier(self):
-        parent = tempfile.mkdtemp(prefix='destservice_build_ensure_')
-        try:
-            target_folder = os.path.join(parent, 'nouveau')
-            rows = [{'Name': 'X', 'Prefix': '', 'Suffix': ''}]
-            self.service.build_export_path(
-                rows=rows, folder=target_folder, ext='pdf', ensure_dir=True)
-            self.assertTrue(os.path.exists(target_folder))
-        finally:
-            shutil.rmtree(parent, ignore_errors=True)
-
-    def test_build_export_path_unique_evite_collision(self):
-        tmpdir = tempfile.mkdtemp(prefix='destservice_build_unique_')
-        try:
-            rows = [{'Name': 'X', 'Prefix': '', 'Suffix': ''}]
-            first = self.service.build_export_path(
-                rows=rows, folder=tmpdir, ext='pdf')
-            with open(first, 'w') as f:
-                f.write('x')
-            second = self.service.build_export_path(
-                rows=rows, folder=tmpdir, ext='pdf', unique=True)
-            self.assertNotEqual(first, second)
-            self.assertTrue(second.endswith(' (1).pdf'))
-        finally:
-            shutil.rmtree(tmpdir, ignore_errors=True)
+    def test_aucun_dossier_homonyme_du_socle(self):
+        interdits = ('core', 'ui')
+        fautifs = []
+        for racine, dossiers, _ in os.walk(os.path.join(_BUTTON, 'lib')):
+            dossiers[:] = [d for d in dossiers if d != '__pycache__']
+            fautifs += [os.path.join(racine, d) for d in dossiers if d in interdits]
+        self.assertEqual([], fautifs)
 
 
 if __name__ == '__main__':

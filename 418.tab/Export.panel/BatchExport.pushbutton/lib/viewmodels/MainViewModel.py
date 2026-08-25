@@ -1,19 +1,14 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-import codecs
-import os
-
-# Chemin fixe du log — ancré dans le dossier du bouton pour que le chemin
-# ne change JAMAIS entre les rechargements pyRevit (qui créent chaque fois un
-# sous-dossier GUID dans %TEMP%, rendant _tout_ chemin basé sur %TEMP% instable).
-# Résolution : lib/viewmodels/ → lib/ → BatchExport.pushbutton/
+# Journal de diagnostic : le logger pyRevit écrit dans la fenêtre de sortie
+# du script (et respecte le niveau de verbosité choisi par l'utilisateur).
+# Hors Revit (tests standalone), `get_logger` est indisponible -> no-op.
 try:
-    _VIEWMODELS_DIR = os.path.dirname(os.path.abspath(__file__))
-    _PUSHBUTTON_DIR = os.path.dirname(os.path.dirname(_VIEWMODELS_DIR))
-    LIVE_LOG_PATH = os.path.join(_PUSHBUTTON_DIR, u'BatchExport_debug.log')
+    from pyrevit import script as _pyrevit_script
+    _LOGGER = _pyrevit_script.get_logger()
 except Exception:
-    LIVE_LOG_PATH = None
+    _LOGGER = None
 
 try:
     from ui.base.BaseViewModel import BaseViewModel
@@ -70,47 +65,35 @@ except Exception:
     except Exception:
         SheetParameterRepository = None  # type: ignore
 
-# ATTENTION -- ordre d'import INVERSE des autres services de ce fichier
-# (`lib.` d'abord). PdfExporterService/DwgExporterService utilisent des
-# imports RELATIFS internes (`from ...core.UserConfig import UserConfig`) qui
-# ne résolvent correctement QUE si leur package racine est `lib`
-# (donc `lib.services.formats.X`). Importés comme `services.formats.X`
-# (racine = `services`), les `...` remontent au-dessus de `lib` et l'import
-# interne de UserConfig retombe sur None sans lever -> `self._cfg = None`
-# côté service -> get/set_saved_setup deviennent des no-op silencieux et les
-# setups PDF/DWG choisis ne persisteraient JAMAIS (les listes, elles,
-# continueraient de se peupler car list_all_setups n'a besoin que de DB/doc :
-# bug invisible « les setups ne se sauvegardent pas »). Même raison que pour
-# l'import de ExportOrchestrator dans lancer_export().
 try:
-    from lib.services.formats.PdfExporterService import PdfExporterService
+    from services.formats.PdfExporterService import PdfExporterService
 except Exception:
     try:
-        from services.formats.PdfExporterService import PdfExporterService
+        from lib.services.formats.PdfExporterService import PdfExporterService
     except Exception:
         PdfExporterService = None  # type: ignore
 
 try:
-    from lib.services.formats.DwgExporterService import DwgExporterService
+    from services.formats.DwgExporterService import DwgExporterService
 except Exception:
     try:
-        from services.formats.DwgExporterService import DwgExporterService
+        from lib.services.formats.DwgExporterService import DwgExporterService
     except Exception:
         DwgExporterService = None  # type: ignore
 
 try:
-    from lib.services.BulkEditService import BulkEditService
+    from core import bulk_edit
 except Exception:
     try:
-        from services.BulkEditService import BulkEditService
+        from lib.core import bulk_edit
     except Exception:
-        BulkEditService = None  # type: ignore
+        bulk_edit = None  # type: ignore
 
 try:
-    from lib.services.ListSelectionService import ListSelectionService
+    from core.list_selection import ListSelectionService
 except Exception:
     try:
-        from services.ListSelectionService import ListSelectionService
+        from lib.core.list_selection import ListSelectionService
     except Exception:
         ListSelectionService = None  # type: ignore
 
@@ -128,7 +111,7 @@ _SURFACE_TITRES = {
 # `sheet_param_carnetcombo` et `sheet_param_dwgcombo` reprennent des clés
 # legacy déjà présentes dans la config. `sheet_param_exportationcombo` est
 # une clé NOUVELLE : le legacy
-# (lib/services/core/ExportOrchestrator._get_ui_selected_param_names) lisait
+# (lib/services/ExportOrchestrator._get_ui_selected_param_names) lisait
 # le nom du paramètre "Export" directement depuis le contrôle UI
 # (ComboBox 'ExportationCombo') sans jamais le persister. On l'ajoute ici en
 # suivant la même convention de nommage (`sheet_param_` + nom du combo en
@@ -173,7 +156,8 @@ class SheetItemVM(BaseViewModel):
 class CollectionItemVM(BaseViewModel):
     """Item bindable pour une collection (jeu) au sein du mode « par jeu »."""
 
-    def __init__(self, titre, cid, flag_export, flag_carnet, flag_dwg, sheets):
+    def __init__(self, titre, cid, flag_export, flag_carnet, flag_dwg, sheets,
+                 carnet_apercu=u''):
         super(CollectionItemVM, self).__init__()
         self._titre = titre
         self._id = cid
@@ -181,6 +165,9 @@ class CollectionItemVM(BaseViewModel):
         self._flag_carnet = bool(flag_carnet)
         self._flag_dwg = bool(flag_dwg)
         self._sheets = sheets  # list[SheetItemVM]
+        # Aperçu du nom de fichier de carnet (motif `set` résolu + `.pdf`),
+        # ou '' si aucun motif carnet n'est configuré. Cf. refresh_par_jeu.
+        self._carnet_apercu = carnet_apercu or u''
 
     @property
     def Titre(self):
@@ -207,6 +194,17 @@ class CollectionItemVM(BaseViewModel):
         return self._flag_export
 
     @property
+    def CarnetApercu(self):
+        return self._carnet_apercu
+
+    @property
+    def CarnetApercuVisible(self):
+        # Visible uniquement si le carnet est actif ET qu'un aperçu non vide
+        # a pu être résolu : évite d'afficher l'icône seule sans texte quand
+        # le motif `set` est absent/vide.
+        return bool(self._flag_carnet) and bool(self._carnet_apercu)
+
+    @property
     def Sheets(self):
         return self._sheets
 
@@ -223,7 +221,7 @@ class ManualSheetVM(BaseViewModel):
     pattern de nommage FEUILLE), jamais recalculés à la volée par ce VM.
 
     `Selected` (case de sélection de ligne) est TWO-WAY et pilotée par
-    `BulkEditService` via `MainViewModel.select_all_manuel()` /
+    `core.bulk_edit` via `MainViewModel.select_all_manuel()` /
     `deselect_all_manuel()`. Elle ne conditionne PAS `selection_manuelle()`
     (qui se base UNIQUEMENT sur ExportPdf/ExportDwg).
     """
@@ -460,8 +458,8 @@ class MainViewModel(BaseViewModel):
         # Données « feuille par feuille » (mode manuel). Sélection ÉPHÉMÈRE :
         # reconstruite à chaque refresh_manuel(), jamais persistée.
         self._sheets_manuel = []
-        self._bulk_svc = BulkEditService() if BulkEditService is not None else None
-        self._selection_svc = ListSelectionService() if ListSelectionService is not None else None
+        self._selection_svc = (ListSelectionService(prop=u'Selected')
+                               if ListSelectionService is not None else None)
         self._filtres_manuel = []
         self._recherche_manuel = u''
         self._on_export_done_cb = None
@@ -480,10 +478,6 @@ class MainViewModel(BaseViewModel):
         # cf. refresh_patterns_apercu().
         self.refresh_patterns_apercu()
 
-        # Log de session : ouvert ici, reste ouvert toute la session.
-        self._log_file = None
-        self._log_path = None
-        self._init_session_log()
         self._log_init_context()
 
     # ------------------------------------------------------------------
@@ -624,10 +618,7 @@ class MainViewModel(BaseViewModel):
         (legacy), dédoublonnés en conservant l'ordre d'apparition
         (feuilles d'abord, puis projet). Injecte `self._cfg` (config
         partagée du VM) au repository -- `SheetParameterRepository._get_cfg`
-        retourne alors directement cette instance sans dépendre de son
-        import relatif interne (`from ...core.UserConfig import UserConfig`),
-        qui ne résolvent correctement que si le package racine du module est
-        `lib` (cf. notes d'import plus haut dans ce fichier).
+        retourne alors directement cette instance au lieu d'en créer une.
 
         Ne lève jamais : retourne `[]` si `self._doc` est absent, si
         `SheetParameterRepository` n'a pas pu être importé, ou si la
@@ -737,6 +728,17 @@ class MainViewModel(BaseViewModel):
                 _pattern = u''
                 rows_sheet = []
 
+        # Motif carnet ('set') hissé une fois (comme _pattern/rows_sheet pour
+        # les feuilles), résolu par collection pour l'aperçu du titre de carnet.
+        _set_pattern = u''
+        set_rows = []
+        if self._naming_service is not None:
+            try:
+                _set_pattern, set_rows = self._naming_service.load('set')
+            except Exception:
+                _set_pattern = u''
+                set_rows = []
+
         raw_collections = []
         if self._sheet_service is not None:
             try:
@@ -801,8 +803,23 @@ class MainViewModel(BaseViewModel):
             if qualified:
                 nb_feuilles_qualifiees += len(sheets_out)
 
+            # Aperçu du titre de carnet : motif `set` résolu contre l'élément
+            # de collection + `.pdf` (extension du fichier produit à l'export).
+            # Même discipline try/except + garde motif que `nom_projete`.
+            carnet_apercu = u''
+            if (self._naming_service is not None and coll_elem is not None
+                    and (_set_pattern or set_rows)):
+                try:
+                    resolved = self._naming_service.resolve_for_element(
+                        coll_elem, _set_pattern or set_rows) or u''
+                except Exception:
+                    resolved = u''
+                if resolved:
+                    carnet_apercu = resolved + u'.pdf'
+
             collections_out.append(CollectionItemVM(
-                titre, coll_id, flag_export, flag_carnet, flag_dwg, sheets_out
+                titre, coll_id, flag_export, flag_carnet, flag_dwg, sheets_out,
+                carnet_apercu=carnet_apercu
             ))
 
         # Tri (stable) : collections QUALIFIÉES (FlagExport=True) d'abord,
@@ -1006,9 +1023,9 @@ class MainViewModel(BaseViewModel):
         """
         if not getattr(source, u'Selected', False):
             return
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        selected = self._bulk_svc.get_selected(self.SheetsManuelFiltrees)
+        selected = bulk_edit.get_selected(self.SheetsManuelFiltrees)
         for item in selected:
             if item is not source:
                 try:
@@ -1158,57 +1175,57 @@ class MainViewModel(BaseViewModel):
 
     def select_all_manuel(self):
         """Sélectionne toutes les feuilles affichées (SheetsManuelFiltrees)."""
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        self._bulk_svc.select_all(self.SheetsManuelFiltrees)
+        bulk_edit.select_all(self.SheetsManuelFiltrees)
         self.notify_property(u'NbSelected')
 
     def deselect_all_manuel(self):
         """Désélectionne toutes les feuilles affichées."""
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        self._bulk_svc.deselect_all(self.SheetsManuelFiltrees)
+        bulk_edit.deselect_all(self.SheetsManuelFiltrees)
         self.notify_property(u'NbSelected')
 
     def bulk_set_pdf(self, value):
         """Active ou désactive ExportPdf sur les feuilles sélectionnées."""
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        selected = self._bulk_svc.get_selected(self.SheetsManuelFiltrees)
-        self._bulk_svc.apply(selected, u'ExportPdf', bool(value))
+        selected = bulk_edit.get_selected(self.SheetsManuelFiltrees)
+        bulk_edit.apply(selected, u'ExportPdf', bool(value))
 
     def bulk_set_dwg(self, value):
         """Active ou désactive ExportDwg sur les feuilles sélectionnées."""
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        selected = self._bulk_svc.get_selected(self.SheetsManuelFiltrees)
-        self._bulk_svc.apply(selected, u'ExportDwg', bool(value))
+        selected = bulk_edit.get_selected(self.SheetsManuelFiltrees)
+        bulk_edit.apply(selected, u'ExportDwg', bool(value))
 
     def bulk_toggle_pdf(self):
         """Bascule ExportPdf sur les feuilles sélectionnées (tout ON → OFF, sinon → ON)."""
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        selected = self._bulk_svc.get_selected(self.SheetsManuelFiltrees)
-        self._bulk_svc.toggle(selected, u'ExportPdf')
+        selected = bulk_edit.get_selected(self.SheetsManuelFiltrees)
+        bulk_edit.toggle(selected, u'ExportPdf')
 
     def bulk_toggle_dwg(self):
         """Bascule ExportDwg sur les feuilles sélectionnées (tout ON → OFF, sinon → ON)."""
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        selected = self._bulk_svc.get_selected(self.SheetsManuelFiltrees)
-        self._bulk_svc.toggle(selected, u'ExportDwg')
+        selected = bulk_edit.get_selected(self.SheetsManuelFiltrees)
+        bulk_edit.toggle(selected, u'ExportDwg')
 
     def toggle_all_pdf(self):
         """Bascule ExportPdf sur TOUTES les feuilles filtrées (tout ON → OFF, sinon → ON)."""
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        self._bulk_svc.toggle(self.SheetsManuelFiltrees, u'ExportPdf')
+        bulk_edit.toggle(self.SheetsManuelFiltrees, u'ExportPdf')
 
     def toggle_all_dwg(self):
         """Bascule ExportDwg sur TOUTES les feuilles filtrées (tout ON → OFF, sinon → ON)."""
-        if self._bulk_svc is None:
+        if bulk_edit is None:
             return
-        self._bulk_svc.toggle(self.SheetsManuelFiltrees, u'ExportDwg')
+        bulk_edit.toggle(self.SheetsManuelFiltrees, u'ExportDwg')
 
     def handle_row_click(self, index, shift=False, ctrl=False):
         """Délègue la sélection multi-items à `ListSelectionService`."""
@@ -1465,90 +1482,35 @@ class MainViewModel(BaseViewModel):
         self._progress_value = v
         self.notify_property(u'ProgressValue')
 
-    class _ComboShim(object):
-        """Faux contrôle UI minimal : expose seulement `.SelectedItem`.
+    def _noms_params_mappes(self):
+        """Les trois noms de paramètres Oui/Non attendus par l'orchestrateur.
 
-        `ExportOrchestrator._get_ui_selected_param_names` fait
-        `str(getattr(ctrl, 'SelectedItem', None))` sur ce que renvoie
-        `get_ctrl(name)`. Historiquement `get_ctrl` retournait une vraie
-        ComboBox WPF (`.SelectedItem` = nom du paramètre choisi par
-        l'utilisateur). Ce shim reproduit uniquement l'attribut consommé,
-        sans dépendance WPF, pour que l'orchestrateur (non modifié) puisse
-        lire le mapping paramètres depuis le VM.
+        Le reste de sa configuration (destination, motifs de nommage, setups
+        PDF/DWG) est lu par l'orchestrateur lui-même depuis la MÊME instance
+        UserConfig, injectée à sa construction.
         """
-
-        def __init__(self, value):
-            self.SelectedItem = value if value else u''
-
-    def _get_ctrl_adapter(self):
-        """Construit `get_ctrl(name)` à partir du mapping VM (ParamExport/
-        ParamCarnet/ParamDwg), sans passer par des contrôles WPF réels.
-
-        Adaptation choisie (la moins invasive après lecture de
-        `ExportOrchestrator`) : l'orchestrateur n'a besoin, en dehors de
-        `doc`, que des TROIS noms de paramètres Oui/Non (Export/Carnet/DWG)
-        via `get_ctrl(name).SelectedItem`. Tout le reste (destination,
-        patterns de nommage, setups PDF/DWG) est lu par l'orchestrateur
-        lui-même depuis `UserConfig('batch_export')` — le MÊME namespace et
-        les MÊMES clés que `DestinationService`/`NamingService` (Phase 2)
-        utilisent pour persister (`PathDossier`, `pattern_sheet[_rows]`,
-        `pattern_set[_rows]`, `create_subfolders`, `separate_format_folders`,
-        etc.). Il n'y a donc pas besoin d'injecter `_destination_service`
-        ni `_naming_service` dans l'orchestrateur : la configuration est
-        déjà partagée de façon transparente via le namespace commun. Un
-        adaptateur plus large (dict de config direct) aurait nécessité de
-        modifier `ExportOrchestrator.run()` -- écarté au profit de ce petit
-        shim purement local au VM.
-        """
-        mapping = {
-            u'ExportationCombo': self.ParamExport,
-            u'CarnetCombo': self.ParamCarnet,
-            u'DWGCombo': self.ParamDwg,
-        }
-
-        def get_ctrl(name):
-            return MainViewModel._ComboShim(mapping.get(name, u''))
-
-        return get_ctrl
+        return (self.ParamExport, self.ParamCarnet, self.ParamDwg)
 
     # ------------------------------------------------------------------
     # Log de session (diagnostic complet : actions UI + export)
     # ------------------------------------------------------------------
 
-    def _init_session_log(self):
-        """Ouvre BatchExport_debug.log (chemin fixe, dans le dossier du bouton).
-
-        Le chemin est calculé UNE FOIS au niveau module (LIVE_LOG_PATH) pour
-        rester stable entre les rechargements pyRevit, qui créent un sous-dossier
-        GUID unique dans %TEMP% à chaque run. Codecs.open pour IronPython/CPython.
-        flush() après chaque write = le fichier est live dès qu'il est ouvert
-        dans VS Code (auto-refresh on disk change).
-        """
-        import datetime as _dt
-        try:
-            self._log_path = LIVE_LOG_PATH or os.path.join(
-                os.path.expanduser('~'), u'BatchExport_debug.log')
-            self._log_file = codecs.open(self._log_path, 'a', encoding='utf-8')
-            sep = u'=' * 68
-            self._log_file.write(u'\n{}\n'.format(sep))
-            self._log_file.write(u'SESSION  {}\n'.format(
-                _dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-            self._log_file.write(u'{}\n'.format(sep))
-            self._log_file.flush()
-        except Exception:
-            self._log_file = None
-            self._log_path = None
-
     def _log(self, category, message):
-        """Écrit une ligne [HH:MM:SS] [CATEGORIE] message dans le log."""
-        if self._log_file is None:
+        """Journalise `[CATEGORIE] message` via le logger pyRevit.
+
+        AVERT/ERREUR passent en warning/error pour ressortir dans la fenêtre
+        de sortie ; le reste est du debug (masqué sauf mode verbeux).
+        """
+        if _LOGGER is None:
             return
         try:
-            import datetime as _dt
-            ts = _dt.datetime.now().strftime('%H:%M:%S')
-            line = u'[{}] [{:<8s}] {}\n'.format(ts, category, message or u'')
-            self._log_file.write(line)
-            self._log_file.flush()
+            ligne = u'[{}] {}'.format(category, message or u'')
+            if category == u'ERREUR':
+                _LOGGER.error(ligne)
+            elif category == u'AVERT':
+                _LOGGER.warning(ligne)
+            else:
+                _LOGGER.debug(ligne)
         except Exception:
             pass
 
@@ -1622,28 +1584,18 @@ class MainViewModel(BaseViewModel):
 
         try:
             try:
-                # Ordre d'import : `lib.services.core...` d'abord. Le module
-                # `ExportOrchestrator` utilise des imports relatifs (`from
-                # ...core.UserConfig`, `from ...data...`) qui ne résolvent
-                # correctement QUE si son package est `lib.services.core`
-                # (racine de package = `lib`). Importé comme
-                # `services.core.ExportOrchestrator` (package racine =
-                # `services`), les `...` remontent au-dessus de `lib` et
-                # tous les try/except internes retombent sur None
-                # (DestinationStore/NamingPatternStore/NamingResolver/
-                # PdfExporterService = None) sans lever -- l'export
-                # « fonctionnerait » silencieusement en mode dégradé
-                # (dossier courant, sans options). D'où l'ordre inverse de
-                # celui utilisé pour les autres services de ce fichier.
-                from lib.services.core.ExportOrchestrator import ExportOrchestrator
+                from services.ExportOrchestrator import ExportOrchestrator
             except Exception:
-                from services.core.ExportOrchestrator import ExportOrchestrator
+                from lib.services.ExportOrchestrator import ExportOrchestrator
         except Exception:
             self.StatusText = u"Export indisponible (orchestrateur introuvable)."
             return
 
         try:
-            orch = ExportOrchestrator()
+            # Injecter la config partagée du VM : l'orchestrateur doit lire les
+            # MÊMES flags de séparation et motifs de nommage que ceux persistés
+            # par le VM/la modale (sinon il lit sa propre config '<absent>').
+            orch = ExportOrchestrator(config=self._cfg)
         except Exception:
             self.StatusText = u"Export indisponible (initialisation impossible)."
             return
@@ -1653,7 +1605,12 @@ class MainViewModel(BaseViewModel):
         # dans de mauvaises conditions.
         try:
             if getattr(orch, '_dest', None) is None:
-                self.StatusText = u"Export indisponible (dépendances internes manquantes)."
+                detail = u' ; '.join(getattr(orch, '_erreurs_import', None) or [])
+                self.StatusText = (
+                    u"Export indisponible — dépendance interne : {}".format(detail)
+                    if detail else
+                    u"Export indisponible (dépendances internes manquantes).")
+                self._log(u'ERREUR', self.StatusText)
                 return
         except Exception:
             pass
@@ -1675,7 +1632,9 @@ class MainViewModel(BaseViewModel):
 
         # --- Plan prévisionnel : ce que le programme va faire ---
         try:
-            plans = orch.plan_exports_for_collections(self._doc, self._get_ctrl_adapter())
+            p_export, p_carnet, p_dwg = self._noms_params_mappes()
+            plans = orch.plan_exports_for_collections(
+                self._doc, p_export, p_carnet, p_dwg)
             self._log(u'PLAN', u'{} jeux analysés :'.format(len(plans)))
             for p in plans:
                 etat = u'EXPORT' if p.do_export else u'IGNORE'
@@ -1697,9 +1656,10 @@ class MainViewModel(BaseViewModel):
 
         _export_ok = False
         try:
+            p_export, p_carnet, p_dwg = self._noms_params_mappes()
             orch.run(
                 self._doc,
-                self._get_ctrl_adapter(),
+                p_export, p_carnet, p_dwg,
                 progress_cb=progress_cb,
                 log_cb=log_cb,
                 destination=self.DestinationPath,
@@ -1740,22 +1700,30 @@ class MainViewModel(BaseViewModel):
 
         try:
             try:
-                from lib.services.core.ExportOrchestrator import ExportOrchestrator
+                from lib.services.ExportOrchestrator import ExportOrchestrator
             except Exception:
-                from services.core.ExportOrchestrator import ExportOrchestrator
+                from services.ExportOrchestrator import ExportOrchestrator
         except Exception:
             self.StatusText = u"Export indisponible (orchestrateur introuvable)."
             return
 
         try:
-            orch = ExportOrchestrator()
+            # Injecter la config partagée du VM : l'orchestrateur doit lire les
+            # MÊMES flags de séparation et motifs de nommage que ceux persistés
+            # par le VM/la modale (sinon il lit sa propre config '<absent>').
+            orch = ExportOrchestrator(config=self._cfg)
         except Exception:
             self.StatusText = u"Export indisponible (initialisation impossible)."
             return
 
         try:
             if getattr(orch, '_dest', None) is None:
-                self.StatusText = u"Export indisponible (dépendances internes manquantes)."
+                detail = u' ; '.join(getattr(orch, '_erreurs_import', None) or [])
+                self.StatusText = (
+                    u"Export indisponible — dépendance interne : {}".format(detail)
+                    if detail else
+                    u"Export indisponible (dépendances internes manquantes).")
+                self._log(u'ERREUR', self.StatusText)
                 return
         except Exception:
             pass

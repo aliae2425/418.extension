@@ -2,7 +2,7 @@
 # Service de collections de feuilles (carnets) : lecture doc + comptages.
 #
 # Consolide la logique historiquement répartie entre :
-#   - lib/data/sheets/SheetSetRepository.py       (liste des collections + comptage)
+#   - liste des collections (SheetCollection) + comptage des feuilles
 #   - lib/data/sheets/SheetParameterRepository.py  (paramètres Oui/Non des collections)
 #
 # Objectif : un service unique, testable hors Revit (doc=None -> listes vides,

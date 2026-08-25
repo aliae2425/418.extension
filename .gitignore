@@ -6,9 +6,13 @@
 
 **/__pycache__
 profil.json
-.claude/*
-.claude-flow/*
-lib/ui/GUI/resources/logo.dark.png
-418.tab/Export.panel/BatchExport.pushbutton/BatchExport_debug.log
+# Dossier de données runtime commun (persistance des réglages par feature)
+/data/
+**/data
+**/.claude/*
+**/.claude-flow/*
+# Artefacts d'agents (briefs/rapports de tâches, jamais du code livrable)
+/.superpowers/
+
 cherrypick.md
-*/*.json
+**/*.log

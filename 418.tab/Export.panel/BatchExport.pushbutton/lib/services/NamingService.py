@@ -438,17 +438,18 @@ class NamingService(object):
 
     def available_tokens(self):
         """Retourne `[{'token': '{numero}', 'desc': '...', 'source': '...', 'label': '...'}, ...]` :
-        la liste des jetons spéciaux gérés, pour affichage de badges
-        insérables dans l'éditeur de nommage. Inclut des entrées génériques
-        pour les jetons paramétrés `{param:NOM}` / `{param_projet:NOM}`.
+        la liste des jetons génériques STATIQUES, pour affichage de badges
+        insérables dans l'éditeur de nommage. Inclut le jeton générique
+        `{param:NOM}` (feuille). Les paramètres PROJET réels sont énumérés
+        séparément et dynamiquement via `project_param_tokens()`.
 
-        `source` ∈ {'feuille', 'carnet', 'projet'} : catégorise l'origine de
-        la valeur, pour permettre un filtrage/code couleur côté UI (modale
-        NamingEditor). `{date}`/`{date_*}` sont classés 'feuille' car ils
-        sont résolus par feuille au moment de l'export (pas une propriété
-        figée du projet), même si leur valeur ne dépend pas de l'élément.
-        `{param:NOM}` cible l'élément (feuille ou carnet) -> 'feuille'.
-        `{param_projet:NOM}` cible ProjectInformation -> 'projet'.
+        `source` ∈ {'systeme', 'feuille', 'jeu', 'projet'} : catégorise
+        l'origine de la valeur, pour permettre un filtrage/code couleur côté
+        UI (modale NamingEditor). `{date}`/`{date_*}` sont classés 'systeme'
+        (valeur du jour, indépendante de l'élément). `{numero}`/`{nom}`/... et
+        `{param:NOM}` ciblent la feuille -> 'feuille'. `{titre}` (titre de la
+        collection) -> 'jeu'. Les params projet (`project_param_tokens()`)
+        -> 'projet'.
 
         `label` : nom COURT affiché sur le badge, SANS qualifier de source
         (la couleur du badge indique déjà l'origine -- voir `.source` /
@@ -457,22 +458,122 @@ class NamingService(object):
         que `{nom}` et `{projet_nom}` partagent volontairement le même
         label 'nom' : seule la couleur du badge distingue leur source."""
         return [
+            # Système : valeurs indépendantes de l'élément (date du jour).
+            {'token': '{date}', 'desc': 'Date du jour (AAAA-MM-JJ)', 'source': 'systeme', 'label': 'date'},
+            {'token': '{date_jour}', 'desc': 'Jour courant (JJ)', 'source': 'systeme', 'label': 'jour'},
+            {'token': '{date_mois}', 'desc': 'Mois courant (MM)', 'source': 'systeme', 'label': 'mois'},
+            {'token': '{date_annee}', 'desc': 'Année courante (AAAA)', 'source': 'systeme', 'label': 'année'},
+            # Feuille : jetons génériques résolus par feuille à l'export.
             {'token': '{numero}', 'desc': 'Numéro de feuille', 'source': 'feuille', 'label': 'numéro'},
             {'token': '{nom}', 'desc': 'Nom de la feuille (ou titre du carnet)', 'source': 'feuille', 'label': 'nom'},
             {'token': '{nom_tiret}', 'desc': 'Nom avec espaces remplacés par -', 'source': 'feuille', 'label': 'nom (tirets)'},
             {'token': '{nom_underscore}', 'desc': 'Nom avec espaces remplacés par _', 'source': 'feuille', 'label': 'nom (underscores)'},
-            {'token': '{titre}', 'desc': 'Titre du carnet', 'source': 'carnet', 'label': 'titre'},
-            {'token': '{date}', 'desc': 'Date du jour (AAAA-MM-JJ)', 'source': 'feuille', 'label': 'date'},
-            {'token': '{date_jour}', 'desc': 'Jour courant (JJ)', 'source': 'feuille', 'label': 'jour'},
-            {'token': '{date_mois}', 'desc': 'Mois courant (MM)', 'source': 'feuille', 'label': 'mois'},
-            {'token': '{date_annee}', 'desc': 'Année courante (AAAA)', 'source': 'feuille', 'label': 'année'},
-            {'token': '{projet_nom}', 'desc': 'Nom du projet', 'source': 'projet', 'label': 'nom'},
-            {'token': '{projet_numero}', 'desc': 'Numéro du projet', 'source': 'projet', 'label': 'numéro'},
-            {'token': '{projet_client}', 'desc': 'Client du projet', 'source': 'projet', 'label': 'client'},
-            {'token': '{projet_statut}', 'desc': 'Statut du projet', 'source': 'projet', 'label': 'statut'},
-            {'token': '{param:NOM}', 'desc': "Paramètre NOM sur l'élément", 'source': 'feuille', 'label': 'paramètre…'},
-            {'token': '{param_projet:NOM}', 'desc': 'Paramètre NOM du projet', 'source': 'projet', 'label': 'paramètre…'},
+            {'token': '{param:NOM}', 'desc': "Paramètre NOM sur la feuille", 'source': 'feuille', 'label': 'paramètre…'},
+            # Jeu (carnet) : titre de la collection.
+            {'token': '{titre}', 'desc': 'Titre du carnet (jeu)', 'source': 'jeu', 'label': 'titre'},
+            # NB : la catégorie « Projet » n'est plus statique -- les
+            # paramètres réels de ProjectInformation sont énumérés
+            # dynamiquement via `project_param_tokens()`. Les anciens
+            # raccourcis {projet_*} et {param_projet:NOM} restent RÉSOLVABLES
+            # (cf. _resolve_simple_token / resolve_project_values) pour ne pas
+            # casser les motifs déjà enregistrés, mais ne figurent plus dans
+            # la palette.
         ]
+
+    # ------------------------------------------------------------------
+    # Paramètres projet (ProjectInformation) : énumération nom+valeur
+    # ------------------------------------------------------------------
+
+    def _iter_project_params(self):
+        """Retourne `[(nom, valeur), ...]` lus en UNE SEULE passe sur
+        l'élément ProjectInformation (nom ET valeur depuis le même objet
+        paramètre -- source unique de vérité, évite qu'un badge apparaisse
+        sans que sa valeur d'aperçu se résolve). Trié alpha (insensible à la
+        casse). `[]` sans doc / hors Revit. Ne lève jamais."""
+        elem = self._get_project_info_elem()
+        if elem is None:
+            return []
+        out = []
+        seen = set()
+        try:
+            get_ordered = getattr(elem, 'GetOrderedParameters', None)
+            params = get_ordered() if callable(get_ordered) else getattr(elem, 'Parameters', None)
+            for param in (params or []):
+                try:
+                    pdef = getattr(param, 'Definition', None)
+                    if pdef is None:
+                        continue
+                    name = getattr(pdef, 'Name', None)
+                    if not name or not name.strip():
+                        continue
+                    name = name.strip()
+                    if name.startswith('_') or name in seen:
+                        continue
+                    seen.add(name)
+                    value = self._sanitize_resolved_value(self._extract_param_value(param))
+                    out.append((name, value))
+                except Exception:
+                    continue
+        except Exception:
+            return []
+        try:
+            out.sort(key=lambda t: t[0].lower())
+        except Exception:
+            pass
+        return out
+
+    def project_param_tokens(self):
+        """Retourne la liste de jetons dynamiques pour les paramètres projet :
+        `[{'token':'{param_projet:NOM}', 'label':'NOM', 'desc':'Projet — <valeur>',
+        'source':'projet', 'value':<valeur>}, ...]`. `[]` sans doc."""
+        tokens = []
+        for name, value in self._iter_project_params():
+            tokens.append({
+                'token': '{param_projet:' + name + '}',
+                'label': name,
+                'desc': 'Projet — ' + (value or ''),
+                'source': 'projet',
+                'value': value or '',
+            })
+        return tokens
+
+    def resolve_project_values(self, pattern):
+        """Aperçu « projet seulement » : substitue UNIQUEMENT les jetons de
+        paramètre projet (`{param_projet:NOM}` + legacy `{projet_*}`) par leur
+        valeur réelle ; laisse LITTÉRAL tout autre jeton (`{numero}`, `{nom}`,
+        `{titre}`, `{date}`, ...). Ne lève jamais (repli : motif brut)."""
+        try:
+            if isinstance(pattern, (list, tuple)):
+                pattern = self.build_pattern(pattern)
+            pattern = pattern or ''
+            if not isinstance(pattern, (str, type(u''))):
+                pattern = str(pattern)
+        except Exception:
+            return ''
+
+        values = {}
+        for name, value in self._iter_project_params():
+            values[name] = value
+
+        def _repl(m):
+            body = m.group(1)
+            stripped = (body or '').strip()
+            if ':' in stripped:
+                keyword, _, arg = stripped.partition(':')
+                if keyword.strip().lower() == 'param_projet':
+                    arg = arg.strip()
+                    if arg in values:
+                        return values[arg]
+                    return self._sanitize_resolved_value(self._get_project_param_value(arg))
+                return '{' + body + '}'  # autre jeton paramétré : littéral
+            if stripped.lower() in ('projet_nom', 'projet_numero', 'projet_client', 'projet_statut'):
+                return self._resolve_simple_token(None, stripped.lower())
+            return '{' + body + '}'  # tout autre jeton : littéral
+
+        try:
+            return _TOKEN_RE.sub(_repl, pattern)
+        except Exception:
+            return pattern
 
     # ------------------------------------------------------------------
     # Extraction de valeur paramètre (robuste, ordre de repli)

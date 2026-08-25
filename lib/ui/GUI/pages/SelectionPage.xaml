@@ -1,0 +1,108 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Page Sélection PARTAGÉE par les 4 outils (dupliquer/renommer × feuilles/vues).
+    DataContext = SelectionPageVM (assigné par le Python). Chargée via
+    XamlReader.Load et injectée dans PageHost (PAS de x:Class, PAS de
+    code-behind). Tout brush/style de thème en DynamicResource.
+
+    Ce qui variait entre les 4 copies est désormais bindé :
+      - le titre          -> {Binding TitrePage}
+      - la colonne gauche -> {Binding ColonneGauche}, dont le rendu suit
+        {Binding EstIdentifiant} : un numéro de feuille s'affiche en gras
+        (identifiant), un type de vue en texte secondaire plus petit.
+
+    Sélection multi-items (clic simple / Ctrl / Shift) : la CheckBox est
+    display-only (IsHitTestVisible=False, binding OneWay) et TOUS les clics
+    sont captés par un handler UNIQUE sur l'ItemsControl (x:Name="ItemsList",
+    câblé côté Python dans RailWindow._wire_selection_interactions) — ceci
+    évite tout double déclenchement entre la case et la ligne.
+  -->
+
+  <Grid Background="{DynamicResource TransparentBrush}"
+        Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>   <!-- titre -->
+      <RowDefinition Height="Auto"/>   <!-- recherche + actions -->
+      <RowDefinition Height="*"/>      <!-- liste -->
+      <RowDefinition Height="Auto"/>   <!-- bouton Suivant -->
+    </Grid.RowDefinitions>
+
+    <TextBlock Grid.Row="0"
+               Text="{Binding TitrePage}"
+               Style="{DynamicResource HeaderTextBlockStyle}"
+               Margin="0,0,0,14"/>
+
+    <Grid Grid.Row="1" Margin="0,0,0,10">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <TextBox Grid.Column="0"
+               x:Name="SearchBox"
+               Text="{Binding FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+      <Button Grid.Column="1" x:Name="SelectAllButton" Content="Tout"
+              Style="{DynamicResource SecondaryActionButtonStyle}" Margin="8,0,0,0"/>
+      <Button Grid.Column="2" x:Name="DeselectAllButton" Content="Aucun"
+              Style="{DynamicResource SecondaryActionButtonStyle}" Margin="8,0,0,0"/>
+    </Grid>
+
+    <ScrollViewer Grid.Row="2"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl x:Name="ItemsList" ItemsSource="{Binding FilteredItems}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border BorderBrush="{DynamicResource ControlBorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    Background="{DynamicResource TransparentBrush}"
+                    Padding="4,8">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <CheckBox IsChecked="{Binding IsSelected, Mode=OneWay}"
+                          IsHitTestVisible="False"
+                          Style="{DynamicResource CheckBoxStyle}"
+                          Margin="0,0,12,0"/>
+                <TextBlock Text="{Binding ColonneGauche}"
+                           VerticalAlignment="Center">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <!-- Défaut : métadonnée (type de vue) -->
+                      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                      <Setter Property="FontSize" Value="11"/>
+                      <Setter Property="Width" Value="110"/>
+                      <Style.Triggers>
+                        <!-- Identifiant (numéro de feuille) -->
+                        <DataTrigger Binding="{Binding EstIdentifiant}" Value="True">
+                          <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                          <Setter Property="FontWeight" Value="Bold"/>
+                          <Setter Property="FontSize" Value="12"/>
+                          <Setter Property="Width" Value="90"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+                <TextBlock Text="{Binding Nom}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           VerticalAlignment="Center"/>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <!-- Bouton Suivant : actif uniquement si au moins un item est coché
+         (IsEnabled lié à HasSelection). Le Python le câble vers la page
+         suivante du rail. -->
+    <Button Grid.Row="3"
+            x:Name="NextButton"
+            Content="Suivant"
+            Style="{DynamicResource PrimaryActionButtonStyle}"
+            HorizontalAlignment="Right"
+            Margin="0,14,0,0"
+            IsEnabled="{Binding HasSelection}"/>
+  </Grid>
+</UserControl>

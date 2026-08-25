@@ -37,8 +37,18 @@
     <SolidColorBrush x:Key="TextOnDangerBrush" Color="#FFFFFF"/>
 
     <!-- Couleurs sémantiques (états) — thème clair -->
+    <!-- SuccessBrush (vert) / WarningBrush (orange) / ErrorBrush (rouge, ci-dessus)
+         couvrent déjà le triptyque bon/à revoir/critique du dashboard Audit :
+         réutilisées telles quelles, pas de doublon GoodBrush/WarnBrush. -->
     <SolidColorBrush x:Key="SuccessBrush" Color="#2E9E4F"/>
     <SolidColorBrush x:Key="WarningBrush" Color="#B8860B"/>
+
+    <!-- Palette par thème du donut d'audit (une couleur distincte par section) -->
+    <SolidColorBrush x:Key="CatWarningsBrush" Color="#D98B1F"/>
+    <SolidColorBrush x:Key="CatPurgeBrush" Color="#7A5AD9"/>
+    <SolidColorBrush x:Key="CatVuesBrush" Color="#1F7FD9"/>
+    <SolidColorBrush x:Key="CatCadBrush" Color="#D93B57"/>
+    <SolidColorBrush x:Key="CatNommageBrush" Color="#1FA88C"/>
 
     <!-- Non-brush color resources (for properties expecting Color) -->
     <Color x:Key="ShadowColor">#000000</Color>

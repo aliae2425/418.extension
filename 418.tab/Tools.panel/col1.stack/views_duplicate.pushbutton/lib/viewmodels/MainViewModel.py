@@ -12,10 +12,13 @@ except Exception:
             pass
 
 try:
-    from lib.viewmodels.SelectionPageVM import SelectionPageVM
+    from ui.base.SelectionPageVM import SelectionPageVM
+except Exception:
+    from lib.ui.base.SelectionPageVM import SelectionPageVM
+
+try:
     from lib.viewmodels.OptionsPageVM import OptionsPageVM
 except Exception:
-    from viewmodels.SelectionPageVM import SelectionPageVM
     from viewmodels.OptionsPageVM import OptionsPageVM
 
 
@@ -66,8 +69,10 @@ class MainViewModel(BaseViewModel):
         ids_courants = list(ids_courants or [])
         self._id_to_item = {vid: (nom, tl) for (vid, nom, tl) in descripteurs}
         self.SelectedViewIds = list(ids_courants)
-        self.SelectionVM = SelectionPageVM(descripteurs, ids_courants,
-                                           on_selection_changed=self._on_selection_changed)
+        self.SelectionVM = SelectionPageVM.depuis_descripteurs(
+            [(i, tl, nom) for (i, nom, tl) in descripteurs], ids_courants,
+            titre=u'Vues à dupliquer', est_identifiant=False,
+            on_selection_changed=self._on_selection_changed)
         self.OptionsVM = OptionsPageVM()
         items_initiaux = [self._id_to_item[i] for i in ids_courants if i in self._id_to_item]
         self.OptionsVM.set_source_items(items_initiaux)

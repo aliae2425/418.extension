@@ -1,18 +1,11 @@
 # -*- coding: utf-8 -*-
 # Service de destination : chemins/fichiers d'export + persistance du dossier.
-#
-# Consolide la logique historiquement portée par :
-#   - lib/data/destination/DestinationStore.py
-#
-# Objectif : un service unique, testable hors Revit, sans dépendance UI.
-# Les méthodes UI interactives (choose_destination_interactive/_explorer)
-# ne sont PAS migrées ici : elles relèvent de la vue (Phase 3+).
+# Source unique, testable hors Revit, sans dépendance UI. Utilisé par le
+# ViewModel ET par ExportOrchestrator (même instance de config injectée).
 
 from __future__ import unicode_literals
 
 import os
-import re
-import datetime as _dt
 
 try:
     from core.UserConfig import UserConfig  # type: ignore
@@ -23,12 +16,25 @@ except Exception:
         UserConfig = None  # type: ignore
 
 try:
-    from lib.services.NamingService import NamingService  # type: ignore
+    from core.sanitize import sanitize as _sanitize  # type: ignore
 except Exception:
+    from lib.core.sanitize import sanitize as _sanitize  # type: ignore
+
+
+def _as_bool(val):
+    """Interprète une valeur de config booléenne de façon ROBUSTE.
+
+    La valeur persistée peut revenir sous diverses représentations selon la
+    sérialisation pyRevit ('1', 1, True, la chaîne '"1"' avec guillemets,
+    'true'...). Une comparaison stricte `str(val) == '1'` casse pour True /
+    '"1"' / 'true' -> le flag lu False alors qu'il a été activé (cause
+    candidate de la séparation non appliquée). On normalise ici : True pour
+    tout token vrai courant, False sinon (défaut sûr)."""
     try:
-        from .NamingService import NamingService  # type: ignore
+        s = u"{}".format(val).strip().strip('"').strip("'").strip().lower()
     except Exception:
-        NamingService = None  # type: ignore
+        return False
+    return s in ('1', 'true', 'yes', 'on')
 
 
 class DestinationService(object):
@@ -38,26 +44,20 @@ class DestinationService(object):
     - `unique_path` : évite les collisions de fichiers existants.
     - `ensure` : crée le dossier cible si besoin.
     - `get`/`set` : persistance du dossier de destination via UserConfig.
-    - `build_export_path` : construit un chemin de fichier complet à partir
-      d'un pattern de nommage (rows), en s'appuyant sur `NamingService`.
+
+    La résolution des motifs de nommage n'est PAS ici : elle appartient à
+    `NamingService`, appelé directement par `ExportOrchestrator`.
     """
 
     DEST_FOLDER_KEY = 'PathDossier'
 
-    def __init__(self, doc=None, config=None, namespace='batch_export', namer=None):
+    def __init__(self, doc=None, config=None, namespace='batch_export'):
         if config is not None:
             self._cfg = config
         elif UserConfig is not None:
             self._cfg = UserConfig(namespace)
         else:
             self._cfg = None
-
-        if namer is not None:
-            self._namer = namer
-        elif NamingService is not None:
-            self._namer = NamingService(doc=doc, config=self._cfg, namespace=namespace)
-        else:
-            self._namer = None
 
     # ------------------------------------------------------------------
     # Persistance du dossier de destination
@@ -98,7 +98,7 @@ class DestinationService(object):
     def get_create_subfolders(self):
         try:
             val = self._cfg.get('create_subfolders', '0') if self._cfg is not None else '0'
-            return str(val) == '1'
+            return _as_bool(val)
         except Exception:
             return False
 
@@ -112,7 +112,7 @@ class DestinationService(object):
     def get_separate_formats(self):
         try:
             val = self._cfg.get('separate_format_folders', '0') if self._cfg is not None else '0'
-            return str(val) == '1'
+            return _as_bool(val)
         except Exception:
             return False
 
@@ -128,13 +128,7 @@ class DestinationService(object):
     # ------------------------------------------------------------------
 
     def ensure(self, path):
-        """Crée le dossier `path` s'il n'existe pas. Retourne le chemin.
-
-        Écart vs legacy : `DestinationStore.ensure` retournait `(ok: bool, err)`.
-        Ici on retourne directement `path` (cf. spec Task 2). Si les méthodes
-        `choose_destination_*` sont migrées en Phase 3, adapter leur
-        `ok, _ = self.ensure(chosen)` à ce nouveau contrat (plus de tuple).
-        """
+        """Crée le dossier `path` s'il n'existe pas. Retourne le chemin."""
         try:
             if not path:
                 return path
@@ -148,23 +142,14 @@ class DestinationService(object):
     # Nettoyage / unicité des noms de fichiers
     # ------------------------------------------------------------------
 
-    def sanitize(self, name, replacement="_"):
+    def sanitize(self, name):
         """Nettoie `name` pour en faire un nom de fichier Windows valide.
 
-        Retire les caractères interdits `\\ / : * ? " < > |`, tronque
-        à 180 caractères. Retourne 'untitled' si vide après nettoyage.
+        Délègue au socle (`core.sanitize.sanitize`) : source unique. Seul le
+        nom de repli diffère ici, pour rester compatible avec les fichiers
+        d'export déjà produits.
         """
-        if not name:
-            return "untitled"
-        invalid = re.compile(r"[\\\\/:*?\"<>|]+")
-        trim = re.compile(r"[\s\.]+$")
-        base = name.replace(os.sep, replacement).replace('/', replacement)
-        base = invalid.sub(replacement, base)
-        base = base.strip()
-        base = trim.sub('', base)
-        if len(base) > 180:
-            base = base[:180]
-        return base or 'untitled'
+        return _sanitize(name, fallback=u'untitled')
 
     def unique_path(self, path):
         """Retourne `path` inchangé s'il n'existe pas, sinon suffixe (1), (2)..."""
@@ -177,44 +162,3 @@ class DestinationService(object):
             if not os.path.exists(cand):
                 return cand
             i += 1
-
-    # ------------------------------------------------------------------
-    # Construction du chemin d'export (s'appuie sur NamingService)
-    # ------------------------------------------------------------------
-
-    def build_filename_from_rows(self, rows, timestamp=False, ext='pdf'):
-        """Construit un nom de fichier à partir du pattern (rows) via NamingService.
-
-        Note : `build_pattern` produit un template littéral (`{Name}` non résolu
-        contre un élément concret) — comportement identique au legacy
-        `DestinationStore.build_filename_from_rows`. La résolution réelle par
-        élément (sheet/carnet) est reportée à la Phase 3 (branchement VM/orchestrateur).
-        """
-        pattern = ''
-        try:
-            if self._namer is not None:
-                pattern = self._namer.build_pattern(rows or [])
-        except Exception:
-            pattern = ''
-        fname = self.sanitize(pattern)
-        if timestamp:
-            ts = _dt.datetime.now().strftime('%Y%m%d-%H%M%S')
-            fname = u"{}_{}".format(fname, ts)
-        ext = (ext or '').lstrip('.')
-        return u"{}.{}".format(fname, ext) if ext else fname
-
-    def build_export_path(self, rows=None, folder=None, timestamp=False,
-                           ext='pdf', ensure_dir=False, unique=False):
-        """Construit un chemin de fichier complet pour l'export.
-
-        - `rows` : pattern de nommage (list[dict]) -> template via NamingService.build_pattern.
-        - `folder` : dossier cible (fallback `self.get()`).
-        - `ensure_dir` : crée le dossier si absent.
-        - `unique` : suffixe (1), (2)... si le chemin existe déjà.
-        """
-        folder = folder or self.get()
-        if ensure_dir:
-            self.ensure(folder)
-        filename = self.build_filename_from_rows(rows or [], timestamp=timestamp, ext=ext)
-        full = os.path.join(folder, filename)
-        return self.unique_path(full) if unique else full

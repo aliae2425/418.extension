@@ -34,15 +34,6 @@ except Exception:
     except Exception:
         ExportDoneView = None  # type: ignore
 
-# SPIKE (étape 0 découpage main window) : sous-VM de la page « par jeu ».
-try:
-    from viewmodels.AutoPageVM import AutoPageVM
-except Exception:
-    try:
-        from lib.viewmodels.AutoPageVM import AutoPageVM
-    except Exception:
-        AutoPageVM = None  # type: ignore
-
 
 def _xaml_path():
     here = os.path.dirname(os.path.abspath(__file__))
@@ -98,13 +89,12 @@ class MainWindowView(BaseWindow):
             self._vm.refresh_manuel()
         except Exception:
             pass
-        self._mount_auto_page_spike()
+        self._mount_auto_page()
 
     # ------------------------------------------------------------------
-    # Charge GUI/Views/pages/AutoPage.xaml comme arbre séparé, lui pose son
-    # PROPRE DataContext (AutoPageVM) et l'insère dans le ContentControl
-    # AutoPageHost du shell. Best-effort (silencieux) comme le reste du
-    # câblage : hors Revit / si l'hôte manque, ne lève pas.
+    # Charge GUI/Views/pages/AutoPage.xaml comme arbre séparé et l'insère dans
+    # le ContentControl AutoPageHost du shell. Best-effort (silencieux) comme
+    # le reste du câblage : hors Revit / si l'hôte manque, ne lève pas.
     # ------------------------------------------------------------------
     def _load_page(self, filename):
         from System.Windows.Markup import XamlReader
@@ -121,17 +111,18 @@ class MainWindowView(BaseWindow):
             except Exception:
                 pass
 
-    def _mount_auto_page_spike(self):
-        if self._window is None or AutoPageVM is None:
+    def _mount_auto_page(self):
+        """La page partage le DataContext du shell (le MainViewModel) : son
+        `{Binding Collections}` suit donc directement notify_property, sans
+        VM intermédiaire ni pont de re-synchronisation."""
+        if self._window is None:
             return
         host = self._window.FindName('AutoPageHost')
         if host is None:
             return
         try:
-            collections = getattr(self._vm, 'Collections', None) or []
-            page_vm = AutoPageVM(collections)
             page = self._load_page('AutoPage.xaml')
-            page.DataContext = page_vm
+            page.DataContext = self._vm
             host.Content = page
         except Exception:
             pass
@@ -259,6 +250,14 @@ class MainWindowView(BaseWindow):
         try:
             if hasattr(self._vm, 'refresh_patterns_apercu'):
                 self._vm.refresh_patterns_apercu()
+        except Exception:
+            pass
+        # Le motif a pu changer -> recalculer les aperçus par collection de la
+        # page « par jeu » (NomProjete des feuilles pour 'sheet', titre de
+        # carnet pour 'set').
+        try:
+            if hasattr(self._vm, 'refresh_par_jeu'):
+                self._vm.refresh_par_jeu()
         except Exception:
             pass
 

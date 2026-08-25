@@ -178,11 +178,15 @@
                       </Border>
                     </Button>
                     <DataTemplate.Triggers>
+                      <DataTrigger Binding="{Binding source}" Value="systeme">
+                        <Setter TargetName="badgeBorder" Property="Background" Value="{DynamicResource MediumGrayBrush}"/>
+                        <Setter TargetName="badgeBorder" Property="BorderBrush" Value="{DynamicResource MediumGrayBrush}"/>
+                      </DataTrigger>
                       <DataTrigger Binding="{Binding source}" Value="feuille">
                         <Setter TargetName="badgeBorder" Property="Background" Value="{DynamicResource AccentBrush}"/>
                         <Setter TargetName="badgeBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                       </DataTrigger>
-                      <DataTrigger Binding="{Binding source}" Value="carnet">
+                      <DataTrigger Binding="{Binding source}" Value="jeu">
                         <Setter TargetName="badgeBorder" Property="Background" Value="{DynamicResource SuccessBrush}"/>
                         <Setter TargetName="badgeBorder" Property="BorderBrush" Value="{DynamicResource SuccessBrush}"/>
                       </DataTrigger>
