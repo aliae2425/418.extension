@@ -173,7 +173,6 @@ class TestPasDeMasquageDuSocle(unittest.TestCase):
         interdits = ('core', 'ui')
         fautifs = []
         for racine, dossiers, _ in os.walk(os.path.join(_BUTTON, 'lib')):
-            dossiers[:] = [d for d in dossiers if d != '__pycache__']
             fautifs += [os.path.join(racine, d) for d in dossiers if d in interdits]
         self.assertEqual([], fautifs)
 

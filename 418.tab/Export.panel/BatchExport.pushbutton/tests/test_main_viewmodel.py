@@ -759,11 +759,23 @@ class TestMainViewModelLancerExport(unittest.TestCase):
         packaging soit détectée hors Revit."""
         from lib.services.ExportOrchestrator import ExportOrchestrator
         orch = ExportOrchestrator()
-        self.assertIsNotNone(orch._dest)
+        self.assertIsNone(orch.erreur_dependances())
         self.assertIsNotNone(orch._pdf)
         self.assertIsNotNone(orch._dwg)
         self.assertIsNotNone(orch._cfg)
         self.assertIsNotNone(orch._NamingService_cls)
+
+    def test_erreur_dependances_signale_le_mode_degrade(self):
+        """`erreur_dependances()` est le seul garde-fou : `__init__` ne lève
+        jamais, il met `_dest` à None. Sans ce test, la suppression du garde
+        passerait inaperçue et l'export tournerait en mode dégradé."""
+        from lib.services.ExportOrchestrator import ExportOrchestrator
+        orch = ExportOrchestrator()
+        orch._dest = None
+        orch._erreurs_import = [u'DestinationService : boum']
+        self.assertIn(u'boum', orch.erreur_dependances())
+        orch._erreurs_import = []
+        self.assertIn(u'indisponible', orch.erreur_dependances().lower())
 
 
 class FakeDestinationService(object):
@@ -1589,10 +1601,10 @@ class TestExportDoneCallback(unittest.TestCase):
 
         class OrchestrateurtQuiLeve(object):
             def __init__(self, namespace='batch_export', config=None):
-                self._dest = object()
-                self._pdf = object()
-                self._dwg = object()
-                self._cfg = object()
+                pass
+
+            def erreur_dependances(self):
+                return None
 
             def run_manual(self, *a, **kw):
                 raise RuntimeError(u'échec simulé')

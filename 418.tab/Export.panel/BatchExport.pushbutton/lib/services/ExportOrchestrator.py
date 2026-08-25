@@ -88,6 +88,17 @@ class ExportOrchestrator(object):
         self._naming = None
         self._log_cb = None  # câblé pendant run() pour le diagnostic destination
 
+    def erreur_dependances(self):
+        """Retourne un message si un import interne a échoué (mode dégradé),
+        sinon None. `__init__` ne lève JAMAIS : sans ce test, un `_dest` à
+        None exporterait silencieusement dans de mauvaises conditions."""
+        if self._dest is not None:
+            return None
+        detail = u' ; '.join(self._erreurs_import)
+        if detail:
+            return u"Export indisponible — dépendance interne : {}".format(detail)
+        return u"Export indisponible (dépendances internes manquantes)."
+
     # ------------------- Planification ------------------- #
     def _collect_collections(self, doc):
         out = []
