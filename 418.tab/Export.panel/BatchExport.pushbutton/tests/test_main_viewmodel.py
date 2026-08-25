@@ -748,7 +748,7 @@ class TestMainViewModelLancerExport(unittest.TestCase):
         self.assertEqual(vm.StatusText, u'Erreur export PDF: 01_RDC')
 
     def test_import_lib_services_core_resout_les_dependances_internes(self):
-        """Vérifie que `from lib.services.core.ExportOrchestrator import ...`
+        """Vérifie que `from lib.services.ExportOrchestrator import ...`
         (chemin utilisé par `lancer_export()`) fait résoudre correctement les
         imports internes de l'orchestrateur.
 
@@ -757,7 +757,7 @@ class TestMainViewModelLancerExport(unittest.TestCase):
         motif de nommage). Ce test fige donc le fait que TOUTES ses
         dépendances sont bien résolues, pour que la moindre régression de
         packaging soit détectée hors Revit."""
-        from lib.services.core.ExportOrchestrator import ExportOrchestrator
+        from lib.services.ExportOrchestrator import ExportOrchestrator
         orch = ExportOrchestrator()
         self.assertIsNotNone(orch._dest)
         self.assertIsNotNone(orch._pdf)
@@ -1608,7 +1608,7 @@ class TestExportDoneCallback(unittest.TestCase):
         svm = ManualSheetVM(u'01', u'Feuille 1', export_pdf=True)
         vm._sheets_manuel = [svm]
 
-        import lib.services.core.ExportOrchestrator as _eo_mod
+        import lib.services.ExportOrchestrator as _eo_mod
         _orig = _eo_mod.ExportOrchestrator
         _eo_mod.ExportOrchestrator = OrchestrateurtQuiLeve
         try:

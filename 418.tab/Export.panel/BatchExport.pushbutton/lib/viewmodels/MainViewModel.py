@@ -111,7 +111,7 @@ _SURFACE_TITRES = {
 # `sheet_param_carnetcombo` et `sheet_param_dwgcombo` reprennent des clés
 # legacy déjà présentes dans la config. `sheet_param_exportationcombo` est
 # une clé NOUVELLE : le legacy
-# (lib/services/core/ExportOrchestrator._get_ui_selected_param_names) lisait
+# (lib/services/ExportOrchestrator._get_ui_selected_param_names) lisait
 # le nom du paramètre "Export" directement depuis le contrôle UI
 # (ComboBox 'ExportationCombo') sans jamais le persister. On l'ajoute ici en
 # suivant la même convention de nommage (`sheet_param_` + nom du combo en
@@ -1584,9 +1584,9 @@ class MainViewModel(BaseViewModel):
 
         try:
             try:
-                from services.core.ExportOrchestrator import ExportOrchestrator
+                from services.ExportOrchestrator import ExportOrchestrator
             except Exception:
-                from lib.services.core.ExportOrchestrator import ExportOrchestrator
+                from lib.services.ExportOrchestrator import ExportOrchestrator
         except Exception:
             self.StatusText = u"Export indisponible (orchestrateur introuvable)."
             return
@@ -1700,9 +1700,9 @@ class MainViewModel(BaseViewModel):
 
         try:
             try:
-                from lib.services.core.ExportOrchestrator import ExportOrchestrator
+                from lib.services.ExportOrchestrator import ExportOrchestrator
             except Exception:
-                from services.core.ExportOrchestrator import ExportOrchestrator
+                from services.ExportOrchestrator import ExportOrchestrator
         except Exception:
             self.StatusText = u"Export indisponible (orchestrateur introuvable)."
             return

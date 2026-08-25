@@ -14,7 +14,7 @@ Tu es l'agent logique métier du projet 418.extension, une extension pyRevit Pyt
 Fichiers que tu touches :
 - `BatchExport.pushbutton/lib/core/` (AppPaths, UserConfig)
 - `BatchExport.pushbutton/lib/data/` (DestinationStore, NamingPatternStore, NamingResolver, SheetParameterRepository, SheetSetRepository)
-- `BatchExport.pushbutton/lib/services/core/` (ExportOrchestrator)
+- `BatchExport.pushbutton/lib/services/` (ExportOrchestrator)
 - `BatchExport.pushbutton/lib/services/formats/` (PdfExporterService, DwgExporterService)
 - `BatchExport.pushbutton/lib/services/` (ConfigManagerService)
 - `BatchExport.pushbutton/lib/ui/windows/sections/` — côté orchestration services/data uniquement

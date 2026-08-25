@@ -15,7 +15,7 @@ if _BUTTON not in sys.path:
 import tempfile as _tf
 os.environ['PY418_CONFIG_DIR'] = _tf.mkdtemp(prefix='418test_')
 
-from lib.services.core.ExportOrchestrator import ExportOrchestrator
+from lib.services.ExportOrchestrator import ExportOrchestrator
 
 
 class FakeNaming(object):

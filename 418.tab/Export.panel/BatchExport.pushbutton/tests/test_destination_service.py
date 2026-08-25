@@ -159,5 +159,24 @@ class TestDestinationServiceFolder(unittest.TestCase):
         self.assertTrue(self.service.get_separate_formats())
 
 
+class TestPasDeMasquageDuSocle(unittest.TestCase):
+    """Aucun sous-dossier du bouton ne doit porter le nom d'un package du socle.
+
+    En import relatif implicite (Python 2 / IronPython, pas d'`absolute_import`
+    dans le dépôt), un dossier `core/` dans un package fait échouer tous les
+    `from core.X import Y` de ce package : il cherche `<package>/core/X`. C'est
+    ce qui a tué DestinationService deux fois (via `lib/core/`, puis via
+    `lib/services/core/`).
+    """
+
+    def test_aucun_dossier_homonyme_du_socle(self):
+        interdits = ('core', 'ui')
+        fautifs = []
+        for racine, dossiers, _ in os.walk(os.path.join(_BUTTON, 'lib')):
+            dossiers[:] = [d for d in dossiers if d != '__pycache__']
+            fautifs += [os.path.join(racine, d) for d in dossiers if d in interdits]
+        self.assertEqual([], fautifs)
+
+
 if __name__ == '__main__':
     unittest.main()

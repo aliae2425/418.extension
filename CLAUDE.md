@@ -74,6 +74,8 @@ lib/
 
 **Import guards**: cross-layer imports use the two-tier form — `from core.X import Y` first, `from lib.core.X import Y` as fallback, `None` last. Ne JAMAIS utiliser d'import relatif profond (`from ...core.X`) : selon la racine de package utilisée à l'import, il remonte au-dessus de `lib` et retombe silencieusement sur `None`.
 
+**Jamais de sous-dossier nommé `core/` ou `ui/` dans un bouton.** En import relatif implicite (Python 2 / IronPython, pas d'`absolute_import` dans le dépôt), un `core/` à côté d'un module fait résoudre ses `from core.X import Y` vers `<package>/core/X` et masque le socle — le module meurt à l'import ou retombe sur `None`. A déjà cassé BatchExport deux fois (`lib/core/`, puis `lib/services/core/`). Garde-fou : `tests/test_destination_service.py::TestPasDeMasquageDuSocle`.
+
 **Naming patterns**: `NamingService` résout les motifs à jetons (`{numero}`, `{titre}`, `{param:NOM}`, `{param_projet:NOM}`) contre un élément Revit. C'est la SEULE source de nommage — l'ancien système de `rows` et `NamingResolver` ont été supprimés.
 
 **Sanitization**: `lib/core/sanitize.py`, source unique. `sanitize()` pour les noms de fichiers (max 180, retire `\/:*?"<>|` + espaces/points finaux, `fallback` paramétrable) ; `sanitize_revit_name()` pour les noms d'éléments Revit. `DestinationService.sanitize()` n'est qu'un passe-plat avec `fallback='untitled'`.
