@@ -1568,6 +1568,36 @@ class MainViewModel(BaseViewModel):
     def _on_export_log(self, message):
         self.StatusText = message or u''
 
+    def _creer_orchestrateur(self):
+        """Retourne un `ExportOrchestrator` prêt à l'emploi, ou None si
+        indisponible (StatusText renseigné, jamais d'exception).
+
+        La config partagée du VM est INJECTÉE : l'orchestrateur doit lire les
+        MÊMES flags de séparation et motifs de nommage que ceux persistés par
+        le VM/la modale (sinon il lit sa propre config '<absent>').
+        """
+        try:
+            from services.ExportOrchestrator import ExportOrchestrator
+        except Exception:
+            try:
+                from lib.services.ExportOrchestrator import ExportOrchestrator
+            except Exception:
+                self.StatusText = u"Export indisponible (orchestrateur introuvable)."
+                return None
+
+        try:
+            orch = ExportOrchestrator(config=self._cfg)
+        except Exception:
+            self.StatusText = u"Export indisponible (initialisation impossible)."
+            return None
+
+        erreur = orch.erreur_dependances()
+        if erreur:
+            self.StatusText = erreur
+            self._log(u'ERREUR', erreur)
+            return None
+        return orch
+
     def lancer_export(self):
         """Dispatch par mode : délègue à `lancer_export_manuel()` en mode
         manuel, ou lance l'export « par jeu » via `ExportOrchestrator.run()`.
@@ -1582,38 +1612,9 @@ class MainViewModel(BaseViewModel):
             self.StatusText = u"Export indisponible (hors Revit)."
             return
 
-        try:
-            try:
-                from services.ExportOrchestrator import ExportOrchestrator
-            except Exception:
-                from lib.services.ExportOrchestrator import ExportOrchestrator
-        except Exception:
-            self.StatusText = u"Export indisponible (orchestrateur introuvable)."
+        orch = self._creer_orchestrateur()
+        if orch is None:
             return
-
-        try:
-            # Injecter la config partagée du VM : l'orchestrateur doit lire les
-            # MÊMES flags de séparation et motifs de nommage que ceux persistés
-            # par le VM/la modale (sinon il lit sa propre config '<absent>').
-            orch = ExportOrchestrator(config=self._cfg)
-        except Exception:
-            self.StatusText = u"Export indisponible (initialisation impossible)."
-            return
-
-        # Détection best-effort du mode dégradé (imports internes retombés
-        # sur None) : on prévient plutôt que d'exporter silencieusement
-        # dans de mauvaises conditions.
-        try:
-            if getattr(orch, '_dest', None) is None:
-                detail = u' ; '.join(getattr(orch, '_erreurs_import', None) or [])
-                self.StatusText = (
-                    u"Export indisponible — dépendance interne : {}".format(detail)
-                    if detail else
-                    u"Export indisponible (dépendances internes manquantes).")
-                self._log(u'ERREUR', self.StatusText)
-                return
-        except Exception:
-            pass
 
         self.StatusText = u"Préparation de l'export..."
         self.ProgressValue = 0
@@ -1698,35 +1699,9 @@ class MainViewModel(BaseViewModel):
             self.StatusText = u"Aucune feuille sélectionnée."
             return
 
-        try:
-            try:
-                from lib.services.ExportOrchestrator import ExportOrchestrator
-            except Exception:
-                from services.ExportOrchestrator import ExportOrchestrator
-        except Exception:
-            self.StatusText = u"Export indisponible (orchestrateur introuvable)."
+        orch = self._creer_orchestrateur()
+        if orch is None:
             return
-
-        try:
-            # Injecter la config partagée du VM : l'orchestrateur doit lire les
-            # MÊMES flags de séparation et motifs de nommage que ceux persistés
-            # par le VM/la modale (sinon il lit sa propre config '<absent>').
-            orch = ExportOrchestrator(config=self._cfg)
-        except Exception:
-            self.StatusText = u"Export indisponible (initialisation impossible)."
-            return
-
-        try:
-            if getattr(orch, '_dest', None) is None:
-                detail = u' ; '.join(getattr(orch, '_erreurs_import', None) or [])
-                self.StatusText = (
-                    u"Export indisponible — dépendance interne : {}".format(detail)
-                    if detail else
-                    u"Export indisponible (dépendances internes manquantes).")
-                self._log(u'ERREUR', self.StatusText)
-                return
-        except Exception:
-            pass
 
         self.StatusText = u"Préparation de l'export..."
         self.ProgressValue = 0
