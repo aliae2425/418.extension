@@ -154,6 +154,22 @@ def _descendre(noeud, matrice, traces):
         _descendre(enfant, m, traces)
 
 
+def cadrer(bornes, largeur_mm):
+    """Retourne (échelle mm/unité, fonction (x, y) -> (mm, mm)).
+
+    Le coin haut-gauche du tracé arrive en (0, 0) et l'axe Y est retourné : il
+    pointe vers le bas en SVG, vers le haut en DXF comme dans Revit. Les
+    ordonnées produites sont donc négatives ou nulles.
+    """
+    min_x, min_y, max_x, _ = bornes
+    echelle = largeur_mm / (max_x - min_x)
+
+    def vers_mm(x, y):
+        return ((x - min_x) * echelle, -(y - min_y) * echelle)
+
+    return echelle, vers_mm
+
+
 def lire_svg(chemin_fichier):
     """Retourne [(chaine_de_chemin, matrice), ...] pour tout le fichier."""
     traces = []

@@ -10,8 +10,8 @@ _BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
 if _BUTTON not in sys.path:
     sys.path.insert(0, _BUTTON)
 
-from lib.svg_paths import (IDENTITE, appliquer, chemin_depuis_forme, lire_svg,
-                           multiplier, parser_transform)
+from lib.svg_paths import (IDENTITE, appliquer, cadrer, chemin_depuis_forme,
+                           lire_svg, multiplier, parser_transform)
 
 
 def _ecrire_svg(contenu):
@@ -77,6 +77,32 @@ class TestFormes(unittest.TestCase):
 
     def test_forme_non_geree(self):
         self.assertIsNone(chemin_depuis_forme('text', {'x': '0'}))
+
+
+class TestCadrer(unittest.TestCase):
+    # bornes = (min_x, min_y, max_x, max_y) : tracé de 200 x 100 unités.
+    BORNES = (100.0, 50.0, 300.0, 150.0)
+
+    def test_largeur_respectee(self):
+        echelle, vers_mm = cadrer(self.BORNES, 80.0)
+        self.assertAlmostEqual(echelle, 0.4)
+        self.assertAlmostEqual(vers_mm(300.0, 50.0)[0], 80.0)
+
+    def test_coin_haut_gauche_a_l_origine(self):
+        _, vers_mm = cadrer(self.BORNES, 80.0)
+        self.assertEqual(vers_mm(100.0, 50.0), (0.0, 0.0))
+
+    def test_axe_y_retourne(self):
+        # Le bas du SVG (max_y) doit devenir l'ordonnée la PLUS BASSE.
+        _, vers_mm = cadrer(self.BORNES, 80.0)
+        self.assertAlmostEqual(vers_mm(100.0, 150.0)[1], -40.0)
+        self.assertLess(vers_mm(100.0, 150.0)[1], vers_mm(100.0, 50.0)[1])
+
+    def test_ratio_conserve(self):
+        _, vers_mm = cadrer(self.BORNES, 80.0)
+        largeur = vers_mm(300.0, 50.0)[0] - vers_mm(100.0, 50.0)[0]
+        hauteur = vers_mm(100.0, 50.0)[1] - vers_mm(100.0, 150.0)[1]
+        self.assertAlmostEqual(largeur / hauteur, 200.0 / 100.0)
 
 
 class TestLecture(unittest.TestCase):

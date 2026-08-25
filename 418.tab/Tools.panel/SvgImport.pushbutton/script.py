@@ -1,10 +1,16 @@
 # -*- coding: utf-8 -*-
-"""Importe un fichier SVG dans la vue active sous forme de lignes de détail.
+"""Importe un fichier SVG dans la vue active, via un DXF intermédiaire.
 
 Revit ne sait pas lire le SVG. Le trajet est : `xml.etree` lit le fichier,
 WPF (`Geometry.Parse`) comprend déjà la syntaxe des chemins SVG et aplatit
-courbes de Bézier et arcs, puis chaque polyligne devient un `DetailCurve`
-dans la vue. Aucune dépendance, aucun fichier intermédiaire.
+courbes de Bézier et arcs, chaque figure devient une POLYLINE dans un DXF R12
+temporaire, et `Document.Import` fait entrer le tout en UN appel.
+
+Variante de `feat/svgImport`, qui créait un `DetailCurve` par segment : des
+milliers d'appels API, donc lent, et un résultat en miettes. Ici l'import est
+un objet unique — plus rapide et plus propre, mais à décomposer à la main
+(sélection → Décomposer complètement) pour obtenir des lignes éditables :
+l'API Revit n'expose aucune méthode d'explosion.
 
 Seuls les contours sont importés : les remplissages (`fill`) et les textes
 sont ignorés. La largeur demandée est une largeur *dans le modèle* — sur une
@@ -13,11 +19,13 @@ feuille, elle apparaîtra divisée par l'échelle de la vue.
 from __future__ import unicode_literals, division
 
 __title__ = "Importer\nSVG"
-__doc__ = "Importe un fichier SVG dans la vue active en lignes de détail."
+__doc__ = "Importe un fichier SVG dans la vue active via un DXF temporaire."
 __author__ = 'Aliae'
 __min_revit_ver__ = 2026
 
+import os
 import sys
+import tempfile
 import time
 
 import clr
@@ -26,7 +34,8 @@ clr.AddReference('PresentationCore')
 from System.Windows.Media import (Geometry, ToleranceType,
                                   PolyLineSegment, LineSegment)
 
-from Autodesk.Revit.DB import CurveArray, Line, ViewType
+from Autodesk.Revit.DB import (DWGImportOptions, ElementTransformUtils,
+                               ImportPlacement, ImportUnit, ViewType, XYZ)
 from Autodesk.Revit.Exceptions import OperationCanceledException
 from pyrevit import forms
 
@@ -35,7 +44,8 @@ try:
 except ImportError:
     from lib.core.transaction import revit_transaction
 
-from lib.svg_paths import lire_svg, appliquer
+from lib import dxf
+from lib.svg_paths import appliquer, cadrer, lire_svg
 from lib.views.TailleSvgView import TailleSvgView
 
 try:
@@ -46,16 +56,12 @@ except Exception:
     doc = None
 
 # Écart de corde maximal de l'aplatissement des courbes, en mm dans la vue.
-# C'est LE bouton de réglage : le nombre de lignes créées varie à peu près en
-# 1/racine(tolérance). Baisser pour des courbes plus fines et un import plus
-# lourd, monter pour alléger. 0.15 mm était de la précision invisible sur un
-# tracé de 100 mm, au prix de milliers de lignes.
-TOLERANCE_MM = 0.4
-# Au-delà, Revit devient pénible à manipuler : on demande confirmation.
-SEUIL_CONFIRMATION = 5000
-MM_PAR_PIED = 304.8
+# C'est LE bouton de réglage de la finesse des courbes. Le coût d'un sommet de
+# POLYLINE est très inférieur à celui d'une ligne de détail, donc on peut se
+# permettre plus fin qu'avec l'autre méthode.
+TOLERANCE_MM = 0.15
 
-# Vues 2D qui acceptent des lignes de détail.
+# Vues 2D qui acceptent un import CAD propre à la vue.
 VUES_VALIDES = (ViewType.FloorPlan, ViewType.CeilingPlan, ViewType.AreaPlan,
                 ViewType.EngineeringPlan, ViewType.Section, ViewType.Elevation,
                 ViewType.Detail, ViewType.DraftingView)
@@ -83,7 +89,11 @@ def bornes_svg(traces):
 
 
 def polylignes(chemin, tolerance):
-    """Aplatit un tracé SVG en listes de points 2D (coordonnées SVG locales)."""
+    """Aplatit un tracé SVG en (points 2D, fermée), coordonnées SVG locales.
+
+    La fermeture est rendue par le drapeau et non en répétant le premier point :
+    une POLYLINE DXF a un bit « fermée » (groupe 70).
+    """
     geo = Geometry.Parse(chemin).GetFlattenedPathGeometry(
         tolerance, ToleranceType.Absolute)
     for figure in geo.Figures:
@@ -93,33 +103,35 @@ def polylignes(chemin, tolerance):
                 points.extend((p.X, p.Y) for p in segment.Points)
             elif isinstance(segment, LineSegment):
                 points.append((segment.Point.X, segment.Point.Y))
-        if figure.IsClosed:
-            points.append(points[0])
-        yield points
+        yield points, figure.IsClosed
 
 
-def construire_lignes(traces, tolerance, vers_revit, mini):
-    """Convertit les tracés en `Line` Revit.
+# Deux sommets plus proches que ça (en mm) sont fusionnés : ils ne se voient
+# pas et une POLYLINE à sommets confondus fait tiquer l'import de Revit.
+FUSION_MM = 0.001
 
-    Retourne (lignes, nombre_de_segments_écartés) : un segment plus court que
-    `mini` (ShortCurveTolerance) est refusé par Revit, on l'absorbe dans le
-    suivant en conservant l'ancre.
+
+def construire_polylignes(traces, tolerance, vers_mm):
+    """Convertit les tracés en polylignes millimétriques prêtes pour le DXF.
+
+    Retourne (polylignes, sommets_fusionnés) où chaque polyligne est un couple
+    (points, fermée).
     """
-    lignes = []
-    ecartes = 0
+    resultat = []
+    fusionnes = 0
     for chemin, matrice in traces:
-        for points in polylignes(chemin, tolerance):
-            ancre = None
+        for points, fermee in polylignes(chemin, tolerance):
+            propres = []
             for x, y in points:
-                point = vers_revit(*appliquer(matrice, x, y))
-                if ancre is None:
-                    ancre = point
-                elif ancre.DistanceTo(point) >= mini:
-                    lignes.append(Line.CreateBound(ancre, point))
-                    ancre = point
-                else:
-                    ecartes += 1
-    return lignes, ecartes
+                point = vers_mm(*appliquer(matrice, x, y))
+                if propres and (abs(point[0] - propres[-1][0]) < FUSION_MM
+                                and abs(point[1] - propres[-1][1]) < FUSION_MM):
+                    fusionnes += 1
+                    continue
+                propres.append(point)
+            if len(propres) >= 2:
+                resultat.append((propres, fermee))
+    return resultat, fusionnes
 
 
 if __name__ == '__main__':
@@ -170,13 +182,14 @@ if __name__ == '__main__':
         forms.alert('Largeur invalide : « {0} ». Import annulé.'.format(
             dialogue.valeur), title='Importer SVG', exitscript=True)
 
-    # Pieds par unité SVG : la largeur dessinée vaut exactement la demande.
-    echelle = (largeur_mm / MM_PAR_PIED) / (max_x - min_x)
-    tolerance = TOLERANCE_MM / MM_PAR_PIED / echelle
+    # Millimètres par unité SVG : la largeur dessinée vaut exactement la demande.
+    # `vers_mm` recadre le coin haut-gauche en (0, 0) et retourne l'axe Y.
+    echelle_mm, vers_mm = cadrer(bornes, largeur_mm)
+    tolerance = TOLERANCE_MM / echelle_mm
     print('[ImportSVG] bornes SVG : x {0:.2f} → {1:.2f} | y {2:.2f} → {3:.2f}'
           .format(min_x, max_x, min_y, max_y))
-    print('[ImportSVG] échelle {0:.8f} pied/unité | tolérance {1:.4f} unité'
-          .format(echelle, tolerance))
+    print('[ImportSVG] échelle {0:.6f} mm/unité | tolérance {1:.4f} unité'
+          .format(echelle_mm, tolerance))
     print('[ImportSVG] taille visée {0:.1f} × {1:.1f} mm'.format(
         largeur_mm, largeur_mm * (max_y - min_y) / (max_x - min_x)))
 
@@ -196,95 +209,85 @@ if __name__ == '__main__':
                     title='Importer SVG', exitscript=True)
 
     print('[ImportSVG] Insertion en {0}'.format(origine))
-    droite, haut = vue.RightDirection, vue.UpDirection
 
-    def vers_revit(x, y):
-        """Point SVG -> XYZ dans le plan de la vue (Y du SVG pointe en bas)."""
-        return (origine + droite * ((x - min_x) * echelle)
-                - haut * ((y - min_y) * echelle))
-
-    mini = doc.Application.ShortCurveTolerance
+    # Le placement dans la vue est fait après import, en recalant la boîte
+    # englobante sur le point cliqué.
     depart = time.time()
-    lignes, ecartes = construire_lignes(traces, tolerance, vers_revit, mini)
-
-    print('[ImportSVG] {0} ligne(s) à créer | {1} segment(s) écarté(s) '
-          '(< {2:.3f} mm) | aplatissement {3:.1f} s'.format(
-              len(lignes), ecartes, mini * MM_PAR_PIED, time.time() - depart))
-    if not lignes:
-        forms.alert('Aucune ligne à créer : le SVG est peut-être vide ou '
+    polys, fusionnes = construire_polylignes(traces, tolerance, vers_mm)
+    sommets = sum(len(points) for points, _ in polys)
+    print('[ImportSVG] {0} polyligne(s), {1} sommet(s), {2} fusionné(s) | '
+          'aplatissement {3:.1f} s'.format(
+              len(polys), sommets, fusionnes, time.time() - depart))
+    if not polys:
+        forms.alert('Aucun tracé à importer : le SVG est peut-être vide ou '
                     'la largeur demandée est trop petite.',
                     title='Importer SVG', exitscript=True)
 
-    longueurs = sorted(ligne.Length * MM_PAR_PIED for ligne in lignes)
-    print('[ImportSVG] longueurs : min {0:.3f} | médiane {1:.3f} | '
-          'max {2:.3f} mm'.format(longueurs[0],
-                                  longueurs[len(longueurs) // 2],
-                                  longueurs[-1]))
-    coins = (vers_revit(min_x, min_y), vers_revit(max_x, max_y))
-    print('[ImportSVG] étendue modèle : {0} → {1}'.format(*coins))
+    dossier = tempfile.mkdtemp(prefix='svgimport_')
+    chemin_dxf = os.path.join(
+        dossier, os.path.splitext(os.path.basename(fichier))[0] + '.dxf')
+    ecrites = dxf.ecrire(chemin_dxf, polys)
+    print('[ImportSVG] DXF écrit : {0} entité(s), {1} Ko -> {2}'.format(
+        ecrites, os.path.getsize(chemin_dxf) // 1024, chemin_dxf))
 
-    if len(lignes) > SEUIL_CONFIRMATION and not forms.alert(
-            '{0} lignes de détail vont être créées. '
-            'Revit risque de devenir lent.\nContinuer ?'.format(len(lignes)),
-            title='Importer SVG', yes=True, no=True):
-        print('[ImportSVG] Annulé par l\'utilisateur.')
-        sys.exit()
+    options = DWGImportOptions()
+    options.Unit = ImportUnit.Millimeter
+    options.Placement = ImportPlacement.Origin
+    options.ThisViewOnly = True      # équivalent « détail » : propre à la vue
+    options.OrientToView = True
 
-    # En famille, `doc.Create` est un FamilyItemFactory : fabrique différente,
-    # et elle n'expose PAS NewDetailCurveArray -> repli unitaire obligatoire.
-    fabrique = doc.FamilyCreate if doc.IsFamilyDocument else doc.Create
-    en_lot = hasattr(fabrique, 'NewDetailCurveArray')
-    print('[ImportSVG] fabrique : {0} | création {1}'.format(
-        type(fabrique).__name__, 'en lot' if en_lot else 'unitaire'))
-
-    crees, echecs, premiere_erreur = 0, 0, None
     depart = time.time()
     try:
         with revit_transaction(doc, 'Importer SVG'):
-            if en_lot:
-                # Un seul appel API : Revit ne régénère qu'une fois. Des milliers
-                # de NewDetailCurve individuels coûtent un ordre de grandeur.
-                tableau = CurveArray()
-                for ligne in lignes:
-                    tableau.Append(ligne)
-                crees = fabrique.NewDetailCurveArray(vue, tableau).Size
+            resultat = doc.Import(chemin_dxf, options, vue)
+            # `Import` a un paramètre `out ElementId` : selon le pont .NET il
+            # revient en tuple (succès, id) ou directement en id.
+            if isinstance(resultat, tuple):
+                _, element_id = resultat
             else:
-                for index, ligne in enumerate(lignes):
-                    try:
-                        fabrique.NewDetailCurve(vue, ligne)
-                        crees += 1
-                    except Exception as erreur:
-                        echecs += 1
-                        if premiere_erreur is None:
-                            premiere_erreur = (
-                                '#{0} ({1:.3f} mm, {2} → {3}) : {4} : {5}'.format(
-                                    index, ligne.Length * MM_PAR_PIED,
-                                    ligne.GetEndPoint(0), ligne.GetEndPoint(1),
-                                    type(erreur).__name__, erreur))
+                element_id = resultat
+
+            instance = doc.GetElement(element_id)
+            if instance is None:
+                raise RuntimeError(
+                    'Import refusé par Revit (aucun élément créé).')
+
+            # La bbox n'est renseignée qu'après régénération.
+            doc.Regenerate()
+            boite = instance.get_BoundingBox(vue)
+            if boite is not None:
+                # Recale le coin haut-gauche sur le point cliqué, où que Revit
+                # ait déposé l'import.
+                coin = XYZ(boite.Min.X, boite.Max.Y, boite.Min.Z)
+                ElementTransformUtils.MoveElement(doc, element_id, origine - coin)
     except Exception:
         import traceback
-        print('[ImportSVG] ÉCHEC de la transaction :')
+        print('[ImportSVG] ÉCHEC de l\'import :')
         print(traceback.format_exc())
         raise
-    print('[ImportSVG] création : {0:.1f} s'.format(time.time() - depart))
+    finally:
+        # Import (et non lien) : la géométrie est copiée dans le modèle, le
+        # fichier temporaire ne sert plus à rien.
+        try:
+            os.remove(chemin_dxf)
+            os.rmdir(dossier)
+        except OSError:
+            pass
 
-    if premiere_erreur:
-        print('[ImportSVG] {0} refus de Revit. Premier : {1}'.format(
-            echecs, premiere_erreur))
-    print('[ImportSVG] {0} ligne(s) de détail créée(s) dans « {1} » '
-          'depuis {2}'.format(crees, vue.Name, fichier))
-    if not crees:
-        forms.alert('Revit a refusé les {0} lignes.\nVoir la console pyRevit '
-                    'pour le détail.'.format(echecs), title='Importer SVG')
-        sys.exit()
+    print('[ImportSVG] import : {0:.1f} s | élément {1}'.format(
+        time.time() - depart, element_id))
+    print('[ImportSVG] {0} entité(s) importée(s) dans « {1} » depuis {2}'
+          .format(ecrites, vue.Name, fichier))
+    print('[ImportSVG] Pour des lignes éditables : sélectionner l\'import '
+          '-> Décomposer complètement (pas d\'API d\'explosion).')
 
-    # Un SVG de 100 mm placé à l'origine est invisible dans une vue zoomée sur
-    # un bâtiment : on cadre dessus pour que le résultat soit visible.
+    # Un tracé de 100 mm est invisible dans une vue zoomée sur un bâtiment.
     try:
+        boite = doc.GetElement(element_id).get_BoundingBox(vue)
         for ui_vue in uidoc.GetOpenUIViews():
-            if ui_vue.ViewId == vue.Id:
-                ui_vue.ZoomAndCenterRectangle(coins[0], coins[1])
+            if ui_vue.ViewId == vue.Id and boite is not None:
+                ui_vue.ZoomAndCenterRectangle(boite.Min, boite.Max)
                 break
     except Exception as erreur:
         print('[ImportSVG] Zoom impossible ({0}), cadrer à la main sur {1}.'
-              .format(type(erreur).__name__, coins[0]))
+              .format(type(erreur).__name__, origine))
