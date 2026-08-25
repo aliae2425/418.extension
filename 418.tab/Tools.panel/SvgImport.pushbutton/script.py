@@ -18,6 +18,7 @@ __author__ = 'Aliae'
 __min_revit_ver__ = 2026
 
 import sys
+import time
 
 import clr
 clr.AddReference('WindowsBase')
@@ -25,7 +26,7 @@ clr.AddReference('PresentationCore')
 from System.Windows.Media import (Geometry, ToleranceType,
                                   PolyLineSegment, LineSegment)
 
-from Autodesk.Revit.DB import Line, ViewType
+from Autodesk.Revit.DB import CurveArray, Line, ViewType
 from Autodesk.Revit.Exceptions import OperationCanceledException
 from pyrevit import forms
 
@@ -45,7 +46,11 @@ except Exception:
     doc = None
 
 # Écart de corde maximal de l'aplatissement des courbes, en mm dans la vue.
-TOLERANCE_MM = 0.15
+# C'est LE bouton de réglage : le nombre de lignes créées varie à peu près en
+# 1/racine(tolérance). Baisser pour des courbes plus fines et un import plus
+# lourd, monter pour alléger. 0.15 mm était de la précision invisible sur un
+# tracé de 100 mm, au prix de milliers de lignes.
+TOLERANCE_MM = 0.4
 # Au-delà, Revit devient pénible à manipuler : on demande confirmation.
 SEUIL_CONFIRMATION = 5000
 MM_PAR_PIED = 304.8
@@ -199,10 +204,12 @@ if __name__ == '__main__':
                 - haut * ((y - min_y) * echelle))
 
     mini = doc.Application.ShortCurveTolerance
+    depart = time.time()
     lignes, ecartes = construire_lignes(traces, tolerance, vers_revit, mini)
 
     print('[ImportSVG] {0} ligne(s) à créer | {1} segment(s) écarté(s) '
-          '(< {2:.3f} mm)'.format(len(lignes), ecartes, mini * MM_PAR_PIED))
+          '(< {2:.3f} mm) | aplatissement {3:.1f} s'.format(
+              len(lignes), ecartes, mini * MM_PAR_PIED, time.time() - depart))
     if not lignes:
         forms.alert('Aucune ligne à créer : le SVG est peut-être vide ou '
                     'la largeur demandée est trop petite.',
@@ -223,33 +230,43 @@ if __name__ == '__main__':
         print('[ImportSVG] Annulé par l\'utilisateur.')
         sys.exit()
 
-    # ponytail: création une par une plutôt que NewDetailCurveArray. Plus lent,
-    # mais un refus isolé de Revit ne fait plus échouer tout l'import et on sait
-    # QUELLE courbe pose problème. Repasser au lot si la lenteur devient gênante.
-    # En famille, `doc.Create` est un FamilyItemFactory : fabrique différente.
+    # En famille, `doc.Create` est un FamilyItemFactory : fabrique différente,
+    # et elle n'expose PAS NewDetailCurveArray -> repli unitaire obligatoire.
     fabrique = doc.FamilyCreate if doc.IsFamilyDocument else doc.Create
-    print('[ImportSVG] fabrique : {0}'.format(type(fabrique).__name__))
+    en_lot = hasattr(fabrique, 'NewDetailCurveArray')
+    print('[ImportSVG] fabrique : {0} | création {1}'.format(
+        type(fabrique).__name__, 'en lot' if en_lot else 'unitaire'))
 
     crees, echecs, premiere_erreur = 0, 0, None
+    depart = time.time()
     try:
         with revit_transaction(doc, 'Importer SVG'):
-            for index, ligne in enumerate(lignes):
-                try:
-                    fabrique.NewDetailCurve(vue, ligne)
-                    crees += 1
-                except Exception as erreur:
-                    echecs += 1
-                    if premiere_erreur is None:
-                        premiere_erreur = (
-                            '#{0} ({1:.3f} mm, {2} → {3}) : {4} : {5}'.format(
-                                index, ligne.Length * MM_PAR_PIED,
-                                ligne.GetEndPoint(0), ligne.GetEndPoint(1),
-                                type(erreur).__name__, erreur))
+            if en_lot:
+                # Un seul appel API : Revit ne régénère qu'une fois. Des milliers
+                # de NewDetailCurve individuels coûtent un ordre de grandeur.
+                tableau = CurveArray()
+                for ligne in lignes:
+                    tableau.Append(ligne)
+                crees = fabrique.NewDetailCurveArray(vue, tableau).Size
+            else:
+                for index, ligne in enumerate(lignes):
+                    try:
+                        fabrique.NewDetailCurve(vue, ligne)
+                        crees += 1
+                    except Exception as erreur:
+                        echecs += 1
+                        if premiere_erreur is None:
+                            premiere_erreur = (
+                                '#{0} ({1:.3f} mm, {2} → {3}) : {4} : {5}'.format(
+                                    index, ligne.Length * MM_PAR_PIED,
+                                    ligne.GetEndPoint(0), ligne.GetEndPoint(1),
+                                    type(erreur).__name__, erreur))
     except Exception:
         import traceback
         print('[ImportSVG] ÉCHEC de la transaction :')
         print(traceback.format_exc())
         raise
+    print('[ImportSVG] création : {0:.1f} s'.format(time.time() - depart))
 
     if premiere_erreur:
         print('[ImportSVG] {0} refus de Revit. Premier : {1}'.format(
