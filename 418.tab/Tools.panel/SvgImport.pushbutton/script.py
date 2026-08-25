@@ -35,6 +35,7 @@ except ImportError:
     from lib.core.transaction import revit_transaction
 
 from lib.svg_paths import lire_svg, appliquer
+from lib.views.TailleSvgView import TailleSvgView
 
 try:
     uidoc = __revit__.ActiveUIDocument  # type: ignore
@@ -145,19 +146,25 @@ if __name__ == '__main__':
                     "Les textes et les images intégrées ne sont pas importés.",
                     title='Importer SVG', exitscript=True)
 
-    saisie = forms.ask_for_string(
-        default='100',
-        prompt='Largeur cible dans le modèle (mm) :',
-        title='Importer SVG')
+    min_x, min_y, max_x, max_y = bornes
+    dialogue = TailleSvgView(
+        defaut='100',
+        info='Tracé source : {0:.0f} × {1:.0f} unités SVG, {2} tracé(s). '
+             'Le ratio est conservé.'.format(
+                 max_x - min_x, max_y - min_y, len(traces)))
+    dialogue.show()
+    if dialogue.valeur is None:
+        print('[ImportSVG] Annulé : largeur non saisie.')
+        sys.exit()
+
     try:
-        largeur_mm = float((saisie or '').replace(',', '.'))
+        largeur_mm = float(dialogue.valeur.replace(',', '.'))
     except ValueError:
         largeur_mm = 0.0
     if largeur_mm <= 0:
-        forms.alert('Largeur invalide : « {0} ». Import annulé.'.format(saisie),
-                    title='Importer SVG', exitscript=True)
+        forms.alert('Largeur invalide : « {0} ». Import annulé.'.format(
+            dialogue.valeur), title='Importer SVG', exitscript=True)
 
-    min_x, min_y, max_x, max_y = bornes
     # Pieds par unité SVG : la largeur dessinée vaut exactement la demande.
     echelle = (largeur_mm / MM_PAR_PIED) / (max_x - min_x)
     tolerance = TOLERANCE_MM / MM_PAR_PIED / echelle
