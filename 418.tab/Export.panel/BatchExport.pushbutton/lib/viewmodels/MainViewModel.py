@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
 # Journal de diagnostic : le logger pyRevit écrit dans la fenêtre de sortie
@@ -134,6 +134,18 @@ _CFG_KEY_PARAM_DWG = 'sheet_param_dwgcombo'
 # ExportOrchestrator.run_manual() par lancer_export_manuel().
 _CFG_KEY_COMBINE_PDF = 'manual_combine_pdf'
 _CFG_KEY_PDF_COMBINE_TITLE = 'manual_pdf_combine_title'
+
+
+def _champ(source, cle, defaut=None):
+    """Champ d'un descripteur de service, tolérant au non-dict.
+
+    Les services rendent des dicts, mais les faux services des tests et les
+    versions plus anciennes peuvent rendre autre chose : ce qui n'est pas un
+    dict vaut `defaut` plutôt que de lever.
+    """
+    if isinstance(source, dict):
+        return source.get(cle, defaut)
+    return defaut
 
 
 class MainViewModel(BaseViewModel):
@@ -472,6 +484,37 @@ class MainViewModel(BaseViewModel):
     # Mode « par jeu »
     # ------------------------------------------------------------------
 
+    def _lire_flag(self, elem, param_name):
+        """Paramètre Oui/Non d'une collection. False si absent ou illisible.
+
+        Trois appels identiques (export / carnet / DWG) portaient chacun leur
+        try/except dans `refresh_par_jeu`.
+        """
+        if self._sheet_service is None or elem is None or not param_name:
+            return False
+        try:
+            return bool(self._sheet_service.read_flag(elem, param_name))
+        except Exception:
+            return False
+
+    def _charger_motif(self, genre):
+        """Motif de nommage `(pattern, rows)` d'un genre, ('', []) si échec."""
+        if self._naming_service is None:
+            return u'', []
+        try:
+            return self._naming_service.load(genre)
+        except Exception:
+            return u'', []
+
+    def _resoudre_nom(self, elem, motif):
+        """Nom projeté d'un élément selon `motif`, vide si non résolvable."""
+        if self._naming_service is None or elem is None or not motif:
+            return u''
+        try:
+            return self._naming_service.resolve_for_element(elem, motif) or u''
+        except Exception:
+            return u''
+
     def refresh_par_jeu(self):
         """Construit `self._collections` à partir des services injectés.
 
@@ -499,25 +542,11 @@ class MainViewModel(BaseViewModel):
         nb_jeux_qualifies = 0
         nb_feuilles_qualifiees = 0
 
-        _pattern = u''
-        rows_sheet = []
-        if self._naming_service is not None:
-            try:
-                _pattern, rows_sheet = self._naming_service.load('sheet')
-            except Exception:
-                _pattern = u''
-                rows_sheet = []
+        _pattern, rows_sheet = self._charger_motif('sheet')
 
         # Motif carnet ('set') hissé une fois (comme _pattern/rows_sheet pour
         # les feuilles), résolu par collection pour l'aperçu du titre de carnet.
-        _set_pattern = u''
-        set_rows = []
-        if self._naming_service is not None:
-            try:
-                _set_pattern, set_rows = self._naming_service.load('set')
-            except Exception:
-                _set_pattern = u''
-                set_rows = []
+        _set_pattern, set_rows = self._charger_motif('set')
 
         raw_collections = []
         if self._sheet_service is not None:
@@ -531,26 +560,13 @@ class MainViewModel(BaseViewModel):
         param_dwg = self.ParamDwg
 
         for coll in raw_collections:
-            titre = coll.get('Titre', u'') if isinstance(coll, dict) else u''
-            coll_id = coll.get('Id') if isinstance(coll, dict) else None
-            coll_elem = coll.get('Elem') if isinstance(coll, dict) else None
+            titre = _champ(coll, 'Titre', u'')
+            coll_id = _champ(coll, 'Id')
+            coll_elem = _champ(coll, 'Elem')
 
-            flag_export = False
-            flag_carnet = False
-            flag_dwg = False
-            if self._sheet_service is not None and coll_elem is not None:
-                try:
-                    flag_export = bool(self._sheet_service.read_flag(coll_elem, param_export)) if param_export else False
-                except Exception:
-                    flag_export = False
-                try:
-                    flag_carnet = bool(self._sheet_service.read_flag(coll_elem, param_carnet)) if param_carnet else False
-                except Exception:
-                    flag_carnet = False
-                try:
-                    flag_dwg = bool(self._sheet_service.read_flag(coll_elem, param_dwg)) if param_dwg else False
-                except Exception:
-                    flag_dwg = False
+            flag_export = self._lire_flag(coll_elem, param_export)
+            flag_carnet = self._lire_flag(coll_elem, param_carnet)
+            flag_dwg = self._lire_flag(coll_elem, param_dwg)
 
             qualified = bool(flag_export)
             if qualified:
@@ -565,16 +581,12 @@ class MainViewModel(BaseViewModel):
                     raw_sheets = []
 
             for sheet in raw_sheets:
-                numero = sheet.get('Numero', u'') if isinstance(sheet, dict) else u''
-                nom = sheet.get('Nom', u'') if isinstance(sheet, dict) else u''
-                sheet_elem = sheet.get('Elem') if isinstance(sheet, dict) else None
+                numero = _champ(sheet, 'Numero', u'')
+                nom = _champ(sheet, 'Nom', u'')
+                sheet_elem = _champ(sheet, 'Elem')
 
-                nom_projete = u''
-                if self._naming_service is not None and sheet_elem is not None and (_pattern or rows_sheet):
-                    try:
-                        nom_projete = self._naming_service.resolve_for_element(sheet_elem, _pattern or rows_sheet) or u''
-                    except Exception:
-                        nom_projete = u''
+                nom_projete = self._resoudre_nom(sheet_elem,
+                                                 _pattern or rows_sheet)
                 if not nom_projete:
                     nom_projete = u"{}{}".format(numero, nom)
 
@@ -585,17 +597,8 @@ class MainViewModel(BaseViewModel):
 
             # Aperçu du titre de carnet : motif `set` résolu contre l'élément
             # de collection + `.pdf` (extension du fichier produit à l'export).
-            # Même discipline try/except + garde motif que `nom_projete`.
-            carnet_apercu = u''
-            if (self._naming_service is not None and coll_elem is not None
-                    and (_set_pattern or set_rows)):
-                try:
-                    resolved = self._naming_service.resolve_for_element(
-                        coll_elem, _set_pattern or set_rows) or u''
-                except Exception:
-                    resolved = u''
-                if resolved:
-                    carnet_apercu = resolved + u'.pdf'
+            resolved = self._resoudre_nom(coll_elem, _set_pattern or set_rows)
+            carnet_apercu = (resolved + u'.pdf') if resolved else u''
 
             collections_out.append(CollectionItemVM(
                 titre, coll_id, flag_export, flag_carnet, flag_dwg, sheets_out,
@@ -697,19 +700,12 @@ class MainViewModel(BaseViewModel):
 
         collections_titres = {}
         for coll in raw_collections:
-            titre = coll.get('Titre', u'') if isinstance(coll, dict) else u''
-            coll_id = coll.get('Id') if isinstance(coll, dict) else None
+            titre = _champ(coll, 'Titre', u'')
+            coll_id = _champ(coll, 'Id')
             collections_titres[coll_id] = titre or u''
         self._collections_titres = collections_titres
 
-        _pattern = u''
-        rows_sheet = []
-        if self._naming_service is not None:
-            try:
-                _pattern, rows_sheet = self._naming_service.load('sheet')
-            except Exception:
-                _pattern = u''
-                rows_sheet = []
+        _pattern, rows_sheet = self._charger_motif('sheet')
 
         raw_sheets = []
         if self._sheet_service is not None:
@@ -720,19 +716,14 @@ class MainViewModel(BaseViewModel):
 
         sheets_out = []
         for sheet in raw_sheets:
-            numero = sheet.get('Numero', u'') if isinstance(sheet, dict) else u''
-            nom = sheet.get('Nom', u'') if isinstance(sheet, dict) else u''
-            coll_id = sheet.get('CollectionId') if isinstance(sheet, dict) else None
-            elem = sheet.get('Elem') if isinstance(sheet, dict) else None
+            numero = _champ(sheet, 'Numero', u'')
+            nom = _champ(sheet, 'Nom', u'')
+            coll_id = _champ(sheet, 'CollectionId')
+            elem = _champ(sheet, 'Elem')
 
             jeu_nom = collections_titres.get(coll_id, u'') or u''
 
-            nom_projete = u''
-            if self._naming_service is not None and elem is not None and (_pattern or rows_sheet):
-                try:
-                    nom_projete = self._naming_service.resolve_for_element(elem, _pattern or rows_sheet) or u''
-                except Exception:
-                    nom_projete = u''
+            nom_projete = self._resoudre_nom(elem, _pattern or rows_sheet)
 
             sheets_out.append(ManualSheetVM(
                 numero, nom, collection_id=coll_id, elem=elem,
@@ -745,8 +736,8 @@ class MainViewModel(BaseViewModel):
 
         filtres_out = []
         for coll in raw_collections:
-            titre = coll.get('Titre', u'') if isinstance(coll, dict) else u''
-            coll_id = coll.get('Id') if isinstance(coll, dict) else None
+            titre = _champ(coll, 'Titre', u'')
+            coll_id = _champ(coll, 'Id')
             filtres_out.append(FiltreItemVM(
                 u'Jeu : ' + (titre or u''), u'collection', coll_id=coll_id,
                 on_change=self._on_filtre_change,
@@ -759,8 +750,8 @@ class MainViewModel(BaseViewModel):
             except Exception:
                 raw_sets = []
         for vss in raw_sets:
-            nom = vss.get('Nom', u'') if isinstance(vss, dict) else u''
-            sheet_ids = vss.get('SheetIds') if isinstance(vss, dict) else None
+            nom = _champ(vss, 'Nom', u'')
+            sheet_ids = _champ(vss, 'SheetIds')
             filtres_out.append(FiltreItemVM(
                 u'Impression : ' + (nom or u''), u'set', sheet_ids=sheet_ids,
                 on_change=self._on_filtre_change,
