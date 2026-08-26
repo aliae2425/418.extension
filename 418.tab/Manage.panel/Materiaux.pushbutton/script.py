@@ -28,6 +28,7 @@ from lib.viewmodels.RemplacerPageVM import CategorieVM
 from lib.views.MainWindowView import MainWindowView
 from lib.services.MaterialService import MaterialService
 from lib.services import hatch
+from lib.services.journal import log, nouvelle_session
 from core.selection import all_materials
 
 GRIS = (128, 128, 128)
@@ -142,13 +143,33 @@ def _categories_presentes():
     return sorted(presentes, key=lambda c: c.Nom)
 
 
+def _log_contexte(materiaux, categories):
+    """Contexte du document : écarte d'emblée « maquette non modifiable »
+    et « API Revit absente », les deux causes de remplacement muet qui ne
+    ressemblent pas à un bug de l'outil."""
+    if doc is None:
+        log(u'AUCUN DOCUMENT ACTIF — aucune action n\'aura d\'effet')
+        return
+    log(u'document « {} » · modifiable={} · lecture seule={} · famille={}',
+        getattr(doc, 'Title', u'?'),
+        getattr(doc, 'IsModifiable', u'?'),
+        getattr(doc, 'IsReadOnly', u'?'),
+        getattr(doc, 'IsFamilyDocument', u'?'))
+    log(u'{} matériau(x), {} catégorie(s) présentes',
+        len(materiaux), len(categories))
+
+
 if __name__ == '__main__':
+    nouvelle_session(u'Matériaux')
     materiaux = all_materials(doc) if doc is not None else []
     materiaux_par_id = dict((m.Id, m) for m in materiaux)
     cartes = [_carte(m) for m in materiaux]
 
+    categories = _categories_presentes()
+    _log_contexte(materiaux, categories)
+
     vm = MainViewModel(service=MaterialService(doc))
-    vm.charger(cartes, materiaux_par_id, _categories_presentes())
+    vm.charger(cartes, materiaux_par_id, categories)
 
     view = MainWindowView(vm)
     view.show()

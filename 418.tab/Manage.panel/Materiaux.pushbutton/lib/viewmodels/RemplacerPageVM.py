@@ -11,6 +11,15 @@ try:
 except Exception:
     from lib.core import text_filter
 
+try:
+    from lib.services.journal import log
+except Exception:
+    try:
+        from services.journal import log
+    except Exception:
+        def log(gabarit, *args):
+            pass
+
 
 class CategorieVM(BaseViewModel):
     """Une catégorie cochable de la section de portée.
@@ -59,7 +68,7 @@ class RemplacerPageVM(BaseViewModel):
         super(RemplacerPageVM, self).__init__()
         self._service = service
         # Portée du remplacement : les catégories effectivement présentes
-        # dans le modèle (calculées par script.py), toutes décochées — donc
+        # dans le modèle (calculées par script.py), toutes COCHÉES — donc
         # tout le modèle par défaut.
         self.Categories = list(categories or [])
         for categorie in self.Categories:
@@ -90,6 +99,7 @@ class RemplacerPageVM(BaseViewModel):
         self._cible = value
         if value is not None:
             value.EstCible = True
+        log(u'cible = {}', value.Nom if value is not None else u'AUCUNE')
         self._oublier_rapport()
         self.notify_property('Cible')
         self.notify_property('Recapitulatif')
@@ -170,6 +180,7 @@ class RemplacerPageVM(BaseViewModel):
 
     def set_sources(self, ids):
         self._sources = list(ids or [])
+        log(u'sources = {}', [str(i) for i in self._sources])
         self._oublier_rapport()
         self.notify_property('Recapitulatif')
         self.notify_property('PeutAnalyser')
@@ -262,9 +273,21 @@ class RemplacerPageVM(BaseViewModel):
 
     # -- Actions -----------------------------------------------------------
 
+    def _log_etat(self, action):
+        """Pourquoi un clic n'a rien lancé — le premier fork à écarter."""
+        log(u'{} : {} source(s), cible={}, service={}, {} catégorie(s) '
+            u'cochée(s) sur {}, PeutAnalyser={}, PeutRemplacer={}',
+            action, len(self._sources),
+            self._cible.Nom if self._cible is not None else u'AUCUNE',
+            u'oui' if self._service is not None else u'ABSENT',
+            len(self._coches), len(self.Categories),
+            self.PeutAnalyser, self.PeutRemplacer)
+
     def analyser(self):
         """Balaye le modèle sans rien modifier."""
+        self._log_etat(u'clic Analyser')
         if not self.PeutAnalyser:
+            log(u'Analyser ignoré : PeutAnalyser est faux')
             return
         self._rapport = self._service.analyser(self._sources,
                                                self._categories_ids)
@@ -278,7 +301,10 @@ class RemplacerPageVM(BaseViewModel):
 
     def remplacer(self):
         """Applique le remplacement en une transaction."""
+        self._log_etat(u'clic Remplacer')
         if not self.PeutRemplacer:
+            log(u'Remplacer ignoré : PeutRemplacer est faux'
+                u' (déjà appliqué ? _Applique={})', self._Applique)
             return
         self._rapport = self._service.remplacer(self._sources, self._cible.Id,
                                                 self._categories_ids)

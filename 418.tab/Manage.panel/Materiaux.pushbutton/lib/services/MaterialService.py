@@ -16,6 +16,18 @@ except Exception:
             return x or u'SansNom'
 
 try:
+    from lib.services.journal import log, nom as _nom
+except Exception:
+    try:
+        from services.journal import log, nom as _nom
+    except Exception:
+        def log(gabarit, *args):
+            pass
+
+        def _nom(element):
+            return u'<?>'
+
+try:
     from Autodesk.Revit.DB import (ElementId, ElementMulticategoryFilter,
                                    FilteredElementCollector, StorageType,
                                    HostObjAttributes)
@@ -87,6 +99,28 @@ class Rapport(object):
         return not self._par_categorie
 
 
+def _ids_couches(element):
+    """Ids matériau des couches de structure composée, ou set() vide.
+
+    Indispensable à la DÉTECTION, pas seulement à l'écriture :
+    `Element.GetMaterialIds` est piloté par la géométrie, donc il ne renvoie
+    rien sur un `ElementType`. Un `WallType` qui porte le matériau dans ses
+    couches restait invisible au balayage, alors que c'est le SEUL endroit où
+    l'affectation est inscriptible — l'instance `Wall`, elle, remonte bien le
+    matériau mais n'a rien à modifier.
+    """
+    if HostObjAttributes is None or not isinstance(element, HostObjAttributes):
+        return set()
+    try:
+        structure = element.GetCompoundStructure()
+        if structure is None:
+            return set()
+        return set(structure.GetMaterialId(index)
+                   for index in range(structure.LayerCount))
+    except Exception:
+        return set()
+
+
 def _categorie(element):
     try:
         categorie = element.Category
@@ -128,10 +162,11 @@ class MaterialService(object):
 
         ponytail: sans catégories, le balayage reste complet et O(éléments) —
         comptez quelques secondes sur une grosse maquette. `GetMaterialIds`
-        sert de pré-filtre bon marché pour n'inspecter les paramètres que des
-        éléments qui portent effectivement le matériau. Un
-        `ElementParameterFilter` par paramètre matériau irait plus vite, au
-        prix d'une liste de BuiltInParameter à maintenir.
+        PLUS les couches de structure composée (`_ids_couches`) servent de
+        pré-filtre pour n'inspecter les paramètres que des éléments qui
+        portent effectivement le matériau. Un `ElementParameterFilter` par
+        paramètre matériau irait plus vite, au prix d'une liste de
+        BuiltInParameter à maintenir.
         """
         if FilteredElementCollector is None or self._doc is None:
             return
@@ -159,18 +194,41 @@ class MaterialService(object):
         porteurs = []
         peints = 0
         if not ids:
+            log(u'balayage annulé : aucune source')
             return porteurs, peints
+        log(u'balayage : {} source(s) {} · portée {}',
+            len(ids), [str(i) for i in ids],
+            u'tout le modèle' if not categorie_ids
+            else u'%d catégorie(s)' % len(categorie_ids))
+        vus = 0
+        sans_materiau = 0
         for element, est_type in self._elements(categorie_ids):
+            vus += 1
             try:
-                if set(element.GetMaterialIds(False)) & ids:
-                    porteurs.append((element, est_type))
-            except Exception:
-                pass
+                materiaux = set(element.GetMaterialIds(False))
+            except Exception as erreur:
+                log(u'GetMaterialIds(False) a levé sur {} : {}',
+                    _nom(element), erreur)
+                materiaux = set()
+            materiaux |= _ids_couches(element)
+            if not materiaux:
+                sans_materiau += 1
+            if materiaux & ids:
+                porteurs.append((element, est_type))
+                log(u'porteur {} [{}] · matériaux={}', _nom(element),
+                    type(element).__name__, [str(m) for m in materiaux])
             try:
                 if set(element.GetMaterialIds(True)) & ids:
                     peints += 1
             except Exception:
                 pass
+        log(u'balayage terminé : {} élément(s) vus, {} sans matériau, '
+            u'{} porteur(s), {} peint(s)', vus, sans_materiau, len(porteurs),
+            peints)
+        if vus and not porteurs:
+            log(u'AUCUN porteur : les ids sources ne sortent pas de '
+                u'GetMaterialIds — soit le matériau n\'est utilisé nulle part, '
+                u'soit la portée exclut ses catégories.')
         return porteurs, peints
 
     def analyser(self, ids_sources, categorie_ids=None):
@@ -193,19 +251,37 @@ class MaterialService(object):
         """
         rapport = Rapport()
         ids = set(ids_sources or [])
+        log(u'remplacer : sources {} -> cible {}',
+            [str(i) for i in ids], id_cible)
         if not ids or id_cible is None:
+            log(u'abandon : sources vides ou cible absente')
             return rapport
         ids.discard(id_cible)          # remplacer un matériau par lui-même
         if not ids:
+            log(u'abandon : la seule source EST la cible, rien à faire')
             return rapport
 
         porteurs, rapport.Peints = self._balayer(ids, categorie_ids)
-        with revit_transaction(self._doc, u'Remplacer le matériau'):
+        intacts = []
+        transaction = None
+        with revit_transaction(self._doc, u'Remplacer le matériau') as transaction:
             for element, est_type in porteurs:
-                touche = self._remplacer_couches(element, ids, id_cible)
-                touche = self._remplacer_parametres(element, ids, id_cible) or touche
-                if touche:
+                couches = self._remplacer_couches(element, ids, id_cible)
+                parametres = self._remplacer_parametres(element, ids, id_cible)
+                if couches or parametres:
                     rapport.ajouter(_categorie(element), est_type)
+                    log(u'modifié {} : couches={} paramètres={}',
+                        _nom(element), couches, parametres)
+                elif len(intacts) < 20:
+                    intacts.append(element)
+        for element in intacts:
+            log(u'INTACT {} — porte le matériau mais ni couche ni paramètre '
+                u'accessible en écriture', _nom(element))
+        # Une transaction annulée par un gestionnaire d'échec Revit commite
+        # « proprement » et ne change rien : le statut est le seul témoin.
+        log(u'remplacement terminé : {} élément(s) modifié(s) sur {} '
+            u'porteur(s) · transaction {}', rapport.Total, len(porteurs),
+            getattr(transaction, 'GetStatus', lambda: u'?')())
         return rapport
 
     @staticmethod
@@ -227,30 +303,51 @@ class MaterialService(object):
                     continue
                 parametre.Set(id_cible)
                 touche = True
-            except Exception:
-                continue          # paramètre verrouillé ou non assignable
+            except Exception as erreur:
+                # Silencieux à l'origine — c'est ici que se perd un
+                # remplacement qui « ne fait rien » : paramètre verrouillé,
+                # non assignable, ou élément de lien.
+                log(u'paramètre « {} » refusé sur {} : {}',
+                    getattr(parametre.Definition, 'Name', u'?'),
+                    _nom(element), erreur)
+                continue
         return touche
 
     @staticmethod
     def _remplacer_couches(element, ids, id_cible):
         """Couches de structure composée (murs, sols, toits, plafonds)."""
-        if HostObjAttributes is None or not isinstance(element, HostObjAttributes):
+        if HostObjAttributes is None:
+            log(u'couches ignorées sur {} : HostObjAttributes non importé',
+                _nom(element))
+            return False
+        if not isinstance(element, HostObjAttributes):
+            # Cas NORMAL et fréquent : une instance (`Wall`) remonte les
+            # matériaux des couches de son type mais n'a pas de structure à
+            # elle. C'est le `WallType` qui est modifié, de son côté.
             return False
         try:
             structure = element.GetCompoundStructure()
-        except Exception:
+        except Exception as erreur:
+            log(u'GetCompoundStructure a levé sur {} : {}',
+                _nom(element), erreur)
             return False
         if structure is None:
+            log(u'{} n\'a pas de structure composée', _nom(element))
             return False
         touche = False
         try:
-            for index in range(structure.LayerCount):
-                if structure.GetMaterialId(index) in ids:
+            couches = [(i, structure.GetMaterialId(i))
+                       for i in range(structure.LayerCount)]
+            log(u'{} : couches {}', _nom(element),
+                [(i, str(mid)) for (i, mid) in couches])
+            for index, id_couche in couches:
+                if id_couche in ids:
                     structure.SetMaterialId(index, id_cible)
                     touche = True
             if touche:
                 element.SetCompoundStructure(structure)
-        except Exception:
+        except Exception as erreur:
+            log(u'structure composée refusée sur {} : {}', _nom(element), erreur)
             return False
         return touche
 
