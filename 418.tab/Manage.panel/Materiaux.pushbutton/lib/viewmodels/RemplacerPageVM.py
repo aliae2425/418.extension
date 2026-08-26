@@ -14,23 +14,34 @@ except Exception:
             def notify_property(self, name):
                 pass
 
+try:
+    from core import text_filter
+except Exception:
+    from lib.core import text_filter
+
 
 class RemplacerPageVM(BaseViewModel):
-    """Onglet Remplacer : les matériaux cochés (sources) cèdent leurs
-    affectations à un matériau cible.
+    """Onglet Remplacer : deux colonnes, sources à gauche, cible à droite.
 
     Plusieurs sources pour une cible, ce qui sert autant à substituer qu'à
     fusionner des doublons. Le service ignore la cible si elle figure aussi
     parmi les sources.
+
+    Les deux colonnes montrent les MÊMES matériaux mais se filtrent
+    séparément : la colonne source est la `SelectionPageVM` partagée avec
+    l'onglet Matériaux (elle porte la sélection multiple), la colonne cible
+    n'a besoin que d'un filtre et d'un élément courant — d'où sa propre
+    recherche ici plutôt qu'une seconde page de sélection.
     """
 
     def __init__(self, service=None, selection_vm=None):
         super(RemplacerPageVM, self).__init__()
         self._service = service
-        # MÊME SelectionPageVM que l'onglet Matériaux : la page affiche la
-        # liste en tableau compact, mais la sélection reste unique — cocher
+        # MÊME SelectionPageVM que l'onglet Matériaux : cocher une source
         # ici coche la card là-bas, et réciproquement.
         self.SelectionVM = selection_vm
+        self._cible_filtre = u''
+        self._cibles = list(selection_vm.AllItems) if selection_vm else []
         self._cible = None
         self._sources = []
         self._rapport = None
@@ -54,32 +65,50 @@ class RemplacerPageVM(BaseViewModel):
             value.EstCible = True
         self._oublier_rapport()
         self.notify_property('Cible')
-        self.notify_property('CibleResume')
+        self.notify_property('Recapitulatif')
         self.notify_property('PeutRemplacer')
 
+    # -- Colonne cible : sa propre recherche -------------------------------
+
     @property
-    def CibleResume(self):
-        if self._cible is None:
-            return u'Aucune cible — cliquez le rond d\'une ligne.'
-        return u'Cible : %s' % self._cible.Nom
+    def CibleFilterText(self):
+        return self._cible_filtre
+
+    @CibleFilterText.setter
+    def CibleFilterText(self, value):
+        value = value or u''
+        if value != self._cible_filtre:
+            self._cible_filtre = value
+            self.notify_property('CibleFilterText')
+            self.notify_property('CiblesFiltrees')
+
+    @property
+    def CiblesFiltrees(self):
+        return text_filter.filtrer(self._cibles, self._cible_filtre,
+                                   [lambda carte: carte.Nom])
 
     # -- Sources (pilotées par les cases de l'onglet Matériaux) ------------
 
     def set_sources(self, ids):
         self._sources = list(ids or [])
         self._oublier_rapport()
-        self.notify_property('SourcesResume')
+        self.notify_property('Recapitulatif')
         self.notify_property('PeutAnalyser')
         self.notify_property('PeutRemplacer')
 
     @property
-    def SourcesResume(self):
+    def Recapitulatif(self):
+        """Récapitulatif de pied de page : « 3 sources fusionnées → BA25 »."""
         nombre = len(self._sources)
         if not nombre:
-            return u'Aucun matériau coché dans l\'onglet Matériaux.'
+            return u'Aucune source cochée.'
         if nombre == 1:
-            return u'1 matériau source.'
-        return u'%d matériaux sources — ils seront fusionnés vers la cible.' % nombre
+            gauche = u'1 source'
+        else:
+            gauche = u'%d sources fusionnées' % nombre
+        if self._cible is None:
+            return u'%s → aucune cible' % gauche
+        return u'%s → %s' % (gauche, self._cible.Nom)
 
     @property
     def PeutAnalyser(self):

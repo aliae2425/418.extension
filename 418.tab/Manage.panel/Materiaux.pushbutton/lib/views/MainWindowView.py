@@ -63,11 +63,13 @@ class MainWindowView(RailWindow):
     # ------------------------------------------------------------------
 
     def _wire_liste_remplacer(self):
-        """Câble le tableau de la page Remplacer.
+        """Câble les deux colonnes de la page Remplacer.
 
         `RailWindow._wire_selection_interactions` ne s'occupe que de la page
-        `selection` ; ce tableau-ci affiche la MÊME `SelectionPageVM` avec
-        en plus le rond de cible, il lui faut donc son propre câblage.
+        `selection` ; ces deux listes-ci ont leur propre câblage. Chacune n'a
+        qu'un rôle — cocher une source à gauche, désigner la cible à droite —
+        donc un seul handler de clic de ligne suffit de part et d'autre, la
+        case et le rond restant display-only.
         """
         page = self._page(u'remplacer')
         vm = getattr(self._vm, 'RemplacerVM', None)
@@ -82,57 +84,33 @@ class MainWindowView(RailWindow):
         if bouton is not None:
             bouton.Click += lambda s, a: selection.deselect_all()
 
-        liste = page.FindName('SourcesList')
-        if liste is None:
-            return
-
-        from System.Windows import RoutedEventHandler
-        from System.Windows.Controls.Primitives import ToggleButton
-
-        def _sur_cible(sender, args):
-            carte = getattr(args.OriginalSource, 'DataContext', None)
-            if carte is not None:
-                vm.Cible = carte
-
-        # Un seul handler pour tous les ronds : un DataTemplate ne peut pas
-        # porter de x:Name unique, mais l'événement Checked remonte jusqu'ici.
-        liste.AddHandler(ToggleButton.CheckedEvent,
-                         RoutedEventHandler(_sur_cible))
-
-        def _sur_ligne(sender, args):
-            from System.Windows.Input import Keyboard, ModifierKeys
-            if self._dans_bouton(args.OriginalSource):
-                return          # clic sur le rond de cible : pas une source
-            carte = getattr(args.OriginalSource, 'DataContext', None)
+        def _bascule_source(carte):
             affichees = list(selection.FilteredItems)
-            if carte is None or carte not in affichees:
+            if carte not in affichees:
                 return
+            from System.Windows.Input import Keyboard, ModifierKeys
             mods = Keyboard.Modifiers
             selection.handle_row_click(
                 affichees.index(carte),
                 bool(int(mods) & int(ModifierKeys.Shift)),
                 bool(int(mods) & int(ModifierKeys.Control)))
 
-        liste.PreviewMouseLeftButtonDown += _sur_ligne
+        def _designe_cible(carte):
+            vm.Cible = carte
+
+        self._clic_de_ligne(page, 'SourcesList', _bascule_source)
+        self._clic_de_ligne(page, 'CiblesList', _designe_cible)
 
     @staticmethod
-    def _dans_bouton(element):
-        """Vrai si `element` est dans un RadioButton (le rond de cible).
+    def _clic_de_ligne(page, nom_liste, callback):
+        """Un handler unique sur la liste, appelé avec la ligne cliquée."""
+        liste = page.FindName(nom_liste)
+        if liste is None:
+            return
 
-        WPF remonte OriginalSource jusqu'à l'élément visuel le plus profond —
-        typiquement un Border du gabarit du rond, pas le rond lui-même.
-        """
-        try:
-            from System.Windows.Media import VisualTreeHelper
-            from System.Windows.Controls import RadioButton
-        except Exception:
-            return False
-        courant = element
-        while courant is not None:
-            if isinstance(courant, RadioButton):
-                return True
-            try:
-                courant = VisualTreeHelper.GetParent(courant)
-            except Exception:
-                return False
-        return False
+        def _au_clic(sender, args):
+            carte = getattr(args.OriginalSource, 'DataContext', None)
+            if carte is not None:
+                callback(carte)
+
+        liste.PreviewMouseLeftButtonDown += _au_clic

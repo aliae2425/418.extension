@@ -91,7 +91,7 @@ class TestRemplacerPageVM(unittest.TestCase):
     def test_sans_source_rien_n_est_possible(self):
         self.assertFalse(self.vm.PeutAnalyser)
         self.assertFalse(self.vm.PeutRemplacer)
-        self.assertIn(u'Aucun matériau', self.vm.SourcesResume)
+        self.assertEqual(self.vm.Recapitulatif, u'Aucune source cochée.')
 
     def test_sources_sans_cible_autorise_l_analyse_seule(self):
         self.vm.set_sources([1])
@@ -103,11 +103,16 @@ class TestRemplacerPageVM(unittest.TestCase):
         self.vm.Cible = self.cartes[1]
         self.assertTrue(self.vm.PeutRemplacer)
 
-    def test_resume_annonce_la_fusion_au_dela_d_une_source(self):
+    def test_recapitulatif_annonce_la_fusion_au_dela_d_une_source(self):
         self.vm.set_sources([1])
-        self.assertEqual(self.vm.SourcesResume, u'1 matériau source.')
+        self.assertEqual(self.vm.Recapitulatif, u'1 source → aucune cible')
         self.vm.set_sources([1, 2])
-        self.assertIn(u'fusionnés', self.vm.SourcesResume)
+        self.assertIn(u'2 sources fusionnées', self.vm.Recapitulatif)
+
+    def test_recapitulatif_nomme_la_cible(self):
+        self.vm.set_sources([1])
+        self.vm.Cible = self.cartes[1]
+        self.assertEqual(self.vm.Recapitulatif, u'1 source → BA25')
 
     def test_analyser_ne_modifie_rien_et_rend_le_rapport(self):
         self.vm.set_sources([1])
@@ -152,10 +157,19 @@ class TestRemplacerPageVM(unittest.TestCase):
         self.assertFalse(self.cartes[0].EstCible)
         self.assertTrue(self.cartes[1].EstCible)
 
-    def test_resume_de_cible(self):
-        self.assertIn(u'Aucune cible', self.vm.CibleResume)
+    def test_la_colonne_cible_a_son_propre_filtre(self):
+        # Filtrer la cible ne touche pas la colonne des sources.
+        self.assertEqual(len(self.vm.CiblesFiltrees), 2)
+        self.vm.CibleFilterText = u'ba'
+        self.assertEqual([c.Nom for c in self.vm.CiblesFiltrees], [u'BA25'])
+        self.assertEqual(len(self.vm.SelectionVM.FilteredItems), 2)
+
+    def test_filtrer_la_cible_ne_la_deselectionne_pas(self):
         self.vm.Cible = self.cartes[1]
-        self.assertEqual(self.vm.CibleResume, u'Cible : BA25')
+        self.vm.CibleFilterText = u'béton'
+        self.assertEqual(self.vm.CiblesFiltrees, [self.cartes[0]])
+        self.assertIs(self.vm.Cible, self.cartes[1])
+        self.assertTrue(self.cartes[1].EstCible)
 
     def test_une_card_peut_etre_source_et_cible_le_service_tranche(self):
         # Cocher aussi la cible ne doit pas bloquer l'interface : c'est
