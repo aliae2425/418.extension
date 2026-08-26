@@ -74,6 +74,12 @@ TOLERANCE_MM = 0.15
 # lignes que de segments. Passer à False pour garder l'import en un bloc.
 DECOMPOSER = True
 
+# Revit refuse de décomposer un import de plus de 10 000 éléments
+# (BuiltInFailures.ImportFailures.ImportTooManyElmentsToExplode). Le nombre de
+# sommets majore le nombre d'éléments produits : on s'en sert pour prévenir
+# AVANT de poster la commande, qui échouerait sans rien dire.
+LIMITE_EXPLOSION = 10000
+
 # Vues 2D qui acceptent un import CAD propre à la vue.
 VUES_VALIDES = (ViewType.FloorPlan, ViewType.CeilingPlan, ViewType.AreaPlan,
                 ViewType.EngineeringPlan, ViewType.Section, ViewType.Elevation,
@@ -324,7 +330,17 @@ if __name__ == '__main__':
     selection.Add(element_id)
     uidoc.Selection.SetElementIds(selection)
 
-    if DECOMPOSER:
+    if DECOMPOSER and sommets > LIMITE_EXPLOSION:
+        forms.alert(
+            'Import réussi, mais trop lourd pour être décomposé : {0} sommets '
+            'pour une limite Revit de {1} éléments.\n\nAugmenter '
+            'TOLERANCE_MM (actuellement {2} mm) pour alléger le tracé, ou '
+            'garder l\'import en un bloc.'.format(
+                sommets, LIMITE_EXPLOSION, TOLERANCE_MM),
+            title='Importer SVG')
+        print('[ImportSVG] Décomposition non tentée : {0} sommets > {1}.'
+              .format(sommets, LIMITE_EXPLOSION))
+    elif DECOMPOSER:
         try:
             commande = RevitCommandId.LookupPostableCommandId(
                 PostableCommand.ExplodeFull)
