@@ -1,7 +1,16 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+import io
 import os
+
+try:
+    from core.AppPaths import AppPaths
+except Exception:
+    try:
+        from lib.core.AppPaths import AppPaths
+    except Exception:
+        AppPaths = None
 
 try:
     from ui.base.BaseViewModel import BaseViewModel
@@ -24,7 +33,20 @@ try:
 except Exception:
     Process = None
 
-__version__ = u'2.1.0'
+def _lire_version():
+    """Numéro de version lu dans le fichier VERSION à la racine de l'extension.
+
+    Source unique de la version : un seul endroit à bumper.
+    """
+    try:
+        chemin = os.path.join(AppPaths().ext_dir(), 'VERSION')
+        with io.open(chemin, 'r', encoding='utf-8') as f:
+            return f.read().strip()
+    except Exception:
+        return u'inconnue'
+
+
+__version__ = _lire_version()
 
 
 class AboutViewModel(BaseViewModel):

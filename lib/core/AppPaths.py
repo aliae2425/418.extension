@@ -9,6 +9,10 @@ _ext_dir = os.path.dirname(_lib_dir)
 
 
 class AppPaths(object):
+    def ext_dir(self):
+        # Racine de l'extension : 418.extension/ (contient VERSION, data/…).
+        return _ext_dir
+
     def resources_dir(self):
         return os.path.join(_lib_dir, 'ui', 'GUI', 'resources')
 
