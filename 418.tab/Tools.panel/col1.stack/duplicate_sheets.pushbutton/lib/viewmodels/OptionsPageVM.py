@@ -17,9 +17,9 @@ except Exception:
     from lib.core.rename_service import RenameService
 
 try:
-    from lib.viewmodels.SheetPreviewGroupVM import SheetPreviewGroupVM
+    from ui.base.SheetPreviewGroupVM import SheetPreviewGroupVM
 except Exception:
-    from viewmodels.SheetPreviewGroupVM import SheetPreviewGroupVM
+    from lib.ui.base.SheetPreviewGroupVM import SheetPreviewGroupVM
 
 
 class OptionsPageVM(BaseViewModel):
