@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 # Service d'accès aux réglages et options d'export PDF
 
 from __future__ import unicode_literals
@@ -18,7 +18,7 @@ class PdfExporterService(FormatExporterService):
 
     SETUP_KEY = 'pdf_setup_name'
 
-    def _list_revit_setups(self, doc):
+    def list_all_setups(self, doc):
         if DB is None or doc is None:
             return []
         noms = []
