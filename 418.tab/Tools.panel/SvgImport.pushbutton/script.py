@@ -8,9 +8,11 @@ temporaire, et `Document.Import` fait entrer le tout en UN appel.
 
 Variante de `feat/svgImport`, qui créait un `DetailCurve` par segment : des
 milliers d'appels API, donc lent, et un résultat en miettes. Ici l'import est
-un objet unique — plus rapide et plus propre, mais à décomposer à la main
-(sélection → Décomposer complètement) pour obtenir des lignes éditables :
-l'API Revit n'expose aucune méthode d'explosion.
+un objet unique, puis `DECOMPOSER` le fait éclater en éléments Revit natifs.
+
+Deux pièges de l'API rencontrés ici : Revit épingle les imports CAD à la
+création (il faut dépingler avant tout déplacement), et l'explosion n'existe
+pas en API — elle passe par une commande d'interface postée, donc asynchrone.
 
 Seuls les contours sont importés : les remplissages (`fill`) et les textes
 sont ignorés. La largeur demandée est une largeur *dans le modèle* — sur une
@@ -34,9 +36,13 @@ clr.AddReference('PresentationCore')
 from System.Windows.Media import (Geometry, ToleranceType,
                                   PolyLineSegment, LineSegment)
 
-from Autodesk.Revit.DB import (DWGImportOptions, ElementTransformUtils,
-                               ImportPlacement, ImportUnit, ViewType, XYZ)
+from System.Collections.Generic import List
+
+from Autodesk.Revit.DB import (DWGImportOptions, ElementId,
+                               ElementTransformUtils, ImportPlacement,
+                               ImportUnit, ViewType, XYZ)
 from Autodesk.Revit.Exceptions import OperationCanceledException
+from Autodesk.Revit.UI import PostableCommand, RevitCommandId
 from pyrevit import forms
 
 try:
@@ -60,6 +66,13 @@ except Exception:
 # POLYLINE est très inférieur à celui d'une ligne de détail, donc on peut se
 # permettre plus fin qu'avec l'autre méthode.
 TOLERANCE_MM = 0.15
+
+# Décompose l'import en éléments Revit natifs. L'API n'expose aucune méthode
+# d'explosion : on sélectionne l'import et on POSTE la commande d'interface,
+# qui s'exécutera quand le script rendra la main. Donc ASYNCHRONE — impossible
+# d'en logguer le résultat, et une polyligne peut ressortir en autant de
+# lignes que de segments. Passer à False pour garder l'import en un bloc.
+DECOMPOSER = True
 
 # Vues 2D qui acceptent un import CAD propre à la vue.
 VUES_VALIDES = (ViewType.FloorPlan, ViewType.CeilingPlan, ViewType.AreaPlan,
@@ -252,6 +265,11 @@ if __name__ == '__main__':
                 raise RuntimeError(
                     'Import refusé par Revit (aucun élément créé).')
 
+            # Revit épingle les imports CAD à la création : sans ceci,
+            # MoveElement lève « at least one of them being pinned ».
+            if instance.Pinned:
+                instance.Pinned = False
+
             # La bbox n'est renseignée qu'après régénération.
             doc.Regenerate()
             boite = instance.get_BoundingBox(vue)
@@ -278,8 +296,6 @@ if __name__ == '__main__':
         time.time() - depart, element_id))
     print('[ImportSVG] {0} entité(s) importée(s) dans « {1} » depuis {2}'
           .format(ecrites, vue.Name, fichier))
-    print('[ImportSVG] Pour des lignes éditables : sélectionner l\'import '
-          '-> Décomposer complètement (pas d\'API d\'explosion).')
 
     # Un tracé de 100 mm est invisible dans une vue zoomée sur un bâtiment.
     try:
@@ -291,3 +307,24 @@ if __name__ == '__main__':
     except Exception as erreur:
         print('[ImportSVG] Zoom impossible ({0}), cadrer à la main sur {1}.'
               .format(type(erreur).__name__, origine))
+
+    # L'import reste sélectionné : pratique pour le déplacer ou le décomposer
+    # à la main, et c'est ce sur quoi la commande postée va s'appliquer.
+    selection = List[ElementId]()
+    selection.Add(element_id)
+    uidoc.Selection.SetElementIds(selection)
+
+    if DECOMPOSER:
+        try:
+            commande = RevitCommandId.LookupPostableCommandId(
+                PostableCommand.ExplodeFull)
+            __revit__.PostCommand(commande)  # type: ignore
+            print('[ImportSVG] Décomposition complète postée : elle a lieu '
+                  'après la fin du script, sans retour possible ici.')
+        except Exception as erreur:
+            print('[ImportSVG] Décomposition impossible ({0} : {1}). '
+                  "L'import est sélectionné : Décomposer complètement "
+                  'à la main.'.format(type(erreur).__name__, erreur))
+    else:
+        print("[ImportSVG] Import laissé en un bloc (DECOMPOSER = False). "
+              'Il est sélectionné si tu veux le décomposer à la main.')
