@@ -6,13 +6,17 @@
     DataContext = RemplacerPageVM. Chargée via XamlReader.Load (PAS de
     x:Class, PAS de code-behind) : brushes et styles en DynamicResource.
 
-    DEUX COLONNES, une par sélection, chacune avec sa recherche :
-      - gauche  SOURCES — cases à cocher, multiple. Alimentée par
+    DEUX COLONNES, une par sélection, chacune avec sa recherche. Les
+    libellés affichés disent ce qu'on FAIT (« Rechercher » / « Remplacer
+    avec ») ; le code garde les noms de rôle source/cible.
+      - gauche  SOURCES, affiché « Rechercher » — les matériaux à remplacer.
+                Cases à cocher, multiple. Alimentée par
                 {Binding SelectionVM.FilteredItems}, c'est-à-dire la MÊME
                 SelectionPageVM que l'onglet Matériaux : cocher ici coche la
                 card là-bas.
-      - droite  CIBLE — ronds, un seul. Alimentée par {Binding CiblesFiltrees},
-                filtre indépendant porté par le VM.
+      - droite  CIBLE, affiché « Remplacer avec » — le matériau qui les
+                remplace. Ronds, un seul. Alimentée par
+                {Binding CiblesFiltrees}, filtre indépendant porté par le VM.
 
     Dans les deux listes, la case et le rond sont display-only
     (IsHitTestVisible=False, binding OneWay) : TOUS les clics passent par le
@@ -21,7 +25,8 @@
 
     La section repliable du haut restreint la portée à une ou plusieurs
     catégories Revit — celles réellement présentes dans le modèle, pas les
-    ~200 de Revit. AUCUNE cochée = tout le modèle.
+    ~200 de Revit. TOUTES cochées (le défaut) = tout le modèle ;
+    aucune cochée = rien à traiter, les deux boutons se désactivent.
 
     Le pied de page porte le récapitulatif, l'état, le rapport par catégorie
     et les deux boutons.
@@ -111,7 +116,7 @@
           <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Sources"
+        <TextBlock Grid.Row="0" Text="Rechercher"
                    Style="{DynamicResource SubHeaderTextBlockStyle}"
                    Margin="0,0,0,8"/>
 
@@ -208,7 +213,7 @@
           <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Cible"
+        <TextBlock Grid.Row="0" Text="Remplacer avec"
                    Style="{DynamicResource SubHeaderTextBlockStyle}"
                    Margin="0,0,0,8"/>
 
