@@ -19,9 +19,9 @@
     handler unique posé sur la liste (MainWindowView._wire_liste_remplacer),
     ce qui évite un double déclenchement entre le contrôle et la ligne.
 
-    Le menu déroulant du haut restreint la portée à une catégorie Revit —
-    ce sont les catégories réellement présentes dans le modèle, pas la liste
-    complète. « Toutes les catégories » balaie tout.
+    La section repliable du haut restreint la portée à une ou plusieurs
+    catégories Revit — celles réellement présentes dans le modèle, pas les
+    ~200 de Revit. AUCUNE cochée = tout le modèle.
 
     Le pied de page porte le récapitulatif, l'état, le rapport par catégorie
     et les deux boutons.
@@ -37,36 +37,61 @@
       <RowDefinition Height="Auto"/>   <!-- footer -->
     </Grid.RowDefinitions>
 
-    <!-- Titre + portée du remplacement -->
-    <Grid Grid.Row="0" Margin="0,0,0,14">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="Auto"/>
-        <ColumnDefinition Width="240"/>
-      </Grid.ColumnDefinitions>
-
-      <TextBlock Grid.Column="0"
-                 Text="Remplacer dans la maquette"
+    <!-- Titre + section repliable de portée -->
+    <StackPanel Grid.Row="0" Margin="0,0,0,14">
+      <TextBlock Text="Remplacer dans la maquette"
                  Style="{DynamicResource HeaderTextBlockStyle}"
-                 VerticalAlignment="Center"/>
+                 Margin="0,0,0,10"/>
 
-      <TextBlock Grid.Column="1"
-                 Text="Appliquer à"
-                 FontSize="11"
-                 VerticalAlignment="Center"
-                 Margin="0,0,8,0"
-                 Foreground="{DynamicResource TextSecondaryBrush}"/>
+      <!-- Portée : cases à cocher multiples. Aucune cochée = tout le modèle,
+           d'où l'absence d'entrée « Toutes ». Les IsChecked sont en TwoWay :
+           WPF écrit dans CategorieVM.EstCochee, qui prévient le VM. Aucun
+           câblage Python. -->
+      <Expander Style="{DynamicResource CollectionExpanderStyle}"
+                Header="{Binding PorteeResume}"
+                IsExpanded="False">
+        <Border BorderBrush="{DynamicResource ControlBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="10,8"
+                Margin="0,8,0,0">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-      <!-- SelectedItem en TwoWay : WPF écrit directement dans
-           RemplacerPageVM.Categorie, aucun câblage Python nécessaire. -->
-      <ComboBox Grid.Column="2"
-                x:Name="CategorieCombo"
-                ItemsSource="{Binding Categories}"
-                SelectedItem="{Binding Categorie, Mode=TwoWay}"
-                DisplayMemberPath="Nom"
-                MaxDropDownHeight="320"
-                VerticalAlignment="Center"/>
-    </Grid>
+            <ScrollViewer Grid.Row="0"
+                          MaxHeight="130"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+              <ItemsControl ItemsSource="{Binding Categories}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal"/>
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <CheckBox IsChecked="{Binding EstCochee, Mode=TwoWay}"
+                              Content="{Binding Nom}"
+                              Style="{DynamicResource CheckBoxStyle}"
+                              Margin="0,2,18,2"/>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+
+            <Button Grid.Row="1"
+                    x:Name="ResetPorteeButton"
+                    Content="Tout décocher"
+                    Style="{DynamicResource SecondaryActionButtonStyle}"
+                    HorizontalAlignment="Left"
+                    Margin="0,8,0,0"/>
+          </Grid>
+        </Border>
+      </Expander>
+    </StackPanel>
 
     <Grid Grid.Row="1">
       <Grid.ColumnDefinitions>
@@ -222,6 +247,7 @@
                                  GroupName="cible"
                                  IsChecked="{Binding EstCible, Mode=OneWay}"
                                  IsHitTestVisible="False"
+                                 Style="{DynamicResource RadioButtonStyle}"
                                  VerticalAlignment="Center"/>
 
                     <Border Grid.Column="1" Width="40" Height="24" CornerRadius="3"

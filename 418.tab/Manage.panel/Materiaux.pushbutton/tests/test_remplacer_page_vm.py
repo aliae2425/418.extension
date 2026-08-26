@@ -16,8 +16,7 @@ from ui.base.SelectionPageVM import SelectionPageVM
 
 from lib.services.MaterialService import Rapport
 from lib.viewmodels.MaterialCardVM import MaterialCardVM
-from lib.viewmodels.RemplacerPageVM import (CategorieVM, RemplacerPageVM,
-                                            TOUTES_CATEGORIES)
+from lib.viewmodels.RemplacerPageVM import CategorieVM, RemplacerPageVM
 
 
 class FakeService(object):
@@ -158,38 +157,74 @@ class TestRemplacerPageVM(unittest.TestCase):
         self.assertFalse(self.cartes[0].EstCible)
         self.assertTrue(self.cartes[1].EstCible)
 
+    def _avec_categories(self):
+        """VM avec deux catégories cochables, toutes décochées au départ."""
+        murs = CategorieVM(42, u'Murs')
+        sols = CategorieVM(43, u'Sols')
+        vm = RemplacerPageVM(self.service, _selection(self.cartes),
+                             [murs, sols])
+        return vm, murs, sols
+
     def test_portee_par_defaut_tout_le_modele(self):
-        self.assertIs(self.vm.Categorie, TOUTES_CATEGORIES)
-        self.assertEqual(self.vm.Categories[0].Nom, u'Toutes les catégories')
+        vm, _, _ = self._avec_categories()
+        self.assertEqual(vm.PorteeResume, u'Appliquer à toutes les catégories')
+        vm.set_sources([1])
+        vm.analyser()
+        # None, pas une liste vide : le service balaie tout.
+        self.assertEqual(self.service.analyses, [([1], None)])
 
-    def test_la_categorie_choisie_est_transmise_au_service(self):
-        murs = CategorieVM(42, u'Murs')
-        self.vm = RemplacerPageVM(self.service, _selection(self.cartes), [murs])
-        self.vm.set_sources([1])
-        self.vm.Cible = self.cartes[1]
-        self.vm.Categorie = murs
-        self.vm.analyser()
-        self.assertEqual(self.service.analyses, [([1], 42)])
-        self.vm.remplacer()
-        self.assertEqual(self.service.remplacements, [([1], 2, 42)])
+    def test_les_categories_cochees_sont_transmises_au_service(self):
+        vm, murs, sols = self._avec_categories()
+        vm.set_sources([1])
+        vm.Cible = self.cartes[1]
+        murs.EstCochee = True
+        sols.EstCochee = True
+        vm.analyser()
+        self.assertEqual(self.service.analyses, [([1], [42, 43])])
+        vm.remplacer()
+        self.assertEqual(self.service.remplacements, [([1], 2, [42, 43])])
 
-    def test_changer_de_categorie_oublie_le_rapport(self):
-        murs = CategorieVM(42, u'Murs')
-        self.vm = RemplacerPageVM(self.service, _selection(self.cartes), [murs])
-        self.vm.set_sources([1])
-        self.vm.analyser()
-        self.assertTrue(self.vm.HasRapport)
-        self.vm.Categorie = murs
-        self.assertFalse(self.vm.HasRapport)
+    def test_decocher_la_derniere_categorie_revient_a_tout(self):
+        vm, murs, _ = self._avec_categories()
+        vm.set_sources([1])
+        murs.EstCochee = True
+        murs.EstCochee = False
+        vm.analyser()
+        self.assertEqual(self.service.analyses, [([1], None)])
 
-    def test_recapitulatif_mentionne_la_categorie(self):
-        murs = CategorieVM(42, u'Murs')
-        self.vm = RemplacerPageVM(self.service, _selection(self.cartes), [murs])
-        self.vm.set_sources([1])
-        self.vm.Cible = self.cartes[1]
-        self.assertEqual(self.vm.Recapitulatif, u'1 source → BA25')
-        self.vm.Categorie = murs
-        self.assertEqual(self.vm.Recapitulatif, u'1 source → BA25 · Murs')
+    def test_changer_de_portee_oublie_le_rapport(self):
+        vm, murs, _ = self._avec_categories()
+        vm.set_sources([1])
+        vm.analyser()
+        self.assertTrue(vm.HasRapport)
+        murs.EstCochee = True
+        self.assertFalse(vm.HasRapport)
+
+    def test_resume_de_portee_compte_les_cochees(self):
+        vm, murs, sols = self._avec_categories()
+        murs.EstCochee = True
+        self.assertEqual(vm.PorteeResume, u'Appliquer à : Murs')
+        sols.EstCochee = True
+        self.assertEqual(vm.PorteeResume, u'Appliquer à 2 catégories')
+
+    def test_reinitialiser_decoche_tout(self):
+        vm, murs, sols = self._avec_categories()
+        murs.EstCochee = True
+        sols.EstCochee = True
+        vm.reinitialiser_portee()
+        self.assertFalse(murs.EstCochee)
+        self.assertFalse(sols.EstCochee)
+        self.assertEqual(vm.PorteeResume, u'Appliquer à toutes les catégories')
+
+    def test_recapitulatif_mentionne_la_portee(self):
+        vm, murs, sols = self._avec_categories()
+        vm.set_sources([1])
+        vm.Cible = self.cartes[1]
+        self.assertEqual(vm.Recapitulatif, u'1 source → BA25')
+        murs.EstCochee = True
+        self.assertEqual(vm.Recapitulatif, u'1 source → BA25 · Murs')
+        sols.EstCochee = True
+        self.assertEqual(vm.Recapitulatif, u'1 source → BA25 · 2 catégories')
 
     def test_la_colonne_cible_a_son_propre_filtre(self):
         # Filtrer la cible ne touche pas la colonne des sources.

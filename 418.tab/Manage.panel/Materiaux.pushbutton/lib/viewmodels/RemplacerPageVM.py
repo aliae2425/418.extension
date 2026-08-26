@@ -20,18 +20,32 @@ except Exception:
     from lib.core import text_filter
 
 
-class CategorieVM(object):
-    """Une entrée du menu déroulant de portée.
+class CategorieVM(BaseViewModel):
+    """Une catégorie cochable de la section de portée.
 
-    `Id` à None = « Toutes les catégories », c'est-à-dire tout le modèle.
+    Convention : AUCUNE catégorie cochée = tout le modèle. Pas d'entrée
+    « Toutes » à maintenir, et l'état vide est aussi le repli naturel.
     """
 
-    def __init__(self, categorie_id, nom):
+    def __init__(self, categorie_id, nom, on_toggle=None):
+        super(CategorieVM, self).__init__()
         self.Id = categorie_id
         self.Nom = nom
+        self._est_cochee = False
+        self._on_toggle = on_toggle
 
+    @property
+    def EstCochee(self):
+        return self._est_cochee
 
-TOUTES_CATEGORIES = CategorieVM(None, u'Toutes les catégories')
+    @EstCochee.setter
+    def EstCochee(self, value):
+        value = bool(value)
+        if value != self._est_cochee:
+            self._est_cochee = value
+            self.notify_property('EstCochee')
+            if self._on_toggle is not None:
+                self._on_toggle(self)
 
 
 class RemplacerPageVM(BaseViewModel):
@@ -51,10 +65,12 @@ class RemplacerPageVM(BaseViewModel):
     def __init__(self, service=None, selection_vm=None, categories=None):
         super(RemplacerPageVM, self).__init__()
         self._service = service
-        # Portée du remplacement. « Toutes » d'abord, puis les catégories
-        # effectivement présentes dans le modèle (calculées par script.py).
-        self.Categories = [TOUTES_CATEGORIES] + list(categories or [])
-        self._categorie = TOUTES_CATEGORIES
+        # Portée du remplacement : les catégories effectivement présentes
+        # dans le modèle (calculées par script.py), toutes décochées — donc
+        # tout le modèle par défaut.
+        self.Categories = list(categories or [])
+        for categorie in self.Categories:
+            categorie._on_toggle = self._sur_categorie
         # MÊME SelectionPageVM que l'onglet Matériaux : cocher une source
         # ici coche la card là-bas, et réciproquement.
         self.SelectionVM = selection_vm
@@ -86,24 +102,33 @@ class RemplacerPageVM(BaseViewModel):
         self.notify_property('Recapitulatif')
         self.notify_property('PeutRemplacer')
 
-    # -- Portée : la catégorie à traiter -----------------------------------
+    # -- Portée : les catégories à traiter ---------------------------------
 
     @property
-    def Categorie(self):
-        return self._categorie
-
-    @Categorie.setter
-    def Categorie(self, value):
-        value = value or TOUTES_CATEGORIES
-        if value is not self._categorie:
-            self._categorie = value
-            self._oublier_rapport()      # le rapport portait sur l'ancienne
-            self.notify_property('Categorie')
-            self.notify_property('Recapitulatif')
+    def _categories_ids(self):
+        """Ids cochés, ou None pour tout le modèle."""
+        coches = [c.Id for c in self.Categories if c.EstCochee]
+        return coches or None
 
     @property
-    def _categorie_id(self):
-        return self._categorie.Id if self._categorie is not None else None
+    def PorteeResume(self):
+        """En-tête de la section repliable."""
+        coches = [c for c in self.Categories if c.EstCochee]
+        if not coches:
+            return u'Appliquer à toutes les catégories'
+        if len(coches) == 1:
+            return u'Appliquer à : %s' % coches[0].Nom
+        return u'Appliquer à %d catégories' % len(coches)
+
+    def _sur_categorie(self, categorie):
+        self._oublier_rapport()      # le rapport portait sur l'ancienne portée
+        self.notify_property('PorteeResume')
+        self.notify_property('Recapitulatif')
+
+    def reinitialiser_portee(self):
+        """Décoche tout — revient à « tout le modèle »."""
+        for categorie in self.Categories:
+            categorie.EstCochee = False
 
     # -- Colonne cible : sa propre recherche -------------------------------
 
@@ -147,9 +172,14 @@ class RemplacerPageVM(BaseViewModel):
             droite = u'aucune cible'
         else:
             droite = self._cible.Nom
-        if self._categorie_id is None:
+        coches = [c for c in self.Categories if c.EstCochee]
+        if not coches:
             return u'%s → %s' % (gauche, droite)
-        return u'%s → %s · %s' % (gauche, droite, self._categorie.Nom)
+        if len(coches) == 1:
+            portee = coches[0].Nom
+        else:
+            portee = u'%d catégories' % len(coches)
+        return u'%s → %s · %s' % (gauche, droite, portee)
 
     @property
     def PeutAnalyser(self):
@@ -214,7 +244,7 @@ class RemplacerPageVM(BaseViewModel):
         if not self.PeutAnalyser:
             return
         self._rapport = self._service.analyser(self._sources,
-                                               self._categorie_id)
+                                               self._categories_ids)
         self._Applique = False
         if self._rapport.EstVide:
             self._Etat = u'Aucun élément n\'utilise ces matériaux.'
@@ -228,7 +258,7 @@ class RemplacerPageVM(BaseViewModel):
         if not self.PeutRemplacer:
             return
         self._rapport = self._service.remplacer(self._sources, self._cible.Id,
-                                                self._categorie_id)
+                                                self._categories_ids)
         self._Applique = True
         if self._rapport.EstVide:
             self._Etat = u'Aucun élément modifié.'

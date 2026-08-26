@@ -41,6 +41,8 @@ class MainWindowView(RailWindow):
         if self._window is None:
             return
         self._wire_liste_remplacer()
+        self._action(u'remplacer', 'ResetPorteeButton',
+                     lambda: self._vm.RemplacerVM.reinitialiser_portee())
         self._action(u'remplacer', 'AnalyserButton',
                      lambda: self._vm.RemplacerVM.analyser())
         self._action(u'remplacer', 'RemplacerButton',

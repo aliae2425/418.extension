@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
 try:
@@ -16,12 +16,20 @@ except Exception:
             return x or u'SansNom'
 
 try:
-    from Autodesk.Revit.DB import (FilteredElementCollector, StorageType,
+    from Autodesk.Revit.DB import (ElementId, ElementMulticategoryFilter,
+                                   FilteredElementCollector, StorageType,
                                    HostObjAttributes)
 except Exception:
+    ElementId = None
+    ElementMulticategoryFilter = None
     FilteredElementCollector = None
     StorageType = None
     HostObjAttributes = None
+
+try:
+    from System.Collections.Generic import List as _NetList
+except Exception:
+    _NetList = None
 
 
 class LigneRapport(object):
@@ -97,13 +105,28 @@ class MaterialService(object):
 
     # -- Balayage ----------------------------------------------------------
 
-    def _elements(self, categorie_id=None):
+    @staticmethod
+    def _filtre_categories(categorie_ids):
+        """`ElementMulticategoryFilter` sur les catégories cochées, ou None.
+
+        None (aucune catégorie cochée) = tout le modèle.
+        """
+        if not categorie_ids or ElementMulticategoryFilter is None:
+            return None
+        if _NetList is None or ElementId is None:
+            return None
+        liste = _NetList[ElementId]()
+        for categorie_id in categorie_ids:
+            liste.Add(categorie_id)
+        return ElementMulticategoryFilter(liste)
+
+    def _elements(self, categorie_ids=None):
         """Types puis instances du document, en un seul flux.
 
-        `categorie_id` restreint le balayage à une catégorie (le choix du
-        menu déroulant) ; None balaie tout le modèle.
+        `categorie_ids` restreint le balayage aux catégories cochées dans la
+        section de portée ; None ou vide balaie tout le modèle.
 
-        ponytail: sans catégorie, le balayage reste complet et O(éléments) —
+        ponytail: sans catégories, le balayage reste complet et O(éléments) —
         comptez quelques secondes sur une grosse maquette. `GetMaterialIds`
         sert de pré-filtre bon marché pour n'inspecter les paramètres que des
         éléments qui portent effectivement le matériau. Un
@@ -112,10 +135,11 @@ class MaterialService(object):
         """
         if FilteredElementCollector is None or self._doc is None:
             return
+        filtre = self._filtre_categories(categorie_ids)
         for est_type in (True, False):
             collecteur = FilteredElementCollector(self._doc)
-            if categorie_id is not None:
-                collecteur = collecteur.OfCategoryId(categorie_id)
+            if filtre is not None:
+                collecteur = collecteur.WherePasses(filtre)
             if est_type:
                 collecteur = collecteur.WhereElementIsElementType()
             else:
@@ -123,7 +147,7 @@ class MaterialService(object):
             for element in collecteur.ToElements():
                 yield element, est_type
 
-    def _balayer(self, ids_sources, categorie_id=None):
+    def _balayer(self, ids_sources, categorie_ids=None):
         """UN seul parcours du modèle -> (porteurs, nombre de faces peintes).
 
         `porteurs` : liste de (element, est_type) affectés par un des ids.
@@ -136,7 +160,7 @@ class MaterialService(object):
         peints = 0
         if not ids:
             return porteurs, peints
-        for element, est_type in self._elements(categorie_id):
+        for element, est_type in self._elements(categorie_ids):
             try:
                 if set(element.GetMaterialIds(False)) & ids:
                     porteurs.append((element, est_type))
@@ -149,21 +173,21 @@ class MaterialService(object):
                 pass
         return porteurs, peints
 
-    def analyser(self, ids_sources, categorie_id=None):
+    def analyser(self, ids_sources, categorie_ids=None):
         """Rapport de ce qui utilise ces matériaux. Ne modifie rien."""
         rapport = Rapport()
-        porteurs, rapport.Peints = self._balayer(ids_sources, categorie_id)
+        porteurs, rapport.Peints = self._balayer(ids_sources, categorie_ids)
         for element, est_type in porteurs:
             rapport.ajouter(_categorie(element), est_type)
         return rapport
 
     # -- Remplacement ------------------------------------------------------
 
-    def remplacer(self, ids_sources, id_cible, categorie_id=None):
+    def remplacer(self, ids_sources, id_cible, categorie_ids=None):
         """Remplace les affectations de `ids_sources` par `id_cible`.
 
         Traite les paramètres valués matériau (type et instance) et les
-        couches des structures composées, dans la catégorie choisie ou dans
+        couches des structures composées, dans les catégories cochées ou dans
         tout le modèle. Retourne le `Rapport` de ce qui a RÉELLEMENT été
         modifié.
         """
@@ -175,7 +199,7 @@ class MaterialService(object):
         if not ids:
             return rapport
 
-        porteurs, rapport.Peints = self._balayer(ids, categorie_id)
+        porteurs, rapport.Peints = self._balayer(ids, categorie_ids)
         with revit_transaction(self._doc, u'Remplacer le matériau'):
             for element, est_type in porteurs:
                 touche = self._remplacer_couches(element, ids, id_cible)
