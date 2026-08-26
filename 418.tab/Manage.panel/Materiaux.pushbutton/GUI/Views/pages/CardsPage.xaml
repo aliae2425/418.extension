@@ -1,0 +1,170 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Onglet 1 — les matériaux en cards. DataContext = SelectionPageVM (socle),
+    dont les items sont des MaterialCardVM. Chargée via XamlReader.Load
+    (PAS de x:Class, PAS de code-behind) : tout brush/style de thème en
+    DynamicResource.
+
+    C'est la page de SÉLECTION de l'outil, en grille au lieu d'une liste :
+    les noms x:Name ci-dessous (ItemsList, SearchBox, SelectAllButton,
+    DeselectAllButton) sont ceux que RailWindow._wire_selection_interactions
+    câble tout seul — clic simple / Ctrl / Shift compris. Ne pas les renommer.
+
+    La CheckBox est display-only (IsHitTestVisible=False, binding OneWay) :
+    TOUS les clics passent par le handler unique posé sur ItemsList, ce qui
+    évite un double déclenchement entre la case et la card.
+  -->
+
+  <Grid Background="{DynamicResource TransparentBrush}" Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>   <!-- titre -->
+      <RowDefinition Height="Auto"/>   <!-- recherche + actions -->
+      <RowDefinition Height="*"/>      <!-- grille de cards -->
+      <RowDefinition Height="Auto"/>   <!-- bouton Suivant -->
+    </Grid.RowDefinitions>
+
+    <TextBlock Grid.Row="0"
+               Text="{Binding TitrePage}"
+               Style="{DynamicResource HeaderTextBlockStyle}"
+               Margin="0,0,0,14"/>
+
+    <Grid Grid.Row="1" Margin="0,0,0,10">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <TextBox Grid.Column="0"
+               x:Name="SearchBox"
+               Text="{Binding FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+      <Button Grid.Column="1" x:Name="SelectAllButton" Content="Tout"
+              Style="{DynamicResource SecondaryActionButtonStyle}" Margin="8,0,0,0"/>
+      <Button Grid.Column="2" x:Name="DeselectAllButton" Content="Aucun"
+              Style="{DynamicResource SecondaryActionButtonStyle}" Margin="8,0,0,0"/>
+    </Grid>
+
+    <ScrollViewer Grid.Row="2"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl x:Name="ItemsList" ItemsSource="{Binding FilteredItems}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel Orientation="Horizontal"/>
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <!-- Bordure externe : anneau de sélection. Séparée de la card
+                 pour ne pas avoir à surcharger CardStyle (impossible en
+                 BasedOn : le dictionnaire est fusionné APRÈS le parse). -->
+            <Border CornerRadius="10" Padding="2" Margin="0,0,12,12">
+              <Border.Style>
+                <Style TargetType="Border">
+                  <Setter Property="BorderThickness" Value="2"/>
+                  <Setter Property="BorderBrush" Value="{DynamicResource TransparentBrush}"/>
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </Border.Style>
+
+              <Border Style="{DynamicResource CardStyle}"
+                      Width="244" Padding="12" Margin="0">
+                <StackPanel>
+
+                  <!-- Nom + case -->
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                    <CheckBox IsChecked="{Binding IsSelected, Mode=OneWay}"
+                              IsHitTestVisible="False"
+                              Style="{DynamicResource CheckBoxStyle}"
+                              VerticalAlignment="Top"
+                              Margin="0,2,10,0"/>
+                    <TextBlock Text="{Binding Nom}"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               Width="180"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                  </StackPanel>
+
+                  <TextBlock Text="{Binding Classe}"
+                             FontSize="11"
+                             Margin="30,0,0,10"
+                             Foreground="{DynamicResource TextSecondaryBrush}"/>
+
+                  <!-- Apparence : pastille de couleur + nom de l'asset -->
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <Border Width="64" Height="28" CornerRadius="4"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            Background="{Binding ApparenceCouleur}"/>
+                    <TextBlock Text="{Binding Apparence}"
+                               FontSize="11"
+                               TextTrimming="CharacterEllipsis"
+                               Width="140"
+                               VerticalAlignment="Center"
+                               Margin="10,0,0,0"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                  </StackPanel>
+
+                  <!-- Motif de coupe -->
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <Border Width="64" Height="28" CornerRadius="4"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            Background="{DynamicResource ControlFillBrush}">
+                      <Image Source="{Binding MotifCoupeImage}"
+                             Width="64" Height="28" Stretch="None"/>
+                    </Border>
+                    <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                      <TextBlock Text="coupe" FontSize="10"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
+                      <TextBlock Text="{Binding MotifCoupeNom}"
+                                 FontSize="11"
+                                 TextTrimming="CharacterEllipsis"
+                                 Width="140"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                  </StackPanel>
+
+                  <!-- Motif de surface -->
+                  <StackPanel Orientation="Horizontal">
+                    <Border Width="64" Height="28" CornerRadius="4"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            Background="{DynamicResource ControlFillBrush}">
+                      <Image Source="{Binding MotifSurfaceImage}"
+                             Width="64" Height="28" Stretch="None"/>
+                    </Border>
+                    <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                      <TextBlock Text="surface" FontSize="10"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
+                      <TextBlock Text="{Binding MotifSurfaceNom}"
+                                 FontSize="11"
+                                 TextTrimming="CharacterEllipsis"
+                                 Width="140"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                  </StackPanel>
+
+                </StackPanel>
+              </Border>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <Button Grid.Row="3"
+            x:Name="NextButton"
+            Content="Suivant"
+            Style="{DynamicResource PrimaryActionButtonStyle}"
+            HorizontalAlignment="Right"
+            Margin="0,14,0,0"
+            IsEnabled="{Binding HasSelection}"/>
+  </Grid>
+</UserControl>

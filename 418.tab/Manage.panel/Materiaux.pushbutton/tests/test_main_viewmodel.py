@@ -13,32 +13,72 @@ if _BUTTON not in sys.path:
     sys.path.insert(0, _BUTTON)
 
 from lib.viewmodels.MainViewModel import MainViewModel
+from lib.viewmodels.MaterialCardVM import MaterialCardVM
+
+
+class FakeMateriau(object):
+    def __init__(self, item_id, nom):
+        self.Id = item_id
+        self.Name = nom
+
+
+def _contexte():
+    """Deux matériaux, leurs cards, et la table id -> matériau."""
+    materiaux = [FakeMateriau(1, u'Béton coulé'), FakeMateriau(2, u'Chêne')]
+    cartes = [MaterialCardVM(1, u'Béton coulé', classe=u'Béton'),
+              MaterialCardVM(2, u'Chêne', classe=u'Bois')]
+    return materiaux, cartes, dict((m.Id, m) for m in materiaux)
 
 
 class TestMainViewModel(unittest.TestCase):
-    DESCR = [(1, u'Béton', u'Béton coulé'), (2, u'Bois', u'Chêne')]
-    PAR_ID = {1: u'materiau-1', 2: u'materiau-2'}
 
-    def test_charger_peuple_la_page_selection(self):
+    def test_charger_construit_les_trois_onglets(self):
+        _, cartes, par_id = _contexte()
         vm = MainViewModel()
-        vm.charger(self.DESCR, [])
+        vm.charger(cartes, par_id)
         self.assertEqual(vm.Mode, u'selection')
         self.assertEqual(len(vm.SelectionVM.AllItems), 2)
-        self.assertFalse(vm.SelectionVM.HasSelection)
-        self.assertEqual(vm.lancer(self.PAR_ID), [])
+        self.assertIsNotNone(vm.RemplacerVM)
+        self.assertIsNotNone(vm.RenommerVM)
 
-    def test_lancer_rend_les_materiaux_coches(self):
+    def test_les_cards_alimentent_la_liste_des_cibles(self):
+        _, cartes, par_id = _contexte()
         vm = MainViewModel()
-        vm.charger(self.DESCR, [2])
-        self.assertEqual(vm.SelectedMaterialIds, [2])
-        self.assertEqual(vm.lancer(self.PAR_ID), [u'materiau-2'])
+        vm.charger(cartes, par_id)
+        self.assertEqual([c.Nom for c in vm.RemplacerVM.Cibles],
+                         [u'Béton coulé', u'Chêne'])
 
-    def test_selection_page_remonte_les_changements(self):
+    def test_cocher_une_card_alimente_les_deux_autres_onglets(self):
+        _, cartes, par_id = _contexte()
         vm = MainViewModel()
-        vm.charger(self.DESCR, [])
+        vm.charger(cartes, par_id)
+        vm.SelectionVM.handle_row_click(0)          # coche la 1re card
+        self.assertEqual(vm.RemplacerVM._sources, [1])
+        self.assertEqual([a.Ancien for a in vm.RenommerVM.Apercus],
+                         [u'Béton coulé'])
+
+    def test_decocher_vide_les_deux_autres_onglets(self):
+        _, cartes, par_id = _contexte()
+        vm = MainViewModel()
+        vm.charger(cartes, par_id)
         vm.SelectionVM.select_all()
-        self.assertEqual(sorted(vm.SelectedMaterialIds), [1, 2])
-        self.assertEqual(vm.lancer(self.PAR_ID), [u'materiau-1', u'materiau-2'])
+        self.assertEqual(len(vm.RenommerVM.Apercus), 2)
+        vm.SelectionVM.deselect_all()
+        self.assertEqual(vm.RemplacerVM._sources, [])
+        self.assertEqual(vm.RenommerVM.Apercus, [])
+
+    def test_recherche_filtre_sur_le_nom_et_la_classe(self):
+        _, cartes, par_id = _contexte()
+        vm = MainViewModel()
+        vm.charger(cartes, par_id)
+        vm.SelectionVM.FilterText = u'bois'          # classe, pas nom
+        self.assertEqual([c.Nom for c in vm.SelectionVM.FilteredItems],
+                         [u'Chêne'])
+
+    def test_set_mode_bascule_l_onglet(self):
+        vm = MainViewModel()
+        vm.set_mode(u'renommer')
+        self.assertEqual(vm.Mode, u'renommer')
 
 
 if __name__ == '__main__':

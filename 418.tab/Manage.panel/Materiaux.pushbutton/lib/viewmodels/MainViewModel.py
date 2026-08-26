@@ -16,23 +16,34 @@ try:
 except Exception:
     from lib.ui.base.SelectionPageVM import SelectionPageVM
 
+try:
+    from lib.viewmodels.RemplacerPageVM import RemplacerPageVM
+except Exception:
+    from viewmodels.RemplacerPageVM import RemplacerPageVM
+
+try:
+    from lib.viewmodels.RenommerPageVM import RenommerPageVM
+except Exception:
+    from viewmodels.RenommerPageVM import RenommerPageVM
+
 
 class MainViewModel(BaseViewModel):
-    """VM racine « Matériaux » : contrat RailWindow (`Mode` + `set_mode` + un
-    attribut par onglet) et sélection des matériaux à traiter.
+    """VM racine « Matériaux » : trois onglets sur une seule sélection.
 
-    Squelette : `lancer()` ne fait que rendre les matériaux cochés. C'est là
-    que viendra l'appel au service quand l'outil aura une action.
+    L'onglet Matériaux EST la page de sélection — ses cards sont des items
+    de `SelectionPageVM`, ce qui donne recherche, Tout/Aucun et clic
+    simple/Ctrl/Shift sans code propre à cet outil. Cocher une card
+    réalimente les deux autres onglets.
     """
 
-    def __init__(self, doc=None, uidoc=None, service=None):
+    def __init__(self, service=None):
         super(MainViewModel, self).__init__()
-        self._doc = doc
-        self._uidoc = uidoc
         self._service = service
+        self._materiaux_par_id = {}
         self._mode = u'selection'
-        self.SelectedMaterialIds = []
         self.SelectionVM = None
+        self.RemplacerVM = None
+        self.RenommerVM = None
 
     @property
     def Titre(self):
@@ -47,21 +58,28 @@ class MainViewModel(BaseViewModel):
             self._mode = mode
             self.notify_property('Mode')
 
-    def charger(self, descripteurs, ids_courants):
-        """`descripteurs` : triplets `(id, classe, nom)`."""
-        ids_courants = list(ids_courants or [])
-        self.SelectedMaterialIds = list(ids_courants)
-        self.SelectionVM = SelectionPageVM.depuis_descripteurs(
-            descripteurs, ids_courants,
-            titre=u'Matériaux', est_identifiant=False,
-            on_selection_changed=self._on_selection_changed)
-        self.notify_property('SelectionVM')
+    def charger(self, cartes, materiaux_par_id):
+        """`cartes` : `MaterialCardVM` construites par script.py.
+        `materiaux_par_id` : id -> `Material` Revit, pour le renommage."""
+        cartes = list(cartes or [])
+        self._materiaux_par_id = dict(materiaux_par_id or {})
+        self.SelectionVM = SelectionPageVM(
+            cartes,
+            id_getter=lambda carte: carte.Id,
+            filter_getters=[lambda carte: carte.Nom, lambda carte: carte.Classe],
+            on_selection_changed=self._on_selection_changed,
+            titre=u'Matériaux')
+        self.RemplacerVM = RemplacerPageVM(self._service, cartes)
+        self.RenommerVM = RenommerPageVM(self._service)
+        for nom in ('SelectionVM', 'RemplacerVM', 'RenommerVM'):
+            self.notify_property(nom)
+        self._on_selection_changed(self.SelectionVM.selected_ids())
 
     def _on_selection_changed(self, ids):
-        self.SelectedMaterialIds = list(ids)
-
-    def lancer(self, materiaux_par_id):
-        if not self.SelectedMaterialIds:
-            return []
-        return [materiaux_par_id[i] for i in self.SelectedMaterialIds
-                if i in materiaux_par_id]
+        ids = list(ids or [])
+        if self.RemplacerVM is not None:
+            self.RemplacerVM.set_sources(ids)
+        if self.RenommerVM is not None:
+            self.RenommerVM.set_sources(
+                [self._materiaux_par_id[i] for i in ids
+                 if i in self._materiaux_par_id])

@@ -2,8 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="{Binding Titre}"
-        Width="720" Height="560"
-        MinWidth="560" MinHeight="420"
+        Width="900" Height="640"
+        MinWidth="700" MinHeight="480"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="{DynamicResource TransparentBrush}"
@@ -20,8 +20,9 @@
       parse : tout brush/style de th&#232;me est r&#233;f&#233;renc&#233; via DynamicResource.
 
     Rail de navigation
-    - Un seul RadioButton pour l'instant : NavSelection. Ajouter un onglet =
-      un RadioButton nomm&#233; ici + une entr&#233;e dans MainWindowView.ONGLETS.
+    - Trois RadioButton : NavSelection (les cards), NavRenommer, NavRemplacer.
+      Ajouter un onglet = un RadioButton nomm&#233; ici + une entr&#233;e dans
+      MainWindowView.ONGLETS.
     - PageHost (ContentControl) re&#231;oit la page courante, charg&#233;e s&#233;par&#233;ment
       via XamlReader et inject&#233;e par la View.
   -->
@@ -97,8 +98,20 @@
             <RadioButton x:Name="NavSelection"
                          GroupName="nav"
                          Style="{DynamicResource NavRailButtonStyle}"
-                         Content="&#x2611;"
-                         ToolTip="S&#233;lection"/>
+                         Content="&#x25A6;"
+                         ToolTip="Mat&#233;riaux"
+                         Margin="0,0,0,6"/>
+            <RadioButton x:Name="NavRenommer"
+                         GroupName="nav"
+                         Style="{DynamicResource NavRailButtonStyle}"
+                         Content="&#x270E;"
+                         ToolTip="Renommer"
+                         Margin="0,0,0,6"/>
+            <RadioButton x:Name="NavRemplacer"
+                         GroupName="nav"
+                         Style="{DynamicResource NavRailButtonStyle}"
+                         Content="&#x21C4;"
+                         ToolTip="Remplacer dans la maquette"/>
           </StackPanel>
         </DockPanel>
 

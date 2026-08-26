@@ -1,0 +1,117 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Onglet 3 — remplacer les AFFECTATIONS de matériau dans la maquette.
+    DataContext = RemplacerPageVM. Chargée via XamlReader.Load (PAS de
+    x:Class, PAS de code-behind) : brushes et styles en DynamicResource.
+
+    Les sources sont les cards cochées dans l'onglet 1 ; la cible est choisie
+    ici. AnalyserButton et RemplacerButton sont câblés par MainWindowView
+    (le RUN du socle ne câble qu'un bouton et ferme derrière, or on veut
+    lire le rapport après l'action).
+
+    Pas de convertisseur bool -> Visibility dans le socle : les blocs
+    conditionnels passent par un DataTrigger sur un Style local.
+  -->
+
+  <Grid Background="{DynamicResource TransparentBrush}" Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>   <!-- titre -->
+      <RowDefinition Height="Auto"/>   <!-- sources -->
+      <RowDefinition Height="Auto"/>   <!-- cible -->
+      <RowDefinition Height="Auto"/>   <!-- actions -->
+      <RowDefinition Height="Auto"/>   <!-- état -->
+      <RowDefinition Height="*"/>      <!-- rapport -->
+      <RowDefinition Height="Auto"/>   <!-- avertissement peinture -->
+    </Grid.RowDefinitions>
+
+    <TextBlock Grid.Row="0"
+               Text="Remplacer dans la maquette"
+               Style="{DynamicResource HeaderTextBlockStyle}"
+               Margin="0,0,0,14"/>
+
+    <TextBlock Grid.Row="1"
+               Text="{Binding SourcesResume}"
+               FontSize="12"
+               TextWrapping="Wrap"
+               Foreground="{DynamicResource TextSecondaryBrush}"
+               Margin="0,0,0,14"/>
+
+    <StackPanel Grid.Row="2" Margin="0,0,0,14">
+      <TextBlock Text="Remplacer par"
+                 FontSize="11"
+                 Foreground="{DynamicResource TextSecondaryBrush}"
+                 Margin="0,0,0,4"/>
+      <ComboBox x:Name="CibleCombo"
+                ItemsSource="{Binding Cibles}"
+                SelectedItem="{Binding Cible, Mode=TwoWay}"
+                DisplayMemberPath="Nom"
+                MaxDropDownHeight="280"/>
+    </StackPanel>
+
+    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,12">
+      <Button x:Name="AnalyserButton"
+              Content="Analyser"
+              Style="{DynamicResource SecondaryActionButtonStyle}"
+              IsEnabled="{Binding PeutAnalyser}"/>
+      <Button x:Name="RemplacerButton"
+              Content="Remplacer"
+              Style="{DynamicResource PrimaryActionButtonStyle}"
+              IsEnabled="{Binding PeutRemplacer}"
+              Margin="10,0,0,0"/>
+    </StackPanel>
+
+    <TextBlock Grid.Row="4"
+               Text="{Binding Etat}"
+               FontWeight="SemiBold"
+               TextWrapping="Wrap"
+               Foreground="{DynamicResource TextPrimaryBrush}"
+               Margin="0,0,0,10"/>
+
+    <ScrollViewer Grid.Row="5" VerticalScrollBarVisibility="Auto">
+      <ItemsControl ItemsSource="{Binding Lignes}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border BorderBrush="{DynamicResource ControlBorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="2,7">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="{Binding Categorie}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Grid.Column="1"
+                           Text="{Binding Detail}"
+                           FontSize="11"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <TextBlock Grid.Row="6"
+               Text="{Binding AvertissementPeints}"
+               FontSize="11"
+               TextWrapping="Wrap"
+               Foreground="{DynamicResource WarningBrush}"
+               Margin="0,10,0,0">
+      <TextBlock.Style>
+        <Style TargetType="TextBlock">
+          <Setter Property="Visibility" Value="Collapsed"/>
+          <Style.Triggers>
+            <DataTrigger Binding="{Binding HasPeints}" Value="True">
+              <Setter Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+          </Style.Triggers>
+        </Style>
+      </TextBlock.Style>
+    </TextBlock>
+  </Grid>
+</UserControl>
