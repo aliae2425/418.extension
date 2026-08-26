@@ -79,6 +79,7 @@ class MaterialCardVM(BaseViewModel):
         self._coupe = motif_coupe or Motif()
         self._surface = motif_surface or Motif()
         self._is_selected = bool(is_selected)
+        self._est_cible = False
         self._on_toggle = on_toggle
 
     @property
@@ -96,6 +97,19 @@ class MaterialCardVM(BaseViewModel):
     @property
     def MotifSurfaceImage(self):
         return self._surface.image()
+
+    @property
+    def EstCible(self):
+        """Matériau désigné comme cible du remplacement. Exclusif — c'est
+        `RemplacerPageVM.Cible` qui éteint le précédent."""
+        return self._est_cible
+
+    @EstCible.setter
+    def EstCible(self, value):
+        value = bool(value)
+        if value != self._est_cible:
+            self._est_cible = value
+            self.notify_property('EstCible')
 
     @property
     def IsSelected(self):

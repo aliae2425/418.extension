@@ -69,7 +69,7 @@ class MainViewModel(BaseViewModel):
             filter_getters=[lambda carte: carte.Nom, lambda carte: carte.Classe],
             on_selection_changed=self._on_selection_changed,
             titre=u'Matériaux')
-        self.RemplacerVM = RemplacerPageVM(self._service, cartes)
+        self.RemplacerVM = RemplacerPageVM(self._service, self.SelectionVM)
         self.RenommerVM = RenommerPageVM(self._service)
         for nom in ('SelectionVM', 'RemplacerVM', 'RenommerVM'):
             self.notify_property(nom)

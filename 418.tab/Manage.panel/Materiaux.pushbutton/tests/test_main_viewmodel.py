@@ -41,12 +41,25 @@ class TestMainViewModel(unittest.TestCase):
         self.assertIsNotNone(vm.RemplacerVM)
         self.assertIsNotNone(vm.RenommerVM)
 
-    def test_les_cards_alimentent_la_liste_des_cibles(self):
+    def test_les_deux_onglets_partagent_une_seule_liste(self):
+        # Le tableau de la page Remplacer affiche la MÊME SelectionPageVM que
+        # les cards : une seule sélection, pas deux listes à synchroniser.
         _, cartes, par_id = _contexte()
         vm = MainViewModel()
         vm.charger(cartes, par_id)
-        self.assertEqual([c.Nom for c in vm.RemplacerVM.Cibles],
+        self.assertIs(vm.RemplacerVM.SelectionVM, vm.SelectionVM)
+        self.assertEqual([c.Nom for c in vm.RemplacerVM.SelectionVM.AllItems],
                          [u'Béton coulé', u'Chêne'])
+
+    def test_la_cible_se_prend_dans_la_meme_liste(self):
+        _, cartes, par_id = _contexte()
+        vm = MainViewModel(service=object())   # présence suffit : rien n'est appelé
+        vm.charger(cartes, par_id)
+        vm.SelectionVM.handle_row_click(0)          # source : Béton
+        vm.RemplacerVM.Cible = cartes[1]            # cible : Chêne
+        self.assertEqual(vm.RemplacerVM._sources, [1])
+        self.assertTrue(cartes[1].EstCible)
+        self.assertTrue(vm.RemplacerVM.PeutRemplacer)
 
     def test_cocher_une_card_alimente_les_deux_autres_onglets(self):
         _, cartes, par_id = _contexte()

@@ -24,10 +24,13 @@ class RemplacerPageVM(BaseViewModel):
     parmi les sources.
     """
 
-    def __init__(self, service=None, cartes=None):
+    def __init__(self, service=None, selection_vm=None):
         super(RemplacerPageVM, self).__init__()
         self._service = service
-        self.Cibles = list(cartes or [])
+        # MÊME SelectionPageVM que l'onglet Matériaux : la page affiche la
+        # liste en tableau compact, mais la sélection reste unique — cocher
+        # ici coche la card là-bas, et réciproquement.
+        self.SelectionVM = selection_vm
         self._cible = None
         self._sources = []
         self._rapport = None
@@ -42,11 +45,23 @@ class RemplacerPageVM(BaseViewModel):
 
     @Cible.setter
     def Cible(self, value):
-        if value is not self._cible:
-            self._cible = value
-            self._oublier_rapport()
-            self.notify_property('Cible')
-            self.notify_property('PeutRemplacer')
+        if value is self._cible:
+            return
+        if self._cible is not None:
+            self._cible.EstCible = False
+        self._cible = value
+        if value is not None:
+            value.EstCible = True
+        self._oublier_rapport()
+        self.notify_property('Cible')
+        self.notify_property('CibleResume')
+        self.notify_property('PeutRemplacer')
+
+    @property
+    def CibleResume(self):
+        if self._cible is None:
+            return u'Aucune cible — cliquez le rond d\'une ligne.'
+        return u'Cible : %s' % self._cible.Nom
 
     # -- Sources (pilotées par les cases de l'onglet Matériaux) ------------
 

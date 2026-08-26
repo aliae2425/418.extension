@@ -12,6 +12,8 @@ _BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
 if _BUTTON not in sys.path:
     sys.path.insert(0, _BUTTON)
 
+from ui.base.SelectionPageVM import SelectionPageVM
+
 from lib.services.MaterialService import Rapport
 from lib.viewmodels.MaterialCardVM import MaterialCardVM
 from lib.viewmodels.RemplacerPageVM import RemplacerPageVM
@@ -32,6 +34,15 @@ class FakeService(object):
     def remplacer(self, ids, id_cible):
         self.remplacements.append((list(ids), id_cible))
         return self._rapport
+
+
+def _selection(cartes):
+    """La MÊME page de sélection que l'onglet Matériaux — le tableau de la
+    page Remplacer s'y branche au lieu d'avoir sa propre liste."""
+    return SelectionPageVM(cartes,
+                           id_getter=lambda carte: carte.Id,
+                           filter_getters=[lambda carte: carte.Nom],
+                           titre=u'Matériaux')
 
 
 def _rapport(peints=0):
@@ -75,7 +86,7 @@ class TestRemplacerPageVM(unittest.TestCase):
     def setUp(self):
         self.cartes = [MaterialCardVM(1, u'Béton'), MaterialCardVM(2, u'BA25')]
         self.service = FakeService(_rapport())
-        self.vm = RemplacerPageVM(self.service, self.cartes)
+        self.vm = RemplacerPageVM(self.service, _selection(self.cartes))
 
     def test_sans_source_rien_n_est_possible(self):
         self.assertFalse(self.vm.PeutAnalyser)
@@ -134,14 +145,36 @@ class TestRemplacerPageVM(unittest.TestCase):
         self.vm.Cible = self.cartes[1]
         self.assertFalse(self.vm.HasRapport)
 
+    def test_designer_une_cible_eteint_la_precedente(self):
+        self.vm.Cible = self.cartes[0]
+        self.assertTrue(self.cartes[0].EstCible)
+        self.vm.Cible = self.cartes[1]
+        self.assertFalse(self.cartes[0].EstCible)
+        self.assertTrue(self.cartes[1].EstCible)
+
+    def test_resume_de_cible(self):
+        self.assertIn(u'Aucune cible', self.vm.CibleResume)
+        self.vm.Cible = self.cartes[1]
+        self.assertEqual(self.vm.CibleResume, u'Cible : BA25')
+
+    def test_une_card_peut_etre_source_et_cible_le_service_tranche(self):
+        # Cocher aussi la cible ne doit pas bloquer l'interface : c'est
+        # MaterialService.remplacer qui écarte la cible des sources.
+        self.vm.set_sources([1, 2])
+        self.vm.Cible = self.cartes[1]
+        self.assertTrue(self.vm.PeutRemplacer)
+        self.vm.remplacer()
+        self.assertEqual(self.service.remplacements, [([1, 2], 2)])
+
     def test_rapport_vide_le_dit(self):
-        self.vm = RemplacerPageVM(FakeService(Rapport()), self.cartes)
+        self.vm = RemplacerPageVM(FakeService(Rapport()), _selection(self.cartes))
         self.vm.set_sources([1])
         self.vm.analyser()
         self.assertEqual(self.vm.Etat, u'Aucun élément n\'utilise ces matériaux.')
 
     def test_faces_peintes_signalees_sans_etre_traitees(self):
-        self.vm = RemplacerPageVM(FakeService(_rapport(peints=6)), self.cartes)
+        self.vm = RemplacerPageVM(FakeService(_rapport(peints=6)),
+                                  _selection(self.cartes))
         self.vm.set_sources([1])
         self.vm.analyser()
         self.assertTrue(self.vm.HasPeints)
