@@ -15,15 +15,16 @@ except Exception:
 class CategorieVM(BaseViewModel):
     """Une catégorie cochable de la section de portée.
 
-    Convention : AUCUNE catégorie cochée = tout le modèle. Pas d'entrée
-    « Toutes » à maintenir, et l'état vide est aussi le repli naturel.
+    Cochée à la construction : par défaut le remplacement porte sur tout le
+    modèle, et l'utilisateur retire ce qu'il ne veut pas plutôt que de
+    devoir tout désigner.
     """
 
     def __init__(self, categorie_id, nom, on_toggle=None):
         super(CategorieVM, self).__init__()
         self.Id = categorie_id
         self.Nom = nom
-        self._est_cochee = False
+        self._est_cochee = True
         self._on_toggle = on_toggle
 
     @property
@@ -97,30 +98,46 @@ class RemplacerPageVM(BaseViewModel):
     # -- Portée : les catégories à traiter ---------------------------------
 
     @property
+    def _coches(self):
+        return [c for c in self.Categories if c.EstCochee]
+
+    @property
     def _categories_ids(self):
-        """Ids cochés, ou None pour tout le modèle."""
-        coches = [c.Id for c in self.Categories if c.EstCochee]
-        return coches or None
+        """Ids cochés, ou None quand TOUTES le sont.
+
+        None ne veut pas dire « les mêmes catégories sans filtre » : sans
+        filtre, le balayage voit aussi ce qui n'a pas de catégorie de modèle.
+        C'est bien ce qu'on veut quand l'utilisateur n'a rien restreint,
+        et c'est au passage plus rapide qu'un filtre à 200 entrées.
+        """
+        coches = self._coches
+        if len(coches) == len(self.Categories):
+            return None
+        return [c.Id for c in coches]
 
     @property
     def PorteeResume(self):
         """En-tête de la section repliable."""
-        coches = [c for c in self.Categories if c.EstCochee]
-        if not coches:
+        coches = self._coches
+        if not self.Categories or len(coches) == len(self.Categories):
             return u'Appliquer à toutes les catégories'
+        if not coches:
+            return u'Aucune catégorie — rien à traiter'
         if len(coches) == 1:
             return u'Appliquer à : %s' % coches[0].Nom
-        return u'Appliquer à %d catégories' % len(coches)
+        return u'Appliquer à %d catégories sur %d' % (len(coches),
+                                                      len(self.Categories))
 
     def _sur_categorie(self, categorie):
         self._oublier_rapport()      # le rapport portait sur l'ancienne portée
-        self.notify_property('PorteeResume')
-        self.notify_property('Recapitulatif')
+        for nom in ('PorteeResume', 'Recapitulatif', 'PeutAnalyser',
+                    'PeutRemplacer'):
+            self.notify_property(nom)
 
     def reinitialiser_portee(self):
-        """Décoche tout — revient à « tout le modèle »."""
+        """Recoche tout — revient au défaut, tout le modèle."""
         for categorie in self.Categories:
-            categorie.EstCochee = False
+            categorie.EstCochee = True
 
     # -- Colonne cible : sa propre recherche -------------------------------
 
@@ -164,9 +181,11 @@ class RemplacerPageVM(BaseViewModel):
             droite = u'aucune cible'
         else:
             droite = self._cible.Nom
-        coches = [c for c in self.Categories if c.EstCochee]
-        if not coches:
+        coches = self._coches
+        if not self.Categories or len(coches) == len(self.Categories):
             return u'%s → %s' % (gauche, droite)
+        if not coches:
+            return u'%s → %s · aucune catégorie' % (gauche, droite)
         if len(coches) == 1:
             portee = coches[0].Nom
         else:
@@ -175,6 +194,10 @@ class RemplacerPageVM(BaseViewModel):
 
     @property
     def PeutAnalyser(self):
+        # Tout décocher ne veut pas dire « tout le modèle » : ça veut dire
+        # qu'il n'y a rien à balayer, donc rien à lancer.
+        if self.Categories and not self._coches:
+            return False
         return bool(self._sources) and self._service is not None
 
     @property

@@ -165,30 +165,48 @@ class TestRemplacerPageVM(unittest.TestCase):
                              [murs, sols])
         return vm, murs, sols
 
-    def test_portee_par_defaut_tout_le_modele(self):
-        vm, _, _ = self._avec_categories()
+    def test_tout_est_coche_par_defaut(self):
+        vm, murs, sols = self._avec_categories()
+        self.assertTrue(murs.EstCochee)
+        self.assertTrue(sols.EstCochee)
         self.assertEqual(vm.PorteeResume, u'Appliquer à toutes les catégories')
+
+    def test_tout_coche_ne_pose_aucun_filtre(self):
+        # None et non la liste complète : sans filtre, le balayage voit aussi
+        # ce qui n'a pas de catégorie de modèle, et c'est plus rapide.
+        vm, _, _ = self._avec_categories()
         vm.set_sources([1])
         vm.analyser()
-        # None, pas une liste vide : le service balaie tout.
         self.assertEqual(self.service.analyses, [([1], None)])
 
-    def test_les_categories_cochees_sont_transmises_au_service(self):
+    def test_decocher_une_categorie_restreint_la_portee(self):
         vm, murs, sols = self._avec_categories()
         vm.set_sources([1])
         vm.Cible = self.cartes[1]
-        murs.EstCochee = True
-        sols.EstCochee = True
+        sols.EstCochee = False
         vm.analyser()
-        self.assertEqual(self.service.analyses, [([1], [42, 43])])
+        self.assertEqual(self.service.analyses, [([1], [42])])
         vm.remplacer()
-        self.assertEqual(self.service.remplacements, [([1], 2, [42, 43])])
+        self.assertEqual(self.service.remplacements, [([1], 2, [42])])
 
-    def test_decocher_la_derniere_categorie_revient_a_tout(self):
-        vm, murs, _ = self._avec_categories()
+    def test_tout_decocher_nest_pas_tout_le_modele(self):
+        # Le piège de la règle précédente : « aucune cochée » voulait dire
+        # « toutes ». Avec le défaut tout-coché, ça veut dire « rien ».
+        vm, murs, sols = self._avec_categories()
         vm.set_sources([1])
-        murs.EstCochee = True
+        vm.Cible = self.cartes[1]
         murs.EstCochee = False
+        sols.EstCochee = False
+        self.assertFalse(vm.PeutAnalyser)
+        self.assertFalse(vm.PeutRemplacer)
+        self.assertEqual(vm.PorteeResume, u'Aucune catégorie — rien à traiter')
+
+    def test_sans_categorie_du_tout_on_balaie_le_modele(self):
+        # Modèle vide ou collecte impossible : pas de section de portée,
+        # l'outil doit rester utilisable.
+        vm = RemplacerPageVM(self.service, _selection(self.cartes), [])
+        vm.set_sources([1])
+        self.assertTrue(vm.PeutAnalyser)
         vm.analyser()
         self.assertEqual(self.service.analyses, [([1], None)])
 
@@ -197,23 +215,21 @@ class TestRemplacerPageVM(unittest.TestCase):
         vm.set_sources([1])
         vm.analyser()
         self.assertTrue(vm.HasRapport)
-        murs.EstCochee = True
+        murs.EstCochee = False
         self.assertFalse(vm.HasRapport)
 
     def test_resume_de_portee_compte_les_cochees(self):
         vm, murs, sols = self._avec_categories()
-        murs.EstCochee = True
+        sols.EstCochee = False
         self.assertEqual(vm.PorteeResume, u'Appliquer à : Murs')
-        sols.EstCochee = True
-        self.assertEqual(vm.PorteeResume, u'Appliquer à 2 catégories')
 
-    def test_reinitialiser_decoche_tout(self):
+    def test_reinitialiser_recoche_tout(self):
         vm, murs, sols = self._avec_categories()
-        murs.EstCochee = True
-        sols.EstCochee = True
+        murs.EstCochee = False
+        sols.EstCochee = False
         vm.reinitialiser_portee()
-        self.assertFalse(murs.EstCochee)
-        self.assertFalse(sols.EstCochee)
+        self.assertTrue(murs.EstCochee)
+        self.assertTrue(sols.EstCochee)
         self.assertEqual(vm.PorteeResume, u'Appliquer à toutes les catégories')
 
     def test_recapitulatif_mentionne_la_portee(self):
@@ -221,10 +237,8 @@ class TestRemplacerPageVM(unittest.TestCase):
         vm.set_sources([1])
         vm.Cible = self.cartes[1]
         self.assertEqual(vm.Recapitulatif, u'1 source → BA25')
-        murs.EstCochee = True
+        sols.EstCochee = False
         self.assertEqual(vm.Recapitulatif, u'1 source → BA25 · Murs')
-        sols.EstCochee = True
-        self.assertEqual(vm.Recapitulatif, u'1 source → BA25 · 2 catégories')
 
     def test_la_colonne_cible_a_son_propre_filtre(self):
         # Filtrer la cible ne touche pas la colonne des sources.

@@ -43,26 +43,23 @@
                  Style="{DynamicResource HeaderTextBlockStyle}"
                  Margin="0,0,0,10"/>
 
-      <!-- Portée : cases à cocher multiples. Aucune cochée = tout le modèle,
-           d'où l'absence d'entrée « Toutes ». Les IsChecked sont en TwoWay :
-           WPF écrit dans CategorieVM.EstCochee, qui prévient le VM. Aucun
-           câblage Python. -->
-      <Expander Style="{DynamicResource CollectionExpanderStyle}"
-                Header="{Binding PorteeResume}"
-                IsExpanded="False">
-        <Border BorderBrush="{DynamicResource ControlBorderBrush}"
-                BorderThickness="1"
-                CornerRadius="6"
-                Padding="10,8"
-                Margin="0,8,0,0">
-          <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto"/>
-              <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+      <!-- Portée : cases à cocher multiples, TOUTES cochées au départ —
+           on retire ce qu'on ne veut pas plutôt que de tout désigner.
+           Les IsChecked sont en TwoWay : WPF écrit dans
+           CategorieVM.EstCochee, qui prévient le VM. Aucun câblage Python.
 
-            <ScrollViewer Grid.Row="0"
-                          MaxHeight="130"
+           Même structure que les sections de la page Paramètres de
+           « Dupliquer les feuilles » : CardStyle + NavigationExpanderStyle,
+           WrapPanel de cases à largeur fixe. Le ScrollViewer est le seul
+           ajout — les catégories d'un modèle réel dépassent facilement la
+           dizaine, là où les listes de duplication sont fermées. -->
+      <Border Style="{DynamicResource CardStyle}" Padding="12,6" Margin="0">
+        <Expander Style="{DynamicResource NavigationExpanderStyle}"
+                  Header="{Binding PorteeResume}"
+                  IsExpanded="False"
+                  Padding="0">
+          <StackPanel Margin="0,6,0,2">
+            <ScrollViewer MaxHeight="150"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled">
               <ItemsControl ItemsSource="{Binding Categories}">
@@ -73,24 +70,26 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
+                    <!-- ToolTip : les noms de catégories Revit dépassent
+                         souvent 160 px (« Composants de garde-corps »). -->
                     <CheckBox IsChecked="{Binding EstCochee, Mode=TwoWay}"
                               Content="{Binding Nom}"
+                              ToolTip="{Binding Nom}"
                               Style="{DynamicResource CheckBoxStyle}"
-                              Margin="0,2,18,2"/>
+                              Width="160"/>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
             </ScrollViewer>
 
-            <Button Grid.Row="1"
-                    x:Name="ResetPorteeButton"
-                    Content="Tout décocher"
+            <Button x:Name="ResetPorteeButton"
+                    Content="Tout cocher"
                     Style="{DynamicResource SecondaryActionButtonStyle}"
                     HorizontalAlignment="Left"
                     Margin="0,8,0,0"/>
-          </Grid>
-        </Border>
-      </Expander>
+          </StackPanel>
+        </Expander>
+      </Border>
     </StackPanel>
 
     <Grid Grid.Row="1">
