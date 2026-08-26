@@ -9,16 +9,7 @@ from __future__ import unicode_literals
 try:
     from ui.base.BaseViewModel import BaseViewModel
 except Exception:
-    try:
-        from lib.ui.base.BaseViewModel import BaseViewModel
-    except Exception:
-        class BaseViewModel(object):
-            def __init__(self):
-                pass
-
-            def notify_property(self, name):
-                pass
-
+    from lib.ui.base.BaseViewModel import BaseViewModel
 
 class SelectionItemVM(BaseViewModel):
     """Une ligne de la liste de sélection.

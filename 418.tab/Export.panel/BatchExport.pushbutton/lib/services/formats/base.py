@@ -13,7 +13,7 @@ class FormatExporterService(object):
     """Réglages d'export d'un format. Sous-classer et définir :
 
     - `SETUP_KEY`         : clé UserConfig du setup mémorisé.
-    - `_list_revit_setups(doc)` : noms des setups natifs du document.
+    - `list_all_setups(doc)` : noms des setups natifs du document.
     - `build_options(doc, setup_name=None)` : options d'API Revit.
     """
 
@@ -41,24 +41,13 @@ class FormatExporterService(object):
     # ------------------------------------------------------------------
 
     def list_all_setups(self, doc):
-        return self._list_revit_setups(doc)
-
-    def _list_revit_setups(self, doc):
+        """Noms des setups natifs du document. À définir par le format."""
         raise NotImplementedError
 
     @staticmethod
     def _noms_tries(names):
-        """Dédoublonne en préservant l'ordre d'apparition, puis trie
-        alphabétiquement sans tenir compte de la casse."""
-        out = []
-        for nm in names:
-            if nm and nm not in out:
-                out.append(nm)
-        try:
-            out.sort(key=lambda x: x.lower())
-        except Exception:
-            out.sort()
-        return out
+        """Dédoublonne et trie alphabétiquement, casse ignorée."""
+        return sorted(set(n for n in names if n), key=lambda x: x.lower())
 
     # ------------------------------------------------------------------
     # Setup mémorisé

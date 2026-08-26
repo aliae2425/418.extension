@@ -19,19 +19,22 @@ class MainWindowView(RailWindow):
     veut lire le rapport de remplacement ou l'aperçu de renommage juste
     après l'action. Les trois sont donc câblés dans `_load`.
 
-    ponytail: GUI/Views/MainWindow.xaml est la 5e copie de la coquille rail
-    (les 4 outils de Tools.panel ont la meme). Sortir la coquille dans
-    lib/ui/GUI/ avec le repli bouton->socle deja fait par _chemin_page, et
-    deriver les items de nav d'ONGLETS. ~440 lignes en moins au total.
+    La coquille vient du socle (lib/ui/GUI/MainWindow.xaml) : cet outil n'a
+    pas de MainWindow.xaml à lui.
     """
 
     ONGLETS = (
-        Onglet(u'selection', 'NavSelection', 'CardsPage.xaml', 'SelectionVM'),
-        Onglet(u'renommer', 'NavRenommer', 'RenommerPage.xaml', 'RenommerVM'),
-        Onglet(u'remplacer', 'NavRemplacer', 'RemplacerPage.xaml', 'RemplacerVM'),
+        Onglet(u'selection', 'CardsPage.xaml', 'SelectionVM',
+               icone=u'▦', tooltip=u'Matériaux'),
+        Onglet(u'renommer', 'RenommerPage.xaml', 'RenommerVM',
+               icone=u'✎', tooltip=u'Renommer'),
+        Onglet(u'remplacer', 'RemplacerPage.xaml', 'RemplacerVM',
+               icone=u'⇄', tooltip=u'Remplacer dans la maquette'),
     )
     SUIVANTS = ((u'selection', 'NextButton', u'renommer'),)
     RUN = None
+    TAILLE = (900, 640)
+    TAILLE_MINI = (700, 480)
 
     def __init__(self, view_model):
         super(MainWindowView, self).__init__(_BOUTON, view_model)
