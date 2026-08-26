@@ -134,10 +134,18 @@ class RemplacerPageVM(BaseViewModel):
                     'PeutRemplacer'):
             self.notify_property(nom)
 
-    def reinitialiser_portee(self):
+    def cocher_toute_la_portee(self):
         """Recoche tout — revient au défaut, tout le modèle."""
+        self._basculer_portee(True)
+
+    def decocher_toute_la_portee(self):
+        """Décoche tout — point de départ pour ne désigner que deux ou trois
+        catégories sur un gros modèle."""
+        self._basculer_portee(False)
+
+    def _basculer_portee(self, valeur):
         for categorie in self.Categories:
-            categorie.EstCochee = True
+            categorie.EstCochee = valeur
 
     # -- Colonne cible : sa propre recherche -------------------------------
 

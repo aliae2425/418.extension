@@ -223,14 +223,22 @@ class TestRemplacerPageVM(unittest.TestCase):
         sols.EstCochee = False
         self.assertEqual(vm.PorteeResume, u'Appliquer à : Murs')
 
-    def test_reinitialiser_recoche_tout(self):
+    def test_cocher_toute_la_portee(self):
         vm, murs, sols = self._avec_categories()
-        murs.EstCochee = False
-        sols.EstCochee = False
-        vm.reinitialiser_portee()
+        vm.decocher_toute_la_portee()
+        vm.cocher_toute_la_portee()
         self.assertTrue(murs.EstCochee)
         self.assertTrue(sols.EstCochee)
         self.assertEqual(vm.PorteeResume, u'Appliquer à toutes les catégories')
+
+    def test_decocher_toute_la_portee(self):
+        vm, murs, sols = self._avec_categories()
+        vm.set_sources([1])
+        vm.decocher_toute_la_portee()
+        self.assertFalse(murs.EstCochee)
+        self.assertFalse(sols.EstCochee)
+        self.assertFalse(vm.PeutAnalyser)
+        self.assertEqual(vm.PorteeResume, u'Aucune catégorie — rien à traiter')
 
     def test_recapitulatif_mentionne_la_portee(self):
         vm, murs, sols = self._avec_categories()
