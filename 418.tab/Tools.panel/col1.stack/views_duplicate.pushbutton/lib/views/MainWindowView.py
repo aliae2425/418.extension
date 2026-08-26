@@ -18,8 +18,10 @@ class MainWindowView(RailWindow):
     """
 
     ONGLETS = (
-        Onglet(u'selection', 'NavSelection', 'SelectionPage.xaml', 'SelectionVM'),
-        Onglet(u'options', 'NavOptions', 'OptionsPage.xaml', 'OptionsVM'),
+        Onglet(u'selection', 'SelectionPage.xaml', 'SelectionVM',
+               icone=u'☑', tooltip=u'Sélection'),
+        Onglet(u'options', 'OptionsPage.xaml', 'OptionsVM',
+               icone=u'⚙', tooltip=u'Options'),
     )
     SUIVANTS = ((u'selection', 'NextButton', u'options'),)
     RUN = (u'options', 'RunButton')

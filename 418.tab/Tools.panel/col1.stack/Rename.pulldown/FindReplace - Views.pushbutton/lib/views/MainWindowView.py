@@ -15,11 +15,15 @@ class MainWindowView(RailWindow):
     """Fenêtre « Renommer les vues » : rail 2 onglets (Sélection / Nommage)."""
 
     ONGLETS = (
-        Onglet(u'selection', 'NavSelection', 'SelectionPage.xaml', 'SelectionVM'),
-        Onglet(u'nommage', 'NavNommage', 'NamingPage.xaml', 'NamingVM'),
+        Onglet(u'selection', 'SelectionPage.xaml', 'SelectionVM',
+               icone=u'☑', tooltip=u'Sélection'),
+        Onglet(u'nommage', 'NamingPage.xaml', 'NamingVM',
+               icone=u'✎', tooltip=u'Nommage'),
     )
     SUIVANTS = ((u'selection', 'NextButton', u'nommage'),)
     RUN = (u'nommage', 'RunButton')
+    TAILLE = (640, 500)
+    TAILLE_MINI = (480, 380)
 
     def __init__(self, view_model, views_par_id):
         super(MainWindowView, self).__init__(_BOUTON, view_model, cible=views_par_id)
