@@ -2,11 +2,13 @@
 from __future__ import unicode_literals
 
 try:
-    from Autodesk.Revit.DB import ViewSheet, View, ViewType, FilteredElementCollector
+    from Autodesk.Revit.DB import (ViewSheet, View, ViewType, Material,
+                                   FilteredElementCollector)
 except Exception:
     ViewSheet = None
     View = None
     ViewType = None
+    Material = None
     FilteredElementCollector = None
 
 
@@ -54,6 +56,17 @@ def all_views(doc):
     vues = [v for v in FilteredElementCollector(doc).OfClass(View).ToElements()
             if _is_duplicable_view(v)]
     return sorted(vues, key=lambda v: v.Name)
+
+
+def all_materials(doc):
+    """Tous les `Material` du document, triés par nom."""
+    if FilteredElementCollector is None or Material is None:
+        return []
+    materiaux = list(FilteredElementCollector(doc)
+                     .OfClass(Material)
+                     .WhereElementIsNotElementType()
+                     .ToElements())
+    return sorted(materiaux, key=lambda m: m.Name)
 
 
 def all_sheets(doc):
