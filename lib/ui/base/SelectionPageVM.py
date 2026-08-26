@@ -12,15 +12,7 @@ from __future__ import unicode_literals
 try:
     from ui.base.BaseViewModel import BaseViewModel
 except Exception:
-    try:
-        from lib.ui.base.BaseViewModel import BaseViewModel
-    except Exception:
-        class BaseViewModel(object):
-            def __init__(self):
-                pass
-
-            def notify_property(self, name):
-                pass
+    from lib.ui.base.BaseViewModel import BaseViewModel
 
 try:
     from core.list_selection import ListSelectionService
