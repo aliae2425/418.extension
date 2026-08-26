@@ -1,0 +1,394 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Onglet 3 — remplacer les AFFECTATIONS de matériau dans la maquette.
+    DataContext = RemplacerPageVM. Chargée via XamlReader.Load (PAS de
+    x:Class, PAS de code-behind) : brushes et styles en DynamicResource.
+
+    DEUX COLONNES, une par sélection, chacune avec sa recherche. Les
+    libellés affichés disent ce qu'on FAIT (« Rechercher » / « Remplacer
+    avec ») ; le code garde les noms de rôle source/cible.
+      - gauche  SOURCES, affiché « Rechercher » — les matériaux à remplacer.
+                Cases à cocher, multiple. Alimentée par
+                {Binding SelectionVM.FilteredItems}, c'est-à-dire la MÊME
+                SelectionPageVM que l'onglet Matériaux : cocher ici coche la
+                card là-bas.
+      - droite  CIBLE, affiché « Remplacer avec » — le matériau qui les
+                remplace. Ronds, un seul. Alimentée par
+                {Binding CiblesFiltrees}, filtre indépendant porté par le VM.
+
+    Dans les deux listes, la case et le rond sont display-only
+    (IsHitTestVisible=False, binding OneWay) : TOUS les clics passent par le
+    handler unique posé sur la liste (MainWindowView._wire_liste_remplacer),
+    ce qui évite un double déclenchement entre le contrôle et la ligne.
+
+    La section repliable du haut restreint la portée à une ou plusieurs
+    catégories Revit — celles réellement présentes dans le modèle, pas les
+    ~200 de Revit. TOUTES cochées (le défaut) = tout le modèle ;
+    aucune cochée = rien à traiter, les deux boutons se désactivent.
+
+    Le pied de page porte le récapitulatif, l'état, le rapport par catégorie
+    et les deux boutons.
+
+    Pas de convertisseur bool -> Visibility dans le socle : les blocs
+    conditionnels passent par un DataTrigger sur un Style local.
+  -->
+
+  <Grid Background="{DynamicResource TransparentBrush}" Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>   <!-- titre -->
+      <RowDefinition Height="*"/>      <!-- les deux colonnes -->
+      <RowDefinition Height="Auto"/>   <!-- footer -->
+    </Grid.RowDefinitions>
+
+    <!-- Titre + section repliable de portée -->
+    <StackPanel Grid.Row="0" Margin="0,0,0,14">
+      <TextBlock Text="Remplacer dans la maquette"
+                 Style="{DynamicResource HeaderTextBlockStyle}"
+                 Margin="0,0,0,10"/>
+
+      <!-- Portée : cases à cocher multiples, TOUTES cochées au départ —
+           on retire ce qu'on ne veut pas plutôt que de tout désigner.
+           Les IsChecked sont en TwoWay : WPF écrit dans
+           CategorieVM.EstCochee, qui prévient le VM. Aucun câblage Python.
+
+           Même structure que les sections de la page Paramètres de
+           « Dupliquer les feuilles » : CardStyle + NavigationExpanderStyle,
+           WrapPanel de cases à largeur fixe. Le ScrollViewer est le seul
+           ajout — les catégories d'un modèle réel dépassent facilement la
+           dizaine, là où les listes de duplication sont fermées. -->
+      <Border Style="{DynamicResource CardStyle}" Padding="12,6" Margin="0">
+        <Expander Style="{DynamicResource NavigationExpanderStyle}"
+                  Header="{Binding PorteeResume}"
+                  IsExpanded="False"
+                  Padding="0">
+          <StackPanel Margin="0,6,0,2">
+            <ScrollViewer MaxHeight="150"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+              <ItemsControl ItemsSource="{Binding Categories}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal"/>
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <!-- ToolTip : les noms de catégories Revit dépassent
+                         souvent 160 px (« Composants de garde-corps »). -->
+                    <CheckBox IsChecked="{Binding EstCochee, Mode=TwoWay}"
+                              Content="{Binding Nom}"
+                              ToolTip="{Binding Nom}"
+                              Style="{DynamicResource CheckBoxStyle}"
+                              Width="160"/>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+              <Button x:Name="CocherPorteeButton"
+                      Content="Tout cocher"
+                      Style="{DynamicResource SecondaryActionButtonStyle}"/>
+              <Button x:Name="DecocherPorteeButton"
+                      Content="Tout décocher"
+                      Style="{DynamicResource SecondaryActionButtonStyle}"
+                      Margin="8,0,0,0"/>
+            </StackPanel>
+          </StackPanel>
+        </Expander>
+      </Border>
+    </StackPanel>
+
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+
+      <!-- ═══════════ Colonne SOURCES ═══════════ -->
+      <Grid Grid.Column="0">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Rechercher"
+                   Style="{DynamicResource SubHeaderTextBlockStyle}"
+                   Margin="0,0,0,8"/>
+
+        <Grid Grid.Row="1" Margin="0,0,0,8">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <TextBox Grid.Column="0"
+                   x:Name="SearchBox"
+                   Text="{Binding SelectionVM.FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+          <Button Grid.Column="1" x:Name="SelectAllButton" Content="Tout"
+                  Style="{DynamicResource SecondaryActionButtonStyle}" Margin="8,0,0,0"/>
+          <Button Grid.Column="2" x:Name="DeselectAllButton" Content="Aucun"
+                  Style="{DynamicResource SecondaryActionButtonStyle}" Margin="8,0,0,0"/>
+        </Grid>
+
+        <ScrollViewer Grid.Row="2"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+          <ItemsControl x:Name="SourcesList"
+                        ItemsSource="{Binding SelectionVM.FilteredItems}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border BorderBrush="{DynamicResource ControlBorderBrush}"
+                        BorderThickness="0,0,0,1"
+                        Background="{DynamicResource TransparentBrush}"
+                        Padding="2,4">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="28"/>
+                      <ColumnDefinition Width="46"/>
+                      <ColumnDefinition Width="72"/>
+                      <ColumnDefinition Width="72"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <CheckBox Grid.Column="0"
+                              IsChecked="{Binding IsSelected, Mode=OneWay}"
+                              IsHitTestVisible="False"
+                              Style="{DynamicResource CheckBoxStyle}"
+                              VerticalAlignment="Center"/>
+
+                    <Border Grid.Column="1" Width="40" Height="24" CornerRadius="3"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            Background="{Binding ApparenceCouleur}"
+                            HorizontalAlignment="Left" VerticalAlignment="Center"
+                            ToolTip="{Binding Apparence}"/>
+
+                    <Border Grid.Column="2" Width="64" Height="26" CornerRadius="3"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            Background="{DynamicResource ControlFillBrush}"
+                            ClipToBounds="True"
+                            HorizontalAlignment="Left" VerticalAlignment="Center"
+                            ToolTip="{Binding MotifCoupeNom}">
+                      <Image Source="{Binding MotifCoupeImage}" Stretch="UniformToFill"/>
+                    </Border>
+
+                    <Border Grid.Column="3" Width="64" Height="26" CornerRadius="3"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            Background="{DynamicResource ControlFillBrush}"
+                            ClipToBounds="True"
+                            HorizontalAlignment="Left" VerticalAlignment="Center"
+                            ToolTip="{Binding MotifSurfaceNom}">
+                      <Image Source="{Binding MotifSurfaceImage}" Stretch="UniformToFill"/>
+                    </Border>
+
+                    <TextBlock Grid.Column="4"
+                               Text="{Binding Nom}"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Grid>
+
+      <!-- Séparateur + flèche de sens -->
+      <Border Grid.Column="1" Width="1" Margin="20,30,20,0"
+              Background="{DynamicResource ControlBorderBrush}"/>
+
+      <!-- ═══════════ Colonne CIBLE ═══════════ -->
+      <Grid Grid.Column="2">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Remplacer avec"
+                   Style="{DynamicResource SubHeaderTextBlockStyle}"
+                   Margin="0,0,0,8"/>
+
+        <TextBox Grid.Row="1"
+                 x:Name="CibleSearchBox"
+                 Margin="0,0,0,8"
+                 Text="{Binding CibleFilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+        <ScrollViewer Grid.Row="2"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+          <ItemsControl x:Name="CiblesList" ItemsSource="{Binding CiblesFiltrees}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border BorderBrush="{DynamicResource ControlBorderBrush}"
+                        BorderThickness="0,0,0,1"
+                        Padding="2,4">
+                  <Border.Style>
+                    <Style TargetType="Border">
+                      <Setter Property="Background" Value="{DynamicResource TransparentBrush}"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding EstCible}" Value="True">
+                          <Setter Property="Background" Value="{DynamicResource ControlFillBrush}"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </Border.Style>
+
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="28"/>
+                      <ColumnDefinition Width="46"/>
+                      <ColumnDefinition Width="72"/>
+                      <ColumnDefinition Width="72"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <RadioButton Grid.Column="0"
+                                 GroupName="cible"
+                                 IsChecked="{Binding EstCible, Mode=OneWay}"
+                                 IsHitTestVisible="False"
+                                 Style="{DynamicResource RadioButtonStyle}"
+                                 VerticalAlignment="Center"/>
+
+                    <Border Grid.Column="1" Width="40" Height="24" CornerRadius="3"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            Background="{Binding ApparenceCouleur}"
+                            HorizontalAlignment="Left" VerticalAlignment="Center"
+                            ToolTip="{Binding Apparence}"/>
+
+                    <Border Grid.Column="2" Width="64" Height="26" CornerRadius="3"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            Background="{DynamicResource ControlFillBrush}"
+                            ClipToBounds="True"
+                            HorizontalAlignment="Left" VerticalAlignment="Center"
+                            ToolTip="{Binding MotifCoupeNom}">
+                      <Image Source="{Binding MotifCoupeImage}" Stretch="UniformToFill"/>
+                    </Border>
+
+                    <Border Grid.Column="3" Width="64" Height="26" CornerRadius="3"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            Background="{DynamicResource ControlFillBrush}"
+                            ClipToBounds="True"
+                            HorizontalAlignment="Left" VerticalAlignment="Center"
+                            ToolTip="{Binding MotifSurfaceNom}">
+                      <Image Source="{Binding MotifSurfaceImage}" Stretch="UniformToFill"/>
+                    </Border>
+
+                    <TextBlock Grid.Column="4"
+                               Text="{Binding Nom}"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Grid>
+    </Grid>
+
+    <!-- ═══════════ Footer ═══════════ -->
+    <Border Grid.Row="2"
+            BorderBrush="{DynamicResource ControlBorderBrush}"
+            BorderThickness="0,1,0,0"
+            Margin="0,14,0,0"
+            Padding="0,12,0,0">
+      <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+
+        <StackPanel Grid.Row="0" Grid.Column="0" VerticalAlignment="Center">
+          <TextBlock Text="{Binding Recapitulatif}"
+                     FontWeight="SemiBold"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource TextPrimaryBrush}"/>
+          <TextBlock Text="{Binding Etat}"
+                     FontSize="11"
+                     TextWrapping="Wrap"
+                     Margin="0,2,0,0"
+                     Foreground="{DynamicResource TextSecondaryBrush}"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal"
+                    VerticalAlignment="Center">
+          <Button x:Name="AnalyserButton"
+                  Content="Analyser"
+                  Style="{DynamicResource SecondaryActionButtonStyle}"
+                  IsEnabled="{Binding PeutAnalyser}"/>
+          <Button x:Name="RemplacerButton"
+                  Content="Remplacer"
+                  Style="{DynamicResource PrimaryActionButtonStyle}"
+                  IsEnabled="{Binding PeutRemplacer}"
+                  Margin="10,0,0,0"/>
+        </StackPanel>
+
+        <!-- Rapport par catégorie : pastilles en ligne, ne pousse le footer
+             que lorsqu'une analyse a tourné. -->
+        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                    Margin="0,10,0,0">
+          <ItemsControl ItemsSource="{Binding Lignes}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel Orientation="Horizontal"/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border CornerRadius="4"
+                        Background="{DynamicResource ControlFillBrush}"
+                        BorderBrush="{DynamicResource ControlBorderBrush}"
+                        BorderThickness="1"
+                        Padding="8,3"
+                        Margin="0,0,6,6">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding Categorie}"
+                               FontSize="11"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock Text="{Binding Detail}"
+                               FontSize="11"
+                               Margin="6,0,0,0"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <TextBlock Text="{Binding AvertissementPeints}"
+                     FontSize="11"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource WarningBrush}">
+            <TextBlock.Style>
+              <Style TargetType="TextBlock">
+                <Setter Property="Visibility" Value="Collapsed"/>
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding HasPeints}" Value="True">
+                    <Setter Property="Visibility" Value="Visible"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </TextBlock.Style>
+          </TextBlock>
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

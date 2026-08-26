@@ -16,6 +16,11 @@ class AppPaths(object):
     def resources_dir(self):
         return os.path.join(_lib_dir, 'ui', 'GUI', 'resources')
 
+    def ui_gui_dir(self):
+        # XAML partagés au niveau fenêtre (ex. la coquille MainWindow.xaml
+        # commune aux outils à rail).
+        return os.path.join(_lib_dir, 'ui', 'GUI')
+
     def pages_dir(self):
         # Pages XAML partagées par plusieurs outils (ex. SelectionPage.xaml).
         return os.path.join(_lib_dir, 'ui', 'GUI', 'pages')

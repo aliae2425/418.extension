@@ -35,7 +35,7 @@
         <Setter Property="Margin" Value="0,0,0,12"/>
         <Setter Property="Effect">
             <Setter.Value>
-                <DropShadowEffect BlurRadius="8" ShadowDepth="2" Direction="270" Color="{DynamicResource ShadowColor}" Opacity="0.05"/>
+                <DropShadowEffect BlurRadius="8" ShadowDepth="2" Direction="270" Color="{DynamicResource ShadowColor}" Opacity="{DynamicResource CardShadowOpacity}"/>
             </Setter.Value>
         </Setter>
     </Style>
@@ -115,6 +115,9 @@
         <Setter Property="Padding" Value="2,0"/>
         <Setter Property="Height" Value="35"/>
         <Setter Property="FontSize" Value="12"/>
+        <!-- Sans ce Foreground, le texte saisi reste noir en thème sombre :
+             TextBox ne suit pas le Style implicite de TextBlock. -->
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Background" Value="{DynamicResource ControlFillBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
@@ -171,7 +174,8 @@
 
     <!-- ComboBox Style -->
     <Style TargetType="ComboBox">
-        <Setter Property="Padding" Value="8,6"/>
+        <!-- Pas de Padding : le gabarit ci-dessous ne le lie nulle part,
+             l'espacement vient du Margin du Grid et du ContentPresenter. -->
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="Background" Value="{DynamicResource ControlFillBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
@@ -186,25 +190,36 @@
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="8">
-                            <DockPanel>
+                            <!-- Grid et non DockPanel : le ToggleButton
+                                 s'étire sur toute la surface, donc le clic
+                                 ouvre la liste où qu'il tombe. -->
+                            <Grid Margin="10,10">
                                 <ContentPresenter x:Name="contentPresenter"
                                                   Content="{TemplateBinding SelectionBoxItem}"
                                                   ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                                                   ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
-                                                  Margin="4,0,24,0"
+                                                  Margin="4,0,19,0"
                                                   VerticalAlignment="Center"/>
                                 <ToggleButton x:Name="toggleButton"
-                                              DockPanel.Dock="Right"
+                                              HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Stretch"
                                               Focusable="False"
                                               IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
                                               ClickMode="Press"
                                               Background="{DynamicResource TransparentBrush}"
                                               BorderThickness="0">
-                                    <Path Data="M 0 0 L 4 4 L 8 0 Z"
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="{DynamicResource TransparentBrush}">
+                                                <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                    <Path Data="M 0 0 L 7.5 7.5 L 15 0 Z"
                                           Fill="{DynamicResource TextPrimaryBrush}"
-                                          Width="8" Height="4" Margin="0,0,8,0"/>
+                                          Width="15" Height="7.5" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </ToggleButton>
-                            </DockPanel>
+                            </Grid>
                         </Border>
                         <Popup x:Name="PART_Popup"
                                Placement="Bottom"
@@ -217,13 +232,20 @@
                                     BorderBrush="{DynamicResource ControlBorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="8"
-                                    SnapsToDevicePixels="True">
+                                    SnapsToDevicePixels="True"
+                                    MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ComboBox}}"
+                                    Width="{Binding ActualWidth, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ComboBox}}">
                                 <ScrollViewer Margin="0" SnapsToDevicePixels="True">
                                     <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
                                 </ScrollViewer>
                             </Border>
                         </Popup>
                     </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource ControlFillHoverBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -292,6 +314,56 @@
                             <Setter TargetName="box" Property="Background" Value="{DynamicResource AccentBrush}"/>
                             <Setter TargetName="box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                             <Setter TargetName="checkMark" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.6"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- RadioButton Style — pendant rond de CheckBoxStyle, mêmes tailles,
+         mêmes brosses, même survol. Pastille pleine au lieu du chevron. -->
+    <Style x:Key="RadioButtonStyle" TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontFamily" Value="Segoe UI"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Padding" Value="8,0,0,0"/>
+        <Setter Property="Margin" Value="0,4"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <StackPanel Orientation="Horizontal">
+                        <Border x:Name="box"
+                                Width="18" Height="18"
+                                CornerRadius="9"
+                                Background="{DynamicResource ControlFillBrush}"
+                                BorderBrush="{DynamicResource ControlBorderBrush}"
+                                BorderThickness="1">
+                            <Ellipse x:Name="dot"
+                                     Width="8" Height="8"
+                                     Fill="{DynamicResource TextOnAccentBrush}"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center"
+                                     Visibility="Collapsed"/>
+                        </Border>
+                        <ContentPresenter x:Name="content"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center"
+                                          HorizontalAlignment="Left"/>
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="box" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="dot" Property="Visibility" Value="Visible"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.6"/>
@@ -704,7 +776,7 @@
         <Setter Property="CornerRadius" Value="12"/>
         <Setter Property="Effect">
             <Setter.Value>
-                <DropShadowEffect BlurRadius="10" ShadowDepth="2" Direction="270" Color="{DynamicResource ShadowColor}" Opacity="0.06"/>
+                <DropShadowEffect BlurRadius="10" ShadowDepth="2" Direction="270" Color="{DynamicResource ShadowColor}" Opacity="{DynamicResource SurfaceShadowOpacity}"/>
             </Setter.Value>
         </Setter>
     </Style>
