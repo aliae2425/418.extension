@@ -14,13 +14,17 @@ except Exception:
     doc = None
 
 try:
-    from Autodesk.Revit.DB import ElementId, FillPatternTarget
+    from Autodesk.Revit.DB import (CategoryType, ElementId,
+                                   FilteredElementCollector, FillPatternTarget)
 except Exception:
+    CategoryType = None
     ElementId = None
+    FilteredElementCollector = None
     FillPatternTarget = None
 
 from lib.viewmodels.MainViewModel import MainViewModel
 from lib.viewmodels.MaterialCardVM import MaterialCardVM, Motif
+from lib.viewmodels.RemplacerPageVM import CategorieVM
 from lib.views.MainWindowView import MainWindowView
 from lib.services.MaterialService import MaterialService
 from lib.services import hatch
@@ -110,13 +114,41 @@ def _carte(materiau):
         motif_surface=_motif(surface, surface_rgb))
 
 
+def _categories_presentes():
+    """Catégories de modèle qui contiennent au moins un élément.
+
+    Alimente le menu déroulant de portée de l'onglet Remplacer. On liste ce
+    qui est RÉELLEMENT dans la maquette plutôt que les ~200 catégories de
+    Revit, sinon le menu est inutilisable.
+
+    ponytail: une requête par catégorie, mais `FirstElementId()` s'arrête au
+    premier élément trouvé — c'est bien moins cher qu'un balayage complet
+    avec regroupement. Si l'ouverture de l'outil devient lente sur une grosse
+    maquette, c'est le premier endroit à regarder.
+    """
+    if doc is None or CategoryType is None or FilteredElementCollector is None:
+        return []
+    presentes = []
+    for categorie in doc.Settings.Categories:
+        try:
+            if categorie.CategoryType != CategoryType.Model:
+                continue
+            collecteur = FilteredElementCollector(doc).OfCategoryId(categorie.Id)
+            if collecteur.FirstElementId() == ElementId.InvalidElementId:
+                continue
+            presentes.append(CategorieVM(categorie.Id, categorie.Name))
+        except Exception:
+            continue          # catégorie non filtrable (annotation, interne)
+    return sorted(presentes, key=lambda c: c.Nom)
+
+
 if __name__ == '__main__':
     materiaux = all_materials(doc) if doc is not None else []
     materiaux_par_id = dict((m.Id, m) for m in materiaux)
     cartes = [_carte(m) for m in materiaux]
 
     vm = MainViewModel(service=MaterialService(doc))
-    vm.charger(cartes, materiaux_par_id)
+    vm.charger(cartes, materiaux_par_id, _categories_presentes())
 
     view = MainWindowView(vm)
     view.show()

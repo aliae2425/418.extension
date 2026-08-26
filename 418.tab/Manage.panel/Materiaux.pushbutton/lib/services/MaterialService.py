@@ -97,20 +97,25 @@ class MaterialService(object):
 
     # -- Balayage ----------------------------------------------------------
 
-    def _elements(self):
+    def _elements(self, categorie_id=None):
         """Types puis instances du document, en un seul flux.
 
-        ponytail: balayage complet du modèle. `GetMaterialIds` sert de
-        pré-filtre bon marché pour n'inspecter les paramètres que des
-        éléments qui portent effectivement le matériau, mais le parcours
-        reste O(éléments) — comptez quelques secondes sur une grosse maquette.
-        Un `ElementParameterFilter` par paramètre matériau irait plus vite,
-        au prix d'une liste de BuiltInParameter à maintenir.
+        `categorie_id` restreint le balayage à une catégorie (le choix du
+        menu déroulant) ; None balaie tout le modèle.
+
+        ponytail: sans catégorie, le balayage reste complet et O(éléments) —
+        comptez quelques secondes sur une grosse maquette. `GetMaterialIds`
+        sert de pré-filtre bon marché pour n'inspecter les paramètres que des
+        éléments qui portent effectivement le matériau. Un
+        `ElementParameterFilter` par paramètre matériau irait plus vite, au
+        prix d'une liste de BuiltInParameter à maintenir.
         """
         if FilteredElementCollector is None or self._doc is None:
             return
         for est_type in (True, False):
             collecteur = FilteredElementCollector(self._doc)
+            if categorie_id is not None:
+                collecteur = collecteur.OfCategoryId(categorie_id)
             if est_type:
                 collecteur = collecteur.WhereElementIsElementType()
             else:
@@ -118,7 +123,7 @@ class MaterialService(object):
             for element in collecteur.ToElements():
                 yield element, est_type
 
-    def _balayer(self, ids_sources):
+    def _balayer(self, ids_sources, categorie_id=None):
         """UN seul parcours du modèle -> (porteurs, nombre de faces peintes).
 
         `porteurs` : liste de (element, est_type) affectés par un des ids.
@@ -131,7 +136,7 @@ class MaterialService(object):
         peints = 0
         if not ids:
             return porteurs, peints
-        for element, est_type in self._elements():
+        for element, est_type in self._elements(categorie_id):
             try:
                 if set(element.GetMaterialIds(False)) & ids:
                     porteurs.append((element, est_type))
@@ -144,22 +149,23 @@ class MaterialService(object):
                 pass
         return porteurs, peints
 
-    def analyser(self, ids_sources):
+    def analyser(self, ids_sources, categorie_id=None):
         """Rapport de ce qui utilise ces matériaux. Ne modifie rien."""
         rapport = Rapport()
-        porteurs, rapport.Peints = self._balayer(ids_sources)
+        porteurs, rapport.Peints = self._balayer(ids_sources, categorie_id)
         for element, est_type in porteurs:
             rapport.ajouter(_categorie(element), est_type)
         return rapport
 
     # -- Remplacement ------------------------------------------------------
 
-    def remplacer(self, ids_sources, id_cible):
+    def remplacer(self, ids_sources, id_cible, categorie_id=None):
         """Remplace les affectations de `ids_sources` par `id_cible`.
 
         Traite les paramètres valués matériau (type et instance) et les
-        couches des structures composées. Retourne le `Rapport` de ce qui a
-        RÉELLEMENT été modifié.
+        couches des structures composées, dans la catégorie choisie ou dans
+        tout le modèle. Retourne le `Rapport` de ce qui a RÉELLEMENT été
+        modifié.
         """
         rapport = Rapport()
         ids = set(ids_sources or [])
@@ -169,7 +175,7 @@ class MaterialService(object):
         if not ids:
             return rapport
 
-        porteurs, rapport.Peints = self._balayer(ids)
+        porteurs, rapport.Peints = self._balayer(ids, categorie_id)
         with revit_transaction(self._doc, u'Remplacer le matériau'):
             for element, est_type in porteurs:
                 touche = self._remplacer_couches(element, ids, id_cible)

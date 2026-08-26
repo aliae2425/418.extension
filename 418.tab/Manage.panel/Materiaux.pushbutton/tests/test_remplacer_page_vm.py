@@ -16,7 +16,8 @@ from ui.base.SelectionPageVM import SelectionPageVM
 
 from lib.services.MaterialService import Rapport
 from lib.viewmodels.MaterialCardVM import MaterialCardVM
-from lib.viewmodels.RemplacerPageVM import RemplacerPageVM
+from lib.viewmodels.RemplacerPageVM import (CategorieVM, RemplacerPageVM,
+                                            TOUTES_CATEGORIES)
 
 
 class FakeService(object):
@@ -27,12 +28,12 @@ class FakeService(object):
         self.remplacements = []
         self._rapport = rapport or Rapport()
 
-    def analyser(self, ids):
-        self.analyses.append(list(ids))
+    def analyser(self, ids, categorie_id=None):
+        self.analyses.append((list(ids), categorie_id))
         return self._rapport
 
-    def remplacer(self, ids, id_cible):
-        self.remplacements.append((list(ids), id_cible))
+    def remplacer(self, ids, id_cible, categorie_id=None):
+        self.remplacements.append((list(ids), id_cible, categorie_id))
         return self._rapport
 
 
@@ -117,7 +118,7 @@ class TestRemplacerPageVM(unittest.TestCase):
     def test_analyser_ne_modifie_rien_et_rend_le_rapport(self):
         self.vm.set_sources([1])
         self.vm.analyser()
-        self.assertEqual(self.service.analyses, [[1]])
+        self.assertEqual(self.service.analyses, [([1], None)])
         self.assertEqual(self.service.remplacements, [])
         self.assertEqual(self.vm.Etat, u'4 élément(s) seraient modifiés.')
         self.assertEqual(len(self.vm.Lignes), 2)
@@ -126,7 +127,7 @@ class TestRemplacerPageVM(unittest.TestCase):
         self.vm.set_sources([1])
         self.vm.Cible = self.cartes[1]
         self.vm.remplacer()
-        self.assertEqual(self.service.remplacements, [([1], 2)])
+        self.assertEqual(self.service.remplacements, [([1], 2, None)])
         self.assertEqual(self.vm.Etat, u'4 élément(s) modifié(s).')
 
     def test_remplacer_ne_s_applique_pas_deux_fois(self):
@@ -157,6 +158,39 @@ class TestRemplacerPageVM(unittest.TestCase):
         self.assertFalse(self.cartes[0].EstCible)
         self.assertTrue(self.cartes[1].EstCible)
 
+    def test_portee_par_defaut_tout_le_modele(self):
+        self.assertIs(self.vm.Categorie, TOUTES_CATEGORIES)
+        self.assertEqual(self.vm.Categories[0].Nom, u'Toutes les catégories')
+
+    def test_la_categorie_choisie_est_transmise_au_service(self):
+        murs = CategorieVM(42, u'Murs')
+        self.vm = RemplacerPageVM(self.service, _selection(self.cartes), [murs])
+        self.vm.set_sources([1])
+        self.vm.Cible = self.cartes[1]
+        self.vm.Categorie = murs
+        self.vm.analyser()
+        self.assertEqual(self.service.analyses, [([1], 42)])
+        self.vm.remplacer()
+        self.assertEqual(self.service.remplacements, [([1], 2, 42)])
+
+    def test_changer_de_categorie_oublie_le_rapport(self):
+        murs = CategorieVM(42, u'Murs')
+        self.vm = RemplacerPageVM(self.service, _selection(self.cartes), [murs])
+        self.vm.set_sources([1])
+        self.vm.analyser()
+        self.assertTrue(self.vm.HasRapport)
+        self.vm.Categorie = murs
+        self.assertFalse(self.vm.HasRapport)
+
+    def test_recapitulatif_mentionne_la_categorie(self):
+        murs = CategorieVM(42, u'Murs')
+        self.vm = RemplacerPageVM(self.service, _selection(self.cartes), [murs])
+        self.vm.set_sources([1])
+        self.vm.Cible = self.cartes[1]
+        self.assertEqual(self.vm.Recapitulatif, u'1 source → BA25')
+        self.vm.Categorie = murs
+        self.assertEqual(self.vm.Recapitulatif, u'1 source → BA25 · Murs')
+
     def test_la_colonne_cible_a_son_propre_filtre(self):
         # Filtrer la cible ne touche pas la colonne des sources.
         self.assertEqual(len(self.vm.CiblesFiltrees), 2)
@@ -178,7 +212,7 @@ class TestRemplacerPageVM(unittest.TestCase):
         self.vm.Cible = self.cartes[1]
         self.assertTrue(self.vm.PeutRemplacer)
         self.vm.remplacer()
-        self.assertEqual(self.service.remplacements, [([1, 2], 2)])
+        self.assertEqual(self.service.remplacements, [([1, 2], 2, None)])
 
     def test_rapport_vide_le_dit(self):
         self.vm = RemplacerPageVM(FakeService(Rapport()), _selection(self.cartes))

@@ -20,6 +20,20 @@ except Exception:
     from lib.core import text_filter
 
 
+class CategorieVM(object):
+    """Une entrée du menu déroulant de portée.
+
+    `Id` à None = « Toutes les catégories », c'est-à-dire tout le modèle.
+    """
+
+    def __init__(self, categorie_id, nom):
+        self.Id = categorie_id
+        self.Nom = nom
+
+
+TOUTES_CATEGORIES = CategorieVM(None, u'Toutes les catégories')
+
+
 class RemplacerPageVM(BaseViewModel):
     """Onglet Remplacer : deux colonnes, sources à gauche, cible à droite.
 
@@ -34,9 +48,13 @@ class RemplacerPageVM(BaseViewModel):
     recherche ici plutôt qu'une seconde page de sélection.
     """
 
-    def __init__(self, service=None, selection_vm=None):
+    def __init__(self, service=None, selection_vm=None, categories=None):
         super(RemplacerPageVM, self).__init__()
         self._service = service
+        # Portée du remplacement. « Toutes » d'abord, puis les catégories
+        # effectivement présentes dans le modèle (calculées par script.py).
+        self.Categories = [TOUTES_CATEGORIES] + list(categories or [])
+        self._categorie = TOUTES_CATEGORIES
         # MÊME SelectionPageVM que l'onglet Matériaux : cocher une source
         # ici coche la card là-bas, et réciproquement.
         self.SelectionVM = selection_vm
@@ -67,6 +85,25 @@ class RemplacerPageVM(BaseViewModel):
         self.notify_property('Cible')
         self.notify_property('Recapitulatif')
         self.notify_property('PeutRemplacer')
+
+    # -- Portée : la catégorie à traiter -----------------------------------
+
+    @property
+    def Categorie(self):
+        return self._categorie
+
+    @Categorie.setter
+    def Categorie(self, value):
+        value = value or TOUTES_CATEGORIES
+        if value is not self._categorie:
+            self._categorie = value
+            self._oublier_rapport()      # le rapport portait sur l'ancienne
+            self.notify_property('Categorie')
+            self.notify_property('Recapitulatif')
+
+    @property
+    def _categorie_id(self):
+        return self._categorie.Id if self._categorie is not None else None
 
     # -- Colonne cible : sa propre recherche -------------------------------
 
@@ -107,8 +144,12 @@ class RemplacerPageVM(BaseViewModel):
         else:
             gauche = u'%d sources fusionnées' % nombre
         if self._cible is None:
-            return u'%s → aucune cible' % gauche
-        return u'%s → %s' % (gauche, self._cible.Nom)
+            droite = u'aucune cible'
+        else:
+            droite = self._cible.Nom
+        if self._categorie_id is None:
+            return u'%s → %s' % (gauche, droite)
+        return u'%s → %s · %s' % (gauche, droite, self._categorie.Nom)
 
     @property
     def PeutAnalyser(self):
@@ -172,7 +213,8 @@ class RemplacerPageVM(BaseViewModel):
         """Balaye le modèle sans rien modifier."""
         if not self.PeutAnalyser:
             return
-        self._rapport = self._service.analyser(self._sources)
+        self._rapport = self._service.analyser(self._sources,
+                                               self._categorie_id)
         self._Applique = False
         if self._rapport.EstVide:
             self._Etat = u'Aucun élément n\'utilise ces matériaux.'
@@ -185,7 +227,8 @@ class RemplacerPageVM(BaseViewModel):
         """Applique le remplacement en une transaction."""
         if not self.PeutRemplacer:
             return
-        self._rapport = self._service.remplacer(self._sources, self._cible.Id)
+        self._rapport = self._service.remplacer(self._sources, self._cible.Id,
+                                                self._categorie_id)
         self._Applique = True
         if self._rapport.EstVide:
             self._Etat = u'Aucun élément modifié.'

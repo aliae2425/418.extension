@@ -58,9 +58,11 @@ class MainViewModel(BaseViewModel):
             self._mode = mode
             self.notify_property('Mode')
 
-    def charger(self, cartes, materiaux_par_id):
+    def charger(self, cartes, materiaux_par_id, categories=None):
         """`cartes` : `MaterialCardVM` construites par script.py.
-        `materiaux_par_id` : id -> `Material` Revit, pour le renommage."""
+        `materiaux_par_id` : id -> `Material` Revit, pour le renommage.
+        `categories` : `CategorieVM` présentes dans le modèle, pour le menu
+        déroulant de portée de l'onglet Remplacer."""
         cartes = list(cartes or [])
         self._materiaux_par_id = dict(materiaux_par_id or {})
         self.SelectionVM = SelectionPageVM(
@@ -69,7 +71,8 @@ class MainViewModel(BaseViewModel):
             filter_getters=[lambda carte: carte.Nom, lambda carte: carte.Classe],
             on_selection_changed=self._on_selection_changed,
             titre=u'Matériaux')
-        self.RemplacerVM = RemplacerPageVM(self._service, self.SelectionVM)
+        self.RemplacerVM = RemplacerPageVM(self._service, self.SelectionVM,
+                                           categories)
         self.RenommerVM = RenommerPageVM(self._service)
         for nom in ('SelectionVM', 'RemplacerVM', 'RenommerVM'):
             self.notify_property(nom)
