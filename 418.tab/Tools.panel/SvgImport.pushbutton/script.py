@@ -267,17 +267,27 @@ if __name__ == '__main__':
 
             # Revit épingle les imports CAD à la création : sans ceci,
             # MoveElement lève « at least one of them being pinned ».
+            print('[ImportSVG] épinglé à la création : {0}'.format(
+                instance.Pinned))
             if instance.Pinned:
                 instance.Pinned = False
+                print('[ImportSVG] dépinglé -> {0}'.format(instance.Pinned))
 
             # La bbox n'est renseignée qu'après régénération.
             doc.Regenerate()
             boite = instance.get_BoundingBox(vue)
             if boite is not None:
                 # Recale le coin haut-gauche sur le point cliqué, où que Revit
-                # ait déposé l'import.
+                # ait déposé l'import. Confort de placement seulement : un échec
+                # ici ne doit PAS faire perdre l'import, qui est l'essentiel.
                 coin = XYZ(boite.Min.X, boite.Max.Y, boite.Min.Z)
-                ElementTransformUtils.MoveElement(doc, element_id, origine - coin)
+                try:
+                    ElementTransformUtils.MoveElement(
+                        doc, element_id, origine - coin)
+                except Exception as erreur:
+                    print('[ImportSVG] Recalage impossible ({0} : {1}). '
+                          "L'import reste en {2}, à déplacer à la main."
+                          .format(type(erreur).__name__, erreur, coin))
     except Exception:
         import traceback
         print('[ImportSVG] ÉCHEC de l\'import :')
