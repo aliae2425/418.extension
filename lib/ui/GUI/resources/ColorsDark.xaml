@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
     <!-- Fluent UI Palette - Dark Mode -->
     <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#23272F"/>
     <SolidColorBrush x:Key="CardBackgroundBrush" Color="#2C313A"/>
@@ -43,6 +44,10 @@
 
     <!-- Non-brush color resources (for properties expecting Color) -->
     <Color x:Key="ShadowColor">#000000</Color>
+    <!-- Ombres plus marquées qu'en clair : c'était la différence portée par
+         l'ancien StylesDark.xaml, désormais ici. -->
+    <sys:Double x:Key="CardShadowOpacity">0.10</sys:Double>
+    <sys:Double x:Key="SurfaceShadowOpacity">0.10</sys:Double>
     <SolidColorBrush x:Key="LightGrayBrush" Color="#23272F"/>
     <SolidColorBrush x:Key="MediumGrayBrush" Color="#444A57"/>
 
