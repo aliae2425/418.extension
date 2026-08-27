@@ -112,7 +112,8 @@ class EmplacementVM(BaseViewModel):
 
     `Motifs` (le catalogue) est porté par l'emplacement et non par le VM
     racine : les quatre menus sont produits par un même DataTemplate, qui n'a
-    accès qu'à l'élément courant.
+    accès qu'à l'élément courant — et surtout ils n'offrent pas tous la même
+    chose, cf. `_proposables`.
     """
 
     Motif = _champ('Motif')
@@ -123,10 +124,32 @@ class EmplacementVM(BaseViewModel):
         self.Face = face
         self.Couche = couche
         self.Libelle = LIBELLES.get((face, couche), couche)
-        self.Motifs = list(motifs or [])
+        self.Motifs = self._proposables(couche, motifs, motif)
         self._Motif = motif
         self._Couleur = hex_de_rgb(couleur)
         self._au_changement = au_changement
+
+    @staticmethod
+    def _proposables(couche, motifs, courant):
+        """Les motifs que CET emplacement a le droit d'offrir.
+
+        Revit n'accepte un motif de MODÈLE qu'en premier plan : posé en
+        arrière-plan il est refusé à l'écriture. On ne le propose donc pas,
+        plutôt que de laisser choisir puis récolter un « propriété refusée »
+        au moment d'enregistrer.
+
+        Le motif déjà en place reste dans la liste même s'il enfreint la règle
+        (matériau hérité d'un vieux gabarit, fichier lié) : sinon le menu
+        s'ouvre sur du vide et le premier changement de couleur effacerait
+        silencieusement le motif.
+        """
+        motifs = list(motifs or [])
+        if couche != u'Background':
+            return motifs
+        offerts = [motif for motif in motifs if not motif.EstModele]
+        if courant is not None and courant not in offerts:
+            offerts.insert(0, courant)
+        return offerts
 
     def couche_dessin(self):
         """La `Couche` à empiler dans l'aperçu, None si « Aucun »."""

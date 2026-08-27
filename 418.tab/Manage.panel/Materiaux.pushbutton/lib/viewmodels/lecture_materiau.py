@@ -20,6 +20,14 @@ except Exception:
     from services import hatch
 
 try:
+    from lib.views import hatch_image
+except Exception:
+    try:
+        from views import hatch_image
+    except Exception:
+        hatch_image = None
+
+try:
     from Autodesk.Revit.DB import (AppearanceAssetElement, ElementId,
                                    FilteredElementCollector,
                                    FillPatternElement, FillPatternTarget)
@@ -31,6 +39,13 @@ except Exception:
     FillPatternTarget = None
 
 GRIS = (128, 128, 128)
+NOIR = (0, 0, 0)
+
+# Vignette d'une entrée de la liste déroulante des motifs. Plus large que
+# celle des cards (64×28) : un appareillage de brique ne se reconnaît pas sur
+# deux rangs.
+LARGEUR_APERCU_MOTIF = 120.0
+HAUTEUR_APERCU_MOTIF = 26.0
 
 #: Les quatre emplacements de motif d'un matériau, sous la forme
 #: (préfixe de face, préfixe de couche). L'attribut Revit se recompose
@@ -197,16 +212,41 @@ class MotifRef(object):
         self.Id = identifiant
         self._prototype = prototype
         self.Nom = prototype.nom if prototype is not None else u'Aucun'
-
-    @property
-    def Libelle(self):
-        if self._prototype is None:
-            return self.Nom
-        return self.Nom + (u'  · modèle' if self._prototype.est_modele else u'')
+        self._apercu = None
+        self._construit = False
 
     @property
     def EstModele(self):
         return self._prototype is not None and self._prototype.est_modele
+
+    @property
+    def Type(self):
+        """« modèle » ou « dessin ». Vide pour l'entrée « Aucun ».
+
+        La distinction n'est pas décorative : un motif de modèle est à
+        l'échelle du bâtiment (il se densifie quand la vue s'éloigne) et Revit
+        ne l'accepte qu'en premier plan.
+        """
+        if self._prototype is None:
+            return u''
+        return u'modèle' if self._prototype.est_modele else u'dessin'
+
+    @property
+    def Apercu(self):
+        """Vignette du motif, noir sur blanc, pour la liste déroulante.
+
+        Construite au PREMIER affichage et gardée : un document peut compter
+        des dizaines de motifs, et la liste déroulante n'en montre jamais
+        qu'une poignée à la fois. La `DrawingImage` est gelée, donc partageable
+        entre les quatre menus.
+        """
+        if not self._construit:
+            self._construit = True
+            if hatch_image is not None:
+                self._apercu = hatch_image.vignette(
+                    [self.pour(NOIR)], LARGEUR_APERCU_MOTIF,
+                    HAUTEUR_APERCU_MOTIF)
+        return self._apercu
 
     def pour(self, couleur):
         """La `Couche` à dessiner pour cette couleur. None pour « Aucun »."""

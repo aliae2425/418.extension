@@ -209,10 +209,57 @@
                             <TextBlock Text="{Binding Libelle}" FontSize="11"
                                        Margin="0,0,0,3"
                                        Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <!-- Le menu montre la hachure elle-même, pas
+                                 seulement son nom : « Hachure 3 » ne dit rien.
+                                 Le badge distingue modèle et dessin — un motif
+                                 de modèle est à l'échelle du bâtiment, ce n'est
+                                 pas le même objet. L'arrière-plan n'en propose
+                                 aucun (cf. EmplacementVM._proposables). -->
                             <ComboBox ItemsSource="{Binding Motifs}"
-                                      DisplayMemberPath="Libelle"
                                       SelectedItem="{Binding Motif, Mode=TwoWay}"
-                                      Margin="0,0,0,6"/>
+                                      Margin="0,0,0,6">
+                              <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                  <Grid>
+                                    <Grid.ColumnDefinitions>
+                                      <ColumnDefinition Width="Auto"/>
+                                      <ColumnDefinition Width="*"/>
+                                      <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="120" Height="26" CornerRadius="3"
+                                            BorderThickness="1"
+                                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                                            Background="White"
+                                            ClipToBounds="True">
+                                      <Image Source="{Binding Apercu}" Stretch="None"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Nom}"
+                                               VerticalAlignment="Center"
+                                               Margin="10,0,10,0"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip="{Binding Nom}"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding Type}"
+                                               FontSize="10"
+                                               VerticalAlignment="Center">
+                                      <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                          <Setter Property="Foreground" Value="{DynamicResource TextDisabledBrush}"/>
+                                          <Style.Triggers>
+                                            <DataTrigger Binding="{Binding EstModele}" Value="True">
+                                              <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                                              <Setter Property="FontWeight" Value="SemiBold"/>
+                                            </DataTrigger>
+                                          </Style.Triggers>
+                                        </Style>
+                                      </TextBlock.Style>
+                                    </TextBlock>
+                                  </Grid>
+                                </DataTemplate>
+                              </ComboBox.ItemTemplate>
+                            </ComboBox>
                             <Grid>
                               <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>

@@ -235,7 +235,15 @@
                                     SnapsToDevicePixels="True"
                                     MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ComboBox}}"
                                     Width="{Binding ActualWidth, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ComboBox}}">
-                                <ScrollViewer Margin="0" SnapsToDevicePixels="True">
+                                <!-- MaxHeight liée à MaxDropDownHeight : sans
+                                     elle le Popup pousse jusqu'au bout de sa
+                                     liste et sort de l'écran. Invisible tant
+                                     qu'un menu tient en dix lignes ; les
+                                     motifs de remplissage d'une maquette, eux,
+                                     se comptent par dizaines. -->
+                                <ScrollViewer Margin="0" SnapsToDevicePixels="True"
+                                              VerticalScrollBarVisibility="Auto"
+                                              MaxHeight="{Binding MaxDropDownHeight, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ComboBox}}">
                                     <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
                                 </ScrollViewer>
                             </Border>

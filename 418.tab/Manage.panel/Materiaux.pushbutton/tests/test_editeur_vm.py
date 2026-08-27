@@ -14,7 +14,8 @@ if _BUTTON not in sys.path:
 
 from lib.services import hatch
 from lib.viewmodels import EditeurVM as module
-from lib.viewmodels.EditeurVM import EditeurVM, rgb_de_hex, hex_de_rgb
+from lib.viewmodels.EditeurVM import (EditeurVM, EmplacementVM, rgb_de_hex,
+                                      hex_de_rgb)
 from lib.viewmodels.MaterialCardVM import Couche
 from lib.viewmodels.lecture_materiau import ApparenceRef, MotifRef
 
@@ -203,6 +204,42 @@ class TestApercu(_Base):
         couches = self.faux.appels[0][0]
         self.assertEqual([c.nom if c else None for c in couches],
                          [None, u'Brique'])
+
+
+class TestMotifRef(unittest.TestCase):
+    """Ce sur quoi le menu déroulant s'appuie pour afficher chaque motif."""
+
+    def test_le_type_distingue_modele_et_dessin(self):
+        self.assertEqual(_motif(u'Brique').Type, u'dessin')
+        self.assertEqual(_motif(u'Béton', est_modele=True).Type, u'modèle')
+
+    def test_aucun_na_pas_de_type(self):
+        self.assertEqual(MotifRef(u'aucun').Type, u'')
+
+    def test_aucun_ne_donne_aucune_couche_a_dessiner(self):
+        self.assertIsNone(MotifRef(u'aucun').pour((0, 0, 0)))
+
+
+class TestArrierePlan(_Base):
+    """Revit n'accepte un motif de MODÈLE qu'en premier plan."""
+
+    def test_larriere_plan_nofffre_pas_les_motifs_de_modele(self):
+        vm, motifs = _vm()
+        offerts = vm.Faces[0].Fond.Motifs
+        self.assertIn(motifs[1], offerts)          # Brique, dessin
+        self.assertNotIn(motifs[2], offerts)       # Béton, modèle
+
+    def test_le_premier_plan_offre_tout(self):
+        vm, motifs = _vm()
+        self.assertEqual(vm.Faces[0].Premier.Motifs, motifs)
+
+    def test_un_modele_deja_en_place_reste_offert(self):
+        # Matériau hérité d'un vieux gabarit : le retirer du menu ferait
+        # disparaître le motif au premier changement de couleur.
+        modele = _motif(u'Béton', est_modele=True)
+        offerts = EmplacementVM._proposables(
+            u'Background', [MotifRef(u'aucun'), modele], modele)
+        self.assertIn(modele, offerts)
 
 
 class TestEchelleModele(unittest.TestCase):
