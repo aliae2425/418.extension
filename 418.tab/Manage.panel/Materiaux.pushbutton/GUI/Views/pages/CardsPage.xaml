@@ -116,7 +116,7 @@
                     <Border Width="64" Height="28" CornerRadius="4"
                             BorderThickness="1"
                             BorderBrush="{DynamicResource ControlBorderBrush}"
-                            Background="{DynamicResource ControlFillBrush}">
+                            Background="White">
                       <Image Source="{Binding MotifCoupeImage}"
                              Width="64" Height="28" Stretch="None"/>
                     </Border>
@@ -136,7 +136,7 @@
                     <Border Width="64" Height="28" CornerRadius="4"
                             BorderThickness="1"
                             BorderBrush="{DynamicResource ControlBorderBrush}"
-                            Background="{DynamicResource ControlFillBrush}">
+                            Background="White">
                       <Image Source="{Binding MotifSurfaceImage}"
                              Width="64" Height="28" Stretch="None"/>
                     </Border>

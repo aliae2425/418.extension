@@ -23,7 +23,7 @@ except Exception:
     FillPatternTarget = None
 
 from lib.viewmodels.MainViewModel import MainViewModel
-from lib.viewmodels.MaterialCardVM import MaterialCardVM, Motif
+from lib.viewmodels.MaterialCardVM import Couche, MaterialCardVM, Motif
 from lib.viewmodels.RemplacerPageVM import CategorieVM
 from lib.views.MainWindowView import MainWindowView
 from lib.services.MaterialService import MaterialService
@@ -61,21 +61,21 @@ def _rgb(couleur, defaut=GRIS):
         return defaut
 
 
-def _motif(identifiant, rgb):
-    """`FillPatternElement` -> `Motif` prêt à dessiner."""
+def _couche(identifiant, rgb):
+    """`FillPatternElement` -> `Couche` prête à dessiner, None si pas de motif."""
     if doc is None or identifiant is None:
-        return Motif()
+        return None
     if ElementId is not None and identifiant == ElementId.InvalidElementId:
-        return Motif()
+        return None
     element = doc.GetElement(identifiant)
     if element is None:
-        return Motif()
+        return None
     try:
         remplissage = element.GetFillPattern()
     except Exception:
-        return Motif(nom=element.Name)
+        return Couche(nom=element.Name)
     if remplissage.IsSolidFill:
-        return Motif(nom=element.Name, est_uni=True, rgb=rgb)
+        return Couche(nom=element.Name, est_uni=True, rgb=rgb)
     est_modele = False
     if FillPatternTarget is not None:
         try:
@@ -83,8 +83,24 @@ def _motif(identifiant, rgb):
         except Exception:
             pass
     grilles = [hatch.depuis_fill_grid(g) for g in remplissage.GetFillGrids()]
-    return Motif(nom=element.Name, grilles=grilles, est_modele=est_modele,
-                 rgb=rgb)
+    return Couche(nom=element.Name, grilles=grilles, est_modele=est_modele,
+                  rgb=rgb)
+
+
+def _motif(materiau, face, couleur):
+    """Les deux couches d'une face (`'Cut'` ou `'Surface'`) -> `Motif`.
+
+    Chaque couche a son propre motif ET sa propre couleur. Les graphies sans
+    Foreground/Background sont celles d'avant 2019, gardées en repli.
+    """
+    fond = _couche(
+        _premier(materiau, face + 'BackgroundPatternId'),
+        _rgb(_premier(materiau, face + 'BackgroundPatternColor'), defaut=couleur))
+    premier = _couche(
+        _premier(materiau, face + 'ForegroundPatternId', face + 'PatternId'),
+        _rgb(_premier(materiau, face + 'ForegroundPatternColor',
+                      face + 'PatternColor'), defaut=couleur))
+    return Motif(fond=fond, premier=premier)
 
 
 def _apparence(materiau):
@@ -100,19 +116,13 @@ def _apparence(materiau):
 
 def _carte(materiau):
     couleur = _rgb(_premier(materiau, 'Color'))
-    coupe = _premier(materiau, 'CutForegroundPatternId', 'CutPatternId')
-    surface = _premier(materiau, 'SurfaceForegroundPatternId', 'SurfacePatternId')
-    coupe_rgb = _rgb(_premier(materiau, 'CutForegroundPatternColor',
-                              'CutPatternColor'), defaut=couleur)
-    surface_rgb = _rgb(_premier(materiau, 'SurfaceForegroundPatternColor',
-                                'SurfacePatternColor'), defaut=couleur)
     return MaterialCardVM(
         materiau.Id, materiau.Name,
         classe=_premier(materiau, 'MaterialClass') or u'',
         apparence=_apparence(materiau),
         couleur=couleur,
-        motif_coupe=_motif(coupe, coupe_rgb),
-        motif_surface=_motif(surface, surface_rgb))
+        motif_coupe=_motif(materiau, 'Cut', couleur),
+        motif_surface=_motif(materiau, 'Surface', couleur))
 
 
 def _categories_presentes():

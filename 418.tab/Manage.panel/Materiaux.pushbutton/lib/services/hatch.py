@@ -11,14 +11,21 @@ import math
 #   c'est lui qui donne l'appareillage des motifs de brique).
 # `segments()` matérialise cette famille sur une tuile de w×h pixels.
 
-# Échelles pixels/pied. Les motifs de DESSIN sont exprimés en taille papier
-# (un écart courant vaut 1/4" ≈ 0.0208 pied) alors que les motifs MODÈLE sont
-# à l'échelle du bâtiment (un écart courant vaut un pied). D'où deux facteurs
-# très différents pour obtenir une vignette lisible dans les deux cas.
-# ponytail: calées à l'œil sur les motifs livrés avec Revit FR. Si une vignette
-# sort trop dense ou trop vide sur une vraie maquette, c'est ici que ça se règle.
+# Échelles pixels/pied.
+#
+# Les motifs de DESSIN sont en taille papier : un écart de 1/4" doit sortir
+# à 1/4" de papier quelle que soit l'échelle de la vue. 576 px/pied = 48 px
+# par pouce de papier, soit une vignette de 64 px large qui montre ~34 mm de
+# papier — l'équivalent d'une petite zone de plan imprimé.
 ECHELLE_DESSIN = 576.0
-ECHELLE_MODELE = 16.0
+
+# Les motifs MODÈLE sont à l'échelle du bâtiment : un écart d'un pied sort à
+# un pied DIVISÉ par l'échelle de la vue. La vignette n'a pas de vue, on en
+# postule une — 1:50, la plus courante en plan d'étage.
+# ponytail: seul vrai réglage restant. Si les motifs modèle sortent trop
+# denses ou trop vides sur une maquette, c'est ce 50 qu'on bouge.
+ECHELLE_VUE = 50.0
+ECHELLE_MODELE = ECHELLE_DESSIN / ECHELLE_VUE
 
 # En dessous de cet écart, la vignette virerait au gris uni et coûterait des
 # centaines de droites pour rien.
@@ -27,28 +34,38 @@ ESPACEMENT_MINI = 3.0
 # Garde-fou dur : une grille pathologique ne doit pas figer l'interface.
 MAX_LIGNES_PAR_GRILLE = 200
 
+# Période trait+blanc en dessous de laquelle on trace plein (voir tirets_px).
+PERIODE_TIRETS_MINI = 2.0
+
 
 class Grille(object):
     """Une famille de droites parallèles — l'équivalent neutre d'une FillGrid.
 
     Distances en pieds (unité interne de Revit), angle en radians.
+    `tirets` : longueurs alternées trait/blanc le long de la droite (comme
+    `FillGrid.GetSegments()`), vide pour un trait plein.
     """
 
     def __init__(self, origine_u=0.0, origine_v=0.0, angle=0.0,
-                 offset=0.0, shift=0.0):
+                 offset=0.0, shift=0.0, tirets=None):
         self.origine_u = origine_u
         self.origine_v = origine_v
         self.angle = angle
         self.offset = offset
         self.shift = shift
+        self.tirets = list(tirets or [])
 
 
 def depuis_fill_grid(fill_grid):
     """Convertit une `FillGrid` de l'API Revit en `Grille`."""
     origine = fill_grid.Origin
+    try:
+        tirets = list(fill_grid.GetSegments())
+    except Exception:
+        tirets = []
     return Grille(origine_u=origine.U, origine_v=origine.V,
                   angle=fill_grid.Angle, offset=fill_grid.Offset,
-                  shift=fill_grid.Shift)
+                  shift=fill_grid.Shift, tirets=tirets)
 
 
 def _clip(px, py, dx, dy, largeur, hauteur):
@@ -77,12 +94,25 @@ def _clip(px, py, dx, dy, largeur, hauteur):
 
 
 def segments(grilles, largeur, hauteur, echelle):
-    """Segments (x1, y1, x2, y2) à tracer dans une tuile de `largeur`×`hauteur`.
+    """Tous les segments (x1, y1, x2, y2), familles confondues.
 
-    `grilles` : itérable de `Grille`. `echelle` : pixels par pied.
-    Les droites sont découpées sur la tuile ; celles qui la manquent sautent.
+    Raccourci de `par_grille()` pour qui n'a pas besoin des tirets.
     """
     sortie = []
+    for traits, _ in par_grille(grilles, largeur, hauteur, echelle):
+        sortie.extend(traits)
+    return sortie
+
+
+def par_grille(grilles, largeur, hauteur, echelle):
+    """Une entrée `(segments, tirets_px)` par famille de droites.
+
+    `grilles` : itérable de `Grille`. `echelle` : pixels par pied.
+    Les droites sont découpées sur la tuile de `largeur`×`hauteur` ; celles
+    qui la manquent sautent. `tirets_px` est vide pour un trait plein — les
+    tirets restent attachés à leur famille, chacune a les siens.
+    """
+    familles = []
     for grille in grilles or []:
         ecart = abs(grille.offset) * echelle
         if ecart < ESPACEMENT_MINI:
@@ -105,14 +135,32 @@ def segments(grilles, largeur, hauteur, echelle):
         if k_max - k_min > MAX_LIGNES_PAR_GRILLE:
             k_max = k_min + MAX_LIGNES_PAR_GRILLE
 
+        traits = []
         for k in range(k_min, k_max + 1):
             px = ox + nx * (k * ecart) + dx * (k * decalage)
             py = oy + ny * (k * ecart) + dy * (k * decalage)
             decoupe = _clip(px, py, dx, dy, largeur, hauteur)
             if decoupe is not None:
-                sortie.append(decoupe)
-    return sortie
+                traits.append(decoupe)
+        if traits:
+            familles.append((traits, tirets_px(grille.tirets, echelle)))
+    return familles
 
-# ponytail: les tirets (FillGrid.GetSegments()) sont ignorés — un motif
-# pointillé se dessine plein dans la vignette. Invisible à 64 px de large ;
-# à reprendre le jour où les vignettes grandissent.
+
+def tirets_px(tirets, echelle):
+    """Longueurs de tirets en pixels, ou [] si le trait doit rester plein.
+
+    Revit note les blancs en négatif ; on ne garde que les longueurs, l'ordre
+    trait/blanc/trait/blanc suffit. Une liste impaire est tronquée : un motif
+    doit alterner par paires pour se répéter.
+    """
+    longueurs = [abs(t) * echelle for t in tirets or []]
+    if len(longueurs) % 2:
+        longueurs = longueurs[:-1]
+    if not longueurs:
+        return []
+    # Sous ce seuil la période est un pointillé sub-pixel : ça se dessine
+    # comme un gris sale et coûte un tiret tous les demi-pixels. Trait plein.
+    if sum(longueurs) < PERIODE_TIRETS_MINI:
+        return []
+    return longueurs

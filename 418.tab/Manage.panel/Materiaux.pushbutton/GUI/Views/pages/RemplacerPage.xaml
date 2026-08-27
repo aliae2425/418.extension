@@ -35,6 +35,17 @@
     conditionnels passent par un DataTrigger sur un Style local.
   -->
 
+  <UserControl.Resources>
+    <!-- Entêtes des deux tableaux. Style local : DynamicResource fonctionne,
+         le dictionnaire du socle est fusionné dans la fenêtre avant le load. -->
+    <Style x:Key="EnteteColonneStyle" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+      <Setter Property="VerticalAlignment" Value="Bottom"/>
+    </Style>
+  </UserControl.Resources>
+
   <Grid Background="{DynamicResource TransparentBrush}" Margin="20">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>   <!-- titre -->
@@ -113,6 +124,7 @@
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
           <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>   <!-- entêtes -->
           <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -135,7 +147,22 @@
                   Style="{DynamicResource SecondaryActionButtonStyle}" Margin="8,0,0,0"/>
         </Grid>
 
-        <ScrollViewer Grid.Row="2"
+        <!-- Entêtes : mêmes largeurs de colonnes que le DataTemplate. -->
+        <Grid Grid.Row="2" Margin="2,0,0,4">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="28"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="46"/>
+            <ColumnDefinition Width="72"/>
+            <ColumnDefinition Width="72"/>
+          </Grid.ColumnDefinitions>
+          <TextBlock Grid.Column="1" Text="Titre" Style="{StaticResource EnteteColonneStyle}"/>
+          <TextBlock Grid.Column="2" Text="Rendu" Style="{StaticResource EnteteColonneStyle}"/>
+          <TextBlock Grid.Column="3" Text="Surface" Style="{StaticResource EnteteColonneStyle}"/>
+          <TextBlock Grid.Column="4" Text="Coupe" Style="{StaticResource EnteteColonneStyle}"/>
+        </Grid>
+
+        <ScrollViewer Grid.Row="3"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled">
           <ItemsControl x:Name="SourcesList"
@@ -149,10 +176,10 @@
                   <Grid>
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="28"/>
+                      <ColumnDefinition Width="*"/>
                       <ColumnDefinition Width="46"/>
                       <ColumnDefinition Width="72"/>
                       <ColumnDefinition Width="72"/>
-                      <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
                     <CheckBox Grid.Column="0"
@@ -161,38 +188,39 @@
                               Style="{DynamicResource CheckBoxStyle}"
                               VerticalAlignment="Center"/>
 
-                    <Border Grid.Column="1" Width="40" Height="24" CornerRadius="3"
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding Nom}"
+                               TextTrimming="CharacterEllipsis"
+                               Margin="0,0,8,0"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+
+                    <Border Grid.Column="2" Width="40" Height="24" CornerRadius="3"
                             BorderThickness="1"
                             BorderBrush="{DynamicResource ControlBorderBrush}"
                             Background="{Binding ApparenceCouleur}"
                             HorizontalAlignment="Left" VerticalAlignment="Center"
                             ToolTip="{Binding Apparence}"/>
 
-                    <Border Grid.Column="2" Width="64" Height="26" CornerRadius="3"
-                            BorderThickness="1"
-                            BorderBrush="{DynamicResource ControlBorderBrush}"
-                            Background="{DynamicResource ControlFillBrush}"
-                            ClipToBounds="True"
-                            HorizontalAlignment="Left" VerticalAlignment="Center"
-                            ToolTip="{Binding MotifCoupeNom}">
-                      <Image Source="{Binding MotifCoupeImage}" Stretch="UniformToFill"/>
-                    </Border>
-
                     <Border Grid.Column="3" Width="64" Height="26" CornerRadius="3"
                             BorderThickness="1"
                             BorderBrush="{DynamicResource ControlBorderBrush}"
-                            Background="{DynamicResource ControlFillBrush}"
+                            Background="White"
                             ClipToBounds="True"
                             HorizontalAlignment="Left" VerticalAlignment="Center"
                             ToolTip="{Binding MotifSurfaceNom}">
                       <Image Source="{Binding MotifSurfaceImage}" Stretch="UniformToFill"/>
                     </Border>
 
-                    <TextBlock Grid.Column="4"
-                               Text="{Binding Nom}"
-                               TextTrimming="CharacterEllipsis"
-                               VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <Border Grid.Column="4" Width="64" Height="26" CornerRadius="3"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            Background="White"
+                            ClipToBounds="True"
+                            HorizontalAlignment="Left" VerticalAlignment="Center"
+                            ToolTip="{Binding MotifCoupeNom}">
+                      <Image Source="{Binding MotifCoupeImage}" Stretch="UniformToFill"/>
+                    </Border>
                   </Grid>
                 </Border>
               </DataTemplate>
@@ -210,6 +238,7 @@
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
           <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>   <!-- entêtes -->
           <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -222,7 +251,21 @@
                  Margin="0,0,0,8"
                  Text="{Binding CibleFilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
-        <ScrollViewer Grid.Row="2"
+        <Grid Grid.Row="2" Margin="2,0,0,4">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="28"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="46"/>
+            <ColumnDefinition Width="72"/>
+            <ColumnDefinition Width="72"/>
+          </Grid.ColumnDefinitions>
+          <TextBlock Grid.Column="1" Text="Titre" Style="{StaticResource EnteteColonneStyle}"/>
+          <TextBlock Grid.Column="2" Text="Rendu" Style="{StaticResource EnteteColonneStyle}"/>
+          <TextBlock Grid.Column="3" Text="Surface" Style="{StaticResource EnteteColonneStyle}"/>
+          <TextBlock Grid.Column="4" Text="Coupe" Style="{StaticResource EnteteColonneStyle}"/>
+        </Grid>
+
+        <ScrollViewer Grid.Row="3"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled">
           <ItemsControl x:Name="CiblesList" ItemsSource="{Binding CiblesFiltrees}">
@@ -245,10 +288,10 @@
                   <Grid>
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="28"/>
+                      <ColumnDefinition Width="*"/>
                       <ColumnDefinition Width="46"/>
                       <ColumnDefinition Width="72"/>
                       <ColumnDefinition Width="72"/>
-                      <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
                     <RadioButton Grid.Column="0"
@@ -258,38 +301,39 @@
                                  Style="{DynamicResource RadioButtonStyle}"
                                  VerticalAlignment="Center"/>
 
-                    <Border Grid.Column="1" Width="40" Height="24" CornerRadius="3"
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding Nom}"
+                               TextTrimming="CharacterEllipsis"
+                               Margin="0,0,8,0"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+
+                    <Border Grid.Column="2" Width="40" Height="24" CornerRadius="3"
                             BorderThickness="1"
                             BorderBrush="{DynamicResource ControlBorderBrush}"
                             Background="{Binding ApparenceCouleur}"
                             HorizontalAlignment="Left" VerticalAlignment="Center"
                             ToolTip="{Binding Apparence}"/>
 
-                    <Border Grid.Column="2" Width="64" Height="26" CornerRadius="3"
-                            BorderThickness="1"
-                            BorderBrush="{DynamicResource ControlBorderBrush}"
-                            Background="{DynamicResource ControlFillBrush}"
-                            ClipToBounds="True"
-                            HorizontalAlignment="Left" VerticalAlignment="Center"
-                            ToolTip="{Binding MotifCoupeNom}">
-                      <Image Source="{Binding MotifCoupeImage}" Stretch="UniformToFill"/>
-                    </Border>
-
                     <Border Grid.Column="3" Width="64" Height="26" CornerRadius="3"
                             BorderThickness="1"
                             BorderBrush="{DynamicResource ControlBorderBrush}"
-                            Background="{DynamicResource ControlFillBrush}"
+                            Background="White"
                             ClipToBounds="True"
                             HorizontalAlignment="Left" VerticalAlignment="Center"
                             ToolTip="{Binding MotifSurfaceNom}">
                       <Image Source="{Binding MotifSurfaceImage}" Stretch="UniformToFill"/>
                     </Border>
 
-                    <TextBlock Grid.Column="4"
-                               Text="{Binding Nom}"
-                               TextTrimming="CharacterEllipsis"
-                               VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <Border Grid.Column="4" Width="64" Height="26" CornerRadius="3"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            Background="White"
+                            ClipToBounds="True"
+                            HorizontalAlignment="Left" VerticalAlignment="Center"
+                            ToolTip="{Binding MotifCoupeNom}">
+                      <Image Source="{Binding MotifCoupeImage}" Stretch="UniformToFill"/>
+                    </Border>
                   </Grid>
                 </Border>
               </DataTemplate>

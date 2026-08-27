@@ -69,5 +69,42 @@ class TestSegments(unittest.TestCase):
                 self.assertLessEqual(v, borne + 1e-6)
 
 
+class TestTirets(unittest.TestCase):
+    def test_les_longueurs_passent_en_pixels_les_blancs_en_positif(self):
+        # Revit note les blancs en négatif : 0.5 pied de trait, 0.25 de blanc
+        self.assertEqual(hatch.tirets_px([0.5, -0.25], echelle=100.0),
+                         [50.0, 25.0])
+
+    def test_liste_impaire_tronquee(self):
+        self.assertEqual(hatch.tirets_px([0.5, -0.25, 0.1], echelle=100.0),
+                         [50.0, 25.0])
+
+    def test_periode_sub_pixel_donne_un_trait_plein(self):
+        self.assertEqual(hatch.tirets_px([0.001, -0.001], echelle=100.0), [])
+
+    def test_sans_tirets_trait_plein(self):
+        self.assertEqual(hatch.tirets_px([], echelle=100.0), [])
+        self.assertEqual(hatch.tirets_px(None, echelle=100.0), [])
+
+
+class TestParGrille(unittest.TestCase):
+    def test_une_entree_par_famille_avec_ses_tirets(self):
+        pleine = hatch.Grille(angle=0.0, offset=1.0)
+        pointillee = hatch.Grille(angle=math.pi / 2.0, offset=1.0,
+                                  tirets=[0.5, -0.5])
+        familles = hatch.par_grille([pleine, pointillee], 64.0, 32.0,
+                                    echelle=10.0)
+        self.assertEqual(len(familles), 2)
+        self.assertEqual(familles[0][1], [])
+        self.assertEqual(familles[1][1], [5.0, 5.0])
+
+    def test_segments_reste_la_somme_des_familles(self):
+        grilles = [hatch.Grille(angle=0.0, offset=1.0),
+                   hatch.Grille(angle=math.pi / 2.0, offset=1.0)]
+        familles = hatch.par_grille(grilles, 64.0, 32.0, echelle=10.0)
+        total = sum(len(traits) for traits, _ in familles)
+        self.assertEqual(len(hatch.segments(grilles, 64.0, 32.0, 10.0)), total)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -33,7 +33,12 @@ class MainWindowView(RailWindow):
     )
     SUIVANTS = ((u'selection', 'NextButton', u'renommer'),)
     RUN = None
-    TAILLE = (900, 640)
+    # Largeur calée sur TROIS cards de matériau par rangée : 3 × 260 (244 de
+    # card + 4 d'anneau + 12 de gouttière) + 40 de marge de page + 64 de rail
+    # + la barre de défilement = ~901. 940 laisse le jeu qui évite de retomber
+    # à deux colonnes. Si la card de CardsPage.xaml change de largeur, ce
+    # nombre change avec.
+    TAILLE = (940, 640)
     TAILLE_MINI = (700, 480)
 
     def __init__(self, view_model):

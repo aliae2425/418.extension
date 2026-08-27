@@ -15,8 +15,8 @@ except Exception:
         hatch_image = None
 
 
-class Motif(object):
-    """Un motif de remplissage, tel que lu par script.py.
+class Couche(object):
+    """UN motif de remplissage Revit, tel que lu par script.py.
 
     `grilles` : liste de `services.hatch.Grille`. Vide pour un motif « Uni »
     (Revit ne stocke aucune grille pour un remplissage plein) et pour
@@ -25,13 +25,31 @@ class Motif(object):
 
     def __init__(self, nom=u'', grilles=None, est_modele=False, est_uni=False,
                  rgb=None):
-        self.Nom = nom or u'Aucun'
+        self.nom = nom or u''
         self.grilles = grilles or []
         self.est_modele = est_modele
         self.est_uni = est_uni
         self.rgb = rgb
+
+
+class Motif(object):
+    """Le rendu d'une face : arrière-plan + premier plan, comme dans Revit.
+
+    Depuis 2019 un matériau porte DEUX motifs par face. La vignette les
+    empile dans cet ordre sur du blanc, sinon un fond uni gris surmonté de
+    briques s'affiche briques seules — pas ce que montre la maquette.
+    """
+
+    def __init__(self, fond=None, premier=None):
+        self.fond = fond
+        self.premier = premier
         self._image = None
         self._construite = False
+
+    @property
+    def Nom(self):
+        noms = [c.nom for c in (self.premier, self.fond) if c is not None and c.nom]
+        return u' sur '.join(noms) if noms else u'Aucun'
 
     def image(self):
         # Construite une fois : le binding la relit à chaque recyclage de
@@ -39,11 +57,7 @@ class Motif(object):
         if not self._construite:
             self._construite = True
             if hatch_image is not None:
-                if self.est_uni:
-                    self._image = hatch_image.uni(self.rgb)
-                else:
-                    self._image = hatch_image.depuis_grilles(
-                        self.grilles, self.est_modele, self.rgb)
+                self._image = hatch_image.vignette([self.fond, self.premier])
         return self._image
 
 
