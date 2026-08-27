@@ -1,0 +1,361 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Onglet 0 — audit des matériaux. DataContext = AuditPageVM. Chargée via
+    XamlReader.Load (PAS de x:Class, PAS de code-behind) : brushes et styles
+    en DynamicResource.
+
+    C'est l'onglet ouvert par défaut : le premier de MainWindowView.ONGLETS et
+    le mode initial de MainViewModel. Page en LECTURE SEULE — aucun x:Name à
+    câbler, aucun bouton. Les chiffres viennent des MaterialCardVM déjà
+    construites (aucune requête Revit de plus).
+
+    Une seule tuile pour tous les indicateurs : IndicateurVM porte le chiffre,
+    le libellé, le détail et le drapeau Alerte, qui teinte le chiffre. Ajouter
+    un indicateur se fait dans AuditPageVM.calculer(), pas ici.
+
+    Les sections de détail (apparences partagées, noms proches, motifs de
+    coupe et de surface identiques) sont des Expander dépliables, construits
+    depuis AuditPageVM.Sections — une section sans résultat n'existe pas.
+  -->
+
+  <UserControl.Resources>
+    <!-- Pastille du nombre de membres d'un groupe. -->
+    <Style x:Key="PastilleStyle" TargetType="Border">
+      <Setter Property="Width" Value="26"/>
+      <Setter Property="Height" Value="20"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Background" Value="{DynamicResource ControlFillBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Margin" Value="0,0,10,0"/>
+    </Style>
+  </UserControl.Resources>
+
+  <Grid Background="{DynamicResource TransparentBrush}" Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>   <!-- titre -->
+      <RowDefinition Height="Auto"/>   <!-- résumé -->
+      <RowDefinition Height="*"/>      <!-- tuiles + détails -->
+    </Grid.RowDefinitions>
+
+    <TextBlock Grid.Row="0"
+               Text="{Binding TitrePage}"
+               Style="{DynamicResource HeaderTextBlockStyle}"/>
+
+    <TextBlock Grid.Row="1"
+               Text="{Binding Resume}"
+               FontSize="11"
+               Margin="0,2,0,12"
+               Foreground="{DynamicResource TextSecondaryBrush}"/>
+
+    <ScrollViewer Grid.Row="2"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+      <StackPanel>
+
+        <!-- ═══════════ Récap : anneau + score ═══════════
+             L'anneau est une DrawingImage construite par views/donut_image.py
+             (pas de dessin en XAML) : les trois parts SONT une partition du
+             modèle, un matériau ne tombe que dans une. Le score au centre est
+             noté par AuditPageVM.BAREME.
+
+             Les pastilles de légende sont bindées en '#RRGGBB' plutôt qu'en
+             DynamicResource : c'est la MÊME teinte que celle tracée dans
+             l'anneau, elle vient du même endroit (SegmentVM.Couleur). -->
+        <Border Style="{DynamicResource CardStyle}"
+                Padding="18,16" Margin="0,0,0,14">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="24"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Column="0" Width="140" Height="140">
+              <Image Source="{Binding Torus}"
+                     Width="140" Height="140"
+                     Stretch="Uniform"/>
+              <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <TextBlock Text="{Binding Score}"
+                           FontSize="34"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                      <Style.Triggers>
+                        <!-- Sur ScoreNiveau (ASCII), pas sur la mention
+                             affichée : la couleur ne doit pas dépendre d'un
+                             libellé accentué. -->
+                        <DataTrigger Binding="{Binding ScoreNiveau}" Value="bon">
+                          <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding ScoreNiveau}" Value="moyen">
+                          <Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding ScoreNiveau}" Value="critique">
+                          <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+                <TextBlock Text="sur 100"
+                           FontSize="10"
+                           HorizontalAlignment="Center"
+                           Margin="0,-4,0,0"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+              </StackPanel>
+            </Grid>
+
+            <StackPanel Grid.Column="2" VerticalAlignment="Center">
+              <TextBlock Text="{Binding ScoreMention}"
+                         FontSize="15"
+                         FontWeight="SemiBold"
+                         Foreground="{DynamicResource TextPrimaryBrush}"/>
+              <TextBlock Text="{Binding ScoreDetail}"
+                         FontSize="11"
+                         TextWrapping="Wrap"
+                         Margin="0,1,0,10"
+                         ToolTip="Points retirés par poste : non utilisés (50 max), doublons (35 max), fiches sans classe ni apparence (15 max)."
+                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+
+              <ItemsControl ItemsSource="{Binding Segments}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid Margin="0,0,0,6">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="52"/>
+                      </Grid.ColumnDefinitions>
+                      <Border Grid.Column="0"
+                              Width="12" Height="12" CornerRadius="3"
+                              Margin="0,0,10,0"
+                              VerticalAlignment="Center"
+                              Background="{Binding Couleur}"/>
+                      <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Libelle}"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="{Binding Detail}"
+                                   FontSize="10"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                      </StackPanel>
+                      <TextBlock Grid.Column="2"
+                                 Text="{Binding Valeur}"
+                                 FontSize="13"
+                                 FontWeight="SemiBold"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,10,0"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
+                      <TextBlock Grid.Column="3"
+                                 Text="{Binding Part}"
+                                 FontSize="11"
+                                 VerticalAlignment="Center"
+                                 TextAlignment="Right"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <!-- ═══════════ Tuiles ═══════════
+             UniformGrid et non WrapPanel : les colonnes se PARTAGENT la
+             largeur disponible, donc la grille remplit la page quelle que
+             soit la taille de la fenêtre — un WrapPanel à tuiles fixes
+             laissait la place perdue au bout de chaque rangée.
+             4 colonnes pour 12 indicateurs : trois rangées pleines. -->
+        <ItemsControl ItemsSource="{Binding Indicateurs}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Columns="4"/>
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Style="{DynamicResource CardStyle}"
+                      Padding="14,12" Margin="0,0,12,12">
+                <StackPanel>
+                  <TextBlock Text="{Binding Valeur}"
+                             FontSize="30"
+                             FontWeight="SemiBold">
+                    <TextBlock.Style>
+                      <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                        <Style.Triggers>
+                          <!-- Il y a quelque chose à faire : chiffre teinté. -->
+                          <DataTrigger Binding="{Binding Alerte}" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </TextBlock.Style>
+                  </TextBlock>
+                  <TextBlock Text="{Binding Libelle}"
+                             FontSize="12"
+                             FontWeight="SemiBold"
+                             TextTrimming="CharacterEllipsis"
+                             Margin="0,2,0,0"
+                             ToolTip="{Binding Libelle}"
+                             Foreground="{DynamicResource TextPrimaryBrush}"/>
+                  <TextBlock Text="{Binding Detail}"
+                             FontSize="11"
+                             TextWrapping="Wrap"
+                             Margin="0,1,0,0"
+                             Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- ═══════════ Rien à signaler ═══════════ -->
+        <TextBlock Text="Aucun doublon d'apparence, de nom ni de motif : rien à fusionner."
+                   FontSize="12"
+                   Margin="0,10,0,0"
+                   Foreground="{DynamicResource SuccessBrush}">
+          <TextBlock.Style>
+            <Style TargetType="TextBlock">
+              <Setter Property="Visibility" Value="Collapsed"/>
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding ARienASignaler}" Value="True">
+                  <Setter Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBlock.Style>
+        </TextBlock>
+
+        <!-- ═══════════ Sections de détail, repliables ═══════════
+             UN seul gabarit d'Expander pour toutes les sections : elles sont
+             de la donnée (AuditPageVM.SECTIONS). Une section vide n'est pas
+             construite, il n'y a donc aucun déclencheur de visibilité ici, et
+             ajouter un critère de doublon ne touche pas à ce XAML.
+
+             IsExpanded est en TwoWay sur SectionVM.EstDeployee : la page
+             n'est montée qu'une fois par RailWindow, donc l'état de pliage
+             survit aux allers-retours entre onglets. La première section non
+             vide est ouverte d'office.
+
+             Conteneur EXTÉRIEUR Border CardStyle, Expander logé dedans :
+             même structure que les cartes de collection de BatchExport. Le
+             CardStyle porte déjà Margin et Padding — ne pas les redéfinir. -->
+        <ItemsControl ItemsSource="{Binding Sections}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Style="{DynamicResource CardStyle}">
+                <Expander Style="{DynamicResource CollectionExpanderStyle}"
+                          IsExpanded="{Binding EstDeployee, Mode=TwoWay}">
+                  <Expander.Header>
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                      </Grid.ColumnDefinitions>
+                      <TextBlock Text="{Binding Titre}"
+                                 FontSize="14"
+                                 FontWeight="SemiBold"
+                                 VerticalAlignment="Center"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
+                      <TextBlock Grid.Column="1"
+                                 Text="{Binding Compteur}"
+                                 FontSize="11"
+                                 VerticalAlignment="Center"
+                                 Margin="10,0,0,0"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Grid>
+                  </Expander.Header>
+
+                  <StackPanel Margin="0,10,0,0">
+                    <TextBlock Text="{Binding Explication}"
+                               FontSize="11"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,6"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+
+                    <ItemsControl ItemsSource="{Binding Groupes}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border BorderBrush="{DynamicResource ControlBorderBrush}"
+                                  BorderThickness="0,0,0,1"
+                                  Background="{DynamicResource TransparentBrush}"
+                                  Padding="2,6">
+                            <Grid>
+                              <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="220"/>
+                                <ColumnDefinition Width="*"/>
+                              </Grid.ColumnDefinitions>
+
+                              <Border Grid.Column="0" Style="{StaticResource PastilleStyle}">
+                                <TextBlock Text="{Binding Nombre}"
+                                           FontSize="11"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                              </Border>
+
+                              <!-- Vignette du motif : seules les sections de
+                                   hachures en ont une (AApercu). Fond blanc et
+                                   ClipToBounds comme partout ailleurs. -->
+                              <Border Grid.Column="1"
+                                      Width="64" Height="26" CornerRadius="3"
+                                      BorderThickness="1"
+                                      BorderBrush="{DynamicResource ControlBorderBrush}"
+                                      Background="White"
+                                      ClipToBounds="True"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,10,0">
+                                <Border.Style>
+                                  <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                      <DataTrigger Binding="{Binding AApercu}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                      </DataTrigger>
+                                    </Style.Triggers>
+                                  </Style>
+                                </Border.Style>
+                                <Image Source="{Binding Apercu}" Stretch="UniformToFill"/>
+                              </Border>
+
+                              <TextBlock Grid.Column="2"
+                                         Text="{Binding Titre}"
+                                         FontWeight="SemiBold"
+                                         TextTrimming="CharacterEllipsis"
+                                         VerticalAlignment="Center"
+                                         Margin="0,0,10,0"
+                                         ToolTip="{Binding Titre}"
+                                         Foreground="{DynamicResource TextPrimaryBrush}"/>
+                              <TextBlock Grid.Column="3"
+                                         Text="{Binding Membres}"
+                                         FontSize="11"
+                                         TextTrimming="CharacterEllipsis"
+                                         VerticalAlignment="Center"
+                                         ToolTip="{Binding Membres}"
+                                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </Expander>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

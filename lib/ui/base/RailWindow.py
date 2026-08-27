@@ -40,10 +40,12 @@ except Exception:
 class Onglet(object):
     """Un onglet du rail : la page, son DataContext, et son item de nav.
 
-    `icone` est le glyphe affiché dans le rail (un caractère Unicode, ex.
-    u'☑'), `tooltip` son infobulle. Le RadioButton correspondant est
-    construit par `RailWindow._construire_nav` — il n'y a plus de x:Name à
-    tenir synchrone entre le XAML et cette déclaration.
+    `icone` est la CLÉ d'une géométrie de `lib/ui/GUI/resources/Icons.xaml`
+    (ex. u'IconSelection'), pas un glyphe : les clés portent le rôle, donc
+    deux outils qui déclarent le même rôle affichent le même dessin Lucide.
+    `tooltip` est l'infobulle. Le RadioButton correspondant est construit par
+    `RailWindow._construire_nav` — il n'y a plus de x:Name à tenir synchrone
+    entre le XAML et cette déclaration.
     """
 
     def __init__(self, mode, xaml, vm_attr, icone=u'', tooltip=u''):
@@ -147,7 +149,7 @@ class RailWindow(BaseWindow):
         for index, onglet in enumerate(self.ONGLETS):
             bouton = RadioButton()
             bouton.GroupName = 'nav'
-            bouton.Content = onglet.icone
+            bouton.Content = self._icone(onglet.icone)
             if onglet.tooltip:
                 bouton.ToolTip = onglet.tooltip
             if style is not None:
@@ -156,6 +158,31 @@ class RailWindow(BaseWindow):
                 bouton.Margin = Thickness(0, 0, 0, 6)
             hote.Children.Add(bouton)
             self._navs[onglet.mode] = bouton
+
+    def _icone(self, cle):
+        """Le `Path` Lucide à poser en Content du bouton de rail.
+
+        Tout l'habillage (taille, épaisseur, caps ronds, liaison du trait au
+        Foreground du bouton) vient de `NavRailIconStyle`, le même style que
+        les rails écrits en dur dans BatchExport et Audit — il n'y a ici que
+        la géométrie à choisir.
+
+        Résolu sur la FENÊTRE et pas sur le bouton : le bouton n'est pas encore
+        rattaché à l'arbre quand on lui pose son Content, il ne verrait donc
+        aucun des dictionnaires fusionnés par UIResourceLoader.
+
+        Clé absente d'Icons.xaml -> bouton vide plutôt que fenêtre morte ;
+        c'est `test_rail_window` qui garde la cohérence des clés.
+        """
+        from System.Windows.Shapes import Path as WpfPath
+        geometrie = self._window.TryFindResource(cle)
+        if geometrie is None:
+            print('RailWindow: icone introuvable dans Icons.xaml: {}'.format(cle))
+            return None
+        chemin = WpfPath()
+        chemin.Data = geometrie
+        chemin.Style = self._window.TryFindResource('NavRailIconStyle')
+        return chemin
 
     def _chemin_page(self, filename):
         """Cherche la page dans le bouton, puis dans le socle.

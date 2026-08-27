@@ -32,61 +32,105 @@ def _contexte():
 
 class TestMainViewModel(unittest.TestCase):
 
-    def test_charger_construit_les_trois_onglets(self):
+    def test_charger_construit_les_quatre_onglets(self):
         _, cartes, par_id = _contexte()
         vm = MainViewModel()
         vm.charger(cartes, par_id)
-        self.assertEqual(vm.Mode, u'selection')
+        # L'audit est l'onglet ouvert par défaut.
+        self.assertEqual(vm.Mode, u'audit')
+        self.assertIsNotNone(vm.AuditVM)
         self.assertEqual(len(vm.SelectionVM.AllItems), 2)
         self.assertIsNotNone(vm.RemplacerVM)
         self.assertIsNotNone(vm.RenommerVM)
 
-    def test_les_deux_onglets_partagent_une_seule_liste(self):
-        # Le tableau de la page Remplacer affiche la MÊME SelectionPageVM que
-        # les cards : une seule sélection, pas deux listes à synchroniser.
+    def test_les_trois_onglets_partagent_les_cards_pas_la_selection(self):
+        # Un seul MaterialCardVM par matériau (vignettes et usages calculés
+        # une fois), mais TROIS pages de sélection, une par case.
         _, cartes, par_id = _contexte()
         vm = MainViewModel()
         vm.charger(cartes, par_id)
-        self.assertIs(vm.RemplacerVM.SelectionVM, vm.SelectionVM)
-        self.assertEqual([c.Nom for c in vm.RemplacerVM.SelectionVM.AllItems],
-                         [u'Béton coulé', u'Chêne'])
+        pages = (vm.SelectionVM, vm.RenommerVM.SelectionVM,
+                 vm.RemplacerVM.SelectionVM)
+        self.assertEqual(len(set(id(p) for p in pages)), 3)
+        for page in pages:
+            self.assertEqual(page.AllItems, cartes)
 
     def test_la_cible_se_prend_dans_la_meme_liste(self):
         _, cartes, par_id = _contexte()
         vm = MainViewModel(service=object())   # présence suffit : rien n'est appelé
         vm.charger(cartes, par_id)
-        vm.SelectionVM.handle_row_click(0)          # source : Béton
-        vm.RemplacerVM.Cible = cartes[1]            # cible : Chêne
+        vm.RemplacerVM.SelectionVM.handle_row_click(0)   # source : Béton
+        vm.RemplacerVM.Cible = cartes[1]                 # cible : Chêne
         self.assertEqual(vm.RemplacerVM._sources, [1])
         self.assertTrue(cartes[1].EstCible)
         self.assertTrue(vm.RemplacerVM.PeutRemplacer)
 
-    def test_cocher_une_card_alimente_les_deux_autres_onglets(self):
+    def test_cocher_dans_un_onglet_ne_touche_pas_aux_autres(self):
         _, cartes, par_id = _contexte()
         vm = MainViewModel()
         vm.charger(cartes, par_id)
-        vm.SelectionVM.handle_row_click(0)          # coche la 1re card
-        self.assertEqual(vm.RemplacerVM._sources, [1])
-        self.assertEqual([a.Ancien for a in vm.RenommerVM.Apercus],
-                         [u'Béton coulé'])
-
-    def test_decocher_vide_les_deux_autres_onglets(self):
-        _, cartes, par_id = _contexte()
-        vm = MainViewModel()
-        vm.charger(cartes, par_id)
-        vm.SelectionVM.select_all()
-        self.assertEqual(len(vm.RenommerVM.Apercus), 2)
-        vm.SelectionVM.deselect_all()
+        vm.SelectionVM.select_all()                 # onglet Matériaux
         self.assertEqual(vm.RemplacerVM._sources, [])
-        self.assertEqual(vm.RenommerVM.Apercus, [])
+        vm.RenommerVM.Prefixe = u'X_'
+        self.assertEqual([c.NouveauNom for c in cartes], [u'', u''])
+        vm.RenommerVM.SelectionVM.handle_row_click(0)
+        self.assertEqual([c.NouveauNom for c in cartes], [u'X_Béton coulé', u''])
+        self.assertEqual(vm.RemplacerVM._sources, [])
 
-    def test_recherche_filtre_sur_le_nom_et_la_classe(self):
+    def test_decocher_vide_l_onglet_concerne(self):
+        _, cartes, par_id = _contexte()
+        vm = MainViewModel()
+        vm.charger(cartes, par_id)
+        vm.RenommerVM.SelectionVM.select_all()
+        vm.RenommerVM.Prefixe = u'X_'
+        self.assertEqual(vm.RenommerVM.NombreChanges, 2)
+        vm.RenommerVM.SelectionVM.deselect_all()
+        self.assertEqual(vm.RenommerVM.NombreChanges, 0)
+        self.assertEqual([c.NouveauNom for c in cartes], [u'', u''])
+
+    def test_chaque_onglet_a_sa_recherche(self):
         _, cartes, par_id = _contexte()
         vm = MainViewModel()
         vm.charger(cartes, par_id)
         vm.SelectionVM.FilterText = u'bois'          # classe, pas nom
         self.assertEqual([c.Nom for c in vm.SelectionVM.FilteredItems],
                          [u'Chêne'])
+        self.assertEqual(len(vm.RenommerVM.SelectionVM.FilteredItems), 2)
+
+    def test_preset_coche_les_non_utilises(self):
+        # Sur l'onglet Renommer : c'est là que les sélections préfabriquées
+        # ont un sens, l'onglet Matériaux est passé en sélection exclusive.
+        # Sans comptage d'usages, tout est « non utilisé » et « sans
+        # instance » : c'est le repli hors Revit.
+        _, cartes, par_id = _contexte()
+        vm = MainViewModel()
+        vm.charger(cartes, par_id)
+        page = vm.RenommerVM.SelectionVM
+        page.Preset = u'Non utilisés'
+        self.assertEqual(page.selected_ids(), [1, 2])
+        page.Preset = u'Utilisés'
+        self.assertEqual(page.selected_ids(), [])
+        # Le menu reste sur son libellé neutre : c'est une action.
+        self.assertEqual(page.Preset, page.PLACEHOLDER)
+        # Et il n'a pas touché aux autres onglets.
+        self.assertEqual(vm.RemplacerVM.SelectionVM.selected_ids(), [])
+
+    def test_longlet_materiaux_ne_garde_quun_seul_choix(self):
+        _, cartes, par_id = _contexte()
+        vm = MainViewModel()
+        vm.charger(cartes, par_id)
+        vm.SelectionVM.handle_row_click(0)
+        vm.SelectionVM.handle_row_click(1)
+        self.assertEqual(vm.SelectionVM.selected_ids(), [2])
+        self.assertIs(vm.carte_selectionnee(), cartes[1])
+        # Les autres onglets restent multi-sélection sur les mêmes cards.
+        self.assertEqual(vm.RenommerVM.SelectionVM.selected_ids(), [])
+
+    def test_sans_choix_pas_de_carte_a_editer(self):
+        _, cartes, par_id = _contexte()
+        vm = MainViewModel()
+        vm.charger(cartes, par_id)
+        self.assertIsNone(vm.carte_selectionnee())
 
     def test_set_mode_bascule_l_onglet(self):
         vm = MainViewModel()

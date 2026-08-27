@@ -198,5 +198,44 @@ class TestRemplacementDesCouches(BaseService):
         self.assertEqual(mur.ids_couches(), [u'877'])
 
 
+class TestComptageDesUsages(BaseService):
+    """Le chiffre affiché sur les cards doit voir la même chose qu'Analyser :
+    couches de structure composée comprises, sinon un matériau utilisé par un
+    WallType s'affiche « Non utilisé » alors que le remplacement le trouve."""
+
+    def test_types_et_instances_comptes_separement(self):
+        service = MaterialService(FauxDoc(
+            types=[FauxType(u'Ext. Brique 22', [u'877', u'873']),
+                   FauxType(u'Int. Brique', [u'877'])],
+            instances=[FausseInstance(u'Mur 1', [u'877']),
+                       FausseInstance(u'Mur 2', [u'877'])]))
+        lignes = service.compter_utilisations([u'877', u'873'])
+        self.assertEqual((lignes[u'877'].Types, lignes[u'877'].Instances),
+                         (2, 2))
+        self.assertEqual(lignes[u'877'].Total, 4)
+        self.assertEqual(lignes[u'877'].Detail, u'2 types · 2 instances')
+        self.assertEqual((lignes[u'873'].Types, lignes[u'873'].Instances),
+                         (1, 0))
+        self.assertEqual(lignes[u'873'].Detail, u'1 type')
+
+    def test_materiau_inutilise_a_sa_ligne_a_zero(self):
+        service = MaterialService(FauxDoc(types=[FauxType(u'M', [u'877'])]))
+        lignes = service.compter_utilisations([u'877', u'999'])
+        self.assertEqual(lignes[u'999'].Total, 0)
+        self.assertEqual(lignes[u'999'].Detail, u'')
+
+    def test_une_couche_repetee_ne_compte_l_element_qu_une_fois(self):
+        """`_ids_materiaux` rend un set : un mur à trois couches du même
+        matériau reste UN porteur, pas trois."""
+        service = MaterialService(
+            FauxDoc(types=[FauxType(u'Triple', [u'877', u'877', u'877'])]))
+        self.assertEqual(
+            service.compter_utilisations([u'877'])[u'877'].Total, 1)
+
+    def test_sans_id_aucun_parcours(self):
+        service = MaterialService(FauxDoc(types=[FauxType(u'M', [u'877'])]))
+        self.assertEqual(service.compter_utilisations([]), {})
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

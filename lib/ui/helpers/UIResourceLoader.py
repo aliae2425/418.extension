@@ -51,7 +51,7 @@ class UIResourceLoader(object):
         # styles est unique : il ne contient aucune couleur littérale, tout
         # passe par DynamicResource, y compris les opacités d'ombre.
         suffix = 'Dark' if self._dark else ''
-        for name in ('Colors{}.xaml'.format(suffix), 'Styles.xaml'):
+        for name in ('Colors{}.xaml'.format(suffix), 'Icons.xaml', 'Styles.xaml'):
             path = self._paths.resource_path(name)
             if not os.path.exists(path):
                 print('UIResourceLoader: ressource introuvable: {}'.format(path))

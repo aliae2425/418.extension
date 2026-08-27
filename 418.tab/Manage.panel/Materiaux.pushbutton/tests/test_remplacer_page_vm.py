@@ -37,12 +37,16 @@ class FakeService(object):
 
 
 def _selection(cartes):
-    """La MÊME page de sélection que l'onglet Matériaux — le tableau de la
-    page Remplacer s'y branche au lieu d'avoir sa propre liste."""
-    return SelectionPageVM(cartes,
+    """La page de sélection de CET onglet : même cards que les deux autres,
+    mais sur sa propre case — comme la construit MainViewModel."""
+    page = SelectionPageVM(cartes,
                            id_getter=lambda carte: carte.Id,
                            filter_getters=[lambda carte: carte.Nom],
-                           titre=u'Matériaux')
+                           prop=u'IsSelectedRemplacer',
+                           titre=u'Remplacer')
+    for carte in cartes:
+        carte.brancher(u'IsSelectedRemplacer', page._on_item_toggle)
+    return page
 
 
 def _rapport(peints=0):
