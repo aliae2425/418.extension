@@ -50,6 +50,8 @@ class SelectionPageVM(BaseViewModel):
     - select_all / deselect_all : sur la liste COMPLÈTE (masqués inclus)
     - `presets` : sélections préfabriquées offertes dans un menu de la page,
       couples (libellé, prédicat sur l'item) — cf. `Presets` / `Preset`.
+    - `MasquerNonSelectionnes` : masque d'affichage qui ne laisse voir que
+      les items cochés, cumulé avec la recherche.
 
     `prop` porte la case : deux pages construites sur les MÊMES items avec
     des `prop` différentes ont des sélections indépendantes (les trois
@@ -75,6 +77,7 @@ class SelectionPageVM(BaseViewModel):
         self._selection = ListSelectionService(prop=prop)
         self._filter_text = u''
         self._filtered = list(self._all)
+        self._masquer = False
         # Validité de l'ancre : ListSelectionService remet la sienne à -1 sur
         # reset() sans l'exposer. On suit l'information ici pour savoir si un
         # Shift doit produire une plage ou retomber sur une bascule.
@@ -124,8 +127,34 @@ class SelectionPageVM(BaseViewModel):
         self.notify_property('FilteredItems')
 
     @property
+    def MasquerNonSelectionnes(self):
+        """N'afficher que les items cochés, en plus du filtre texte.
+
+        Se lit dans `FilteredItems` : c'est un masque d'affichage, il ne
+        touche ni à la sélection ni à `select_all`/`Preset`, qui portent
+        toujours sur la liste complète. Tout décocher avec le masque actif
+        vide donc la liste — remettre le masque à zéro la fait revenir.
+        """
+        return self._masquer
+
+    @MasquerNonSelectionnes.setter
+    def MasquerNonSelectionnes(self, value):
+        value = bool(value)
+        if value == self._masquer:
+            return
+        self._masquer = value
+        # Les positions affichées changent -> l'ancre de plage ne veut plus
+        # rien dire, comme après une recherche.
+        self._selection.reset()
+        self._has_anchor = False
+        self.notify_property('MasquerNonSelectionnes')
+        self.notify_property('FilteredItems')
+
+    @property
     def FilteredItems(self):
-        return self._filtered
+        if not self._masquer:
+            return self._filtered
+        return [it for it in self._filtered if getattr(it, self._prop, False)]
 
     @property
     def AllItems(self):
@@ -148,13 +177,18 @@ class SelectionPageVM(BaseViewModel):
         self._after_selection_change()
 
     def handle_row_click(self, index, shift=False, ctrl=False):
+        # `index` vient de la liste AFFICHÉE : c'est `FilteredItems` qu'il faut
+        # indexer, pas `_filtered` — les deux diffèrent quand le masque
+        # « non sélectionnés » est actif.
+        affichees = self.FilteredItems
+
         def _clic():
             if shift and self._has_anchor:
-                self._selection.handle_click(self._filtered, index, shift=True)
+                self._selection.handle_click(affichees, index, shift=True)
             else:
                 # clic simple, Ctrl, OU Shift sans ancre valide -> bascule
                 # ponctuelle (la case reste le contrôle, pas d'exclusif)
-                self._selection.handle_click(self._filtered, index, ctrl=True)
+                self._selection.handle_click(affichees, index, ctrl=True)
                 self._has_anchor = True
         self._en_lot(_clic)
 
@@ -213,5 +247,10 @@ class SelectionPageVM(BaseViewModel):
 
     def _after_selection_change(self):
         self.notify_property('HasSelection')
+        if self._masquer:
+            # Le masque dépend de la sélection : décocher fait disparaître la
+            # ligne. Notifié seulement dans ce mode, sinon toutes les listes
+            # se reconstruiraient à chaque clic.
+            self.notify_property('FilteredItems')
         if self._on_selection_changed is not None:
             self._on_selection_changed(self.selected_ids())

@@ -36,9 +36,9 @@ class MainViewModel(BaseViewModel):
     viendra avec la suite (purge).
     """
 
-    #: Menu de sélection de l'onglet Matériaux : (libellé, prédicat sur la
-    #: card). Les critères d'usage viennent du comptage fait à l'ouverture
-    #: par script.py ; sans comptage, tout est « non utilisé ».
+    #: Menu de sélection des onglets Matériaux et Renommer : (libellé,
+    #: prédicat sur la card). Les critères d'usage viennent du comptage fait à
+    #: l'ouverture par script.py ; sans comptage, tout est « non utilisé ».
     PRESETS = (
         (u'Tout', lambda carte: True),
         (u'Aucun', lambda carte: False),
@@ -81,7 +81,8 @@ class MainViewModel(BaseViewModel):
                                                u'Matériaux',
                                                presets=self.PRESETS)
         page_renommer = self._nouvelle_page(cartes, u'IsSelectedRenommer',
-                                           u'Renommer')
+                                           u'Renommer',
+                                           presets=self.PRESETS)
         page_remplacer = self._nouvelle_page(cartes, u'IsSelectedRemplacer',
                                             u'Remplacer')
         self.RenommerVM = RenommerPageVM(self._service, page_renommer,

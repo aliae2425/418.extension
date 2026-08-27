@@ -19,13 +19,13 @@
     bindings, mêmes tailles) : elles viennent des mêmes MaterialCardVM, il n'y
     a rien à recalculer.
 
-    Les noms x:Name ItemsList / SelectAllButton / DeselectAllButton sont
-    câblés par MainWindowView._wire_selection. La case est display-only
-    (IsHitTestVisible=False, binding OneWay) : tous les clics passent par le
-    handler unique posé sur la liste.
+    Le nom x:Name ItemsList est câblé par MainWindowView._wire_selection. La
+    case est display-only (IsHitTestVisible=False, binding OneWay) : tous les
+    clics passent par le handler unique posé sur la liste.
 
-    Les quatre champs sont en UpdateSourceTrigger=PropertyChanged : l'aperçu
-    se recalcule à la frappe. RenommerButton est câblé par MainWindowView.
+    Les quatre champs sont sur une ligne, dans l'ordre d'application, et en
+    UpdateSourceTrigger=PropertyChanged : l'aperçu se recalcule à la frappe.
+    RenommerButton est câblé par MainWindowView.
   -->
 
   <UserControl.Resources>
@@ -55,46 +55,50 @@
                Style="{DynamicResource HeaderTextBlockStyle}"
                Margin="0,0,0,14"/>
 
+    <!-- Les quatre champs sur UNE ligne, dans l'ordre d'application :
+         préfixe | rechercher | remplacer par | suffixe. -->
     <Grid Grid.Row="1" Margin="0,0,0,12">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="12"/>
+        <ColumnDefinition Width="10"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="10"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="10"/>
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/>
         <RowDefinition Height="Auto"/>
         <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
 
-      <TextBlock Grid.Row="0" Grid.Column="0" Text="Rechercher"
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="Préfixe"
                  FontSize="11" Margin="0,0,0,4"
                  Foreground="{DynamicResource TextSecondaryBrush}"/>
       <TextBox Grid.Row="1" Grid.Column="0"
-               Text="{Binding Rechercher, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+               Text="{Binding Prefixe, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
-      <TextBlock Grid.Row="0" Grid.Column="2" Text="Remplacer par"
+      <TextBlock Grid.Row="0" Grid.Column="2" Text="Rechercher"
                  FontSize="11" Margin="0,0,0,4"
                  Foreground="{DynamicResource TextSecondaryBrush}"/>
       <TextBox Grid.Row="1" Grid.Column="2"
+               Text="{Binding Rechercher, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+      <TextBlock Grid.Row="0" Grid.Column="4" Text="Remplacer par"
+                 FontSize="11" Margin="0,0,0,4"
+                 Foreground="{DynamicResource TextSecondaryBrush}"/>
+      <TextBox Grid.Row="1" Grid.Column="4"
                Text="{Binding Remplacer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
-      <TextBlock Grid.Row="2" Grid.Column="0" Text="Préfixe"
-                 FontSize="11" Margin="0,10,0,4"
+      <TextBlock Grid.Row="0" Grid.Column="6" Text="Suffixe"
+                 FontSize="11" Margin="0,0,0,4"
                  Foreground="{DynamicResource TextSecondaryBrush}"/>
-      <TextBox Grid.Row="3" Grid.Column="0"
-               Text="{Binding Prefixe, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-
-      <TextBlock Grid.Row="2" Grid.Column="2" Text="Suffixe"
-                 FontSize="11" Margin="0,10,0,4"
-                 Foreground="{DynamicResource TextSecondaryBrush}"/>
-      <TextBox Grid.Row="3" Grid.Column="2"
+      <TextBox Grid.Row="1" Grid.Column="6"
                Text="{Binding Suffixe, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
-      <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3"
-                  Orientation="Horizontal" Margin="0,12,0,0">
+      <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="7"
+                  Orientation="Horizontal" Margin="0,10,0,0">
         <CheckBox IsChecked="{Binding UseRegex, Mode=TwoWay}"
                   Style="{DynamicResource CheckBoxStyle}"
                   Content="Expression régulière"/>
@@ -124,8 +128,9 @@
       </TextBlock.Style>
     </TextBlock>
 
-    <!-- Filtre de la liste. Porté par la page de sélection partagée : la
-         recherche est la même que celle de l'onglet Matériaux. -->
+    <!-- Recherche + menu de sélection + masque. Les trois sont portés par la
+         SelectionPageVM de cet onglet, donc sans effet sur les autres.
+         Le menu remplace Tout/Aucun, qui sont ses deux premières entrées. -->
     <Grid Grid.Row="3" Margin="0,0,0,8">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*"/>
@@ -135,10 +140,19 @@
       <TextBox Grid.Column="0"
                x:Name="SearchBox"
                Text="{Binding SelectionVM.FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-      <Button Grid.Column="1" x:Name="SelectAllButton" Content="Tout"
-              Style="{DynamicResource SecondaryActionButtonStyle}" Margin="8,0,0,0"/>
-      <Button Grid.Column="2" x:Name="DeselectAllButton" Content="Aucun"
-              Style="{DynamicResource SecondaryActionButtonStyle}" Margin="8,0,0,0"/>
+      <ComboBox Grid.Column="1"
+                x:Name="PresetCombo"
+                Width="170"
+                Margin="8,0,0,0"
+                ItemsSource="{Binding SelectionVM.Presets}"
+                SelectedItem="{Binding SelectionVM.Preset, Mode=TwoWay}"/>
+      <CheckBox Grid.Column="2"
+                IsChecked="{Binding SelectionVM.MasquerNonSelectionnes, Mode=TwoWay}"
+                Style="{DynamicResource ToggleSwitchStyle}"
+                Content="Cochés seulement"
+                VerticalAlignment="Center"
+                Margin="14,0,0,0"
+                ToolTip="Masquer les matériaux non cochés. Le menu et la recherche continuent de porter sur toute la liste."/>
     </Grid>
 
     <!-- Entêtes : mêmes largeurs de colonnes que le DataTemplate. -->

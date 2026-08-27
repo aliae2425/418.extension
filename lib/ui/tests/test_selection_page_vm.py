@@ -135,6 +135,52 @@ class TestSelectionPageVM(unittest.TestCase):
         self.assertEqual(vus, [[3]])
 
 
+class TestMasqueNonSelectionnes(unittest.TestCase):
+    """Masque d'affichage : il retire les non cochés de la liste visible sans
+    toucher à la sélection ni aux opérations de masse."""
+
+    def test_inactif_par_defaut(self):
+        c = _vm()
+        self.assertFalse(c.MasquerNonSelectionnes)
+        self.assertEqual(len(c.FilteredItems), 3)
+
+    def test_actif_ne_laisse_que_les_coches(self):
+        c = _vm()
+        c.handle_row_click(1)
+        c.MasquerNonSelectionnes = True
+        self.assertEqual([it.Id for it in c.FilteredItems], [2])
+
+    def test_se_cumule_avec_la_recherche(self):
+        c = _vm()
+        c.select_all()
+        c.MasquerNonSelectionnes = True
+        c.FilterText = u'A-'
+        self.assertEqual([it.Id for it in c.FilteredItems], [1, 2])
+
+    def test_le_clic_indexe_la_liste_affichee(self):
+        # Piège : avec le masque, l'index affiché n'est plus celui de la liste
+        # filtrée. Cliquer la 1re ligne visible doit décocher CET item.
+        c = _vm()
+        c.handle_row_click(2)          # coche B-201, seul visible ensuite
+        c.MasquerNonSelectionnes = True
+        c.handle_row_click(0)
+        self.assertEqual(c.selected_ids(), [])
+        self.assertEqual(c.FilteredItems, [])
+
+    def test_les_operations_de_masse_portent_sur_toute_la_liste(self):
+        c = _vm()
+        c.MasquerNonSelectionnes = True
+        self.assertEqual(c.FilteredItems, [])   # rien de coché, rien à voir
+        c.select_all()                          # atteint quand même les 3
+        self.assertEqual([it.Id for it in c.FilteredItems], [1, 2, 3])
+
+    def test_retirer_le_masque_ramene_tout(self):
+        c = _vm()
+        c.MasquerNonSelectionnes = True
+        c.MasquerNonSelectionnes = False
+        self.assertEqual(len(c.FilteredItems), 3)
+
+
 class TestPresets(unittest.TestCase):
     """Sélections préfabriquées : la page applique un prédicat fourni par
     l'outil, coche ce qui répond ET décoche le reste."""
