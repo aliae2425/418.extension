@@ -101,9 +101,11 @@ class MainViewModel(BaseViewModel):
         self._apparences = list(apparences or [])
 
         self.AuditVM = AuditPageVM(cartes)
+        # L'onglet Matériaux est en sélection EXCLUSIVE : il ne mène qu'à
+        # l'éditeur, qui ne travaille que sur un matériau. Donc pas de menu de
+        # sélections préfabriquées non plus — « Tout » n'y voudrait rien dire.
         self.SelectionVM = self._nouvelle_page(cartes, u'IsSelected',
-                                               u'Matériaux',
-                                               presets=self.PRESETS)
+                                               u'Matériaux', mono=True)
         page_renommer = self._nouvelle_page(cartes, u'IsSelectedRenommer',
                                            u'Renommer',
                                            presets=self.PRESETS)
@@ -137,13 +139,19 @@ class MainViewModel(BaseViewModel):
         return depuis_materiau(self._doc, materiau, carte, self._service,
                                self._motifs, self._apparences)
 
-    def _nouvelle_page(self, cartes, prop, titre, presets=None):
+    def carte_selectionnee(self):
+        """La card de l'onglet Matériaux, ou None. Sélection exclusive."""
+        if self.SelectionVM is None:
+            return None
+        return self.SelectionVM.SelectionUnique
+
+    def _nouvelle_page(self, cartes, prop, titre, presets=None, mono=False):
         """Une page de sélection sur `prop`, cards branchées sur elle."""
         page = SelectionPageVM(
             cartes,
             id_getter=lambda carte: carte.Id,
             filter_getters=[lambda carte: carte.Nom, lambda carte: carte.Classe],
-            prop=prop, titre=titre, presets=presets)
+            prop=prop, titre=titre, presets=presets, mono=mono)
         # Une case écrite directement (menu, code) doit prévenir SA page,
         # sinon l'onglet ne voit pas la coche.
         for carte in cartes:

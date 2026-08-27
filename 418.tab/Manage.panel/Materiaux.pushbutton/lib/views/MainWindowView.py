@@ -42,7 +42,9 @@ class MainWindowView(RailWindow):
         Onglet(u'remplacer', 'RemplacerPage.xaml', 'RemplacerVM',
                icone=u'IconRemplacer', tooltip=u'Remplacer dans la maquette'),
     )
-    SUIVANTS = ((u'selection', 'NextButton', u'renommer'),)
+    # Plus d'enchaînement « Suivant » : l'onglet Matériaux ne mène plus à
+    # Renommer mais à l'éditeur, via son propre bouton (cf. `_wire_editeur`).
+    SUIVANTS = ()
     RUN = None
     # Largeur dictée par le tableau de l'onglet Renommer, le seul contenu à
     # largeur incompressible : 350 px de colonnes fixes (case, flèche, rendu,
@@ -93,13 +95,15 @@ class MainWindowView(RailWindow):
     # ------------------------------------------------------------------
 
     def _wire_editeur(self):
-        """Double-clic sur une card -> fenêtre d'édition du matériau.
+        """Les deux chemins vers l'éditeur : le bouton, et le double-clic.
 
-        Double-clic et non clic simple : le clic simple coche, avec Ctrl et
-        Shift, et c'est `RailWindow._wire_selection_interactions` qui le tient.
-        Le premier clic du double coche donc au passage — sans gravité, la
-        sélection de cet onglet ne déclenche aucune action.
+        Le clic simple, lui, ne fait que sélectionner — la sélection est
+        exclusive sur cet onglet, il tient donc lieu de bouton radio. Le
+        premier clic du double sélectionne au passage, ce qui est exactement
+        ce qu'on veut avant d'ouvrir.
         """
+        self._action(u'selection', 'EditerButton',
+                     lambda: self._ouvrir_editeur(self._vm.carte_selectionnee()))
         page = self._page(u'selection')
         if page is None:
             return

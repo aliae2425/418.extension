@@ -28,15 +28,32 @@ except Exception:
         hatch_image = None
 
 try:
-    from Autodesk.Revit.DB import (AppearanceAssetElement, ElementId,
-                                   FilteredElementCollector,
-                                   FillPatternElement, FillPatternTarget)
+    from lib.services.journal import log
 except Exception:
-    AppearanceAssetElement = None
-    ElementId = None
-    FilteredElementCollector = None
-    FillPatternElement = None
-    FillPatternTarget = None
+    try:
+        from services.journal import log
+    except Exception:
+        def log(gabarit, *args):
+            pass
+
+# Un import par nom, et non un bloc unique : un seul nom manquant mettait
+# TOUS les autres à None, et le symptôme n'avait rien à voir avec la cause —
+# sans FillPatternTarget, par exemple, plus aucun motif n'est reconnu comme
+# motif de MODÈLE, donc plus aucun badge et plus aucune règle d'arrière-plan.
+AppearanceAssetElement = None
+ElementId = None
+FilteredElementCollector = None
+FillPatternElement = None
+FillPatternTarget = None
+for _nom_type in ('AppearanceAssetElement', 'ElementId',
+                  'FilteredElementCollector', 'FillPatternElement',
+                  'FillPatternTarget'):
+    try:
+        globals()[_nom_type] = getattr(
+            __import__('Autodesk.Revit.DB', fromlist=[str(_nom_type)]),
+            _nom_type)
+    except Exception:
+        log(u'Autodesk.Revit.DB.{} introuvable', _nom_type)
 
 GRIS = (128, 128, 128)
 NOIR = (0, 0, 0)
@@ -110,11 +127,14 @@ def couche_depuis_element(element, couleur=None):
     if remplissage.IsSolidFill:
         return Couche(nom=element.Name, est_uni=True, rgb=couleur)
     est_modele = False
-    if FillPatternTarget is not None:
+    if FillPatternTarget is None:
+        log(u'FillPatternTarget absent : « {} » sera classé motif de dessin',
+            element.Name)
+    else:
         try:
             est_modele = remplissage.Target == FillPatternTarget.Model
-        except Exception:
-            pass
+        except Exception as erreur:
+            log(u'Target illisible sur « {} » : {}', element.Name, erreur)
     grilles = [hatch.depuis_fill_grid(g) for g in remplissage.GetFillGrids()]
     return Couche(nom=element.Name, grilles=grilles, est_modele=est_modele,
                   rgb=couleur)
@@ -289,6 +309,11 @@ def motifs_du_document(doc):
             continue
         trouves.append(MotifRef(element.Id, prototype))
     refs.extend(sorted(trouves, key=lambda r: (r.EstModele, r.Nom.lower())))
+    # Décompte tracé : « aucun motif de modèle » se lit ici d'un coup d'œil,
+    # au lieu de ressembler à un menu qui refuse de les proposer.
+    modeles = sum(1 for ref in trouves if ref.EstModele)
+    log(u'motifs du document : {} de dessin, {} de modèle',
+        len(trouves) - modeles, modeles)
     return refs
 
 

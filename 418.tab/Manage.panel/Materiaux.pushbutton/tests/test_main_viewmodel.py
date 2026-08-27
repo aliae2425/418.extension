@@ -98,20 +98,39 @@ class TestMainViewModel(unittest.TestCase):
         self.assertEqual(len(vm.RenommerVM.SelectionVM.FilteredItems), 2)
 
     def test_preset_coche_les_non_utilises(self):
+        # Sur l'onglet Renommer : c'est là que les sélections préfabriquées
+        # ont un sens, l'onglet Matériaux est passé en sélection exclusive.
         # Sans comptage d'usages, tout est « non utilisé » et « sans
         # instance » : c'est le repli hors Revit.
         _, cartes, par_id = _contexte()
         vm = MainViewModel()
         vm.charger(cartes, par_id)
-        vm.SelectionVM.Preset = u'Non utilisés'
-        self.assertEqual(vm.SelectionVM.selected_ids(), [1, 2])
-        vm.SelectionVM.Preset = u'Utilisés'
-        self.assertEqual(vm.SelectionVM.selected_ids(), [])
+        page = vm.RenommerVM.SelectionVM
+        page.Preset = u'Non utilisés'
+        self.assertEqual(page.selected_ids(), [1, 2])
+        page.Preset = u'Utilisés'
+        self.assertEqual(page.selected_ids(), [])
         # Le menu reste sur son libellé neutre : c'est une action.
-        self.assertEqual(vm.SelectionVM.Preset,
-                         vm.SelectionVM.PLACEHOLDER)
+        self.assertEqual(page.Preset, page.PLACEHOLDER)
         # Et il n'a pas touché aux autres onglets.
         self.assertEqual(vm.RemplacerVM.SelectionVM.selected_ids(), [])
+
+    def test_longlet_materiaux_ne_garde_quun_seul_choix(self):
+        _, cartes, par_id = _contexte()
+        vm = MainViewModel()
+        vm.charger(cartes, par_id)
+        vm.SelectionVM.handle_row_click(0)
+        vm.SelectionVM.handle_row_click(1)
+        self.assertEqual(vm.SelectionVM.selected_ids(), [2])
+        self.assertIs(vm.carte_selectionnee(), cartes[1])
+        # Les autres onglets restent multi-sélection sur les mêmes cards.
+        self.assertEqual(vm.RenommerVM.SelectionVM.selected_ids(), [])
+
+    def test_sans_choix_pas_de_carte_a_editer(self):
+        _, cartes, par_id = _contexte()
+        vm = MainViewModel()
+        vm.charger(cartes, par_id)
+        self.assertIsNone(vm.carte_selectionnee())
 
     def test_set_mode_bascule_l_onglet(self):
         vm = MainViewModel()

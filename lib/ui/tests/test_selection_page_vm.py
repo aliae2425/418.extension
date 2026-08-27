@@ -256,5 +256,60 @@ class TestPresets(unittest.TestCase):
         self.assertEqual(vus, [[1, 2, 3], [1, 2, 3], []])
 
 
+class TestMonoSelection(unittest.TestCase):
+    """Mode exclusif : un seul item coché, le clic tient lieu de radio."""
+
+    def _mono(self, items=None, on_selection_changed=None):
+        return SelectionPageVM(
+            items if items is not None else _make(),
+            id_getter=lambda it: it.Id,
+            filter_getters=[lambda it: it.A, lambda it: it.B],
+            on_selection_changed=on_selection_changed, mono=True)
+
+    def test_un_clic_coche_et_decoche_tout_le_reste(self):
+        c = self._mono()
+        c.handle_row_click(0)
+        c.handle_row_click(2)
+        self.assertEqual(c.selected_ids(), [3])
+
+    def test_recliquer_le_meme_ne_le_decoche_pas(self):
+        # Un bouton radio ne se relâche pas : sans ça, le bouton « Éditer »
+        # s'éteindrait au second clic sur la card déjà choisie.
+        c = self._mono()
+        c.handle_row_click(1)
+        c.handle_row_click(1)
+        self.assertEqual(c.selected_ids(), [2])
+
+    def test_shift_et_ctrl_nelargissent_pas(self):
+        c = self._mono()
+        c.handle_row_click(0)
+        c.handle_row_click(2, shift=True)
+        self.assertEqual(c.selected_ids(), [3])
+        c.handle_row_click(1, ctrl=True)
+        self.assertEqual(c.selected_ids(), [2])
+
+    def test_la_selection_se_lit_directement(self):
+        c = self._mono()
+        self.assertIsNone(c.SelectionUnique)
+        c.handle_row_click(1)
+        self.assertEqual(c.SelectionUnique.Id, 2)
+
+    def test_le_clic_decoche_meme_ce_que_la_recherche_masque(self):
+        # Sinon un item resté coché derrière un filtre ferait deux
+        # sélections dans un mode qui n'en admet qu'une.
+        c = self._mono()
+        c.handle_row_click(0)                 # A-101
+        c.FilterText = u'Coupe'
+        c.handle_row_click(0)                 # B-201, seul affiché
+        self.assertEqual(c.selected_ids(), [3])
+
+    def test_lhote_est_averti_une_seule_fois_par_clic(self):
+        vus = []
+        c = self._mono(items=_make(), on_selection_changed=vus.append)
+        c.handle_row_click(0)
+        c.handle_row_click(1)
+        self.assertEqual(vus, [[1], [2]])
+
+
 if __name__ == '__main__':
     unittest.main()

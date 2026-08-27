@@ -9,16 +9,18 @@
 
     C'est la page de SÉLECTION de l'outil, en grille au lieu d'une liste :
     le nom x:Name ItemsList est celui que
-    RailWindow._wire_selection_interactions câble tout seul — clic simple /
-    Ctrl / Shift compris. Ne pas le renommer. Tout/Aucun ont laissé la place
-    au menu PresetCombo, qui se lie directement au VM.
+    RailWindow._wire_selection_interactions câble tout seul. Ne pas le
+    renommer.
 
-    La case IsSelected de cette page est PROPRE à l'onglet : les onglets
-    Renommer et Remplacer ont leurs cases à eux sur les mêmes cards.
+    Sélection EXCLUSIVE (SelectionPageVM mono) : un seul matériau à la fois,
+    puisque cet onglet ne mène qu'à l'éditeur. Aucune case cochable, donc —
+    c'est la card elle-même qui s'allume, par l'anneau d'accent de la bordure
+    externe. Et pas de menu de sélections préfabriquées : « Tout » n'aurait
+    pas de sens.
 
-    La CheckBox est display-only (IsHitTestVisible=False, binding OneWay) :
-    TOUS les clics passent par le handler unique posé sur ItemsList, ce qui
-    évite un double déclenchement entre la case et la card.
+    La case IsSelected de cette page reste PROPRE à l'onglet : les onglets
+    Renommer et Remplacer ont les leurs sur les mêmes cards, et elles restent
+    multiples.
   -->
 
   <Grid Background="{DynamicResource TransparentBrush}" Margin="20">
@@ -34,26 +36,10 @@
                Style="{DynamicResource HeaderTextBlockStyle}"
                Margin="0,0,0,14"/>
 
-    <Grid Grid.Row="1" Margin="0,0,0,10">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="Auto"/>
-      </Grid.ColumnDefinitions>
-      <TextBox Grid.Column="0"
-               x:Name="SearchBox"
-               Text="{Binding FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-      <!-- Remplace Tout/Aucun : un menu de sélections préfabriquées. Aucun
-           câblage Python — `Preset` est un setter du socle qui applique le
-           critère puis renotifie, ce qui ramène le menu sur « Sélectionner… »
-           (c'est une action, pas un état). Les critères d'usage viennent du
-           comptage fait à l'ouverture. -->
-      <ComboBox Grid.Column="1"
-                x:Name="PresetCombo"
-                Width="170"
-                Margin="8,0,0,0"
-                ItemsSource="{Binding Presets}"
-                SelectedItem="{Binding Preset, Mode=TwoWay}"/>
-    </Grid>
+    <TextBox Grid.Row="1"
+             x:Name="SearchBox"
+             Margin="0,0,0,10"
+             Text="{Binding FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
     <ScrollViewer Grid.Row="2"
                   VerticalScrollBarVisibility="Auto"
@@ -75,12 +61,16 @@
             <!-- Bordure externe : anneau de sélection. Séparée de la card
                  pour ne pas avoir à surcharger CardStyle (impossible en
                  BasedOn : le dictionnaire est fusionné APRÈS le parse). -->
-            <Border CornerRadius="10" Padding="2" Margin="0,0,12,12">
+            <Border CornerRadius="10" Padding="2" Margin="0,0,12,12"
+                    Cursor="Hand">
               <Border.Style>
                 <Style TargetType="Border">
                   <Setter Property="BorderThickness" Value="2"/>
                   <Setter Property="BorderBrush" Value="{DynamicResource TransparentBrush}"/>
                   <Style.Triggers>
+                    <!-- Le SEUL témoin de sélection : la card s'entoure
+                         d'accent. Il n'y a plus de case à cocher, la
+                         sélection est exclusive. -->
                     <DataTrigger Binding="{Binding IsSelected}" Value="True">
                       <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                     </DataTrigger>
@@ -92,27 +82,15 @@
                       Padding="12" Margin="0">
                 <StackPanel>
 
-                  <!-- Nom + case -->
-                  <Grid Margin="0,0,0,2">
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="Auto"/>
-                      <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <CheckBox IsChecked="{Binding IsSelected, Mode=OneWay}"
-                              IsHitTestVisible="False"
-                              Style="{DynamicResource CheckBoxStyle}"
-                              VerticalAlignment="Top"
-                              Margin="0,2,10,0"/>
-                    <TextBlock Grid.Column="1"
-                               Text="{Binding Nom}"
-                               FontWeight="SemiBold"
-                               TextWrapping="Wrap"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                  </Grid>
+                  <TextBlock Text="{Binding Nom}"
+                             FontWeight="SemiBold"
+                             TextWrapping="Wrap"
+                             Margin="0,0,0,2"
+                             Foreground="{DynamicResource TextPrimaryBrush}"/>
 
                   <TextBlock Text="{Binding Classe}"
                              FontSize="11"
-                             Margin="30,0,0,1"
+                             Margin="0,0,0,1"
                              Foreground="{DynamicResource TextSecondaryBrush}"/>
 
                   <!-- Usages dans la maquette, comptés à l'ouverture. Sur sa
@@ -121,7 +99,7 @@
                   <TextBlock Text="{Binding UtilisationsTexte}"
                              FontSize="11"
                              TextTrimming="CharacterEllipsis"
-                             Margin="30,0,0,10"
+                             Margin="0,0,0,10"
                              ToolTip="{Binding UtilisationsTexte}">
                     <TextBlock.Style>
                       <Style TargetType="TextBlock">
@@ -215,9 +193,11 @@
       </ItemsControl>
     </ScrollViewer>
 
+    <!-- Câblé par MainWindowView sur la modale d'édition. Le double-clic sur
+         une card fait la même chose, en plus direct. -->
     <Button Grid.Row="3"
-            x:Name="NextButton"
-            Content="Suivant"
+            x:Name="EditerButton"
+            Content="Éditer le matériau"
             Style="{DynamicResource PrimaryActionButtonStyle}"
             HorizontalAlignment="Right"
             Margin="0,14,0,0"

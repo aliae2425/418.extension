@@ -44,6 +44,10 @@ class SelectionPageVM(BaseViewModel):
     `titre` : titre affiché en tête de page (« Feuilles à dupliquer »...).
 
     Comportement de sélection :
+    - `mono` : sélection EXCLUSIVE, un seul item à la fois. Le clic pose la
+      sélection sur l'item visé et la retire partout ailleurs ; Shift et Ctrl
+      n'ont plus de sens et sont ignorés. C'est le mode des pages qui ne
+      travaillent que sur un objet (l'onglet Matériaux, qui ouvre un éditeur).
     - clic simple / Ctrl+clic : bascule l'item (accumulation, pas d'exclusif)
     - Shift+clic : plage [ancre, index] sur les items AFFICHÉS (filtrés),
       uniquement si une ancre valide existe ; sinon repli sur une bascule
@@ -62,9 +66,10 @@ class SelectionPageVM(BaseViewModel):
 
     def __init__(self, items, id_getter, filter_getters,
                  on_selection_changed=None, prop=u'IsSelected', titre=u'',
-                 presets=None):
+                 presets=None, mono=False):
         super(SelectionPageVM, self).__init__()
         self._all = list(items or [])
+        self._mono = bool(mono)
         # Sélections préfabriquées du menu de la page : couples ordonnés
         # (libellé, prédicat sur l'item). L'outil fournit ses critères, la
         # page ne sait que les appliquer. Vide = pas de menu.
@@ -182,6 +187,11 @@ class SelectionPageVM(BaseViewModel):
         # « non sélectionnés » est actif.
         affichees = self.FilteredItems
 
+        if self._mono:
+            if 0 <= index < len(affichees):
+                self.selectionner_seul(affichees[index])
+            return
+
         def _clic():
             if shift and self._has_anchor:
                 self._selection.handle_click(affichees, index, shift=True)
@@ -191,6 +201,26 @@ class SelectionPageVM(BaseViewModel):
                 self._selection.handle_click(affichees, index, ctrl=True)
                 self._has_anchor = True
         self._en_lot(_clic)
+
+    def selectionner_seul(self, cible):
+        """Pose la sélection sur `cible` et la retire partout ailleurs.
+
+        Porte sur la liste COMPLÈTE, masqués et filtrés compris : un item resté
+        coché derrière une recherche ferait deux sélections dans un mode qui
+        n'en admet qu'une.
+        """
+        def _poser():
+            for item in self._all:
+                setattr(item, self._prop, item is cible)
+        self._en_lot(_poser)
+
+    @property
+    def SelectionUnique(self):
+        """Le seul item coché, ou None. N'a de sens qu'en mode `mono`."""
+        for item in self._all:
+            if getattr(item, self._prop, False):
+                return item
+        return None
 
     def select_all(self):
         self._en_lot(lambda: bulk_edit.select_all(self._all, self._prop))
