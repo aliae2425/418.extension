@@ -21,9 +21,17 @@ try:
 except Exception:
     from viewmodels.RenommerPageVM import RenommerPageVM
 
+try:
+    from lib.viewmodels.AuditPageVM import AuditPageVM
+except Exception:
+    from viewmodels.AuditPageVM import AuditPageVM
+
 
 class MainViewModel(BaseViewModel):
-    """VM racine « Matériaux » : trois onglets, TROIS sélections.
+    """VM racine « Matériaux » : quatre onglets, TROIS sélections.
+
+    L'onglet 0 (Audit) est le mode initial. Il ne coche rien : il relit les
+    mêmes cards pour en tirer des compteurs, donc il n'a pas de sélection.
 
     Les trois onglets affichent les mêmes `MaterialCardVM` — un seul objet
     par matériau, donc les vignettes et le comptage d'usages ne sont calculés
@@ -51,7 +59,8 @@ class MainViewModel(BaseViewModel):
         super(MainViewModel, self).__init__()
         self._service = service
         self._materiaux_par_id = {}
-        self._mode = u'selection'
+        self._mode = u'audit'
+        self.AuditVM = None
         self.SelectionVM = None
         self.RemplacerVM = None
         self.RenommerVM = None
@@ -77,6 +86,7 @@ class MainViewModel(BaseViewModel):
         cartes = list(cartes or [])
         self._materiaux_par_id = dict(materiaux_par_id or {})
 
+        self.AuditVM = AuditPageVM(cartes)
         self.SelectionVM = self._nouvelle_page(cartes, u'IsSelected',
                                                u'Matériaux',
                                                presets=self.PRESETS)
@@ -93,7 +103,7 @@ class MainViewModel(BaseViewModel):
         # qui a besoin d'elle. Même geste que le `_on_toggle` des CategorieVM.
         page_renommer._on_selection_changed = self.RenommerVM.set_sources
         page_remplacer._on_selection_changed = self.RemplacerVM.set_sources
-        for nom in ('SelectionVM', 'RemplacerVM', 'RenommerVM'):
+        for nom in ('AuditVM', 'SelectionVM', 'RemplacerVM', 'RenommerVM'):
             self.notify_property(nom)
         self.RenommerVM.set_sources(page_renommer.selected_ids())
         self.RemplacerVM.set_sources(page_remplacer.selected_ids())

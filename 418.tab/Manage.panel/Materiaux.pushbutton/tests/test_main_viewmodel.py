@@ -32,11 +32,13 @@ def _contexte():
 
 class TestMainViewModel(unittest.TestCase):
 
-    def test_charger_construit_les_trois_onglets(self):
+    def test_charger_construit_les_quatre_onglets(self):
         _, cartes, par_id = _contexte()
         vm = MainViewModel()
         vm.charger(cartes, par_id)
-        self.assertEqual(vm.Mode, u'selection')
+        # L'audit est l'onglet ouvert par défaut.
+        self.assertEqual(vm.Mode, u'audit')
+        self.assertIsNotNone(vm.AuditVM)
         self.assertEqual(len(vm.SelectionVM.AllItems), 2)
         self.assertIsNotNone(vm.RemplacerVM)
         self.assertIsNotNone(vm.RenommerVM)

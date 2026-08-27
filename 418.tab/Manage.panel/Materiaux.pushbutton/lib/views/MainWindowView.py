@@ -12,7 +12,11 @@ _BOUTON = os.path.abspath(os.path.join(
 
 
 class MainWindowView(RailWindow):
-    """Fenêtre « Matériaux » : rail à trois onglets.
+    """Fenêtre « Matériaux » : rail à quatre onglets.
+
+    L'onglet Audit est le premier du rail ET le mode initial du VM : c'est un
+    état des lieux en lecture seule, ouvert d'entrée de jeu. Aucun câblage —
+    pas de bouton, pas de liste cochable.
 
     `RUN` du socle n'est pas utilisé : il ne câble qu'UN bouton et ferme la
     fenêtre derrière. Ici il en faut trois, et aucun ne doit fermer — on
@@ -24,6 +28,8 @@ class MainWindowView(RailWindow):
     """
 
     ONGLETS = (
+        Onglet(u'audit', 'AuditPage.xaml', 'AuditVM',
+               icone=u'⚑', tooltip=u'Audit des matériaux'),
         Onglet(u'selection', 'CardsPage.xaml', 'SelectionVM',
                icone=u'▦', tooltip=u'Matériaux'),
         Onglet(u'renommer', 'RenommerPage.xaml', 'RenommerVM',
