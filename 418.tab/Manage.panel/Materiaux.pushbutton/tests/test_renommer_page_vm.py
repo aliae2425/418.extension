@@ -79,22 +79,32 @@ class TestApercu(unittest.TestCase):
         vm.Suffixe = u'_v2'
         self.assertEqual(cartes[0].NouveauNom, u'BOIS_Chêne_v2')
 
-    def test_sans_regex_le_motif_est_litteral(self):
-        vm, _, cartes = _vm([u'Béton (ext)'])
-        vm.Rechercher = u'(ext)'
-        vm.Remplacer = u'EXT'
-        self.assertEqual(cartes[0].NouveauNom, u'Béton EXT')
-
-    def test_avec_regex_le_motif_est_une_expression(self):
+    def test_le_motif_est_une_regex_sans_rien_activer(self):
+        # Plus de case à cocher : Rechercher est TOUJOURS une expression.
         vm, _, cartes = _vm([u'Béton 25', u'Béton 30'])
-        vm.UseRegex = True
+        self.assertTrue(vm.UseRegex)
         vm.Rechercher = u'\\d+'
         vm.Remplacer = u'XX'
         self.assertEqual(_apercu(cartes), [u'Béton XX', u'Béton XX'])
 
+    def test_les_parentheses_sont_un_groupe_pas_du_texte(self):
+        """Contrepartie du mode regex d'office, expliquée par le ⓘ : pour
+        chercher « (ext) » tel quel il faut échapper les parenthèses."""
+        vm, _, cartes = _vm([u'Béton (ext)'])
+        vm.Rechercher = u'(ext)'
+        vm.Remplacer = u'EXT'
+        self.assertEqual(cartes[0].NouveauNom, u'Béton (EXT)')
+        vm.Rechercher = u'\\(ext\\)'
+        self.assertEqual(cartes[0].NouveauNom, u'Béton EXT')
+
+    def test_un_groupe_capture_se_reprend_dans_remplacer(self):
+        vm, _, cartes = _vm([u'Béton 25'])
+        vm.Rechercher = u'Béton (\\d+)'
+        vm.Remplacer = u'BA\\1'
+        self.assertEqual(cartes[0].NouveauNom, u'BA25')
+
     def test_regex_invalide_signale_sans_planter(self):
         vm, _, cartes = _vm()
-        vm.UseRegex = True
         vm.Rechercher = u'([Béton'
         self.assertTrue(vm.HasRegexError)
         self.assertFalse(vm.PeutRenommer)
@@ -102,7 +112,6 @@ class TestApercu(unittest.TestCase):
 
     def test_regex_corrigee_efface_l_erreur(self):
         vm, _, _ = _vm()
-        vm.UseRegex = True
         vm.Rechercher = u'([Béton'
         vm.Rechercher = u'Béton'
         self.assertFalse(vm.HasRegexError)

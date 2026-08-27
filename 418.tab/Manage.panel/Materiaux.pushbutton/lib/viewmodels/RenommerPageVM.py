@@ -25,9 +25,10 @@ class RenommerPageVM(BaseViewModel):
     de la page affiche les deux colonnes côte à côte. Une seule liste, donc
     rien à tenir synchrone avec la sélection.
 
-    Toute la transformation vient de `core.rename_service` (littéral ou
-    regex, préfixe/suffixe, tokens {n}/{date}/{annee}...) — le même moteur
-    que les outils « Rechercher/Remplacer » sur les feuilles et les vues.
+    Toute la transformation vient de `core.rename_service` (préfixe/suffixe,
+    tokens {n}/{date}/{annee}...) — le même moteur que les outils
+    « Rechercher/Remplacer » sur les feuilles et les vues, ici en mode regex
+    d'office.
 
     ponytail: 3e exemplaire du couple champs+aperçu (FindReplace_Sheets,
     FindReplace - Views, ici). Candidat à monter dans lib/ui/base/ le jour
@@ -46,7 +47,11 @@ class RenommerPageVM(BaseViewModel):
         self._Remplacer = u''
         self._Prefixe = u''
         self._Suffixe = u''
-        self._UseRegex = False
+        # Regex TOUJOURS active : plus de case dans la page, le champ
+        # Rechercher est une expression régulière et son ⓘ le dit. La
+        # propriété reste — RenameService en a besoin, et la désactiver
+        # depuis du code garde un sens.
+        self._UseRegex = True
         self._RegexError = u''
         self._Etat = u''
 
