@@ -25,6 +25,11 @@ except Exception:
     from viewmodels import lecture_materiau
 
 try:
+    from core.text_filter import filtrer
+except Exception:
+    from lib.core.text_filter import filtrer
+
+try:
     from lib.views import hatch_image
 except Exception:
     try:
@@ -116,7 +121,6 @@ class EmplacementVM(BaseViewModel):
     chose, cf. `_proposables`.
     """
 
-    Motif = _champ('Motif')
     Couleur = _champ('Couleur')
 
     def __init__(self, face, couche, motif, couleur, motifs, au_changement):
@@ -127,7 +131,57 @@ class EmplacementVM(BaseViewModel):
         self.Motifs = self._proposables(couche, motifs, motif)
         self._Motif = motif
         self._Couleur = hex_de_rgb(couleur)
+        self._recherche = u''
         self._au_changement = au_changement
+
+    # -- Choix du motif ----------------------------------------------------
+
+    @property
+    def Motif(self):
+        return self._Motif
+
+    @Motif.setter
+    def Motif(self, valeur):
+        """Écrit à la main, et pas via `_champ` : le None doit être ignoré.
+
+        WPF vide `SelectedItem` dès que l'élément sélectionné quitte
+        l'ItemsSource — ce qui arrive à chaque frappe dans la recherche.
+        `MotifsFiltres` garde déjà le motif courant dans sa liste ; ce garde-fou
+        est la seconde ceinture, parce qu'un None qui passerait ici effacerait
+        le motif sans que personne l'ait demandé.
+        """
+        if valeur is None or valeur is self._Motif:
+            return
+        self._Motif = valeur
+        self.notify_property('Motif')
+        self._au_changement()
+
+    @property
+    def Recherche(self):
+        return self._recherche
+
+    @Recherche.setter
+    def Recherche(self, valeur):
+        valeur = valeur or u''
+        if valeur == self._recherche:
+            return
+        self._recherche = valeur
+        self.notify_property('Recherche')
+        self.notify_property('MotifsFiltres')
+
+    @property
+    def MotifsFiltres(self):
+        """Les motifs offerts, réduits à la recherche.
+
+        Porte sur le nom ET sur le type : taper « modèle » ne laisse que les
+        motifs de modèle, sans case à cocher de plus. Le motif COURANT reste
+        toujours dans la liste, quoi qu'on tape — cf. le setter de `Motif`.
+        """
+        offerts = filtrer(self.Motifs, self._recherche,
+                          [lambda ref: ref.Nom, lambda ref: ref.Type])
+        if self._Motif is not None and self._Motif not in offerts:
+            offerts.insert(0, self._Motif)
+        return offerts
 
     @staticmethod
     def _proposables(couche, motifs, courant):

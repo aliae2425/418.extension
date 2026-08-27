@@ -242,6 +242,52 @@ class TestArrierePlan(_Base):
         self.assertIn(modele, offerts)
 
 
+class TestRecherche(_Base):
+    def test_filtre_sur_le_nom_sans_accent_ni_casse(self):
+        vm, _ = _vm()
+        premier = vm.Faces[0].Premier                          # courant : Brique
+        premier.Recherche = u'BETON'
+        # « Béton » remonte malgré l'accent et la casse ; « Brique » n'est là
+        # que parce que c'est le motif courant, toujours épinglé.
+        self.assertEqual([r.Nom for r in premier.MotifsFiltres],
+                         [u'Brique', u'Béton'])
+
+    def test_filtre_sur_le_type(self):
+        vm, motifs = _vm()
+        surface = vm.Faces[1].Premier
+        surface.Recherche = u'modèle'
+        self.assertEqual([r.Nom for r in surface.MotifsFiltres],
+                         [u'Aucun', u'Béton'])                 # Aucun = courant
+
+    def test_le_motif_courant_survit_a_la_recherche(self):
+        # WPF vide SelectedItem dès que l'élément quitte l'ItemsSource :
+        # sortir le motif courant de la liste l'effacerait à la frappe.
+        vm, motifs = _vm()
+        premier = vm.Faces[0].Premier                          # Brique
+        premier.Recherche = u'zzzz'
+        self.assertEqual(premier.MotifsFiltres, [motifs[1]])
+
+    def test_un_none_venu_de_wpf_neffave_pas_le_motif(self):
+        vm, motifs = _vm()
+        premier = vm.Faces[0].Premier
+        premier.Motif = None
+        self.assertIs(premier.Motif, motifs[1])
+        self.assertEqual(vm.valeurs_modifiees(), {})
+
+    def test_recherche_vide_rend_tout(self):
+        vm, motifs = _vm()
+        premier = vm.Faces[0].Premier
+        premier.Recherche = u'brique'
+        premier.Recherche = u''
+        self.assertEqual(premier.MotifsFiltres, motifs)
+
+    def test_la_recherche_de_larriere_plan_ne_ramene_pas_les_modeles(self):
+        vm, motifs = _vm()
+        fond = vm.Faces[0].Fond
+        fond.Recherche = u'béton'
+        self.assertNotIn(motifs[2], fond.MotifsFiltres)
+
+
 class TestEchelleModele(unittest.TestCase):
     """Le cœur de l'aperçu multi-échelle : un motif de MODÈLE se densifie
     quand la vue s'éloigne, un motif de DESSIN reste en taille papier."""
