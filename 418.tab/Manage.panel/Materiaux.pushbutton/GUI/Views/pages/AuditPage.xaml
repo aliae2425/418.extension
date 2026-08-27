@@ -175,18 +175,21 @@
         </Border>
 
         <!-- ═══════════ Tuiles ═══════════
-             4 par rangée : 220 de tuile + 12 de gouttière = 928 pour la zone
-             de page à 1040 de fenêtre (cf. MainWindowView.TAILLE). -->
+             UniformGrid et non WrapPanel : les colonnes se PARTAGENT la
+             largeur disponible, donc la grille remplit la page quelle que
+             soit la taille de la fenêtre — un WrapPanel à tuiles fixes
+             laissait la place perdue au bout de chaque rangée.
+             3 colonnes pour 9 indicateurs : trois rangées pleines. -->
         <ItemsControl ItemsSource="{Binding Indicateurs}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <WrapPanel Orientation="Horizontal"/>
+              <UniformGrid Columns="3"/>
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate>
               <Border Style="{DynamicResource CardStyle}"
-                      Width="220" Padding="14,12" Margin="0,0,12,12">
+                      Padding="14,12" Margin="0,0,12,12">
                 <StackPanel>
                   <TextBlock Text="{Binding Valeur}"
                              FontSize="30"

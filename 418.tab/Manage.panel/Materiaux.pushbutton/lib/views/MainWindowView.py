@@ -39,16 +39,18 @@ class MainWindowView(RailWindow):
     )
     SUIVANTS = ((u'selection', 'NextButton', u'renommer'),)
     RUN = None
-    # Largeur dictée par le tableau de l'onglet Renommer : 350 px de colonnes
-    # fixes (case, flèche, rendu, surface, coupe, usages) + deux colonnes de
-    # nom qui doivent rester lisibles + 40 de marge + 64 de rail + la barre de
-    # défilement. À 1040 chaque nom a ~230 px.
-    # Les cards de l'onglet 1 restent à TROIS par rangée : 3 × 260 (244 de
-    # card + 4 d'anneau + 12 de gouttière) = 780, une 4e en demanderait 1040
-    # de zone de page. Si la card de CardsPage.xaml change de largeur, ce
-    # nombre change avec.
+    # Largeur dictée par le tableau de l'onglet Renommer, le seul contenu à
+    # largeur incompressible : 350 px de colonnes fixes (case, flèche, rendu,
+    # surface, coupe, usages) + deux colonnes de nom qui doivent rester
+    # lisibles + 40 de marge + 64 de rail + la barre de défilement. À 1040
+    # chaque nom a ~230 px.
+    # Les grilles des onglets Audit et Matériaux ne la dictent plus : leurs
+    # UniformGrid (3 et 4 colonnes) se partagent la largeur disponible, donc
+    # elles suivent la fenêtre au lieu de la contraindre.
+    # La largeur MINI, elle, vient des cards : à 860 les 4 colonnes laissent
+    # ~185 px par card, soit la pastille de 64 px et un nom encore lisible.
     TAILLE = (1040, 660)
-    TAILLE_MINI = (700, 480)
+    TAILLE_MINI = (860, 480)
 
     def __init__(self, view_model):
         super(MainWindowView, self).__init__(_BOUTON, view_model)

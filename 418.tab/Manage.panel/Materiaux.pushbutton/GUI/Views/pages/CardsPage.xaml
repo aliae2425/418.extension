@@ -59,9 +59,14 @@
                   VerticalScrollBarVisibility="Auto"
                   HorizontalScrollBarVisibility="Disabled">
       <ItemsControl x:Name="ItemsList" ItemsSource="{Binding FilteredItems}">
+        <!-- UniformGrid et non WrapPanel : les 4 colonnes se PARTAGENT la
+             largeur disponible, donc les cards s'élargissent avec la fenêtre
+             au lieu de laisser la place perdue au bout de chaque rangée.
+             Aucune largeur fixe dans la card à partir d'ici : tout ce qui doit
+             s'étirer est en colonne * d'une Grid. -->
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
-            <WrapPanel Orientation="Horizontal"/>
+            <UniformGrid Columns="4"/>
           </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
 
@@ -84,22 +89,26 @@
               </Border.Style>
 
               <Border Style="{DynamicResource CardStyle}"
-                      Width="244" Padding="12" Margin="0">
+                      Padding="12" Margin="0">
                 <StackPanel>
 
                   <!-- Nom + case -->
-                  <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                  <Grid Margin="0,0,0,2">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
                     <CheckBox IsChecked="{Binding IsSelected, Mode=OneWay}"
                               IsHitTestVisible="False"
                               Style="{DynamicResource CheckBoxStyle}"
                               VerticalAlignment="Top"
                               Margin="0,2,10,0"/>
-                    <TextBlock Text="{Binding Nom}"
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding Nom}"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap"
-                               Width="180"
                                Foreground="{DynamicResource TextPrimaryBrush}"/>
-                  </StackPanel>
+                  </Grid>
 
                   <TextBlock Text="{Binding Classe}"
                              FontSize="11"
@@ -108,11 +117,9 @@
 
                   <!-- Usages dans la maquette, comptés à l'ouverture. Sur sa
                        propre ligne : « 3 types · 50 instances » ne tient pas
-                       à côté de la classe dans 190 px. -->
+                       à côté de la classe. -->
                   <TextBlock Text="{Binding UtilisationsTexte}"
                              FontSize="11"
-                             Width="190"
-                             HorizontalAlignment="Left"
                              TextTrimming="CharacterEllipsis"
                              Margin="30,0,0,10"
                              ToolTip="{Binding UtilisationsTexte}">
@@ -131,22 +138,31 @@
                   </TextBlock>
 
                   <!-- Apparence : pastille de couleur + nom de l'asset -->
-                  <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                  <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
                     <Border Width="64" Height="28" CornerRadius="4"
                             BorderThickness="1"
                             BorderBrush="{DynamicResource ControlBorderBrush}"
                             Background="{Binding ApparenceCouleur}"/>
-                    <TextBlock Text="{Binding Apparence}"
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding Apparence}"
                                FontSize="11"
                                TextTrimming="CharacterEllipsis"
-                               Width="140"
                                VerticalAlignment="Center"
                                Margin="10,0,0,0"
+                               ToolTip="{Binding Apparence}"
                                Foreground="{DynamicResource TextSecondaryBrush}"/>
-                  </StackPanel>
+                  </Grid>
 
                   <!-- Motif de coupe -->
-                  <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                  <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
                     <Border Width="64" Height="28" CornerRadius="4"
                             BorderThickness="1"
                             BorderBrush="{DynamicResource ControlBorderBrush}"
@@ -154,19 +170,24 @@
                       <Image Source="{Binding MotifCoupeImage}"
                              Width="64" Height="28" Stretch="None"/>
                     </Border>
-                    <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="1"
+                                Margin="10,0,0,0" VerticalAlignment="Center">
                       <TextBlock Text="coupe" FontSize="10"
                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                       <TextBlock Text="{Binding MotifCoupeNom}"
                                  FontSize="11"
                                  TextTrimming="CharacterEllipsis"
-                                 Width="140"
+                                 ToolTip="{Binding MotifCoupeNom}"
                                  Foreground="{DynamicResource TextPrimaryBrush}"/>
                     </StackPanel>
-                  </StackPanel>
+                  </Grid>
 
                   <!-- Motif de surface -->
-                  <StackPanel Orientation="Horizontal">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
                     <Border Width="64" Height="28" CornerRadius="4"
                             BorderThickness="1"
                             BorderBrush="{DynamicResource ControlBorderBrush}"
@@ -174,16 +195,17 @@
                       <Image Source="{Binding MotifSurfaceImage}"
                              Width="64" Height="28" Stretch="None"/>
                     </Border>
-                    <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="1"
+                                Margin="10,0,0,0" VerticalAlignment="Center">
                       <TextBlock Text="surface" FontSize="10"
                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                       <TextBlock Text="{Binding MotifSurfaceNom}"
                                  FontSize="11"
                                  TextTrimming="CharacterEllipsis"
-                                 Width="140"
+                                 ToolTip="{Binding MotifSurfaceNom}"
                                  Foreground="{DynamicResource TextPrimaryBrush}"/>
                     </StackPanel>
-                  </StackPanel>
+                  </Grid>
 
                 </StackPanel>
               </Border>
