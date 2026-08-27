@@ -86,6 +86,8 @@
         <!--
           Rail de navigation : DockPanel vertical.
           Logo en haut, conteneur de nav (vide), Paramètres poussé en bas.
+          Icône : un Path sur une géométrie Lucide d'Icons.xaml, pas un glyphe.
+          NavRailIconStyle porte tout l'habillage, y compris la teinte du trait.
         -->
         <DockPanel Grid.Column="0"
                    LastChildFill="True"
@@ -102,8 +104,10 @@
           <!-- Paramètres poussé tout en bas -->
           <RadioButton DockPanel.Dock="Bottom"
                        Style="{DynamicResource NavRailButtonStyle}"
-                       Content="&#x2699;"
-                       ToolTip="Paramètres"/>
+                       ToolTip="Paramètres">
+            <Path Style="{DynamicResource NavRailIconStyle}"
+                  Data="{DynamicResource IconParametres}"/>
+          </RadioButton>
 
           <!-- Conteneur de navigation (prend l'espace restant) -->
           <StackPanel Orientation="Vertical"

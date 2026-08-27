@@ -1,0 +1,82 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+      Jeu d'icônes Lucide (https://lucide.dev), SEULE copie de l'extension.
+
+      Les clés portent le RÔLE, pas le nom Lucide : c'est ce qui tient la
+      continuité entre les outils. Un onglet « Sélection » affiche le même
+      dessin dans BatchExport, Matériaux et les 4 outils à rail parce qu'ils
+      demandent tous IconSelection.
+
+      Conventions Lucide, à respecter pour toute icône ajoutée ici :
+        - viewBox 24 x 24, aucun remplissage, tracé seul ;
+        - StrokeThickness 2, StartLineCap / EndLineCap / LineJoin = Round
+          (posés par le consommateur, pas par la géométrie) ;
+        - dessin contenu dans 2..22, soit 2 unités de marge.
+
+      Le `d` de Lucide est recopié tel quel à deux transformations près, sans
+      lesquelles le parseur WPF refuse la chaîne — il est plus strict que SVG :
+        - les nombres collés sont séparés (« a.5.5 0 0 1-.708 0 » devient
+          « a0.5 0.5 0 0 1 -0.708 0 ») ;
+        - <circle>, <rect rx> et <line> n'ont pas de `d` : ils sont convertis
+          en commandes d'arc / de ligne équivalentes.
+
+      Les icon.png du ruban pyRevit se régénèrent depuis CE fichier, via
+      tools/icones.ps1 — ne pas dessiner une icône de ruban à la main.
+    -->
+
+    <!-- lucide: chart-no-axes-combined — onglet Audit + ruban Audit -->
+    <PathGeometry x:Key="IconAudit"
+                  Figures="M12 16 V21
+                           M16 14.639 V21
+                           M20 10.656 V21
+                           M22 3 L13.354 11.646 A0.5 0.5 0 0 1 12.646 11.646 L9.354 8.354 A0.5 0.5 0 0 0 8.647 8.354 L2 15
+                           M4 18.463 V21
+                           M8 14.656 V21"/>
+
+    <!-- lucide: layout-grid — la grille de cards des matériaux -->
+    <PathGeometry x:Key="IconMateriaux"
+                  Figures="M4 3 H9 A1 1 0 0 1 10 4 V9 A1 1 0 0 1 9 10 H4 A1 1 0 0 1 3 9 V4 A1 1 0 0 1 4 3 Z
+                           M15 3 H20 A1 1 0 0 1 21 4 V9 A1 1 0 0 1 20 10 H15 A1 1 0 0 1 14 9 V4 A1 1 0 0 1 15 3 Z
+                           M15 14 H20 A1 1 0 0 1 21 15 V20 A1 1 0 0 1 20 21 H15 A1 1 0 0 1 14 20 V15 A1 1 0 0 1 15 14 Z
+                           M4 14 H9 A1 1 0 0 1 10 15 V20 A1 1 0 0 1 9 21 H4 A1 1 0 0 1 3 20 V15 A1 1 0 0 1 4 14 Z"/>
+
+    <!-- lucide: text-cursor — renommer / nommage -->
+    <PathGeometry x:Key="IconRenommer"
+                  Figures="M17 22 h-1 a4 4 0 0 1 -4 -4 V6 a4 4 0 0 1 4 -4 h1
+                           M7 22 h1 a4 4 0 0 0 4 -4
+                           M7 2 h1 a4 4 0 0 1 4 4"/>
+
+    <!-- lucide: replace — substitution dans la maquette -->
+    <PathGeometry x:Key="IconRemplacer"
+                  Figures="M14 4 A1 1 0 0 1 15 3
+                           M15 10 A1 1 0 0 1 14 9
+                           M21 4 A1 1 0 0 0 20 3
+                           M21 9 A1 1 0 0 1 20 10
+                           M3 7 L6 10 L9 7
+                           M6 10 V5 A2 2 0 0 1 8 3 H10
+                           M4 14 H9 A1 1 0 0 1 10 15 V20 A1 1 0 0 1 9 21 H4 A1 1 0 0 1 3 20 V15 A1 1 0 0 1 4 14 Z"/>
+
+    <!-- lucide: list-checks — sélection d'éléments, mode manuel -->
+    <PathGeometry x:Key="IconSelection"
+                  Figures="M13 5 H21
+                           M13 12 H21
+                           M13 19 H21
+                           M3 17 L5 19 L9 15
+                           M3 7 L5 9 L9 5"/>
+
+    <!-- lucide: settings-2 — paramètres / options -->
+    <PathGeometry x:Key="IconParametres"
+                  Figures="M14 17 H5
+                           M19 7 H10
+                           M14 17 A3 3 0 1 0 20 17 A3 3 0 1 0 14 17 Z
+                           M4 7 A3 3 0 1 0 10 7 A3 3 0 1 0 4 7 Z"/>
+
+    <!-- lucide: layers — export par jeu de feuilles -->
+    <PathGeometry x:Key="IconJeux"
+                  Figures="M12.83 2.18 a2 2 0 0 0 -1.66 0 L2.6 6.08 a1 1 0 0 0 0 1.83 l8.58 3.91 a2 2 0 0 0 1.66 0 l8.58 -3.9 a1 1 0 0 0 0 -1.83 Z
+                           M2 12 a1 1 0 0 0 0.58 0.91 l8.6 3.91 a2 2 0 0 0 1.65 0 l8.58 -3.9 A1 1 0 0 0 22 12
+                           M2 17 a1 1 0 0 0 0.58 0.91 l8.6 3.91 a2 2 0 0 0 1.65 0 l8.58 -3.9 A1 1 0 0 0 22 17"/>
+
+</ResourceDictionary>

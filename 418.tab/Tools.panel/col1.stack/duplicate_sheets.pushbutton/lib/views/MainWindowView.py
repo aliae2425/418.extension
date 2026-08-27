@@ -17,11 +17,11 @@ class MainWindowView(RailWindow):
 
     ONGLETS = (
         Onglet(u'selection', 'SelectionPage.xaml', 'SelectionVM',
-               icone=u'☑', tooltip=u'Sélection'),
+               icone=u'IconSelection', tooltip=u'Sélection'),
         Onglet(u'params', 'ParamsPage.xaml', 'OptionsVM',
-               icone=u'⚙', tooltip=u'Paramètres'),
+               icone=u'IconParametres', tooltip=u'Paramètres'),
         Onglet(u'options', 'OptionsPage.xaml', 'OptionsVM',
-               icone=u'✎', tooltip=u'Nommage'),
+               icone=u'IconRenommer', tooltip=u'Nommage'),
     )
     SUIVANTS = (
         (u'selection', 'NextButton', u'params'),

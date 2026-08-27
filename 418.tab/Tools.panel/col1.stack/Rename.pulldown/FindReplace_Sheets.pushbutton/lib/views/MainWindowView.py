@@ -16,9 +16,9 @@ class MainWindowView(RailWindow):
 
     ONGLETS = (
         Onglet(u'selection', 'SelectionPage.xaml', 'SelectionVM',
-               icone=u'☑', tooltip=u'Sélection'),
+               icone=u'IconSelection', tooltip=u'Sélection'),
         Onglet(u'nommage', 'NamingPage.xaml', 'NamingVM',
-               icone=u'✎', tooltip=u'Nommage'),
+               icone=u'IconRenommer', tooltip=u'Nommage'),
     )
     SUIVANTS = ((u'selection', 'NextButton', u'nommage'),)
     RUN = (u'nommage', 'RunButton')

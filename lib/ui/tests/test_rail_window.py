@@ -87,6 +87,22 @@ class TestCoquillePartagee(unittest.TestCase):
                 self.assertTrue(onglet.icone,
                                 u'%s : onglet %s sans icône' % (rel, onglet.mode))
 
+    def test_toutes_les_cles_dicones_existent(self):
+        """Une clé mal tapée ne lève rien : elle vide le bouton en silence.
+
+        `TryFindResource` ne proteste pas, et ces clés-ci sont des chaînes
+        Python : `test_theme_resources`, qui couvre les DynamicResource des
+        rails écrits en XAML, ne les voit pas.
+        """
+        icones = ElementTree.parse(AppPaths().resource_path('Icons.xaml'))
+        cle = '{http://schemas.microsoft.com/winfx/2006/xaml}Key'
+        connues = set(n.get(cle) for n in icones.getroot())
+        self.assertTrue(connues)
+        for rel in BOUTONS:
+            for onglet in _charger_vue(os.path.join(_EXT, rel)).ONGLETS:
+                self.assertIn(onglet.icone, connues,
+                              u'%s : onglet %s' % (rel, onglet.mode))
+
     def test_les_cibles_de_navigation_existent(self):
         for rel in BOUTONS:
             classe = _charger_vue(os.path.join(_EXT, rel))

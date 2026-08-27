@@ -762,6 +762,29 @@
         </Setter>
     </Style>
 
+    <!-- Icône Lucide d'un bouton de rail : le Path qui va dans le Content d'un
+         RadioButton NavRailButtonStyle. `Data` reste à la charge de l'appelant
+         (une géométrie d'Icons.xaml), tout le reste est ici.
+
+         `Stroke` n'hérite PAS de `Foreground` : on le lie à celui du
+         RadioButton, seul endroit que NavRailButtonStyle teinte sur ses trois
+         états (normal / survol / coché) — ses Setter sont sans TargetName.
+
+         22 px pour un trait de 2 sur une géométrie qui occupe 20 unités :
+         `Uniform` retire l'épaisseur du trait avant la mise à l'échelle,
+         l'icône est donc rendue à 1:1, exactement du Lucide 24. -->
+    <Style x:Key="NavRailIconStyle" TargetType="Path">
+        <Setter Property="Width" Value="22"/>
+        <Setter Property="Height" Value="22"/>
+        <Setter Property="Stretch" Value="Uniform"/>
+        <Setter Property="StrokeThickness" Value="2"/>
+        <Setter Property="StrokeStartLineCap" Value="Round"/>
+        <Setter Property="StrokeEndLineCap" Value="Round"/>
+        <Setter Property="StrokeLineJoin" Value="Round"/>
+        <Setter Property="Stroke"
+                Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type RadioButton}}}"/>
+    </Style>
+
     <!-- Pastille logo de marque : 44x44, coins arrondis, fond dégradé accent -->
     <Style x:Key="BrandLogoBorderStyle" TargetType="Border">
         <Setter Property="Width" Value="44"/>

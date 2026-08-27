@@ -29,6 +29,8 @@
 
     Rail de navigation
     - NavAuto / NavManual / NavSettings partagent GroupName="nav" (sélection exclusive).
+    - Icônes : un Path sur une géométrie Lucide d'Icons.xaml, pas un glyphe.
+      NavRailIconStyle porte tout l'habillage, y compris la teinte du trait.
     - Mode manuel (IsManual) : contenu réel hors périmètre, la surface affiche
       pour l'instant un placeholder lié à SurfaceTitre.
     - Mode Paramètres (IsSettings) : panneau réel (PanneauParametres) qui
@@ -128,9 +130,11 @@
           <RadioButton x:Name="NavSettings"
                        DockPanel.Dock="Bottom"
                        Style="{DynamicResource NavRailButtonStyle}"
-                       Content="&#x2699;"
                        ToolTip="Paramètres"
-                       GroupName="nav"/>
+                       GroupName="nav">
+            <Path Style="{DynamicResource NavRailIconStyle}"
+                  Data="{DynamicResource IconParametres}"/>
+          </RadioButton>
 
           <!-- Conteneur de navigation (prend l'espace restant) -->
           <StackPanel Orientation="Vertical"
@@ -138,15 +142,19 @@
                       VerticalAlignment="Top">
             <RadioButton x:Name="NavAuto"
                          Style="{DynamicResource NavRailButtonStyle}"
-                         Content="&#x25A6;"
                          ToolTip="Par jeu — préprogrammé"
                          GroupName="nav"
-                         IsChecked="True"/>
+                         IsChecked="True">
+              <Path Style="{DynamicResource NavRailIconStyle}"
+                    Data="{DynamicResource IconJeux}"/>
+            </RadioButton>
             <RadioButton x:Name="NavManual"
                          Style="{DynamicResource NavRailButtonStyle}"
-                         Content="&#x2611;"
                          ToolTip="Feuille par feuille — manuel"
-                         GroupName="nav"/>
+                         GroupName="nav">
+              <Path Style="{DynamicResource NavRailIconStyle}"
+                    Data="{DynamicResource IconSelection}"/>
+            </RadioButton>
           </StackPanel>
         </DockPanel>
 

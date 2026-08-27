@@ -29,13 +29,13 @@ class MainWindowView(RailWindow):
 
     ONGLETS = (
         Onglet(u'audit', 'AuditPage.xaml', 'AuditVM',
-               icone=u'⚑', tooltip=u'Audit des matériaux'),
+               icone=u'IconAudit', tooltip=u'Audit des matériaux'),
         Onglet(u'selection', 'CardsPage.xaml', 'SelectionVM',
-               icone=u'▦', tooltip=u'Matériaux'),
+               icone=u'IconMateriaux', tooltip=u'Matériaux'),
         Onglet(u'renommer', 'RenommerPage.xaml', 'RenommerVM',
-               icone=u'✎', tooltip=u'Renommer'),
+               icone=u'IconRenommer', tooltip=u'Renommer'),
         Onglet(u'remplacer', 'RemplacerPage.xaml', 'RemplacerVM',
-               icone=u'⇄', tooltip=u'Remplacer dans la maquette'),
+               icone=u'IconRemplacer', tooltip=u'Remplacer dans la maquette'),
     )
     SUIVANTS = ((u'selection', 'NextButton', u'renommer'),)
     RUN = None

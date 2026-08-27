@@ -51,6 +51,9 @@ class TestRessourcesDeTheme(unittest.TestCase):
         self.styles = _sans_commentaires(_lire(os.path.join(_RES, 'Styles.xaml')))
         self.clair = _sans_commentaires(_lire(os.path.join(_RES, 'Colors.xaml')))
         self.sombre = _sans_commentaires(_lire(os.path.join(_RES, 'ColorsDark.xaml')))
+        # Les géométries Lucide : un troisième dictionnaire, insensible au
+        # thème (c'est le trait qui est teinté, pas la forme).
+        self.icones = _sans_commentaires(_lire(os.path.join(_RES, 'Icons.xaml')))
 
     def test_il_ny_a_plus_de_dictionnaire_de_styles_sombre(self):
         self.assertFalse(os.path.exists(os.path.join(_RES, 'StylesDark.xaml')),
@@ -71,7 +74,8 @@ class TestRessourcesDeTheme(unittest.TestCase):
                          u'clés absentes de Colors.xaml')
 
     def test_chaque_dynamicresource_du_depot_est_defini(self):
-        definies = set(CLE.findall(self.styles)) | set(CLE.findall(self.clair))
+        definies = (set(CLE.findall(self.styles)) | set(CLE.findall(self.clair))
+                    | set(CLE.findall(self.icones)))
         manquantes = {}
         for chemin in _tous_les_xaml():
             texte = _sans_commentaires(_lire(chemin))
