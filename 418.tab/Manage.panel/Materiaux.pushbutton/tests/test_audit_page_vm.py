@@ -13,7 +13,7 @@ if _BUTTON not in sys.path:
     sys.path.insert(0, _BUTTON)
 
 from lib.viewmodels.AuditPageVM import AuditPageVM, _cle_nom
-from lib.viewmodels.MaterialCardVM import MaterialCardVM
+from lib.viewmodels.MaterialCardVM import Couche, MaterialCardVM, Motif
 from lib.views import donut_image
 
 
@@ -33,9 +33,19 @@ class FakeUsages(object):
         return u'%d types · %d instances' % (self.Types, self.Instances)
 
 
-def _carte(item_id, nom, apparence=u'', classe=u'Béton', usages=None):
+def _carte(item_id, nom, apparence=u'', classe=u'Béton', usages=None,
+           coupe=None, surface=None):
     return MaterialCardVM(item_id, nom, classe=classe, apparence=apparence,
-                          usages=usages)
+                          usages=usages,
+                          motif_coupe=_motif(coupe),
+                          motif_surface=_motif(surface))
+
+
+def _motif(nom):
+    """`Motif` d'un seul motif de premier plan, ou vide (nom « Aucun »)."""
+    if not nom:
+        return Motif()
+    return Motif(premier=Couche(nom=nom))
 
 
 def _indicateur(vm, libelle):
@@ -89,7 +99,6 @@ class TestAuditPageVM(unittest.TestCase):
         self.assertEqual(_indicateur(vm, u'Apparences dupliquées').Valeur, u'2')
         # « Aucune » n'est pas une apparence : ne doit pas faire un groupe.
         self.assertEqual(_indicateur(vm, u'Sans apparence').Valeur, u'1')
-        self.assertTrue(vm.AApparencesPartagees)
 
     def test_noms_proches_regroupes(self):
         vm = AuditPageVM([
@@ -115,6 +124,81 @@ class TestAuditPageVM(unittest.TestCase):
         vm = AuditPageVM([])
         self.assertEqual(_indicateur(vm, u'Matériaux').Valeur, u'0')
         self.assertEqual(_indicateur(vm, u'Utilisés').Detail, u'')
+        self.assertTrue(vm.ARienASignaler)
+
+
+class TestHachures(unittest.TestCase):
+
+    def test_motifs_identiques_regroupes_par_face(self):
+        vm = AuditPageVM([
+            _carte(1, u'Béton A', coupe=u'Béton', surface=u'Uni'),
+            _carte(2, u'Béton B', coupe=u'Béton', surface=u'Briques'),
+            _carte(3, u'Enduit', coupe=u'Plâtre', surface=u'Uni'),
+        ])
+        self.assertEqual([(g.Titre, g.Nombre) for g in vm.MotifsCoupe],
+                         [(u'Béton', 2)])
+        self.assertEqual([(g.Titre, g.Nombre) for g in vm.MotifsSurface],
+                         [(u'Uni', 2)])
+        # 1, 2 (coupe) et 3 (surface) : trois matériaux indiscernables sur au
+        # moins une face.
+        self.assertEqual(_indicateur(vm, u'Motifs identiques').Valeur, u'3')
+
+    def test_absence_de_motif_nest_pas_un_motif_partage(self):
+        vm = AuditPageVM([_carte(1, u'Béton'), _carte(2, u'Chêne')])
+        self.assertEqual(vm.MotifsCoupe, [])
+        self.assertEqual(vm.MotifsSurface, [])
+        self.assertEqual(_indicateur(vm, u'Sans motif de coupe').Valeur, u'2')
+        self.assertEqual(_indicateur(vm, u'Sans motif de surface').Valeur, u'2')
+        self.assertEqual(_indicateur(vm, u'Sans aucun motif').Valeur, u'2')
+
+    def test_motif_partage_ne_compte_pas_comme_doublon_au_score(self):
+        # Partager « Uni » est la norme, pas un défaut : les hachures restent
+        # hors de la partition de l'anneau et hors du barème.
+        vm = AuditPageVM([
+            _carte(1, u'Béton', apparence=u'Concrete', coupe=u'Uni',
+                   surface=u'Uni', usages=FakeUsages(types=1, instances=1)),
+            _carte(2, u'Chêne', apparence=u'Oak', coupe=u'Uni',
+                   surface=u'Uni', usages=FakeUsages(types=1, instances=1)),
+        ])
+        self.assertEqual(vm.Score, 100)
+        self.assertEqual(dict((s.Libelle, s.Nombre) for s in vm.Segments)
+                         [u'En doublon'], 0)
+
+
+class TestSections(unittest.TestCase):
+
+    def test_seules_les_sections_non_vides_existent(self):
+        vm = AuditPageVM([
+            _carte(1, u'Béton A', apparence=u'Concrete'),
+            _carte(2, u'Béton B', apparence=u'Concrete'),
+        ])
+        self.assertEqual([s.Titre for s in vm.Sections],
+                         [u'Apparences partagées'])
+        self.assertFalse(vm.ARienASignaler)
+
+    def test_la_premiere_section_est_deployee(self):
+        vm = AuditPageVM([
+            _carte(1, u'Béton A', apparence=u'Concrete', coupe=u'Béton'),
+            _carte(2, u'Béton B', apparence=u'Concrete', coupe=u'Béton'),
+        ])
+        self.assertEqual([s.EstDeployee for s in vm.Sections], [True, False])
+        self.assertEqual(vm.Sections[0].Compteur, u'1 groupe · 2 matériaux')
+
+    def test_le_pliage_est_pilotable_depuis_lexpander(self):
+        vm = AuditPageVM([
+            _carte(1, u'Béton A', apparence=u'Concrete'),
+            _carte(2, u'Béton B', apparence=u'Concrete'),
+        ])
+        section = vm.Sections[0]
+        section.EstDeployee = False
+        self.assertFalse(section.EstDeployee)
+
+    def test_aucune_section_sur_un_modele_propre(self):
+        vm = AuditPageVM([
+            _carte(1, u'Béton', apparence=u'Concrete', coupe=u'Béton'),
+            _carte(2, u'Chêne', apparence=u'Oak', coupe=u'Bois'),
+        ])
+        self.assertEqual(vm.Sections, [])
         self.assertTrue(vm.ARienASignaler)
 
 

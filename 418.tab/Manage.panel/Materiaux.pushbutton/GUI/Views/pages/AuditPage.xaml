@@ -15,18 +15,12 @@
     le libellé, le détail et le drapeau Alerte, qui teinte le chiffre. Ajouter
     un indicateur se fait dans AuditPageVM.calculer(), pas ici.
 
-    Les deux sections de détail (apparences partagées, noms proches) se
-    replient quand elles sont vides.
+    Les sections de détail (apparences partagées, noms proches, motifs de
+    coupe et de surface identiques) sont des Expander dépliables, construits
+    depuis AuditPageVM.Sections — une section sans résultat n'existe pas.
   -->
 
   <UserControl.Resources>
-    <Style x:Key="SectionTitreStyle" TargetType="TextBlock">
-      <Setter Property="FontSize" Value="13"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-      <Setter Property="Margin" Value="0,18,0,6"/>
-    </Style>
-
     <!-- Pastille du nombre de membres d'un groupe. -->
     <Style x:Key="PastilleStyle" TargetType="Border">
       <Setter Property="Width" Value="26"/>
@@ -179,11 +173,11 @@
              largeur disponible, donc la grille remplit la page quelle que
              soit la taille de la fenêtre — un WrapPanel à tuiles fixes
              laissait la place perdue au bout de chaque rangée.
-             3 colonnes pour 9 indicateurs : trois rangées pleines. -->
+             4 colonnes pour 12 indicateurs : trois rangées pleines. -->
         <ItemsControl ItemsSource="{Binding Indicateurs}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
-              <UniformGrid Columns="3"/>
+              <UniformGrid Columns="4"/>
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
@@ -225,7 +219,7 @@
         </ItemsControl>
 
         <!-- ═══════════ Rien à signaler ═══════════ -->
-        <TextBlock Text="Aucun doublon d'apparence ni de nom : rien à fusionner."
+        <TextBlock Text="Aucun doublon d'apparence, de nom ni de motif : rien à fusionner."
                    FontSize="12"
                    Margin="0,10,0,0"
                    Foreground="{DynamicResource SuccessBrush}">
@@ -241,122 +235,126 @@
           </TextBlock.Style>
         </TextBlock>
 
-        <!-- ═══════════ Apparences partagées ═══════════ -->
-        <StackPanel>
-          <StackPanel.Style>
-            <Style TargetType="StackPanel">
-              <Setter Property="Visibility" Value="Collapsed"/>
-              <Style.Triggers>
-                <DataTrigger Binding="{Binding AApparencesPartagees}" Value="True">
-                  <Setter Property="Visibility" Value="Visible"/>
-                </DataTrigger>
-              </Style.Triggers>
-            </Style>
-          </StackPanel.Style>
+        <!-- ═══════════ Sections de détail, repliables ═══════════
+             UN seul gabarit d'Expander pour toutes les sections : elles sont
+             de la donnée (AuditPageVM.SECTIONS). Une section vide n'est pas
+             construite, il n'y a donc aucun déclencheur de visibilité ici, et
+             ajouter un critère de doublon ne touche pas à ce XAML.
 
-          <TextBlock Text="Apparences partagées par plusieurs matériaux"
-                     Style="{StaticResource SectionTitreStyle}"/>
-          <TextBlock Text="Même asset de rendu, donc même aspect en vue réaliste. Souvent des matériaux à fusionner dans l'onglet Remplacer."
-                     FontSize="11"
-                     TextWrapping="Wrap"
-                     Margin="0,0,0,6"
-                     Foreground="{DynamicResource TextSecondaryBrush}"/>
+             IsExpanded est en TwoWay sur SectionVM.EstDeployee : la page
+             n'est montée qu'une fois par RailWindow, donc l'état de pliage
+             survit aux allers-retours entre onglets. La première section non
+             vide est ouverte d'office.
 
-          <ItemsControl ItemsSource="{Binding ApparencesPartagees}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Border BorderBrush="{DynamicResource ControlBorderBrush}"
-                        BorderThickness="0,0,0,1"
-                        Background="{DynamicResource TransparentBrush}"
-                        Padding="2,6">
-                  <Grid>
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="Auto"/>
-                      <ColumnDefinition Width="240"/>
-                      <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <Border Grid.Column="0" Style="{StaticResource PastilleStyle}">
-                      <TextBlock Text="{Binding Nombre}"
-                                 FontSize="11"
-                                 HorizontalAlignment="Center"
+             Conteneur EXTÉRIEUR Border CardStyle, Expander logé dedans :
+             même structure que les cartes de collection de BatchExport. Le
+             CardStyle porte déjà Margin et Padding — ne pas les redéfinir. -->
+        <ItemsControl ItemsSource="{Binding Sections}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Style="{DynamicResource CardStyle}">
+                <Expander Style="{DynamicResource CollectionExpanderStyle}"
+                          IsExpanded="{Binding EstDeployee, Mode=TwoWay}">
+                  <Expander.Header>
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                      </Grid.ColumnDefinitions>
+                      <TextBlock Text="{Binding Titre}"
+                                 FontSize="14"
+                                 FontWeight="SemiBold"
                                  VerticalAlignment="Center"
                                  Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    </Border>
-                    <TextBlock Grid.Column="1"
-                               Text="{Binding Titre}"
-                               FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis"
-                               VerticalAlignment="Center"
-                               Margin="0,0,10,0"
-                               ToolTip="{Binding Titre}"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <TextBlock Grid.Column="2"
-                               Text="{Binding Membres}"
+                      <TextBlock Grid.Column="1"
+                                 Text="{Binding Compteur}"
+                                 FontSize="11"
+                                 VerticalAlignment="Center"
+                                 Margin="10,0,0,0"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </Grid>
+                  </Expander.Header>
+
+                  <StackPanel Margin="0,10,0,0">
+                    <TextBlock Text="{Binding Explication}"
                                FontSize="11"
-                               TextTrimming="CharacterEllipsis"
-                               VerticalAlignment="Center"
-                               ToolTip="{Binding Membres}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,6"
                                Foreground="{DynamicResource TextSecondaryBrush}"/>
-                  </Grid>
-                </Border>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </StackPanel>
 
-        <!-- ═══════════ Noms proches ═══════════ -->
-        <StackPanel Margin="0,0,0,10">
-          <StackPanel.Style>
-            <Style TargetType="StackPanel">
-              <Setter Property="Visibility" Value="Collapsed"/>
-              <Style.Triggers>
-                <DataTrigger Binding="{Binding ANomsProches}" Value="True">
-                  <Setter Property="Visibility" Value="Visible"/>
-                </DataTrigger>
-              </Style.Triggers>
-            </Style>
-          </StackPanel.Style>
+                    <ItemsControl ItemsSource="{Binding Groupes}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border BorderBrush="{DynamicResource ControlBorderBrush}"
+                                  BorderThickness="0,0,0,1"
+                                  Background="{DynamicResource TransparentBrush}"
+                                  Padding="2,6">
+                            <Grid>
+                              <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="220"/>
+                                <ColumnDefinition Width="*"/>
+                              </Grid.ColumnDefinitions>
 
-          <TextBlock Text="Noms proches"
-                     Style="{StaticResource SectionTitreStyle}"/>
-          <TextBlock Text="Noms identiques à la casse, aux accents, à la ponctuation ou à un « (1) » près."
-                     FontSize="11"
-                     TextWrapping="Wrap"
-                     Margin="0,0,0,6"
-                     Foreground="{DynamicResource TextSecondaryBrush}"/>
+                              <Border Grid.Column="0" Style="{StaticResource PastilleStyle}">
+                                <TextBlock Text="{Binding Nombre}"
+                                           FontSize="11"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                              </Border>
 
-          <ItemsControl ItemsSource="{Binding NomsProches}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Border BorderBrush="{DynamicResource ControlBorderBrush}"
-                        BorderThickness="0,0,0,1"
-                        Background="{DynamicResource TransparentBrush}"
-                        Padding="2,6">
-                  <Grid>
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="Auto"/>
-                      <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <Border Grid.Column="0" Style="{StaticResource PastilleStyle}">
-                      <TextBlock Text="{Binding Nombre}"
-                                 FontSize="11"
-                                 HorizontalAlignment="Center"
-                                 VerticalAlignment="Center"
-                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    </Border>
-                    <TextBlock Grid.Column="1"
-                               Text="{Binding Membres}"
-                               TextTrimming="CharacterEllipsis"
-                               VerticalAlignment="Center"
-                               ToolTip="{Binding Membres}"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                  </Grid>
-                </Border>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </StackPanel>
+                              <!-- Vignette du motif : seules les sections de
+                                   hachures en ont une (AApercu). Fond blanc et
+                                   ClipToBounds comme partout ailleurs. -->
+                              <Border Grid.Column="1"
+                                      Width="64" Height="26" CornerRadius="3"
+                                      BorderThickness="1"
+                                      BorderBrush="{DynamicResource ControlBorderBrush}"
+                                      Background="White"
+                                      ClipToBounds="True"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,10,0">
+                                <Border.Style>
+                                  <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                      <DataTrigger Binding="{Binding AApercu}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                      </DataTrigger>
+                                    </Style.Triggers>
+                                  </Style>
+                                </Border.Style>
+                                <Image Source="{Binding Apercu}" Stretch="UniformToFill"/>
+                              </Border>
 
+                              <TextBlock Grid.Column="2"
+                                         Text="{Binding Titre}"
+                                         FontWeight="SemiBold"
+                                         TextTrimming="CharacterEllipsis"
+                                         VerticalAlignment="Center"
+                                         Margin="0,0,10,0"
+                                         ToolTip="{Binding Titre}"
+                                         Foreground="{DynamicResource TextPrimaryBrush}"/>
+                              <TextBlock Grid.Column="3"
+                                         Text="{Binding Membres}"
+                                         FontSize="11"
+                                         TextTrimming="CharacterEllipsis"
+                                         VerticalAlignment="Center"
+                                         ToolTip="{Binding Membres}"
+                                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </Expander>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
       </StackPanel>
     </ScrollViewer>
   </Grid>

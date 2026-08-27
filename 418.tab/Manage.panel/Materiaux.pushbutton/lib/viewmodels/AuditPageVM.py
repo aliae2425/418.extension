@@ -90,15 +90,54 @@ class SegmentVM(BaseViewModel):
 
 
 class GroupeVM(BaseViewModel):
-    """Un lot de matériaux qui se ressemblent : même apparence, ou noms
-    voisins. `Titre` est ce qui les rassemble, `Membres` la liste lisible."""
+    """Un lot de matériaux qui se ressemblent : même apparence, même hachure,
+    ou noms voisins. `Titre` est ce qui les rassemble, `Membres` la liste
+    lisible, `Apercu` la vignette du motif quand le groupe en a un."""
 
-    def __init__(self, titre, cartes):
+    def __init__(self, titre, cartes, apercu=None):
         super(GroupeVM, self).__init__()
         self.Titre = titre or u'—'
         self.Cartes = list(cartes)
         self.Nombre = len(self.Cartes)
         self.Membres = u' · '.join(carte.Nom for carte in self.Cartes)
+        # Toutes les cards du groupe ont le même motif : la première suffit.
+        self.Apercu = apercu(self.Cartes[0]) if apercu and self.Cartes else None
+        self.AApercu = self.Apercu is not None
+
+
+class SectionVM(BaseViewModel):
+    """Un bloc de détail repliable de l'onglet Audit.
+
+    Les sections sont de la DONNÉE : la page en rend une par entrée de
+    `AuditPageVM.Sections`, avec un seul Expander en gabarit. Une section vide
+    n'est pas construite du tout — pas de déclencheur de visibilité à écrire,
+    et ajouter un critère de doublon ne touche pas au XAML.
+    """
+
+    def __init__(self, titre, explication, groupes, deployee=False):
+        super(SectionVM, self).__init__()
+        self.Titre = titre
+        self.Explication = explication
+        self.Groupes = list(groupes)
+        self.Nombre = len(self.Groupes)
+        self.Materiaux = sum(groupe.Nombre for groupe in self.Groupes)
+        self.Compteur = u'%d groupe%s · %d matériaux' % (
+            self.Nombre, u's' if self.Nombre > 1 else u'', self.Materiaux)
+        self._deployee = bool(deployee)
+
+    @property
+    def EstDeployee(self):
+        return self._deployee
+
+    @EstDeployee.setter
+    def EstDeployee(self, value):
+        """Pilotée par l'Expander (binding TwoWay) : l'état de pliage survit à
+        un aller-retour vers un autre onglet, la page n'étant montée qu'une
+        fois par RailWindow."""
+        value = bool(value)
+        if value != self._deployee:
+            self._deployee = value
+            self.notify_property('EstDeployee')
 
 
 class AuditPageVM(BaseViewModel):
@@ -134,6 +173,9 @@ class AuditPageVM(BaseViewModel):
         self.Indicateurs = []
         self.ApparencesPartagees = []
         self.NomsProches = []
+        self.MotifsCoupe = []
+        self.MotifsSurface = []
+        self.Sections = []
         self.Segments = []
         self.Score = 0
         self.ScoreDetail = u''
@@ -173,20 +215,13 @@ class AuditPageVM(BaseViewModel):
         return u'%d matériau%s · instantané à l\'ouverture du modèle' % (
             total, u'x' if total > 1 else u'')
 
-    # Les sections de détail se replient quand elles sont vides. Booléens
-    # plutôt qu'un binding sur `.Count` : c'est une liste Python, on ne parie
-    # pas sur l'IList qu'IronPython en expose.
-    @property
-    def AApparencesPartagees(self):
-        return bool(self.ApparencesPartagees)
-
-    @property
-    def ANomsProches(self):
-        return bool(self.NomsProches)
-
     @property
     def ARienASignaler(self):
-        return not (self.ApparencesPartagees or self.NomsProches)
+        """Aucune section de détail : le message « rien à fusionner » prend
+        leur place. Booléen plutôt qu'un binding sur `Sections.Count` : c'est
+        une liste Python, on ne parie pas sur l'IList qu'IronPython en expose.
+        """
+        return not self.Sections
 
     # ------------------------------------------------------------------
 
@@ -203,14 +238,29 @@ class AuditPageVM(BaseViewModel):
         sans_motif = [c for c in cartes
                       if c.MotifCoupeNom == u'Aucun' and c.MotifSurfaceNom == u'Aucun']
 
+        sans_coupe = [c for c in cartes if c.MotifCoupeNom == u'Aucun']
+        sans_surface = [c for c in cartes if c.MotifSurfaceNom == u'Aucun']
+
         self.ApparencesPartagees = self._grouper(
             cartes, lambda carte: carte.Apparence,
             ignorer=(u'', u'Aucune'))
         self.NomsProches = self._grouper(cartes, lambda carte: _cle_nom(carte.Nom),
                                          titre=lambda carte: carte.Nom)
+        # Hachures : deux faces, deux regroupements. Deux matériaux qui
+        # partagent un motif sont indiscernables sur cette face en vue coupée
+        # ou en projection. « Aucun » est écarté — c'est l'absence de motif,
+        # comptée par sa propre tuile, pas un motif partagé.
+        self.MotifsCoupe = self._grouper(
+            cartes, lambda carte: carte.MotifCoupeNom, ignorer=(u'Aucun',),
+            apercu=lambda carte: carte.MotifCoupeImage)
+        self.MotifsSurface = self._grouper(
+            cartes, lambda carte: carte.MotifSurfaceNom, ignorer=(u'Aucun',),
+            apercu=lambda carte: carte.MotifSurfaceImage)
         materiaux_en_double = sum(g.Nombre for g in self.ApparencesPartagees)
+        motifs_partages = self._ids(self.MotifsCoupe + self.MotifsSurface)
 
         self._repartir(cartes, non_utilises, sans_classe, sans_apparence)
+        self._construire_sections()
 
         self.Indicateurs = [
             IndicateurVM(total, u'Matériaux', u'dans le modèle'),
@@ -238,18 +288,64 @@ class AuditPageVM(BaseViewModel):
                          alerte=bool(sans_apparence)),
             IndicateurVM(len(sans_classe), u'Sans classe',
                          u'champ « Classe » vide', alerte=bool(sans_classe)),
-            IndicateurVM(len(sans_motif), u'Sans motif',
+            IndicateurVM(len(sans_coupe), u'Sans motif de coupe',
+                         u'invisibles en vue coupée',
+                         alerte=bool(sans_coupe)),
+            IndicateurVM(len(sans_surface), u'Sans motif de surface',
+                         u'invisibles en projection',
+                         alerte=bool(sans_surface)),
+            IndicateurVM(len(sans_motif), u'Sans aucun motif',
                          u'ni coupe ni surface', alerte=bool(sans_motif)),
+            IndicateurVM(len(motifs_partages), u'Motifs identiques',
+                         u'indiscernables sur une face',
+                         alerte=bool(motifs_partages)),
         ]
         log(u'audit : {} matériau(x) · {} non utilisé(s) · {} apparence(s) '
-            u'partagée(s) · {} groupe(s) de noms proches',
+            u'partagée(s) · {} groupe(s) de noms proches · {} motif(s) de '
+            u'coupe et {} de surface partagés · score {}',
             total, len(non_utilises), len(self.ApparencesPartagees),
-            len(self.NomsProches))
+            len(self.NomsProches), len(self.MotifsCoupe),
+            len(self.MotifsSurface), self.Score)
         for nom in ('Indicateurs', 'ApparencesPartagees', 'NomsProches',
-                    'Resume', 'ARienASignaler', 'AApparencesPartagees',
-                    'ANomsProches', 'Segments', 'Score', 'ScoreDetail',
-                    'ScoreMention', 'ScoreNiveau', 'Torus'):
+                    'MotifsCoupe', 'MotifsSurface', 'Sections',
+                    'Resume', 'ARienASignaler', 'Segments', 'Score',
+                    'ScoreDetail', 'ScoreMention', 'ScoreNiveau', 'Torus'):
             self.notify_property(nom)
+
+    # ------------------------------------------------------------------
+    # Sections repliables
+    # ------------------------------------------------------------------
+
+    #: (titre, explication, nom de l'attribut qui porte les groupes). Les
+    #: sections vides ne sont pas construites — l'ordre ici EST l'ordre à
+    #: l'écran, et la première section non vide s'ouvre d'office.
+    SECTIONS = (
+        (u'Apparences partagées',
+         u'Même asset de rendu, donc même aspect en vue réaliste. Souvent des '
+         u'matériaux à fusionner dans l\'onglet Remplacer.',
+         'ApparencesPartagees'),
+        (u'Noms proches',
+         u'Noms identiques à la casse, aux accents, à la ponctuation ou à un '
+         u'« (1) » près.',
+         'NomsProches'),
+        (u'Motifs de coupe identiques',
+         u'Ces matériaux sont indiscernables en vue coupée : même motif de '
+         u'coupe, arrière-plan et premier plan compris.',
+         'MotifsCoupe'),
+        (u'Motifs de surface identiques',
+         u'Ces matériaux sont indiscernables en projection : même motif de '
+         u'surface.',
+         'MotifsSurface'),
+    )
+
+    def _construire_sections(self):
+        self.Sections = []
+        for (titre, explication, attribut) in self.SECTIONS:
+            groupes = getattr(self, attribut)
+            if not groupes:
+                continue
+            self.Sections.append(SectionVM(titre, explication, groupes,
+                                           deployee=not self.Sections))
 
     # ------------------------------------------------------------------
     # Anneau de récap + score
@@ -307,11 +403,18 @@ class AuditPageVM(BaseViewModel):
         return u'%d %%' % round(100.0 * nombre / total) if total else u''
 
     @staticmethod
-    def _grouper(cartes, cle, ignorer=(), titre=None):
+    def _ids(groupes):
+        """Ids des matériaux figurant dans au moins un de ces groupes."""
+        return set(carte.Id for groupe in groupes for carte in groupe.Cartes)
+
+    @staticmethod
+    def _grouper(cartes, cle, ignorer=(), titre=None, apercu=None):
         """Groupes de 2 cards ou plus partageant la même clé.
 
         `titre` : de quoi étiqueter le groupe quand la clé n'est pas lisible
         (le nom normalisé) — on prend celui de la première card.
+        `apercu` : vignette à afficher devant le groupe (motif de coupe ou de
+        surface), prise sur la première card elle aussi.
         """
         par_cle = {}
         for carte in cartes:
@@ -319,6 +422,7 @@ class AuditPageVM(BaseViewModel):
             if not valeur or valeur in ignorer:
                 continue
             par_cle.setdefault(valeur, []).append(carte)
-        groupes = [GroupeVM(titre(membres[0]) if titre else valeur, membres)
+        groupes = [GroupeVM(titre(membres[0]) if titre else valeur, membres,
+                            apercu=apercu)
                    for (valeur, membres) in par_cle.items() if len(membres) > 1]
         return sorted(groupes, key=lambda g: (-g.Nombre, g.Titre))
