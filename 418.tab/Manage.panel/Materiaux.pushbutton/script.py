@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 
 __title__ = "Matériaux"
-__doc__ = "Voir, remplacer et renommer les matériaux du modèle."
+__doc__ = "Voir, éditer, remplacer et renommer les matériaux du modèle."
 __author__ = 'Aliae'
 __min_revit_ver__ = 2026
 
@@ -15,115 +15,19 @@ except Exception:
 
 try:
     from Autodesk.Revit.DB import (CategoryType, ElementId,
-                                   FilteredElementCollector, FillPatternTarget)
+                                   FilteredElementCollector)
 except Exception:
     CategoryType = None
     ElementId = None
     FilteredElementCollector = None
-    FillPatternTarget = None
 
 from lib.viewmodels.MainViewModel import MainViewModel
-from lib.viewmodels.MaterialCardVM import Couche, MaterialCardVM, Motif
 from lib.viewmodels.RemplacerPageVM import CategorieVM
+from lib.viewmodels import lecture_materiau
 from lib.views.MainWindowView import MainWindowView
 from lib.services.MaterialService import MaterialService
-from lib.services import hatch
 from lib.services.journal import log, nouvelle_session
 from core.selection import all_materials
-
-GRIS = (128, 128, 128)
-
-
-def _premier(objet, *noms):
-    """Première propriété existante parmi `noms`.
-
-    Les motifs de matériau ont été scindés premier plan / arrière-plan en
-    2019 : `CutPatternId` est devenu `CutForegroundPatternId`. On accepte
-    les deux graphies plutôt que de parier sur la version.
-    """
-    for nom in noms:
-        try:
-            valeur = getattr(objet, nom)
-        except Exception:
-            continue
-        if valeur is not None:
-            return valeur
-    return None
-
-
-def _rgb(couleur, defaut=GRIS):
-    """Couleur Revit -> triplet (r, v, b), `defaut` si non renseignée."""
-    try:
-        if couleur is None or not couleur.IsValid:
-            return defaut
-        return (couleur.Red, couleur.Green, couleur.Blue)
-    except Exception:
-        return defaut
-
-
-def _couche(identifiant, rgb):
-    """`FillPatternElement` -> `Couche` prête à dessiner, None si pas de motif."""
-    if doc is None or identifiant is None:
-        return None
-    if ElementId is not None and identifiant == ElementId.InvalidElementId:
-        return None
-    element = doc.GetElement(identifiant)
-    if element is None:
-        return None
-    try:
-        remplissage = element.GetFillPattern()
-    except Exception:
-        return Couche(nom=element.Name)
-    if remplissage.IsSolidFill:
-        return Couche(nom=element.Name, est_uni=True, rgb=rgb)
-    est_modele = False
-    if FillPatternTarget is not None:
-        try:
-            est_modele = remplissage.Target == FillPatternTarget.Model
-        except Exception:
-            pass
-    grilles = [hatch.depuis_fill_grid(g) for g in remplissage.GetFillGrids()]
-    return Couche(nom=element.Name, grilles=grilles, est_modele=est_modele,
-                  rgb=rgb)
-
-
-def _motif(materiau, face, couleur):
-    """Les deux couches d'une face (`'Cut'` ou `'Surface'`) -> `Motif`.
-
-    Chaque couche a son propre motif ET sa propre couleur. Les graphies sans
-    Foreground/Background sont celles d'avant 2019, gardées en repli.
-    """
-    fond = _couche(
-        _premier(materiau, face + 'BackgroundPatternId'),
-        _rgb(_premier(materiau, face + 'BackgroundPatternColor'), defaut=couleur))
-    premier = _couche(
-        _premier(materiau, face + 'ForegroundPatternId', face + 'PatternId'),
-        _rgb(_premier(materiau, face + 'ForegroundPatternColor',
-                      face + 'PatternColor'), defaut=couleur))
-    return Motif(fond=fond, premier=premier)
-
-
-def _apparence(materiau):
-    """Nom de l'asset d'apparence, vide s'il n'y en a pas."""
-    if doc is None:
-        return u''
-    try:
-        element = doc.GetElement(materiau.AppearanceAssetId)
-        return element.Name if element is not None else u''
-    except Exception:
-        return u''
-
-
-def _carte(materiau, usages=None):
-    couleur = _rgb(_premier(materiau, 'Color'))
-    return MaterialCardVM(
-        materiau.Id, materiau.Name,
-        classe=_premier(materiau, 'MaterialClass') or u'',
-        apparence=_apparence(materiau),
-        couleur=couleur,
-        motif_coupe=_motif(materiau, 'Cut', couleur),
-        motif_surface=_motif(materiau, 'Surface', couleur),
-        usages=usages)
 
 
 def _categories_presentes():
@@ -181,13 +85,19 @@ if __name__ == '__main__':
     # l'ouverture de l'outil en paie le prix une fois.
     service = MaterialService(doc)
     usages = service.compter_utilisations(list(materiaux_par_id.keys()))
-    cartes = [_carte(m, usages.get(m.Id)) for m in materiaux]
+    cartes = [lecture_materiau.carte(doc, m, usages.get(m.Id))
+              for m in materiaux]
 
     categories = _categories_presentes()
+    # Catalogues de l'éditeur, lus une fois pour toutes les fenêtres d'édition.
+    motifs = lecture_materiau.motifs_du_document(doc)
+    apparences = lecture_materiau.apparences_du_document(doc)
     _log_contexte(materiaux, categories)
+    log(u'catalogues : {} motif(s), {} asset(s) d\'apparence',
+        len(motifs), len(apparences))
 
-    vm = MainViewModel(service=service)
-    vm.charger(cartes, materiaux_par_id, categories)
+    vm = MainViewModel(service=service, doc=doc)
+    vm.charger(cartes, materiaux_par_id, categories, motifs, apparences)
 
     view = MainWindowView(vm)
     view.show()

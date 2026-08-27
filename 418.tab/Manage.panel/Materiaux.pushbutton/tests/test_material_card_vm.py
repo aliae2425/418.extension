@@ -22,7 +22,7 @@ class _FauxHatchImage(object):
     def __init__(self):
         self.recues = None
 
-    def vignette(self, couches):
+    def vignette(self, couches, *args, **kwargs):
         self.recues = list(couches)
         return 'image'
 

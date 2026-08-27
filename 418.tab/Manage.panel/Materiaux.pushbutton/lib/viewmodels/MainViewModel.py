@@ -26,6 +26,11 @@ try:
 except Exception:
     from viewmodels.AuditPageVM import AuditPageVM
 
+try:
+    from lib.viewmodels.EditeurVM import depuis_materiau
+except Exception:
+    from viewmodels.EditeurVM import depuis_materiau
+
 
 class MainViewModel(BaseViewModel):
     """VM racine « Matériaux » : quatre onglets, TROIS sélections.
@@ -55,10 +60,13 @@ class MainViewModel(BaseViewModel):
         (u'Sans instance', lambda carte: carte.SansInstance),
     )
 
-    def __init__(self, service=None):
+    def __init__(self, service=None, doc=None):
         super(MainViewModel, self).__init__()
         self._service = service
+        self._doc = doc
         self._materiaux_par_id = {}
+        self._motifs = []
+        self._apparences = []
         self._mode = u'audit'
         self.AuditVM = None
         self.SelectionVM = None
@@ -78,13 +86,19 @@ class MainViewModel(BaseViewModel):
             self._mode = mode
             self.notify_property('Mode')
 
-    def charger(self, cartes, materiaux_par_id, categories=None):
+    def charger(self, cartes, materiaux_par_id, categories=None, motifs=None,
+                apparences=None):
         """`cartes` : `MaterialCardVM` construites par script.py.
         `materiaux_par_id` : id -> `Material` Revit, pour le renommage.
         `categories` : `CategorieVM` présentes dans le modèle, pour le menu
-        déroulant de portée de l'onglet Remplacer."""
+        déroulant de portée de l'onglet Remplacer.
+        `motifs` / `apparences` : catalogues du document (`MotifRef`,
+        `ApparenceRef`), lus une fois à l'ouverture et prêtés à chaque
+        éditeur."""
         cartes = list(cartes or [])
         self._materiaux_par_id = dict(materiaux_par_id or {})
+        self._motifs = list(motifs or [])
+        self._apparences = list(apparences or [])
 
         self.AuditVM = AuditPageVM(cartes)
         self.SelectionVM = self._nouvelle_page(cartes, u'IsSelected',
@@ -107,6 +121,21 @@ class MainViewModel(BaseViewModel):
             self.notify_property(nom)
         self.RenommerVM.set_sources(page_renommer.selected_ids())
         self.RemplacerVM.set_sources(page_remplacer.selected_ids())
+
+    def editeur_pour(self, carte):
+        """L'`EditeurVM` d'une card, ou None si le matériau n'est plus là.
+
+        Un VM neuf à chaque ouverture : l'éditeur mémorise l'état lu au
+        chargement pour ne réécrire que ce qui a bougé, donc le recycler après
+        une sauvegarde ou un Annuler donnerait un diff faux.
+        """
+        # `getattr` et pas `carte.Id` : un double-clic dans le vide de la
+        # grille remonte le DataContext de la page, pas une card.
+        materiau = self._materiaux_par_id.get(getattr(carte, 'Id', None))
+        if materiau is None:
+            return None
+        return depuis_materiau(self._doc, materiau, carte, self._service,
+                               self._motifs, self._apparences)
 
     def _nouvelle_page(self, cartes, prop, titre, presets=None):
         """Une page de sélection sur `prop`, cards branchées sur elle."""

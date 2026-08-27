@@ -22,10 +22,21 @@ ECHELLE_DESSIN = 576.0
 # Les motifs MODÈLE sont à l'échelle du bâtiment : un écart d'un pied sort à
 # un pied DIVISÉ par l'échelle de la vue. La vignette n'a pas de vue, on en
 # postule une — 1:50, la plus courante en plan d'étage.
-# ponytail: seul vrai réglage restant. Si les motifs modèle sortent trop
-# denses ou trop vides sur une maquette, c'est ce 50 qu'on bouge.
 ECHELLE_VUE = 50.0
-ECHELLE_MODELE = ECHELLE_DESSIN / ECHELLE_VUE
+
+# Échelles de vue proposées par l'aperçu comparatif de l'éditeur. La vignette
+# des cards, elle, n'en montre qu'une (ECHELLE_VUE).
+ECHELLES_APERCU = (20, 50, 100, 200)
+
+
+def echelle_modele(echelle_vue=None):
+    """Pixels/pied d'un motif MODÈLE vu à l'échelle 1:`echelle_vue`.
+
+    `None` retombe sur `ECHELLE_VUE`. Un motif de DESSIN n'a pas d'équivalent :
+    il est en taille papier, donc `ECHELLE_DESSIN` quelle que soit la vue —
+    c'est toute la différence que l'aperçu multi-échelle donne à voir.
+    """
+    return ECHELLE_DESSIN / float(echelle_vue or ECHELLE_VUE)
 
 # En dessous de cet écart, la vignette virerait au gris uni et coûterait des
 # centaines de droites pour rien.

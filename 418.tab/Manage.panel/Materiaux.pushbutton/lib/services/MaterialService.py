@@ -28,10 +28,11 @@ except Exception:
             return u'<?>'
 
 try:
-    from Autodesk.Revit.DB import (ElementId, ElementMulticategoryFilter,
+    from Autodesk.Revit.DB import (Color, ElementId, ElementMulticategoryFilter,
                                    FilteredElementCollector, StorageType,
                                    HostObjAttributes)
 except Exception:
+    Color = None
     ElementId = None
     ElementMulticategoryFilter = None
     FilteredElementCollector = None
@@ -151,6 +152,17 @@ def _categorie(element):
     except Exception:
         pass
     return u'Sans catégorie'
+
+
+def _valeur_revit(valeur):
+    """Triplet (r, v, b) -> `Color`. Tout le reste passe tel quel.
+
+    Le ViewModel de l'éditeur reste ainsi du Python pur : il manipule des
+    tuples de couleur, jamais un objet de l'API.
+    """
+    if Color is not None and isinstance(valeur, (tuple, list)) and len(valeur) == 3:
+        return Color(*[int(c) for c in valeur])
+    return valeur
 
 
 class MaterialService(object):
@@ -404,6 +416,43 @@ class MaterialService(object):
             log(u'structure composée refusée sur {} : {}', _nom(element), erreur)
             return False
         return touche
+
+    # -- Édition d'un matériau ---------------------------------------------
+
+    def enregistrer(self, materiau, valeurs):
+        """Écrit `valeurs` sur `materiau`. Retourne les attributs REFUSÉS.
+
+        `valeurs` : `{nom d'attribut Revit: valeur}` — `Name`,
+        `MaterialClass`, `Color`, `Transparency`, `Shininess`, `Smoothness`,
+        `AppearanceAssetId`, et les huit `<face><couche>Pattern{Id,Color}`.
+        Un triplet (r, v, b) est converti en `Color`, le reste passe tel quel :
+        les `ElementId` viennent des catalogues, ils sont déjà du bon type.
+
+        `Name` est traité à part — sanitize puis boucle anti-collision, comme
+        le renommage en lot. Tout le reste est indépendant : un attribut
+        refusé (motif de dessin posé sur un emplacement modèle, matériau d'un
+        lien) ne fait pas tomber les autres, il ressort dans la liste. Retour
+        vide = tout est passé.
+        """
+        echecs = []
+        if materiau is None or not valeurs:
+            return echecs
+        log(u'éditer {} : {} attribut(s)', _nom(materiau), len(valeurs))
+        with revit_transaction(self._doc, u'Éditer le matériau'):
+            for attribut in sorted(valeurs):
+                valeur = valeurs[attribut]
+                if attribut == 'Name':
+                    if not self._affecter_nom(materiau,
+                                              sanitize_revit_name(valeur)):
+                        echecs.append(attribut)
+                    continue
+                try:
+                    setattr(materiau, attribut, _valeur_revit(valeur))
+                except Exception as erreur:
+                    log(u'attribut « {} » refusé sur {} : {}',
+                        attribut, _nom(materiau), erreur)
+                    echecs.append(attribut)
+        return echecs
 
     # -- Renommage ---------------------------------------------------------
 

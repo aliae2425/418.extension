@@ -119,9 +119,9 @@ class MaterialCardVM(BaseViewModel):
         self.Id = item_id
         self._nom = nom or u''
         self._nouveau_nom = u''
-        self.Classe = classe or u'Sans classe'
-        self.Apparence = apparence or u'Aucune'
-        self.ApparenceCouleur = _hex(couleur)
+        self._classe = classe or u'Sans classe'
+        self._apparence = apparence or u'Aucune'
+        self._apparence_couleur = _hex(couleur)
         self._coupe = motif_coupe or Motif()
         self._surface = motif_surface or Motif()
         self._IsSelected = bool(is_selected)
@@ -169,6 +169,40 @@ class MaterialCardVM(BaseViewModel):
     @property
     def NomChange(self):
         return bool(self._nouveau_nom) and self._nouveau_nom != self._nom
+
+    # -- Ce que l'éditeur peut changer -------------------------------------
+
+    @property
+    def Classe(self):
+        return self._classe
+
+    @property
+    def Apparence(self):
+        return self._apparence
+
+    @property
+    def ApparenceCouleur(self):
+        return self._apparence_couleur
+
+    def rafraichir(self, nom, classe, apparence, couleur, motif_coupe,
+                   motif_surface):
+        """Recharge tout l'affichage depuis une relecture du matériau Revit.
+
+        Appelée après une sauvegarde de l'éditeur. Les `Motif` sont REMPLACÉS,
+        pas modifiés : `Motif.image()` met sa DrawingImage en cache une fois
+        pour toutes (elle est gelée et partagée par le binding), donc la seule
+        façon de changer une vignette est d'en fabriquer une autre.
+        """
+        self.Nom = nom
+        self._classe = classe or u'Sans classe'
+        self._apparence = apparence or u'Aucune'
+        self._apparence_couleur = _hex(couleur)
+        self._coupe = motif_coupe or Motif()
+        self._surface = motif_surface or Motif()
+        for propriete in ('Classe', 'Apparence', 'ApparenceCouleur',
+                          'MotifCoupeNom', 'MotifSurfaceNom',
+                          'MotifCoupeImage', 'MotifSurfaceImage'):
+            self.notify_property(propriete)
 
     # -- Usages dans la maquette ------------------------------------------
 

@@ -35,12 +35,21 @@ def _brosse(rgb):
     return SolidColorBrush(Color.FromRgb(r, v, b))
 
 
-def vignette(couches):
+def vignette(couches, largeur=LARGEUR, hauteur=HAUTEUR, echelle_vue=None):
     """Empile les `couches` sur un fond BLANC, comme Revit dessine un matériau.
 
     `couches` : itérable de `Couche`, arrière-plan d'abord. Le blanc est en
     dur — c'est la couleur du papier, pas celle du thème : une hachure noire
     doit rester lisible en mode sombre.
+
+    `largeur`/`hauteur` : taille de la tuile en pixels. Les défauts sont ceux
+    de la vignette de card ; l'éditeur demande plus grand.
+
+    `echelle_vue` : dénominateur de l'échelle de vue postulée (50 pour 1:50).
+    None reprend `hatch.ECHELLE_VUE`. C'est le SEUL paramètre qui change quoi
+    que ce soit pour un motif de MODÈLE — un motif de dessin est en taille
+    papier, il sort identique à toutes les échelles, et c'est le comportement
+    de Revit qu'on veut montrer.
     """
     if DrawingImage is None:
         return None
@@ -49,21 +58,21 @@ def vignette(couches):
     # Fond blanc opaque : donne le papier ET fige la taille de la vignette,
     # sinon WPF la recadre sur l'étendue des seules lignes tracées.
     groupe.Children.Add(GeometryDrawing(
-        Brushes.White, None, RectangleGeometry(Rect(0, 0, LARGEUR, HAUTEUR))))
+        Brushes.White, None, RectangleGeometry(Rect(0, 0, largeur, hauteur))))
 
     for couche in couches or []:
-        for dessin in _dessins(couche):
+        for dessin in _dessins(couche, largeur, hauteur, echelle_vue):
             groupe.Children.Add(dessin)
 
     # Revit compte V vers le HAUT, WPF y vers le bas : sans ce miroir, toutes
     # les hachures obliques penchent du mauvais côté. Le fond blanc est
     # symétrique, il ne bouge pas.
     if ScaleTransform is not None:
-        groupe.Transform = ScaleTransform(1.0, -1.0, LARGEUR / 2.0, HAUTEUR / 2.0)
+        groupe.Transform = ScaleTransform(1.0, -1.0, largeur / 2.0, hauteur / 2.0)
     return _geler(DrawingImage(groupe))
 
 
-def _dessins(couche):
+def _dessins(couche, largeur, hauteur, echelle_vue=None):
     """Les GeometryDrawing d'une `Couche` : un par famille de droites.
 
     Une famille par dessin et non un GeometryGroup global : chaque famille
@@ -73,12 +82,13 @@ def _dessins(couche):
         return []
     if couche.est_uni:
         return [GeometryDrawing(_brosse(couche.rgb), None,
-                                RectangleGeometry(Rect(0, 0, LARGEUR, HAUTEUR)))]
+                                RectangleGeometry(Rect(0, 0, largeur, hauteur)))]
     if not couche.grilles:
         return []
-    echelle = hatch.ECHELLE_MODELE if couche.est_modele else hatch.ECHELLE_DESSIN
+    echelle = hatch.echelle_modele(echelle_vue) if couche.est_modele \
+        else hatch.ECHELLE_DESSIN
     dessins = []
-    for traits, tirets in hatch.par_grille(couche.grilles, LARGEUR, HAUTEUR,
+    for traits, tirets in hatch.par_grille(couche.grilles, largeur, hauteur,
                                            echelle):
         lignes = GeometryGroup()
         for (x1, y1, x2, y2) in traits:

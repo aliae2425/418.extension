@@ -1,0 +1,297 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding Titre}"
+        Width="980" Height="760"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="{DynamicResource TransparentBrush}"
+        WindowStartupLocation="CenterOwner">
+
+  <!--
+    Éditeur d'UN matériau (prototype) — DataContext = EditeurVM.
+
+    Chargée par BaseWindow via XamlReader.Load : PAS de x:Class, PAS de
+    code-behind, et TOUT brush/style de thème en DynamicResource (les
+    dictionnaires sont fusionnés APRÈS le parse).
+
+    Les boutons Enregistrer / Annuler sont câblés côté Python par
+    EditeurWindowView (noms EnregistrerButton / AnnulerButton) : Enregistrer
+    ne ferme QUE si Revit a tout accepté, ce qu'un IsCancel ne sait pas faire.
+
+    Les quatre menus de motif et les huit tuiles d'aperçu sont générés par
+    ItemsControl sur Faces > Emplacements / Apercu : un seul gabarit pour
+    coupe et surface, premier plan et arrière-plan.
+  -->
+
+  <Border CornerRadius="8"
+          Background="{DynamicResource WindowBackgroundBrush}"
+          BorderBrush="{DynamicResource ControlBorderBrush}"
+          BorderThickness="1">
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>   <!-- barre de titre -->
+        <RowDefinition Height="*"/>      <!-- contenu -->
+        <RowDefinition Height="Auto"/>   <!-- pied : statut + actions -->
+      </Grid.RowDefinitions>
+
+      <Grid Grid.Row="0" x:Name="TitleBar"
+            Background="{DynamicResource TransparentBrush}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0"
+                   Text="{Binding Titre}"
+                   Style="{DynamicResource HeaderTextBlockStyle}"
+                   Margin="20,0,0,0"
+                   VerticalAlignment="Center"/>
+        <Button Grid.Column="1"
+                x:Name="CloseButton"
+                Content="✕"
+                Width="40" Height="40"
+                Margin="0,4,4,0"
+                VerticalAlignment="Top"
+                Style="{DynamicResource CaptionCloseButtonStyle}"/>
+      </Grid>
+
+      <ScrollViewer Grid.Row="1"
+                    VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollBarVisibility="Disabled"
+                    Margin="20,10,20,0">
+        <StackPanel>
+
+          <!-- ============================ Identité ==================== -->
+          <Border Style="{DynamicResource CardStyle}" Padding="16" Margin="0,0,0,12">
+            <StackPanel>
+              <TextBlock Text="Identité"
+                         Style="{DynamicResource SubHeaderTextBlockStyle}"
+                         Margin="0,0,0,10"/>
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="2*"/>
+                  <ColumnDefinition Width="12"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                  <TextBlock Text="Nom" FontSize="11" Margin="0,0,0,3"
+                             Foreground="{DynamicResource TextSecondaryBrush}"/>
+                  <TextBox Text="{Binding Nom, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Text="Classe" FontSize="11" Margin="0,0,0,3"
+                             Foreground="{DynamicResource TextSecondaryBrush}"/>
+                  <TextBox Text="{Binding Classe, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- ======================== Apparence en rendu =============== -->
+          <Border Style="{DynamicResource CardStyle}" Padding="16" Margin="0,0,0,12">
+            <StackPanel>
+              <TextBlock Text="Apparence en rendu"
+                         Style="{DynamicResource SubHeaderTextBlockStyle}"
+                         Margin="0,0,0,10"/>
+
+              <TextBlock Text="Asset d'apparence" FontSize="11" Margin="0,0,0,3"
+                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+              <ComboBox ItemsSource="{Binding Apparences}"
+                        DisplayMemberPath="Nom"
+                        SelectedItem="{Binding Apparence, Mode=TwoWay}"
+                        Margin="0,0,0,12"/>
+
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="16"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Couleur graphique : hex au clavier + pastille témoin.
+                     Pas de sélecteur de couleur — WPF n'en fournit aucun, et
+                     en poser un tiendrait du composant à part entière. -->
+                <StackPanel Grid.Column="0">
+                  <TextBlock Text="Couleur graphique" FontSize="11" Margin="0,0,0,3"
+                             Foreground="{DynamicResource TextSecondaryBrush}"/>
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="34" Height="26" CornerRadius="4"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            Background="{Binding Couleur}"/>
+                    <TextBox Grid.Column="1" Width="100" Margin="8,0,0,0"
+                             Text="{Binding Couleur, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                  </Grid>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                  <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="110"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="44"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Transparence" FontSize="11" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <Slider Grid.Column="1" Minimum="0" Maximum="100"
+                            IsSnapToTickEnabled="True" TickFrequency="1"
+                            VerticalAlignment="Center"
+                            Value="{Binding Transparence, Mode=TwoWay}"/>
+                    <TextBlock Grid.Column="2" Text="{Binding Transparence}"
+                               FontSize="11" HorizontalAlignment="Right"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                  </Grid>
+                  <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="110"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="44"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Brillance" FontSize="11" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <Slider Grid.Column="1" Minimum="0" Maximum="128"
+                            IsSnapToTickEnabled="True" TickFrequency="1"
+                            VerticalAlignment="Center"
+                            Value="{Binding Brillance, Mode=TwoWay}"/>
+                    <TextBlock Grid.Column="2" Text="{Binding Brillance}"
+                               FontSize="11" HorizontalAlignment="Right"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                  </Grid>
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="110"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="44"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Lissage" FontSize="11" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <Slider Grid.Column="1" Minimum="0" Maximum="100"
+                            IsSnapToTickEnabled="True" TickFrequency="1"
+                            VerticalAlignment="Center"
+                            Value="{Binding Lissage, Mode=TwoWay}"/>
+                    <TextBlock Grid.Column="2" Text="{Binding Lissage}"
+                               FontSize="11" HorizontalAlignment="Right"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                  </Grid>
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- ============================= Hachures ==================== -->
+          <ItemsControl ItemsSource="{Binding Faces}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border Style="{DynamicResource CardStyle}" Padding="16" Margin="0,0,0,12">
+                  <StackPanel>
+                    <TextBlock Text="{Binding Libelle}"
+                               Style="{DynamicResource SubHeaderTextBlockStyle}"
+                               Margin="0,0,0,10"/>
+
+                    <!-- Premier plan et arrière-plan, même gabarit -->
+                    <ItemsControl ItemsSource="{Binding Emplacements}"
+                                  Margin="0,0,0,12">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <UniformGrid Columns="2"/>
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <StackPanel Margin="0,0,12,0">
+                            <TextBlock Text="{Binding Libelle}" FontSize="11"
+                                       Margin="0,0,0,3"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <ComboBox ItemsSource="{Binding Motifs}"
+                                      DisplayMemberPath="Libelle"
+                                      SelectedItem="{Binding Motif, Mode=TwoWay}"
+                                      Margin="0,0,0,6"/>
+                            <Grid>
+                              <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                              </Grid.ColumnDefinitions>
+                              <Border Width="34" Height="26" CornerRadius="4"
+                                      BorderThickness="1"
+                                      BorderBrush="{DynamicResource ControlBorderBrush}"
+                                      Background="{Binding Couleur}"/>
+                              <TextBox Grid.Column="1" Width="100" Margin="8,0,0,0"
+                                       Text="{Binding Couleur, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            </Grid>
+                          </StackPanel>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Aperçu comparatif. Fond blanc en dur : c'est du
+                         papier, pas du thème. Un motif de DESSIN sort
+                         identique aux quatre échelles — c'est le
+                         comportement de Revit, pas un bug d'aperçu. -->
+                    <ItemsControl ItemsSource="{Binding Apercu}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <UniformGrid Rows="1"/>
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <StackPanel Margin="0,0,10,0">
+                            <Border CornerRadius="4" BorderThickness="1"
+                                    BorderBrush="{DynamicResource ControlBorderBrush}"
+                                    Background="White"
+                                    ClipToBounds="True">
+                              <Image Source="{Binding Image}" Stretch="None"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="{Binding Libelle}" FontSize="10"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,4,0,0"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                          </StackPanel>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+        </StackPanel>
+      </ScrollViewer>
+
+      <Grid Grid.Row="2" Margin="20,12,20,16">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0"
+                   Text="{Binding Statut}"
+                   TextWrapping="Wrap"
+                   VerticalAlignment="Center"
+                   Foreground="{DynamicResource WarningBrush}"/>
+        <Button Grid.Column="1"
+                x:Name="AnnulerButton"
+                Content="Annuler"
+                IsCancel="True"
+                Style="{DynamicResource SecondaryActionButtonStyle}"
+                Margin="0,0,10,0"/>
+        <Button Grid.Column="2"
+                x:Name="EnregistrerButton"
+                Content="Enregistrer"
+                IsDefault="True"
+                Style="{DynamicResource PrimaryActionButtonStyle}"/>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>

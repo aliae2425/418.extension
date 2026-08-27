@@ -7,6 +7,11 @@ try:
 except Exception:
     from lib.ui.base.RailWindow import RailWindow, Onglet
 
+try:
+    from lib.views.EditeurWindowView import EditeurWindowView
+except Exception:
+    from views.EditeurWindowView import EditeurWindowView
+
 _BOUTON = os.path.abspath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 
@@ -61,6 +66,7 @@ class MainWindowView(RailWindow):
             return
         self._wire_liste_renommer()
         self._wire_liste_remplacer()
+        self._wire_editeur()
         self._action(u'remplacer', 'CocherPorteeButton',
                      lambda: self._vm.RemplacerVM.cocher_toute_la_portee())
         self._action(u'remplacer', 'DecocherPorteeButton',
@@ -81,6 +87,37 @@ class MainWindowView(RailWindow):
         if bouton is None:
             return
         bouton.Click += lambda sender, args: callback()
+
+    # ------------------------------------------------------------------
+    # Éditeur d'un matériau (onglet Matériaux)
+    # ------------------------------------------------------------------
+
+    def _wire_editeur(self):
+        """Double-clic sur une card -> fenêtre d'édition du matériau.
+
+        Double-clic et non clic simple : le clic simple coche, avec Ctrl et
+        Shift, et c'est `RailWindow._wire_selection_interactions` qui le tient.
+        Le premier clic du double coche donc au passage — sans gravité, la
+        sélection de cet onglet ne déclenche aucune action.
+        """
+        page = self._page(u'selection')
+        if page is None:
+            return
+        liste = page.FindName('ItemsList')
+        if liste is None:
+            return
+
+        def _au_double_clic(sender, args):
+            carte = getattr(args.OriginalSource, 'DataContext', None)
+            self._ouvrir_editeur(carte)
+
+        liste.MouseDoubleClick += _au_double_clic
+
+    def _ouvrir_editeur(self, carte):
+        vm = self._vm.editeur_pour(carte)
+        if vm is None:
+            return
+        EditeurWindowView(vm, proprietaire=self._window).show()
 
     # ------------------------------------------------------------------
     # Listes cochables des onglets Renommer et Remplacer
