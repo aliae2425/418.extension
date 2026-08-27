@@ -17,6 +17,7 @@ from lib.viewmodels import EditeurVM as module
 from lib.viewmodels.EditeurVM import (EditeurVM, EmplacementVM, rgb_de_hex,
                                       hex_de_rgb)
 from lib.viewmodels.MaterialCardVM import Couche
+from lib.viewmodels.MotifPickerVM import MotifPickerVM
 from lib.viewmodels.lecture_materiau import ApparenceRef, MotifRef
 
 
@@ -242,55 +243,74 @@ class TestArrierePlan(_Base):
         self.assertIn(modele, offerts)
 
 
-class TestRecherche(_Base):
+class TestPicker(unittest.TestCase):
+    """La modale de choix : filtre, sélection, validation."""
+
+    def setUp(self):
+        self.brique = _motif(u'Brique')
+        self.beton = _motif(u'Béton', est_modele=True)
+        self.aucun = MotifRef(u'aucun')
+        self.motifs = [self.aucun, self.brique, self.beton]
+
+    def _picker(self, courant=None):
+        return MotifPickerVM(u'Coupe · premier plan', self.motifs,
+                             courant or self.brique)
+
     def test_filtre_sur_le_nom_sans_accent_ni_casse(self):
-        vm, _ = _vm()
-        premier = vm.Faces[0].Premier                          # courant : Brique
-        premier.Recherche = u'BETON'
-        # Vrai filtre : le motif courant lui-même disparaît s'il ne
+        picker = self._picker()
+        picker.Recherche = u'BETON'
+        # Vrai filtre : la ligne sélectionnée elle-même disparaît si elle ne
         # correspond pas.
-        self.assertEqual([r.Nom for r in premier.MotifsFiltres], [u'Béton'])
+        self.assertEqual([r.Nom for r in picker.MotifsFiltres], [u'Béton'])
 
     def test_filtre_sur_le_type(self):
-        vm, _ = _vm()
-        surface = vm.Faces[1].Premier
-        surface.Recherche = u'modèle'
-        self.assertEqual([r.Nom for r in surface.MotifsFiltres], [u'Béton'])
+        picker = self._picker()
+        picker.Recherche = u'modèle'
+        self.assertEqual([r.Nom for r in picker.MotifsFiltres], [u'Béton'])
 
     def test_un_filtre_sans_resultat_ne_laisse_rien(self):
-        vm, _ = _vm()
-        premier = vm.Faces[0].Premier
-        premier.Recherche = u'zzzz'
-        self.assertEqual(premier.MotifsFiltres, [])
-
-    def test_filtrer_naffecte_pas_le_motif_pose(self):
-        # Le menu s'affiche vide, mais le matériau porte toujours sa hachure :
-        # tant qu'on n'en choisit pas une autre, il n'y a rien à enregistrer.
-        vm, motifs = _vm()
-        premier = vm.Faces[0].Premier
-        premier.Recherche = u'zzzz'
-        self.assertIs(premier.Motif, motifs[1])
-        self.assertEqual(vm.valeurs_modifiees(), {})
-
-    def test_un_none_venu_de_wpf_neffave_pas_le_motif(self):
-        vm, motifs = _vm()
-        premier = vm.Faces[0].Premier
-        premier.Motif = None
-        self.assertIs(premier.Motif, motifs[1])
-        self.assertEqual(vm.valeurs_modifiees(), {})
+        picker = self._picker()
+        picker.Recherche = u'zzzz'
+        self.assertEqual(picker.MotifsFiltres, [])
 
     def test_recherche_vide_rend_tout(self):
-        vm, motifs = _vm()
-        premier = vm.Faces[0].Premier
-        premier.Recherche = u'brique'
-        premier.Recherche = u''
-        self.assertEqual(premier.MotifsFiltres, motifs)
+        picker = self._picker()
+        picker.Recherche = u'brique'
+        picker.Recherche = u''
+        self.assertEqual(picker.MotifsFiltres, self.motifs)
 
-    def test_la_recherche_de_larriere_plan_ne_ramene_pas_les_modeles(self):
-        vm, motifs = _vm()
-        fond = vm.Faces[0].Fond
-        fond.Recherche = u'béton'
-        self.assertNotIn(motifs[2], fond.MotifsFiltres)
+    def test_filtrer_ne_perd_pas_la_selection(self):
+        # WPF vide SelectedItem dès que la ligne quitte l'ItemsSource ; le
+        # choix ne doit pas s'évaporer parce qu'on a tapé une lettre de plus.
+        picker = self._picker()
+        picker.Recherche = u'zzzz'
+        picker.Selection = None
+        self.assertIs(picker.Selection, self.brique)
+
+    def test_valider_fige_le_resultat(self):
+        picker = self._picker()
+        picker.Selection = self.beton
+        self.assertTrue(picker.valider())
+        self.assertIs(picker.Resultat, self.beton)
+
+    def test_sans_selection_valider_echoue_et_ne_rend_rien(self):
+        picker = MotifPickerVM(u'', self.motifs, None)
+        self.assertFalse(picker.PeutValider)
+        self.assertFalse(picker.valider())
+        self.assertIsNone(picker.Resultat)
+
+    def test_annuler_ne_laisse_aucun_resultat(self):
+        # « Annuler » ne touche à rien : la vue ne lit que Resultat.
+        picker = self._picker()
+        picker.Selection = self.beton
+        self.assertIsNone(picker.Resultat)
+
+
+class TestTitreDeLemplacement(_Base):
+    def test_le_titre_situe_la_modale(self):
+        vm, _ = _vm()
+        self.assertEqual(vm.Faces[0].Premier.Titre, u'Coupe · premier plan')
+        self.assertEqual(vm.Faces[1].Fond.Titre, u'Surface · arrière-plan')
 
 
 class TestEchelleModele(unittest.TestCase):

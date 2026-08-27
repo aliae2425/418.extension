@@ -25,11 +25,6 @@ except Exception:
     from viewmodels import lecture_materiau
 
 try:
-    from core.text_filter import filtrer
-except Exception:
-    from lib.core.text_filter import filtrer
-
-try:
     from lib.views import hatch_image
 except Exception:
     try:
@@ -116,11 +111,14 @@ class EmplacementVM(BaseViewModel):
     """Un des deux calques d'une face : un motif de remplissage + sa couleur.
 
     `Motifs` (le catalogue) est porté par l'emplacement et non par le VM
-    racine : les quatre menus sont produits par un même DataTemplate, qui n'a
-    accès qu'à l'élément courant — et surtout ils n'offrent pas tous la même
-    chose, cf. `_proposables`.
+    racine : les quatre emplacements n'offrent pas tous la même chose,
+    cf. `_proposables`. La liste part telle quelle dans `MotifPickerVM` quand
+    on clique sur le motif ; le choix se fait dans une modale, pas dans une
+    liste déroulante — une maquette a des dizaines de motifs qui se
+    ressemblent par le nom, il faut les voir côte à côte.
     """
 
+    Motif = _champ('Motif')
     Couleur = _champ('Couleur')
 
     def __init__(self, face, couche, motif, couleur, motifs, au_changement):
@@ -131,61 +129,13 @@ class EmplacementVM(BaseViewModel):
         self.Motifs = self._proposables(couche, motifs, motif)
         self._Motif = motif
         self._Couleur = hex_de_rgb(couleur)
-        self._recherche = u''
         self._au_changement = au_changement
 
-    # -- Choix du motif ----------------------------------------------------
-
     @property
-    def Motif(self):
-        return self._Motif
-
-    @Motif.setter
-    def Motif(self, valeur):
-        """Écrit à la main, et pas via `_champ` : le None doit être ignoré.
-
-        Un filtre qui exclut le motif courant le fait sortir de l'ItemsSource,
-        et WPF vide alors `SelectedItem` — le menu s'affiche vide, ce qui est
-        le comportement attendu d'un filtre. Mais la VALEUR, elle, ne doit pas
-        disparaître pour autant : le motif reste posé tant qu'on n'en a pas
-        choisi un autre. D'où le None ignoré, et la renotification de `Motif`
-        par la recherche qui remet la sélection dès que le filtre la ramène.
-        """
-        if valeur is None or valeur is self._Motif:
-            return
-        self._Motif = valeur
-        self.notify_property('Motif')
-        self._au_changement()
-
-    @property
-    def Recherche(self):
-        return self._recherche
-
-    @Recherche.setter
-    def Recherche(self, valeur):
-        valeur = valeur or u''
-        if valeur == self._recherche:
-            return
-        self._recherche = valeur
-        self.notify_property('Recherche')
-        self.notify_property('MotifsFiltres')
-        # Dans cet ordre : le menu reconstruit d'abord ses items, puis
-        # re-sélectionne le motif courant s'il est de retour dans la liste.
-        # Sans ça, relâcher le filtre laisse le menu vide alors que le
-        # matériau porte toujours son motif.
-        self.notify_property('Motif')
-
-    @property
-    def MotifsFiltres(self):
-        """Les motifs offerts, réduits à la recherche.
-
-        Un vrai filtre : ce qui ne correspond pas ne s'affiche pas, y compris
-        le motif courant et l'entrée « Aucun ». La recherche porte sur le nom
-        ET sur le type, taper « modèle » ne laisse donc que les motifs de
-        modèle, sans case à cocher de plus.
-        """
-        return filtrer(self.Motifs, self._recherche,
-                       [lambda ref: ref.Nom, lambda ref: ref.Type])
+    def Titre(self):
+        """Titre de la modale de choix : « Coupe · premier plan »."""
+        return u'%s · %s' % (dict(LIBELLES_FACE).get(self.Face, self.Face),
+                             self.Libelle.lower())
 
     @staticmethod
     def _proposables(couche, motifs, courant):
