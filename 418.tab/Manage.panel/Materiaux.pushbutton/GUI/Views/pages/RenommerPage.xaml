@@ -2,22 +2,47 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <!--
-    Onglet 2 — renommage en masse des matériaux cochés.
-    DataContext = RenommerPageVM. Chargée via XamlReader.Load (PAS de
-    x:Class, PAS de code-behind) : brushes et styles en DynamicResource.
+    Onglet 2 — renommage en masse. DataContext = RenommerPageVM. Chargée via
+    XamlReader.Load (PAS de x:Class, PAS de code-behind) : brushes et styles
+    en DynamicResource.
+
+    UN SEUL TABLEAU sert de liste ET d'aperçu :
+      [case] [nom actuel] → [nouveau nom] [usages]
+    Il est alimenté par {Binding SelectionVM.FilteredItems}, c'est-à-dire la
+    MÊME SelectionPageVM que l'onglet Matériaux : cocher ici coche la card
+    là-bas, et la recherche est la même de part et d'autre. Le nouveau nom
+    vient de MaterialCardVM.NouveauNom, réécrit à chaque frappe par le VM —
+    vide sur les lignes non cochées, elles ne seront pas renommées.
+
+    Les noms x:Name ItemsList / SelectAllButton / DeselectAllButton sont
+    câblés par MainWindowView._wire_selection. La case est display-only
+    (IsHitTestVisible=False, binding OneWay) : tous les clics passent par le
+    handler unique posé sur la liste.
 
     Les quatre champs sont en UpdateSourceTrigger=PropertyChanged : l'aperçu
     se recalcule à la frappe. RenommerButton est câblé par MainWindowView.
-    Les lignes inchangées s'affichent en gris (DataTrigger sur Change).
   -->
+
+  <UserControl.Resources>
+    <!-- Entêtes du tableau. Style local : DynamicResource fonctionne, le
+         dictionnaire du socle est fusionné dans la fenêtre avant le load. -->
+    <Style x:Key="EnteteColonneStyle" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+      <Setter Property="VerticalAlignment" Value="Bottom"/>
+    </Style>
+  </UserControl.Resources>
 
   <Grid Background="{DynamicResource TransparentBrush}" Margin="20">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>   <!-- titre -->
       <RowDefinition Height="Auto"/>   <!-- champs -->
       <RowDefinition Height="Auto"/>   <!-- erreur regex -->
-      <RowDefinition Height="*"/>      <!-- aperçu -->
-      <RowDefinition Height="Auto"/>   <!-- action + état -->
+      <RowDefinition Height="Auto"/>   <!-- recherche + Tout/Aucun -->
+      <RowDefinition Height="Auto"/>   <!-- entêtes -->
+      <RowDefinition Height="*"/>      <!-- tableau = liste + aperçu -->
+      <RowDefinition Height="Auto"/>   <!-- footer -->
     </Grid.RowDefinitions>
 
     <TextBlock Grid.Row="0"
@@ -94,37 +119,133 @@
       </TextBlock.Style>
     </TextBlock>
 
-    <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
-      <ItemsControl ItemsSource="{Binding Apercus}">
+    <!-- Filtre de la liste. Porté par la page de sélection partagée : la
+         recherche est la même que celle de l'onglet Matériaux. -->
+    <Grid Grid.Row="3" Margin="0,0,0,8">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <TextBox Grid.Column="0"
+               x:Name="SearchBox"
+               Text="{Binding SelectionVM.FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+      <Button Grid.Column="1" x:Name="SelectAllButton" Content="Tout"
+              Style="{DynamicResource SecondaryActionButtonStyle}" Margin="8,0,0,0"/>
+      <Button Grid.Column="2" x:Name="DeselectAllButton" Content="Aucun"
+              Style="{DynamicResource SecondaryActionButtonStyle}" Margin="8,0,0,0"/>
+    </Grid>
+
+    <!-- Entêtes : mêmes largeurs de colonnes que le DataTemplate. -->
+    <Grid Grid.Row="4" Margin="2,0,0,4">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="28"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="22"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="130"/>
+      </Grid.ColumnDefinitions>
+      <TextBlock Grid.Column="1" Text="Nom actuel" Style="{StaticResource EnteteColonneStyle}"/>
+      <TextBlock Grid.Column="3" Text="Nouveau nom" Style="{StaticResource EnteteColonneStyle}"/>
+      <TextBlock Grid.Column="4" Text="Utilisations" Style="{StaticResource EnteteColonneStyle}"/>
+    </Grid>
+
+    <ScrollViewer Grid.Row="5"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl x:Name="ItemsList"
+                    ItemsSource="{Binding SelectionVM.FilteredItems}">
         <ItemsControl.ItemTemplate>
           <DataTemplate>
             <Border BorderBrush="{DynamicResource ControlBorderBrush}"
                     BorderThickness="0,0,0,1"
-                    Padding="2,7">
+                    Background="{DynamicResource TransparentBrush}"
+                    Padding="2,6">
               <Grid>
                 <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="28"/>
                   <ColumnDefinition Width="*"/>
-                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="22"/>
                   <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="130"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0"
-                           Text="{Binding Ancien}"
+
+                <CheckBox Grid.Column="0"
+                          IsChecked="{Binding IsSelected, Mode=OneWay}"
+                          IsHitTestVisible="False"
+                          Style="{DynamicResource CheckBoxStyle}"
+                          VerticalAlignment="Center"/>
+
+                <TextBlock Grid.Column="1"
+                           Text="{Binding Nom}"
                            TextTrimming="CharacterEllipsis"
-                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-                <TextBlock Grid.Column="1" Text="&#x2192;"
-                           Margin="10,0"
-                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-                <TextBlock Grid.Column="2"
-                           Text="{Binding Nouveau}"
-                           TextTrimming="CharacterEllipsis">
+                           Margin="0,0,8,0"
+                           VerticalAlignment="Center"
+                           ToolTip="{Binding Nom}">
                   <TextBlock.Style>
                     <Style TargetType="TextBlock">
-                      <!-- Inchangé : reste en retrait -->
+                      <!-- Non coché : la ligne reste en retrait, elle ne
+                           sera pas renommée. -->
                       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
                       <Style.Triggers>
-                        <DataTrigger Binding="{Binding Change}" Value="True">
+                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                          <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+
+                <!-- La flèche n'apparaît que là où il y a un changement. -->
+                <TextBlock Grid.Column="2" Text="&#x2192;"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource AccentBrush}">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <Setter Property="Visibility" Value="Hidden"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding NomChange}" Value="True">
+                          <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+
+                <TextBlock Grid.Column="3"
+                           Text="{Binding NouveauNom}"
+                           TextTrimming="CharacterEllipsis"
+                           Margin="0,0,8,0"
+                           VerticalAlignment="Center"
+                           ToolTip="{Binding NouveauNom}">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <!-- Cochée mais inchangée : reste en retrait. -->
+                      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding NomChange}" Value="True">
                           <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                           <Setter Property="FontWeight" Value="SemiBold"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+
+                <TextBlock Grid.Column="4"
+                           Text="{Binding UtilisationsTexte}"
+                           FontSize="11"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center"
+                           ToolTip="{Binding UtilisationsTexte}">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                      <Style.Triggers>
+                        <!-- « Non utilisé » : purgeable, donc en retrait. -->
+                        <DataTrigger Binding="{Binding EstUtilise}" Value="False">
+                          <Setter Property="Foreground" Value="{DynamicResource TextDisabledBrush}"/>
+                          <Setter Property="FontStyle" Value="Italic"/>
                         </DataTrigger>
                       </Style.Triggers>
                     </Style>
@@ -137,21 +258,35 @@
       </ItemsControl>
     </ScrollViewer>
 
-    <Grid Grid.Row="4" Margin="0,14,0,0">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="Auto"/>
-      </Grid.ColumnDefinitions>
-      <TextBlock Grid.Column="0"
-                 Text="{Binding Etat}"
-                 VerticalAlignment="Center"
-                 FontWeight="SemiBold"
-                 Foreground="{DynamicResource TextPrimaryBrush}"/>
-      <Button Grid.Column="1"
-              x:Name="RenommerButton"
-              Content="Renommer"
-              Style="{DynamicResource PrimaryActionButtonStyle}"
-              IsEnabled="{Binding PeutRenommer}"/>
-    </Grid>
+    <!-- ═══════════ Footer ═══════════ -->
+    <Border Grid.Row="6"
+            BorderBrush="{DynamicResource ControlBorderBrush}"
+            BorderThickness="0,1,0,0"
+            Margin="0,14,0,0"
+            Padding="0,12,0,0">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+          <TextBlock Text="{Binding Recapitulatif}"
+                     FontWeight="SemiBold"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource TextPrimaryBrush}"/>
+          <TextBlock Text="{Binding Etat}"
+                     FontSize="11"
+                     TextWrapping="Wrap"
+                     Margin="0,2,0,0"
+                     Foreground="{DynamicResource TextSecondaryBrush}"/>
+        </StackPanel>
+        <Button Grid.Column="1"
+                x:Name="RenommerButton"
+                Content="Renommer"
+                Style="{DynamicResource PrimaryActionButtonStyle}"
+                IsEnabled="{Binding PeutRenommer}"
+                VerticalAlignment="Center"/>
+      </Grid>
+    </Border>
   </Grid>
 </UserControl>

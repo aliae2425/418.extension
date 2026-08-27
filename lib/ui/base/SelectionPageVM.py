@@ -66,6 +66,8 @@ class SelectionPageVM(BaseViewModel):
         # reset() sans l'exposer. On suit l'information ici pour savoir si un
         # Shift doit produire une plage ou retomber sur une bascule.
         self._has_anchor = False
+        # Vrai pendant une modification en lot (cf. `_en_lot`).
+        self._lot = False
 
     @classmethod
     def depuis_descripteurs(cls, descripteurs, ids_selectionnes, titre,
@@ -117,23 +119,37 @@ class SelectionPageVM(BaseViewModel):
         return self._all
 
     # --- Sélection -----------------------------------------------------------
-    def handle_row_click(self, index, shift=False, ctrl=False):
-        if shift and self._has_anchor:
-            self._selection.handle_click(self._filtered, index, shift=True)
-        else:
-            # clic simple, Ctrl, OU Shift sans ancre valide -> bascule
-            # ponctuelle (la case reste le contrôle, pas d'exclusif)
-            self._selection.handle_click(self._filtered, index, ctrl=True)
-            self._has_anchor = True
+    def _en_lot(self, action):
+        """Exécute `action()` en n'avertissant l'hôte QU'UNE fois.
+
+        Les ItemVM qui portent `on_toggle` rappellent `_on_item_toggle` un par
+        un. Sans ce garde-fou, un Tout/Aucun sur 200 items déclenche 200
+        rafraîchissements de la page hôte suivis d'un 201e — et l'hôte peut
+        recalculer une liste entière à chaque fois (aperçu de renommage).
+        """
+        self._lot = True
+        try:
+            action()
+        finally:
+            self._lot = False
         self._after_selection_change()
+
+    def handle_row_click(self, index, shift=False, ctrl=False):
+        def _clic():
+            if shift and self._has_anchor:
+                self._selection.handle_click(self._filtered, index, shift=True)
+            else:
+                # clic simple, Ctrl, OU Shift sans ancre valide -> bascule
+                # ponctuelle (la case reste le contrôle, pas d'exclusif)
+                self._selection.handle_click(self._filtered, index, ctrl=True)
+                self._has_anchor = True
+        self._en_lot(_clic)
 
     def select_all(self):
-        bulk_edit.select_all(self._all, self._prop)
-        self._after_selection_change()
+        self._en_lot(lambda: bulk_edit.select_all(self._all, self._prop))
 
     def deselect_all(self):
-        bulk_edit.deselect_all(self._all, self._prop)
-        self._after_selection_change()
+        self._en_lot(lambda: bulk_edit.deselect_all(self._all, self._prop))
 
     def selected_ids(self):
         return [self._id_getter(it) for it in self._all
@@ -146,7 +162,10 @@ class SelectionPageVM(BaseViewModel):
     # --- Interne -------------------------------------------------------------
     def _on_item_toggle(self, item):
         """Passé aux ItemVM : une case cochée directement doit aussi mettre à
-        jour HasSelection et prévenir l'outil hôte."""
+        jour HasSelection et prévenir l'outil hôte. Muet pendant un lot,
+        `_en_lot` avertit pour tout le monde à la fin."""
+        if self._lot:
+            return
         self._after_selection_change()
 
     def _after_selection_change(self):

@@ -66,9 +66,15 @@ class MainViewModel(BaseViewModel):
             filter_getters=[lambda carte: carte.Nom, lambda carte: carte.Classe],
             on_selection_changed=self._on_selection_changed,
             titre=u'Matériaux')
+        # Même câblage que `SelectionPageVM.depuis_descripteurs` : une card
+        # dont `IsSelected` est écrit directement doit prévenir la page, sinon
+        # les onglets Renommer et Remplacer ne voient pas la coche.
+        for carte in cartes:
+            carte._on_toggle = self.SelectionVM._on_item_toggle
         self.RemplacerVM = RemplacerPageVM(self._service, self.SelectionVM,
                                            categories)
-        self.RenommerVM = RenommerPageVM(self._service)
+        self.RenommerVM = RenommerPageVM(self._service, self.SelectionVM,
+                                          self._materiaux_par_id)
         for nom in ('SelectionVM', 'RemplacerVM', 'RenommerVM'):
             self.notify_property(nom)
         self._on_selection_changed(self.SelectionVM.selected_ids())
@@ -78,6 +84,4 @@ class MainViewModel(BaseViewModel):
         if self.RemplacerVM is not None:
             self.RemplacerVM.set_sources(ids)
         if self.RenommerVM is not None:
-            self.RenommerVM.set_sources(
-                [self._materiaux_par_id[i] for i in ids
-                 if i in self._materiaux_par_id])
+            self.RenommerVM.set_sources(ids)

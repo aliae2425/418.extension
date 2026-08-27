@@ -114,7 +114,7 @@ def _apparence(materiau):
         return u''
 
 
-def _carte(materiau):
+def _carte(materiau, usages=None):
     couleur = _rgb(_premier(materiau, 'Color'))
     return MaterialCardVM(
         materiau.Id, materiau.Name,
@@ -122,7 +122,8 @@ def _carte(materiau):
         apparence=_apparence(materiau),
         couleur=couleur,
         motif_coupe=_motif(materiau, 'Cut', couleur),
-        motif_surface=_motif(materiau, 'Surface', couleur))
+        motif_surface=_motif(materiau, 'Surface', couleur),
+        usages=usages)
 
 
 def _categories_presentes():
@@ -173,12 +174,19 @@ if __name__ == '__main__':
     nouvelle_session(u'Matériaux')
     materiaux = all_materials(doc) if doc is not None else []
     materiaux_par_id = dict((m.Id, m) for m in materiaux)
-    cartes = [_carte(m) for m in materiaux]
+
+    # Usages comptés AVANT l'affichage : les onglets Matériaux et Renommer
+    # montrent le chiffre d'entrée de jeu, sans clic. C'est un parcours
+    # complet de la maquette (cf. MaterialService.compter_utilisations) —
+    # l'ouverture de l'outil en paie le prix une fois.
+    service = MaterialService(doc)
+    usages = service.compter_utilisations(list(materiaux_par_id.keys()))
+    cartes = [_carte(m, usages.get(m.Id)) for m in materiaux]
 
     categories = _categories_presentes()
     _log_contexte(materiaux, categories)
 
-    vm = MainViewModel(service=MaterialService(doc))
+    vm = MainViewModel(service=service)
     vm.charger(cartes, materiaux_par_id, categories)
 
     view = MainWindowView(vm)

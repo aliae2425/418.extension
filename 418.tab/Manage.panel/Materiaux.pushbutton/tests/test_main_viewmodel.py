@@ -67,18 +67,22 @@ class TestMainViewModel(unittest.TestCase):
         vm.charger(cartes, par_id)
         vm.SelectionVM.handle_row_click(0)          # coche la 1re card
         self.assertEqual(vm.RemplacerVM._sources, [1])
-        self.assertEqual([a.Ancien for a in vm.RenommerVM.Apercus],
-                         [u'Béton coulé'])
+        # L'onglet Renommer n'a pas de liste à lui : l'aperçu s'écrit sur la
+        # card, et seulement sur celles qui sont cochées.
+        vm.RenommerVM.Prefixe = u'X_'
+        self.assertEqual([c.NouveauNom for c in cartes], [u'X_Béton coulé', u''])
 
     def test_decocher_vide_les_deux_autres_onglets(self):
         _, cartes, par_id = _contexte()
         vm = MainViewModel()
         vm.charger(cartes, par_id)
         vm.SelectionVM.select_all()
-        self.assertEqual(len(vm.RenommerVM.Apercus), 2)
+        vm.RenommerVM.Prefixe = u'X_'
+        self.assertEqual(vm.RenommerVM.NombreChanges, 2)
         vm.SelectionVM.deselect_all()
         self.assertEqual(vm.RemplacerVM._sources, [])
-        self.assertEqual(vm.RenommerVM.Apercus, [])
+        self.assertEqual(vm.RenommerVM.NombreChanges, 0)
+        self.assertEqual([c.NouveauNom for c in cartes], [u'', u''])
 
     def test_recherche_filtre_sur_le_nom_et_la_classe(self):
         _, cartes, par_id = _contexte()

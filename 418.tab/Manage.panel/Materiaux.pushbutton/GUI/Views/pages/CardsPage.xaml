@@ -93,8 +93,32 @@
 
                   <TextBlock Text="{Binding Classe}"
                              FontSize="11"
-                             Margin="30,0,0,10"
+                             Margin="30,0,0,1"
                              Foreground="{DynamicResource TextSecondaryBrush}"/>
+
+                  <!-- Usages dans la maquette, comptés à l'ouverture. Sur sa
+                       propre ligne : « 3 types · 50 instances » ne tient pas
+                       à côté de la classe dans 190 px. -->
+                  <TextBlock Text="{Binding UtilisationsTexte}"
+                             FontSize="11"
+                             Width="190"
+                             HorizontalAlignment="Left"
+                             TextTrimming="CharacterEllipsis"
+                             Margin="30,0,0,10"
+                             ToolTip="{Binding UtilisationsTexte}">
+                    <TextBlock.Style>
+                      <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                        <Style.Triggers>
+                          <!-- « Non utilisé » : purgeable, donc en retrait. -->
+                          <DataTrigger Binding="{Binding EstUtilise}" Value="False">
+                            <Setter Property="Foreground" Value="{DynamicResource TextDisabledBrush}"/>
+                            <Setter Property="FontStyle" Value="Italic"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </TextBlock.Style>
+                  </TextBlock>
 
                   <!-- Apparence : pastille de couleur + nom de l'asset -->
                   <StackPanel Orientation="Horizontal" Margin="0,0,0,8">

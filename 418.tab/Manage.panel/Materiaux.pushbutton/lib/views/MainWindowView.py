@@ -48,6 +48,7 @@ class MainWindowView(RailWindow):
         super(MainWindowView, self)._load()
         if self._window is None:
             return
+        self._wire_selection(self._page(u'renommer'), 'ItemsList')
         self._wire_liste_remplacer()
         self._action(u'remplacer', 'CocherPorteeButton',
                      lambda: self._vm.RemplacerVM.cocher_toute_la_portee())
@@ -71,21 +72,22 @@ class MainWindowView(RailWindow):
         bouton.Click += lambda sender, args: callback()
 
     # ------------------------------------------------------------------
-    # Tableau de l'onglet Remplacer : sources ET cible dans la même liste
+    # Listes cochables des onglets Renommer et Remplacer
     # ------------------------------------------------------------------
 
-    def _wire_liste_remplacer(self):
-        """Câble les deux colonnes de la page Remplacer.
+    def _wire_selection(self, page, nom_liste):
+        """Câble Tout/Aucun + le clic de ligne sur la sélection PARTAGÉE.
 
         `RailWindow._wire_selection_interactions` ne s'occupe que de la page
-        `selection` ; ces deux listes-ci ont leur propre câblage. Chacune n'a
-        qu'un rôle — cocher une source à gauche, désigner la cible à droite —
-        donc un seul handler de clic de ligne suffit de part et d'autre, la
-        case et le rond restant display-only.
+        `selection` (les cards). Les tableaux de l'onglet Renommer et de la
+        colonne source de Remplacer affichent la même `SelectionPageVM` et
+        passent par ici : cocher dans l'un coche dans les deux autres.
+
+        Les cases sont display-only (IsHitTestVisible=False, binding OneWay) :
+        un seul handler de clic sur la liste suffit, ce qui évite un double
+        déclenchement entre la case et la ligne.
         """
-        page = self._page(u'remplacer')
-        vm = getattr(self._vm, 'RemplacerVM', None)
-        selection = getattr(vm, 'SelectionVM', None) if vm is not None else None
+        selection = getattr(self._vm, 'SelectionVM', None)
         if page is None or selection is None:
             return
 
@@ -96,7 +98,7 @@ class MainWindowView(RailWindow):
         if bouton is not None:
             bouton.Click += lambda s, a: selection.deselect_all()
 
-        def _bascule_source(carte):
+        def _bascule(carte):
             affichees = list(selection.FilteredItems)
             if carte not in affichees:
                 return
@@ -107,10 +109,20 @@ class MainWindowView(RailWindow):
                 bool(int(mods) & int(ModifierKeys.Shift)),
                 bool(int(mods) & int(ModifierKeys.Control)))
 
+        self._clic_de_ligne(page, nom_liste, _bascule)
+
+    def _wire_liste_remplacer(self):
+        """Les deux colonnes de la page Remplacer : sources cochables à
+        gauche (sélection partagée), désignation de la cible à droite."""
+        page = self._page(u'remplacer')
+        vm = getattr(self._vm, 'RemplacerVM', None)
+        if page is None or vm is None:
+            return
+        self._wire_selection(page, 'SourcesList')
+
         def _designe_cible(carte):
             vm.Cible = carte
 
-        self._clic_de_ligne(page, 'SourcesList', _bascule_source)
         self._clic_de_ligne(page, 'CiblesList', _designe_cible)
 
     @staticmethod

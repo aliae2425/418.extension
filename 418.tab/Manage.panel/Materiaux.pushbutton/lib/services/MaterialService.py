@@ -45,9 +45,14 @@ except Exception:
 
 
 class LigneRapport(object):
-    """Ce qu'une catégorie porte comme affectations du matériau."""
+    """Un compteur d'affectations : tant de types, tant d'instances.
 
-    def __init__(self, categorie):
+    Sert deux fois. Dans un `Rapport`, `Categorie` porte le nom de la
+    catégorie balayée. Dans `compter_utilisations`, la ligne compte les
+    porteurs d'UN matériau et l'étiquette ne sert à rien — d'où le défaut.
+    """
+
+    def __init__(self, categorie=u''):
         self.Categorie = categorie
         self.Types = 0
         self.Instances = 0
@@ -119,6 +124,23 @@ def _ids_couches(element):
                    for index in range(structure.LayerCount))
     except Exception:
         return set()
+
+
+def _ids_materiaux(element):
+    """TOUS les ids matériau que porte un élément.
+
+    Source unique de la détection : `GetMaterialIds(False)` pour les
+    paramètres valués matériau, PLUS les couches de structure composée
+    (cf. `_ids_couches`). Le balayage de remplacement et le comptage des
+    usages doivent voir exactement la même chose, sinon un matériau
+    s'affiche « non utilisé » alors qu'Analyser le trouve.
+    """
+    try:
+        ids = set(element.GetMaterialIds(False))
+    except Exception as erreur:
+        log(u'GetMaterialIds(False) a levé sur {} : {}', _nom(element), erreur)
+        ids = set()
+    return ids | _ids_couches(element)
 
 
 def _categorie(element):
@@ -204,13 +226,7 @@ class MaterialService(object):
         sans_materiau = 0
         for element, est_type in self._elements(categorie_ids):
             vus += 1
-            try:
-                materiaux = set(element.GetMaterialIds(False))
-            except Exception as erreur:
-                log(u'GetMaterialIds(False) a levé sur {} : {}',
-                    _nom(element), erreur)
-                materiaux = set()
-            materiaux |= _ids_couches(element)
+            materiaux = _ids_materiaux(element)
             if not materiaux:
                 sans_materiau += 1
             if materiaux & ids:
@@ -230,6 +246,44 @@ class MaterialService(object):
                 u'GetMaterialIds — soit le matériau n\'est utilisé nulle part, '
                 u'soit la portée exclut ses catégories.')
         return porteurs, peints
+
+    def compter_utilisations(self, ids):
+        """Combien de types et d'instances portent chacun de ces matériaux.
+
+        Retourne `{id: LigneRapport}` — TOUS les ids demandés, y compris ceux
+        qui ne sortent nulle part (ligne à zéro, affichée « Non utilisé »).
+        Un seul parcours du modèle pour tous les matériaux à la fois, avec la
+        détection de `_ids_materiaux`, la même qu'Analyser.
+
+        Portée volontairement absente : ces chiffres s'affichent dans les
+        onglets Matériaux et Renommer, qui ne montrent aucune section de
+        portée. Les restreindre aux catégories cochées de l'onglet Remplacer
+        donnerait un compteur qui bouge sans qu'on voie pourquoi.
+
+        ponytail: parcours complet O(éléments) au chargement de l'outil — le
+        prix d'un clic « Analyser », payé une fois à l'ouverture. Les chiffres
+        sont ensuite figés : un remplacement ne les recalcule pas. Si
+        l'ouverture devient trop lente ou la fraîcheur nécessaire, le repli
+        est un bouton « Compter les usages » dans les deux onglets.
+        """
+        lignes = dict((identifiant, LigneRapport()) for identifiant in (ids or []))
+        if not lignes:
+            return lignes
+        vus = 0
+        for element, est_type in self._elements():
+            vus += 1
+            for id_materiau in _ids_materiaux(element):
+                ligne = lignes.get(id_materiau)
+                if ligne is None:
+                    continue          # matériau d'un lien, ou déjà supprimé
+                if est_type:
+                    ligne.Types += 1
+                else:
+                    ligne.Instances += 1
+        log(u'usages comptés sur {} élément(s) : {} matériau(x) utilisé(s) '
+            u'sur {}', vus,
+            sum(1 for ligne in lignes.values() if ligne.Total), len(lignes))
+        return lignes
 
     def analyser(self, ids_sources, categorie_ids=None):
         """Rapport de ce qui utilise ces matériaux. Ne modifie rien."""
