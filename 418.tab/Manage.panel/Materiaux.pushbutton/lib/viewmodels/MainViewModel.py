@@ -23,13 +23,29 @@ except Exception:
 
 
 class MainViewModel(BaseViewModel):
-    """VM racine « Matériaux » : trois onglets sur une seule sélection.
+    """VM racine « Matériaux » : trois onglets, TROIS sélections.
 
-    L'onglet Matériaux EST la page de sélection — ses cards sont des items
-    de `SelectionPageVM`, ce qui donne recherche, Tout/Aucun et clic
-    simple/Ctrl/Shift sans code propre à cet outil. Cocher une card
-    réalimente les deux autres onglets.
+    Les trois onglets affichent les mêmes `MaterialCardVM` — un seul objet
+    par matériau, donc les vignettes et le comptage d'usages ne sont calculés
+    qu'une fois — mais chacun a sa `SelectionPageVM` sur SA case
+    (`IsSelected`, `IsSelectedRenommer`, `IsSelectedRemplacer`). Cocher dans
+    un onglet ne touche pas aux autres, et chaque onglet a sa recherche.
+
+    L'onglet Matériaux garde donc une sélection à lui, pilotée par le menu
+    `PRESETS`. Elle n'alimente encore aucune action — c'est voulu, l'usage
+    viendra avec la suite (purge).
     """
+
+    #: Menu de sélection de l'onglet Matériaux : (libellé, prédicat sur la
+    #: card). Les critères d'usage viennent du comptage fait à l'ouverture
+    #: par script.py ; sans comptage, tout est « non utilisé ».
+    PRESETS = (
+        (u'Tout', lambda carte: True),
+        (u'Aucun', lambda carte: False),
+        (u'Utilisés', lambda carte: carte.EstUtilise),
+        (u'Non utilisés', lambda carte: not carte.EstUtilise),
+        (u'Sans instance', lambda carte: carte.SansInstance),
+    )
 
     def __init__(self, service=None):
         super(MainViewModel, self).__init__()
@@ -60,28 +76,36 @@ class MainViewModel(BaseViewModel):
         déroulant de portée de l'onglet Remplacer."""
         cartes = list(cartes or [])
         self._materiaux_par_id = dict(materiaux_par_id or {})
-        self.SelectionVM = SelectionPageVM(
+
+        self.SelectionVM = self._nouvelle_page(cartes, u'IsSelected',
+                                               u'Matériaux',
+                                               presets=self.PRESETS)
+        page_renommer = self._nouvelle_page(cartes, u'IsSelectedRenommer',
+                                           u'Renommer')
+        page_remplacer = self._nouvelle_page(cartes, u'IsSelectedRemplacer',
+                                            u'Remplacer')
+        self.RenommerVM = RenommerPageVM(self._service, page_renommer,
+                                         self._materiaux_par_id)
+        self.RemplacerVM = RemplacerPageVM(self._service, page_remplacer,
+                                           categories)
+        # Le rappel se pose après coup : la page naît avant son VM d'onglet,
+        # qui a besoin d'elle. Même geste que le `_on_toggle` des CategorieVM.
+        page_renommer._on_selection_changed = self.RenommerVM.set_sources
+        page_remplacer._on_selection_changed = self.RemplacerVM.set_sources
+        for nom in ('SelectionVM', 'RemplacerVM', 'RenommerVM'):
+            self.notify_property(nom)
+        self.RenommerVM.set_sources(page_renommer.selected_ids())
+        self.RemplacerVM.set_sources(page_remplacer.selected_ids())
+
+    def _nouvelle_page(self, cartes, prop, titre, presets=None):
+        """Une page de sélection sur `prop`, cards branchées sur elle."""
+        page = SelectionPageVM(
             cartes,
             id_getter=lambda carte: carte.Id,
             filter_getters=[lambda carte: carte.Nom, lambda carte: carte.Classe],
-            on_selection_changed=self._on_selection_changed,
-            titre=u'Matériaux')
-        # Même câblage que `SelectionPageVM.depuis_descripteurs` : une card
-        # dont `IsSelected` est écrit directement doit prévenir la page, sinon
-        # les onglets Renommer et Remplacer ne voient pas la coche.
+            prop=prop, titre=titre, presets=presets)
+        # Une case écrite directement (menu, code) doit prévenir SA page,
+        # sinon l'onglet ne voit pas la coche.
         for carte in cartes:
-            carte._on_toggle = self.SelectionVM._on_item_toggle
-        self.RemplacerVM = RemplacerPageVM(self._service, self.SelectionVM,
-                                           categories)
-        self.RenommerVM = RenommerPageVM(self._service, self.SelectionVM,
-                                          self._materiaux_par_id)
-        for nom in ('SelectionVM', 'RemplacerVM', 'RenommerVM'):
-            self.notify_property(nom)
-        self._on_selection_changed(self.SelectionVM.selected_ids())
-
-    def _on_selection_changed(self, ids):
-        ids = list(ids or [])
-        if self.RemplacerVM is not None:
-            self.RemplacerVM.set_sources(ids)
-        if self.RenommerVM is not None:
-            self.RenommerVM.set_sources(ids)
+            carte.brancher(prop, page._on_item_toggle)
+        return page

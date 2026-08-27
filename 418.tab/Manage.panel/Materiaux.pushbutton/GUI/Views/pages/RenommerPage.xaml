@@ -7,12 +7,17 @@
     en DynamicResource.
 
     UN SEUL TABLEAU sert de liste ET d'aperçu :
-      [case] [nom actuel] → [nouveau nom] [usages]
-    Il est alimenté par {Binding SelectionVM.FilteredItems}, c'est-à-dire la
-    MÊME SelectionPageVM que l'onglet Matériaux : cocher ici coche la card
-    là-bas, et la recherche est la même de part et d'autre. Le nouveau nom
-    vient de MaterialCardVM.NouveauNom, réécrit à chaque frappe par le VM —
-    vide sur les lignes non cochées, elles ne seront pas renommées.
+      [case] [nom actuel] → [nouveau nom] [rendu] [surface] [coupe] [usages]
+    Il est alimenté par {Binding SelectionVM.FilteredItems}, la
+    SelectionPageVM de CET onglet : la case liée est IsSelectedRenommer, donc
+    cocher ici ne touche pas aux autres onglets, et la recherche est propre à
+    la page. Le nouveau nom vient de MaterialCardVM.NouveauNom, réécrit à
+    chaque frappe par le VM — vide sur les lignes non cochées, elles ne
+    seront pas renommées.
+
+    Les trois vignettes sont les mêmes que dans l'onglet Remplacer (mêmes
+    bindings, mêmes tailles) : elles viennent des mêmes MaterialCardVM, il n'y
+    a rien à recalculer.
 
     Les noms x:Name ItemsList / SelectAllButton / DeselectAllButton sont
     câblés par MainWindowView._wire_selection. La case est display-only
@@ -143,11 +148,17 @@
         <ColumnDefinition Width="*"/>
         <ColumnDefinition Width="22"/>
         <ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="130"/>
+        <ColumnDefinition Width="46"/>
+        <ColumnDefinition Width="72"/>
+        <ColumnDefinition Width="72"/>
+        <ColumnDefinition Width="110"/>
       </Grid.ColumnDefinitions>
       <TextBlock Grid.Column="1" Text="Nom actuel" Style="{StaticResource EnteteColonneStyle}"/>
       <TextBlock Grid.Column="3" Text="Nouveau nom" Style="{StaticResource EnteteColonneStyle}"/>
-      <TextBlock Grid.Column="4" Text="Utilisations" Style="{StaticResource EnteteColonneStyle}"/>
+      <TextBlock Grid.Column="4" Text="Rendu" Style="{StaticResource EnteteColonneStyle}"/>
+      <TextBlock Grid.Column="5" Text="Surface" Style="{StaticResource EnteteColonneStyle}"/>
+      <TextBlock Grid.Column="6" Text="Coupe" Style="{StaticResource EnteteColonneStyle}"/>
+      <TextBlock Grid.Column="7" Text="Utilisations" Style="{StaticResource EnteteColonneStyle}"/>
     </Grid>
 
     <ScrollViewer Grid.Row="5"
@@ -167,11 +178,14 @@
                   <ColumnDefinition Width="*"/>
                   <ColumnDefinition Width="22"/>
                   <ColumnDefinition Width="*"/>
-                  <ColumnDefinition Width="130"/>
+                  <ColumnDefinition Width="46"/>
+                  <ColumnDefinition Width="72"/>
+                  <ColumnDefinition Width="72"/>
+                  <ColumnDefinition Width="110"/>
                 </Grid.ColumnDefinitions>
 
                 <CheckBox Grid.Column="0"
-                          IsChecked="{Binding IsSelected, Mode=OneWay}"
+                          IsChecked="{Binding IsSelectedRenommer, Mode=OneWay}"
                           IsHitTestVisible="False"
                           Style="{DynamicResource CheckBoxStyle}"
                           VerticalAlignment="Center"/>
@@ -188,7 +202,7 @@
                            sera pas renommée. -->
                       <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
                       <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                        <DataTrigger Binding="{Binding IsSelectedRenommer}" Value="True">
                           <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                         </DataTrigger>
                       </Style.Triggers>
@@ -232,7 +246,37 @@
                   </TextBlock.Style>
                 </TextBlock>
 
-                <TextBlock Grid.Column="4"
+                <!-- Vignettes : rendu (couleur d'apparence), motif de
+                     surface, motif de coupe. Fond blanc et ClipToBounds
+                     comme dans l'onglet Remplacer. -->
+                <Border Grid.Column="4" Width="40" Height="24" CornerRadius="3"
+                        BorderThickness="1"
+                        BorderBrush="{DynamicResource ControlBorderBrush}"
+                        Background="{Binding ApparenceCouleur}"
+                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                        ToolTip="{Binding Apparence}"/>
+
+                <Border Grid.Column="5" Width="64" Height="26" CornerRadius="3"
+                        BorderThickness="1"
+                        BorderBrush="{DynamicResource ControlBorderBrush}"
+                        Background="White"
+                        ClipToBounds="True"
+                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                        ToolTip="{Binding MotifSurfaceNom}">
+                  <Image Source="{Binding MotifSurfaceImage}" Stretch="UniformToFill"/>
+                </Border>
+
+                <Border Grid.Column="6" Width="64" Height="26" CornerRadius="3"
+                        BorderThickness="1"
+                        BorderBrush="{DynamicResource ControlBorderBrush}"
+                        Background="White"
+                        ClipToBounds="True"
+                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                        ToolTip="{Binding MotifCoupeNom}">
+                  <Image Source="{Binding MotifCoupeImage}" Stretch="UniformToFill"/>
+                </Border>
+
+                <TextBlock Grid.Column="7"
                            Text="{Binding UtilisationsTexte}"
                            FontSize="11"
                            TextTrimming="CharacterEllipsis"

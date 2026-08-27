@@ -15,12 +15,10 @@ except Exception:
 class RenommerPageVM(BaseViewModel):
     """Onglet Renommer : renommage en masse des matériaux cochés.
 
-    La page porte SA liste — recherche, cases, Tout/Aucun — mais pas SA
-    sélection : c'est la `SelectionPageVM` de l'onglet Matériaux qui est
-    affichée, donc cocher ici coche la card là-bas (et réciproquement),
-    exactement comme la colonne source de l'onglet Remplacer. Le filtre de
-    recherche est lui aussi celui de la page de sélection : chercher dans un
-    onglet cherche dans les deux.
+    La page porte SA liste ET SA sélection : la `SelectionPageVM` de cet
+    onglet est construite sur les mêmes `MaterialCardVM` que les deux autres
+    mais sur la case `IsSelectedRenommer`, donc cocher ici ne coche rien
+    ailleurs, et la recherche est propre à l'onglet.
 
     Il n'y a pas de liste d'aperçu séparée : le nom obtenu vit sur la card
     (`MaterialCardVM.NouveauNom`), recalculé à chaque frappe, et le tableau
@@ -39,8 +37,8 @@ class RenommerPageVM(BaseViewModel):
     def __init__(self, service=None, selection_vm=None, materiaux_par_id=None):
         super(RenommerPageVM, self).__init__()
         self._service = service
-        # MÊME SelectionPageVM que l'onglet Matériaux : le XAML s'y lie par
-        # `SelectionVM.FilteredItems` / `SelectionVM.FilterText`.
+        # Page de sélection de CET onglet (case `IsSelectedRenommer`) ; le
+        # XAML s'y lie par `SelectionVM.FilteredItems` / `.FilterText`.
         self.SelectionVM = selection_vm
         self._materiaux_par_id = dict(materiaux_par_id or {})
         self._ids = []

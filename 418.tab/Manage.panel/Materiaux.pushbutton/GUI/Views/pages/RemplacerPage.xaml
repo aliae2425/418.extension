@@ -11,9 +11,9 @@
     avec ») ; le code garde les noms de rôle source/cible.
       - gauche  SOURCES, affiché « Rechercher » — les matériaux à remplacer.
                 Cases à cocher, multiple. Alimentée par
-                {Binding SelectionVM.FilteredItems}, c'est-à-dire la MÊME
-                SelectionPageVM que l'onglet Matériaux : cocher ici coche la
-                card là-bas.
+                {Binding SelectionVM.FilteredItems}, la SelectionPageVM de CET
+                onglet : la case liée est IsSelectedRemplacer, cocher ici ne
+                touche pas aux autres onglets.
       - droite  CIBLE, affiché « Remplacer avec » — le matériau qui les
                 remplace. Ronds, un seul. Alimentée par
                 {Binding CiblesFiltrees}, filtre indépendant porté par le VM.
@@ -183,7 +183,7 @@
                     </Grid.ColumnDefinitions>
 
                     <CheckBox Grid.Column="0"
-                              IsChecked="{Binding IsSelected, Mode=OneWay}"
+                              IsChecked="{Binding IsSelectedRemplacer, Mode=OneWay}"
                               IsHitTestVisible="False"
                               Style="{DynamicResource CheckBoxStyle}"
                               VerticalAlignment="Center"/>

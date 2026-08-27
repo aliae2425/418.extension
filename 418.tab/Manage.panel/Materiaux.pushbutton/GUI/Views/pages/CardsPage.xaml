@@ -8,9 +8,13 @@
     DynamicResource.
 
     C'est la page de SÉLECTION de l'outil, en grille au lieu d'une liste :
-    les noms x:Name ci-dessous (ItemsList, SearchBox, SelectAllButton,
-    DeselectAllButton) sont ceux que RailWindow._wire_selection_interactions
-    câble tout seul — clic simple / Ctrl / Shift compris. Ne pas les renommer.
+    le nom x:Name ItemsList est celui que
+    RailWindow._wire_selection_interactions câble tout seul — clic simple /
+    Ctrl / Shift compris. Ne pas le renommer. Tout/Aucun ont laissé la place
+    au menu PresetCombo, qui se lie directement au VM.
+
+    La case IsSelected de cette page est PROPRE à l'onglet : les onglets
+    Renommer et Remplacer ont leurs cases à eux sur les mêmes cards.
 
     La CheckBox est display-only (IsHitTestVisible=False, binding OneWay) :
     TOUS les clics passent par le handler unique posé sur ItemsList, ce qui
@@ -34,15 +38,21 @@
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*"/>
         <ColumnDefinition Width="Auto"/>
-        <ColumnDefinition Width="Auto"/>
       </Grid.ColumnDefinitions>
       <TextBox Grid.Column="0"
                x:Name="SearchBox"
                Text="{Binding FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-      <Button Grid.Column="1" x:Name="SelectAllButton" Content="Tout"
-              Style="{DynamicResource SecondaryActionButtonStyle}" Margin="8,0,0,0"/>
-      <Button Grid.Column="2" x:Name="DeselectAllButton" Content="Aucun"
-              Style="{DynamicResource SecondaryActionButtonStyle}" Margin="8,0,0,0"/>
+      <!-- Remplace Tout/Aucun : un menu de sélections préfabriquées. Aucun
+           câblage Python — `Preset` est un setter du socle qui applique le
+           critère puis renotifie, ce qui ramène le menu sur « Sélectionner… »
+           (c'est une action, pas un état). Les critères d'usage viennent du
+           comptage fait à l'ouverture. -->
+      <ComboBox Grid.Column="1"
+                x:Name="PresetCombo"
+                Width="170"
+                Margin="8,0,0,0"
+                ItemsSource="{Binding Presets}"
+                SelectedItem="{Binding Preset, Mode=TwoWay}"/>
     </Grid>
 
     <ScrollViewer Grid.Row="2"

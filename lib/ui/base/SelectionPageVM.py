@@ -48,12 +48,25 @@ class SelectionPageVM(BaseViewModel):
     - Shift+clic : plage [ancre, index] sur les items AFFICHÉS (filtrés),
       uniquement si une ancre valide existe ; sinon repli sur une bascule
     - select_all / deselect_all : sur la liste COMPLÈTE (masqués inclus)
+    - `presets` : sélections préfabriquées offertes dans un menu de la page,
+      couples (libellé, prédicat sur l'item) — cf. `Presets` / `Preset`.
+
+    `prop` porte la case : deux pages construites sur les MÊMES items avec
+    des `prop` différentes ont des sélections indépendantes (les trois
+    onglets de « Matériaux »).
     """
 
+    PLACEHOLDER = u'Sélectionner…'
+
     def __init__(self, items, id_getter, filter_getters,
-                 on_selection_changed=None, prop=u'IsSelected', titre=u''):
+                 on_selection_changed=None, prop=u'IsSelected', titre=u'',
+                 presets=None):
         super(SelectionPageVM, self).__init__()
         self._all = list(items or [])
+        # Sélections préfabriquées du menu de la page : couples ordonnés
+        # (libellé, prédicat sur l'item). L'outil fournit ses critères, la
+        # page ne sait que les appliquer. Vide = pas de menu.
+        self._presets = list(presets or [])
         self._id_getter = id_getter
         self._filter_getters = list(filter_getters or [])
         self._prop = prop
@@ -150,6 +163,36 @@ class SelectionPageVM(BaseViewModel):
 
     def deselect_all(self):
         self._en_lot(lambda: bulk_edit.deselect_all(self._all, self._prop))
+
+    # --- Sélections préfabriquées --------------------------------------------
+    @property
+    def Presets(self):
+        """Items du menu, libellé neutre en tête."""
+        return [self.PLACEHOLDER] + [libelle for (libelle, _) in self._presets]
+
+    @property
+    def HasPresets(self):
+        return bool(self._presets)
+
+    @property
+    def Preset(self):
+        """Toujours le libellé neutre : le menu est une ACTION, pas un état.
+
+        Après application, `Preset` est renotifié et le ComboBox retombe sur
+        « Sélectionner… ». Sans ça le menu afficherait un critère qui ne
+        correspond plus dès qu'on coche une ligne à la main, et re-choisir le
+        même critère ne le rejouerait pas (SelectedItem inchangé).
+        """
+        return self.PLACEHOLDER
+
+    @Preset.setter
+    def Preset(self, value):
+        predicat = dict(self._presets).get(value)
+        if predicat is None:
+            return                  # libellé neutre, ou item inconnu
+        self._en_lot(
+            lambda: bulk_edit.apply_if(self._all, self._prop, predicat))
+        self.notify_property('Preset')
 
     def selected_ids(self):
         return [self._id_getter(it) for it in self._all

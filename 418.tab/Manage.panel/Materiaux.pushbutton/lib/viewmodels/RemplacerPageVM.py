@@ -58,10 +58,10 @@ class RemplacerPageVM(BaseViewModel):
     parmi les sources.
 
     Les deux colonnes montrent les MÊMES matériaux mais se filtrent
-    séparément : la colonne source est la `SelectionPageVM` partagée avec
-    l'onglet Matériaux (elle porte la sélection multiple), la colonne cible
-    n'a besoin que d'un filtre et d'un élément courant — d'où sa propre
-    recherche ici plutôt qu'une seconde page de sélection.
+    séparément : la colonne source est la `SelectionPageVM` de CET onglet
+    (case `IsSelectedRemplacer`, indépendante des deux autres onglets), la
+    colonne cible n'a besoin que d'un filtre et d'un élément courant — d'où
+    sa propre recherche ici plutôt qu'une seconde page de sélection.
     """
 
     def __init__(self, service=None, selection_vm=None, categories=None):
@@ -73,8 +73,7 @@ class RemplacerPageVM(BaseViewModel):
         self.Categories = list(categories or [])
         for categorie in self.Categories:
             categorie._on_toggle = self._sur_categorie
-        # MÊME SelectionPageVM que l'onglet Matériaux : cocher une source
-        # ici coche la card là-bas, et réciproquement.
+        # Page de sélection de CET onglet (case `IsSelectedRemplacer`).
         self.SelectionVM = selection_vm
         self._cible_filtre = u''
         self._cibles = list(selection_vm.AllItems) if selection_vm else []

@@ -41,9 +41,9 @@ class FakeService(object):
 
 
 def _vm(noms=(u'Béton coulé', u'Béton banché'), cocher=None):
-    """Le VM racine câblé comme en production : la page Renommer affiche la
-    SelectionPageVM de l'onglet Matériaux. `cocher` : indices cochés, tous
-    par défaut."""
+    """Le VM racine câblé comme en production : la page Renommer a SA page de
+    sélection sur la case `IsSelectedRenommer`. `cocher` : indices cochés,
+    tous par défaut."""
     service = FakeService()
     materiaux = [FakeMateriau(i, nom) for i, nom in enumerate(noms)]
     cartes = [MaterialCardVM(m.Id, m.Name) for m in materiaux]
@@ -51,7 +51,7 @@ def _vm(noms=(u'Béton coulé', u'Béton banché'), cocher=None):
     racine.charger(cartes, dict((m.Id, m) for m in materiaux))
     indices = range(len(cartes)) if cocher is None else cocher
     for index in indices:
-        cartes[index].IsSelected = True
+        cartes[index].IsSelectedRenommer = True
     return racine.RenommerVM, service, cartes
 
 
@@ -109,8 +109,16 @@ class TestApercu(unittest.TestCase):
 
 
 class TestSelection(unittest.TestCase):
-    """La liste de l'onglet 2 EST celle de l'onglet 1 : seules les lignes
-    cochées ont un aperçu, et ce sont les seules renommées."""
+    """Seules les lignes cochées DANS CET ONGLET ont un aperçu, et ce sont
+    les seules renommées."""
+
+    def test_cocher_ailleurs_ne_change_rien_ici(self):
+        vm, _, cartes = _vm(cocher=[])
+        cartes[0].IsSelected = True             # onglet Matériaux
+        cartes[1].IsSelectedRemplacer = True    # onglet Remplacer
+        vm.Prefixe = u'X_'
+        self.assertEqual([c.NouveauNom for c in cartes], [u'', u''])
+        self.assertFalse(vm.PeutRenommer)
 
     def test_ligne_decochee_na_pas_d_apercu(self):
         vm, _, cartes = _vm(cocher=[0])
@@ -127,7 +135,7 @@ class TestSelection(unittest.TestCase):
     def test_decocher_apres_coup_retire_l_apercu(self):
         vm, _, cartes = _vm()
         vm.Prefixe = u'X_'
-        cartes[1].IsSelected = False
+        cartes[1].IsSelectedRenommer = False
         self.assertEqual(_apercu(cartes), [u'X_Béton coulé', u''])
         self.assertEqual(vm.NombreChanges, 1)
 

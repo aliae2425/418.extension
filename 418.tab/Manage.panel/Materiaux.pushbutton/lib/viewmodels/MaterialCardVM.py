@@ -65,12 +65,40 @@ def _hex(rgb):
     return u'#%02X%02X%02X' % tuple(rgb or (128, 128, 128))
 
 
-class MaterialCardVM(BaseViewModel):
-    """Une card de l'onglet Matériaux — et une ligne de l'onglet Renommer.
+def _case(nom):
+    """Fabrique UNE case cochable notifiante, nommée `nom`.
 
-    Cochable : `SelectionPageVM` pilote `IsSelected` exactement comme un
-    `SelectionItemVM`, ce qui donne recherche, Tout/Aucun et clic
-    simple/Ctrl/Shift sans une ligne de plus.
+    Un onglet = une case = une sélection indépendante. WPF a besoin d'une
+    vraie propriété par case (pas d'indexeur), et `SelectionPageVM` reçoit
+    son nom via `prop` — d'où trois propriétés jumelles plutôt qu'un
+    dictionnaire. La fabrique évite d'en écrire trois fois le corps.
+    """
+    interne = '_' + nom
+
+    def _lire(self):
+        return getattr(self, interne)
+
+    def _ecrire(self, value):
+        value = bool(value)
+        if value == getattr(self, interne):
+            return
+        setattr(self, interne, value)
+        self.notify_property(nom)
+        rappel = self._on_toggle.get(nom)
+        if rappel is not None:
+            rappel(self)
+
+    return property(_lire, _ecrire)
+
+
+class MaterialCardVM(BaseViewModel):
+    """LA vue d'un matériau : card de l'onglet 1, ligne des onglets 2 et 3.
+
+    Un seul objet par matériau, mais TROIS cases indépendantes — une par
+    onglet. Chaque onglet a sa `SelectionPageVM` construite sur ces mêmes
+    cards avec son propre `prop`, ce qui donne trois sélections et trois
+    recherches sans dupliquer la donnée du matériau (vignettes, usages).
+    Cocher dans un onglet ne touche donc pas aux deux autres.
 
     La card porte aussi l'aperçu de renommage (`NouveauNom`, écrit par
     `RenommerPageVM`) : le tableau de l'onglet Renommer EST l'aperçu, il n'y
@@ -80,9 +108,13 @@ class MaterialCardVM(BaseViewModel):
     ou None hors Revit — la colonne reste alors vide.
     """
 
+    IsSelected = _case('IsSelected')                    # onglet Matériaux
+    IsSelectedRenommer = _case('IsSelectedRenommer')    # onglet Renommer
+    IsSelectedRemplacer = _case('IsSelectedRemplacer')  # onglet Remplacer
+
     def __init__(self, item_id, nom, classe=u'', apparence=u'', couleur=None,
                  motif_coupe=None, motif_surface=None, is_selected=False,
-                 on_toggle=None, usages=None):
+                 usages=None):
         super(MaterialCardVM, self).__init__()
         self.Id = item_id
         self._nom = nom or u''
@@ -92,10 +124,17 @@ class MaterialCardVM(BaseViewModel):
         self.ApparenceCouleur = _hex(couleur)
         self._coupe = motif_coupe or Motif()
         self._surface = motif_surface or Motif()
-        self._is_selected = bool(is_selected)
+        self._IsSelected = bool(is_selected)
+        self._IsSelectedRenommer = False
+        self._IsSelectedRemplacer = False
         self._est_cible = False
-        self._on_toggle = on_toggle
+        # Nom de case -> rappel de SA page. Posé par `brancher`.
+        self._on_toggle = {}
         self._usages = usages
+
+    def brancher(self, nom_case, rappel):
+        """Relie une case au `_on_item_toggle` de la page qui la pilote."""
+        self._on_toggle[nom_case] = rappel
 
     # -- Nom et aperçu de renommage ---------------------------------------
 
@@ -142,6 +181,16 @@ class MaterialCardVM(BaseViewModel):
         return self.Utilisations > 0
 
     @property
+    def SansInstance(self):
+        """Aucune instance ne porte ce matériau.
+
+        Inclut les non utilisés : c'est la lecture littérale de « sans
+        instance ». Un matériau déclaré dans les couches d'un WallType mais
+        jamais posé est le cas intéressant, il tombe aussi ici.
+        """
+        return self._usages is None or self._usages.Instances == 0
+
+    @property
     def UtilisationsTexte(self):
         """« 3 types · 50 instances », « Non utilisé », ou vide si non compté."""
         if self._usages is None:
@@ -176,16 +225,3 @@ class MaterialCardVM(BaseViewModel):
         if value != self._est_cible:
             self._est_cible = value
             self.notify_property('EstCible')
-
-    @property
-    def IsSelected(self):
-        return self._is_selected
-
-    @IsSelected.setter
-    def IsSelected(self, value):
-        value = bool(value)
-        if value != self._is_selected:
-            self._is_selected = value
-            self.notify_property('IsSelected')
-            if self._on_toggle is not None:
-                self._on_toggle(self)
