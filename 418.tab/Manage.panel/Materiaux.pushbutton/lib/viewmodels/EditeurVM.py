@@ -15,6 +15,11 @@ except Exception:
     from lib.ui.base.BaseViewModel import BaseViewModel
 
 try:
+    from ui.helpers.RelayCommand import RelayCommand
+except Exception:
+    from lib.ui.helpers.RelayCommand import RelayCommand
+
+try:
     from lib.services import hatch
 except Exception:
     from services import hatch
@@ -99,6 +104,12 @@ def _entier(valeur):
         return 0
 
 
+def _appeler(rappel, porteur):
+    """Déclenche un dialogue s'il a été branché. Sans vue, ne fait rien."""
+    if rappel is not None:
+        rappel(porteur)
+
+
 class Tuile(object):
     """Un aperçu de hachure à UNE échelle de vue."""
 
@@ -130,6 +141,19 @@ class EmplacementVM(BaseViewModel):
         self._Motif = motif
         self._Couleur = hex_de_rgb(couleur)
         self._au_changement = au_changement
+        self._sur_motif = None
+        self._sur_couleur = None
+        # Les commandes existent dès la construction — le binding les lit au
+        # chargement du XAML — mais ne font rien tant que la vue ne les a pas
+        # branchées : un ViewModel n'ouvre pas de fenêtre.
+        self.ChoisirMotif = RelayCommand(
+            lambda parametre: _appeler(self._sur_motif, self))
+        self.ChoisirCouleur = RelayCommand(
+            lambda parametre: _appeler(self._sur_couleur, self))
+
+    def brancher_dialogues(self, sur_motif, sur_couleur):
+        self._sur_motif = sur_motif
+        self._sur_couleur = sur_couleur
 
     @property
     def Titre(self):
@@ -269,6 +293,22 @@ class EditeurVM(BaseViewModel):
         self.Faces = [FaceVM(face, motifs, choisis or {}, self._au_changement)
                       for face, _ in LIBELLES_FACE]
         self._initial = self._valeurs()
+        self._sur_couleur = None
+        self.ChoisirCouleur = RelayCommand(
+            lambda parametre: _appeler(self._sur_couleur, self))
+
+    def brancher_dialogues(self, sur_motif, sur_couleur):
+        """Branche les deux modales que seule la VUE peut ouvrir.
+
+        `sur_motif(emplacement)` et `sur_couleur(porteur)` — « porteur » étant
+        indifféremment ce VM (couleur graphique du matériau) ou un
+        emplacement : les deux exposent une propriété `Couleur` en hex, le
+        même dialogue les sert.
+        """
+        self._sur_couleur = sur_couleur
+        for face in self.Faces:
+            for emplacement in face.Emplacements:
+                emplacement.brancher_dialogues(sur_motif, sur_couleur)
 
     # -- Affichage ---------------------------------------------------------
 

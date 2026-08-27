@@ -119,14 +119,22 @@
                       <ColumnDefinition Width="Auto"/>
                       <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Button Tag="couleur" Cursor="Hand"
+                    <Button Command="{Binding ChoisirCouleur}" Cursor="Hand"
                             Width="34" Height="26"
                             ToolTip="Choisir une couleur">
                       <Button.Template>
                         <ControlTemplate TargetType="Button">
+                          <!-- Deux Border imbriqués : celui du dessous porte
+                               un fond TOUJOURS valide, donc toujours
+                               cliquable. Le Background lié à l'hex échoue en
+                               silence sur une saisie incomplète (« #B04 » le
+                               temps d'une frappe) et laisse un fond null, qui
+                               n'est pas testé par le hit-test. -->
                           <Border CornerRadius="4" BorderThickness="1"
                                   BorderBrush="{DynamicResource ControlBorderBrush}"
-                                  Background="{Binding Couleur}"/>
+                                  Background="{DynamicResource ControlFillBrush}">
+                            <Border CornerRadius="3" Background="{Binding Couleur}"/>
+                          </Border>
                         </ControlTemplate>
                       </Button.Template>
                     </Button>
@@ -222,8 +230,10 @@
                                  côte à côte et se filtrent. Le badge distingue
                                  modèle et dessin — un motif de modèle est à
                                  l'échelle du bâtiment, ce n'est pas le même
-                                 objet. Câblé par Tag, cf. EditeurWindowView. -->
-                            <Button Tag="motif" Cursor="Hand"
+                                 objet. La commande est branchée sur la modale
+                                 par EditeurWindowView. -->
+                            <Button Command="{Binding ChoisirMotif}"
+                                    Cursor="Hand"
                                     Padding="8,6" Margin="0,0,0,6"
                                     ToolTip="Choisir un motif de remplissage">
                               <Button.Template>
@@ -292,14 +302,18 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                               </Grid.ColumnDefinitions>
-                              <Button Tag="couleur" Cursor="Hand"
+                              <Button Command="{Binding ChoisirCouleur}" Cursor="Hand"
                                       Width="34" Height="26"
                                       ToolTip="Choisir une couleur">
                                 <Button.Template>
                                   <ControlTemplate TargetType="Button">
+                                    <!-- Fond de dessous toujours valide, cf.
+                                         la pastille de la couleur graphique. -->
                                     <Border CornerRadius="4" BorderThickness="1"
                                             BorderBrush="{DynamicResource ControlBorderBrush}"
-                                            Background="{Binding Couleur}"/>
+                                            Background="{DynamicResource ControlFillBrush}">
+                                      <Border CornerRadius="3" Background="{Binding Couleur}"/>
+                                    </Border>
                                   </ControlTemplate>
                                 </Button.Template>
                               </Button>

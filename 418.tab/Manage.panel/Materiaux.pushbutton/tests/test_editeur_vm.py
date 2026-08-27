@@ -313,6 +313,47 @@ class TestTitreDeLemplacement(_Base):
         self.assertEqual(vm.Faces[1].Fond.Titre, u'Surface · arrière-plan')
 
 
+class TestBranchementDesDialogues(_Base):
+    """Les cinq boutons passent par une RelayCommand branchée par la vue.
+
+    Le premier prototype attrapait leur Click routé sur la fenêtre et rien ne
+    s'ouvrait ; rien ne le signalait non plus. Ces tests couvrent le câblage.
+    """
+
+    def setUp(self):
+        _Base.setUp(self)
+        self.vm, _ = _vm()
+        self.motifs_demandes = []
+        self.couleurs_demandees = []
+        self.vm.brancher_dialogues(self.motifs_demandes.append,
+                                   self.couleurs_demandees.append)
+
+    def test_les_quatre_emplacements_sont_branches(self):
+        for face in self.vm.Faces:
+            for emplacement in face.Emplacements:
+                emplacement.ChoisirMotif.Execute(None)
+        self.assertEqual(len(self.motifs_demandes), 4)
+        # Chaque commande passe SON emplacement, pas un autre.
+        self.assertEqual(self.motifs_demandes[0].Titre, u'Coupe · premier plan')
+
+    def test_la_couleur_du_materiau_et_celle_dun_emplacement_partagent_le_dialogue(self):
+        self.vm.ChoisirCouleur.Execute(None)
+        self.vm.Faces[0].Fond.ChoisirCouleur.Execute(None)
+        # Le dialogue n'a besoin que d'une propriété `Couleur` : les deux
+        # porteurs en ont une, il les sert indifféremment.
+        self.assertEqual([hasattr(p, 'Couleur') for p in self.couleurs_demandees],
+                         [True, True])
+        self.assertIs(self.couleurs_demandees[0], self.vm)
+        self.assertIs(self.couleurs_demandees[1], self.vm.Faces[0].Fond)
+
+    def test_sans_vue_les_commandes_ne_levent_pas(self):
+        # Hors fenêtre (tests, chargement) rien n'est branché : cliquer ne
+        # doit pas casser.
+        seul, _ = _vm()
+        seul.ChoisirCouleur.Execute(None)
+        seul.Faces[0].Premier.ChoisirMotif.Execute(None)
+
+
 class TestEchelleModele(unittest.TestCase):
     """Le cœur de l'aperçu multi-échelle : un motif de MODÈLE se densifie
     quand la vue s'éloigne, un motif de DESSIN reste en taille papier."""
