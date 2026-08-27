@@ -162,7 +162,9 @@ class TestEnregistrer(_Base):
         vm.Faces[0].Premier.Motif = motifs[2]
 
         self.assertFalse(vm.enregistrer())
-        self.assertIn(u'CutForegroundPatternId', vm.Statut)
+        # Le champ est nommé en clair, pas par son attribut Revit.
+        self.assertEqual(vm.Statut, u'Refusé par Revit : '
+                                    u'Coupe · premier plan (motif).')
         # La classe est passée, le motif reste à réessayer.
         self.assertEqual(vm.valeurs_modifiees(),
                          {'CutForegroundPatternId': motifs[2].Id})
@@ -221,26 +223,48 @@ class TestMotifRef(unittest.TestCase):
         self.assertIsNone(MotifRef(u'aucun').pour((0, 0, 0)))
 
 
-class TestArrierePlan(_Base):
-    """Revit n'accepte un motif de MODÈLE qu'en premier plan."""
+class TestOuLeModeleEstAdmis(_Base):
+    """Un seul des quatre emplacements accepte un motif de MODÈLE : le
+    premier plan de SURFACE. Revit refuse les deux emplacements de coupe
+    (motif en taille papier) et tous les arrière-plans."""
 
-    def test_larriere_plan_nofffre_pas_les_motifs_de_modele(self):
+    def test_seul_le_premier_plan_de_surface_laccepte(self):
+        vm, _ = _vm()
+        admis = dict(((emplacement.Face, emplacement.Couche),
+                      emplacement.AccepteModele)
+                     for face in vm.Faces for emplacement in face.Emplacements)
+        self.assertEqual(admis, {
+            (u'Cut', u'Foreground'): False,
+            (u'Cut', u'Background'): False,
+            (u'Surface', u'Foreground'): True,
+            (u'Surface', u'Background'): False,
+        })
+
+    def test_le_premier_plan_de_coupe_noffre_pas_les_modeles(self):
+        # Le cas signalé : Revit renvoyait « CutForegroundPatternId refusé ».
         vm, motifs = _vm()
-        offerts = vm.Faces[0].Fond.Motifs
+        offerts = vm.Faces[0].Premier.Motifs
         self.assertIn(motifs[1], offerts)          # Brique, dessin
         self.assertNotIn(motifs[2], offerts)       # Béton, modèle
 
-    def test_le_premier_plan_offre_tout(self):
+    def test_le_premier_plan_de_surface_offre_tout(self):
         vm, motifs = _vm()
-        self.assertEqual(vm.Faces[0].Premier.Motifs, motifs)
+        self.assertEqual(vm.Faces[1].Premier.Motifs, motifs)
+
+    def test_un_emplacement_bride_explique_pourquoi(self):
+        vm, _ = _vm()
+        self.assertIn(u'coupe', vm.Faces[0].Premier.Contrainte)
+        self.assertIn(u'surface', vm.Faces[1].Fond.Contrainte)
+        self.assertEqual(vm.Faces[1].Premier.Contrainte, u'')
 
     def test_un_modele_deja_en_place_reste_offert(self):
         # Matériau hérité d'un vieux gabarit : le retirer du menu ferait
         # disparaître le motif au premier changement de couleur.
         modele = _motif(u'Béton', est_modele=True)
-        offerts = EmplacementVM._proposables(
-            u'Background', [MotifRef(u'aucun'), modele], modele)
-        self.assertIn(modele, offerts)
+        aucun = MotifRef(u'aucun')
+        emplacement = EmplacementVM(u'Cut', u'Foreground', modele, (0, 0, 0),
+                                    [aucun, modele], lambda: None)
+        self.assertIn(modele, emplacement.Motifs)
 
 
 class TestPicker(unittest.TestCase):

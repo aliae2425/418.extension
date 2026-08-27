@@ -26,9 +26,13 @@ class MotifPickerVM(BaseViewModel):
     distingue « Annuler » d'un choix, la vue n'a rien d'autre à retourner.
     """
 
-    def __init__(self, titre, motifs, courant=None):
+    def __init__(self, titre, motifs, courant=None, contrainte=u''):
         super(MotifPickerVM, self).__init__()
         self.Titre = titre or u'Choisir un motif'
+        # Phrase affichée sous le titre quand la liste est bridée : sans elle
+        # l'absence des motifs de modèle passe pour un bug de l'outil.
+        self.Contrainte = contrainte or u''
+        self.AContrainte = bool(contrainte)
         self.Motifs = list(motifs or [])
         self._recherche = u''
         self._selection = courant

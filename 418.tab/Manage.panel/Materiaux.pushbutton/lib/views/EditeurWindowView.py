@@ -105,10 +105,11 @@ class EditeurWindowView(BaseWindow):
     # ------------------------------------------------------------------
 
     def _choisir_motif(self, emplacement):
-        """Modale de choix. `Motifs` est déjà filtré des motifs interdits à
-        cet emplacement (pas de motif de modèle en arrière-plan)."""
+        """Modale de choix. `Motifs` est déjà filtré des motifs que Revit
+        refuserait ici ; `Contrainte` dit pourquoi, le cas échéant."""
         picker = MotifPickerVM(emplacement.Titre, emplacement.Motifs,
-                               emplacement.Motif)
+                               emplacement.Motif,
+                               contrainte=emplacement.Contrainte)
         MotifPickerWindowView(picker, proprietaire=self._window).show()
         if picker.Resultat is not None:
             emplacement.Motif = picker.Resultat

@@ -53,6 +53,35 @@ LIBELLES = {
 LIBELLES_FACE = ((u'Cut', u'Coupe'), (u'Surface', u'Surface'))
 
 
+def _libelles_attributs():
+    """Nom d'attribut Revit -> libellé lisible, pour le message de refus.
+
+    « 1 propriété refusée : CutForegroundPatternId » ne dit rien à personne ;
+    « Coupe · premier plan (motif) » situe le champ à corriger.
+    """
+    table = {
+        'Name': u'Nom',
+        'MaterialClass': u'Classe',
+        'Color': u'Couleur graphique',
+        'Transparency': u'Transparence',
+        'Shininess': u'Brillance',
+        'Smoothness': u'Lissage',
+        'AppearanceAssetId': u'Apparence en rendu',
+    }
+    for face, nom_face in LIBELLES_FACE:
+        for couche in (u'Background', u'Foreground'):
+            situe = u'%s · %s' % (nom_face,
+                                  LIBELLES[(face, couche)].lower())
+            table[lecture_materiau.attribut(face, couche, u'Id')] = \
+                u'%s (motif)' % situe
+            table[lecture_materiau.attribut(face, couche, u'Color')] = \
+                u'%s (couleur)' % situe
+    return table
+
+
+LIBELLES_ATTRIBUTS = _libelles_attributs()
+
+
 def hex_de_rgb(couleur):
     return u'#%02X%02X%02X' % tuple(couleur or (0, 0, 0))
 
@@ -137,7 +166,7 @@ class EmplacementVM(BaseViewModel):
         self.Face = face
         self.Couche = couche
         self.Libelle = LIBELLES.get((face, couche), couche)
-        self.Motifs = self._proposables(couche, motifs, motif)
+        self.Motifs = self._proposables(motifs, motif)
         self._Motif = motif
         self._Couleur = hex_de_rgb(couleur)
         self._au_changement = au_changement
@@ -161,22 +190,41 @@ class EmplacementVM(BaseViewModel):
         return u'%s · %s' % (dict(LIBELLES_FACE).get(self.Face, self.Face),
                              self.Libelle.lower())
 
-    @staticmethod
-    def _proposables(couche, motifs, courant):
+    @property
+    def AccepteModele(self):
+        """Cet emplacement admet-il un motif de MODÈLE ?
+
+        Un seul des quatre : le premier plan de SURFACE. Les motifs de coupe
+        sont en taille papier — Revit refuse `CutForegroundPatternId` et
+        `CutBackgroundPatternId` dès qu'on y pose un motif de modèle — et un
+        arrière-plan est toujours en taille papier lui aussi.
+        """
+        return self.Face == u'Surface' and self.Couche == u'Foreground'
+
+    @property
+    def Contrainte(self):
+        """Phrase affichée dans la modale quand le modèle est exclu."""
+        if self.AccepteModele:
+            return u''
+        if self.Face == u'Cut':
+            return (u'Motifs de dessin uniquement — un motif de coupe est en '
+                    u'taille papier, Revit y refuse les motifs de modèle.')
+        return (u'Motifs de dessin uniquement — Revit réserve les motifs de '
+                u'modèle au premier plan de surface.')
+
+    def _proposables(self, motifs, courant):
         """Les motifs que CET emplacement a le droit d'offrir.
 
-        Revit n'accepte un motif de MODÈLE qu'en premier plan : posé en
-        arrière-plan il est refusé à l'écriture. On ne le propose donc pas,
-        plutôt que de laisser choisir puis récolter un « propriété refusée »
-        au moment d'enregistrer.
+        Filtrer en amont plutôt que laisser choisir puis récolter un
+        « propriété refusée » à l'enregistrement, où plus rien ne dit pourquoi.
 
         Le motif déjà en place reste dans la liste même s'il enfreint la règle
-        (matériau hérité d'un vieux gabarit, fichier lié) : sinon le menu
+        (matériau hérité d'un vieux gabarit, fichier lié) : sinon la modale
         s'ouvre sur du vide et le premier changement de couleur effacerait
         silencieusement le motif.
         """
         motifs = list(motifs or [])
-        if couche != u'Background':
+        if self.AccepteModele:
             return motifs
         offerts = [motif for motif in motifs if not motif.EstModele]
         if courant is not None and courant not in offerts:
@@ -385,8 +433,8 @@ class EditeurVM(BaseViewModel):
                 self._initial[cle] = courant[cle]
 
         if echecs:
-            self.Statut = u'%d propriété(s) refusée(s) : %s' % (
-                len(echecs), u', '.join(sorted(echecs)))
+            self.Statut = u'Refusé par Revit : %s.' % u', '.join(
+                sorted(LIBELLES_ATTRIBUTS.get(cle, cle) for cle in echecs))
             return False
         self.Statut = u''
         return True
