@@ -1,0 +1,206 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Onglet 1 — les matériaux en cards. DataContext = SelectionPageVM (socle),
+    dont les items sont des MaterialCardVM. Chargée via XamlReader.Load
+    (PAS de x:Class, PAS de code-behind) : tout brush/style de thème en
+    DynamicResource.
+
+    C'est la page de SÉLECTION de l'outil, en grille au lieu d'une liste :
+    le nom x:Name ItemsList est celui que
+    RailWindow._wire_selection_interactions câble tout seul. Ne pas le
+    renommer.
+
+    Sélection EXCLUSIVE (SelectionPageVM mono) : un seul matériau à la fois,
+    puisque cet onglet ne mène qu'à l'éditeur. Aucune case cochable, donc —
+    c'est la card elle-même qui s'allume, par l'anneau d'accent de la bordure
+    externe. Et pas de menu de sélections préfabriquées : « Tout » n'aurait
+    pas de sens.
+
+    La case IsSelected de cette page reste PROPRE à l'onglet : les onglets
+    Renommer et Remplacer ont les leurs sur les mêmes cards, et elles restent
+    multiples.
+  -->
+
+  <Grid Background="{DynamicResource TransparentBrush}" Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>   <!-- titre -->
+      <RowDefinition Height="Auto"/>   <!-- recherche + actions -->
+      <RowDefinition Height="*"/>      <!-- grille de cards -->
+      <RowDefinition Height="Auto"/>   <!-- bouton Suivant -->
+    </Grid.RowDefinitions>
+
+    <TextBlock Grid.Row="0"
+               Text="{Binding TitrePage}"
+               Style="{DynamicResource HeaderTextBlockStyle}"
+               Margin="0,0,0,14"/>
+
+    <TextBox Grid.Row="1"
+             x:Name="SearchBox"
+             Margin="0,0,0,10"
+             Text="{Binding FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+    <ScrollViewer Grid.Row="2"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl x:Name="ItemsList" ItemsSource="{Binding FilteredItems}">
+        <!-- UniformGrid et non WrapPanel : les 4 colonnes se PARTAGENT la
+             largeur disponible, donc les cards s'élargissent avec la fenêtre
+             au lieu de laisser la place perdue au bout de chaque rangée.
+             Aucune largeur fixe dans la card à partir d'ici : tout ce qui doit
+             s'étirer est en colonne * d'une Grid. -->
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <UniformGrid Columns="4"/>
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <!-- Bordure externe : anneau de sélection. Séparée de la card
+                 pour ne pas avoir à surcharger CardStyle (impossible en
+                 BasedOn : le dictionnaire est fusionné APRÈS le parse). -->
+            <Border CornerRadius="10" Padding="2" Margin="0,0,12,12"
+                    Cursor="Hand">
+              <Border.Style>
+                <Style TargetType="Border">
+                  <Setter Property="BorderThickness" Value="2"/>
+                  <Setter Property="BorderBrush" Value="{DynamicResource TransparentBrush}"/>
+                  <Style.Triggers>
+                    <!-- Le SEUL témoin de sélection : la card s'entoure
+                         d'accent. Il n'y a plus de case à cocher, la
+                         sélection est exclusive. -->
+                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                      <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </Border.Style>
+
+              <Border Style="{DynamicResource CardStyle}"
+                      Padding="12" Margin="0">
+                <StackPanel>
+
+                  <TextBlock Text="{Binding Nom}"
+                             FontWeight="SemiBold"
+                             TextWrapping="Wrap"
+                             Margin="0,0,0,2"
+                             Foreground="{DynamicResource TextPrimaryBrush}"/>
+
+                  <TextBlock Text="{Binding Classe}"
+                             FontSize="11"
+                             Margin="0,0,0,1"
+                             Foreground="{DynamicResource TextSecondaryBrush}"/>
+
+                  <!-- Usages dans la maquette, comptés à l'ouverture. Sur sa
+                       propre ligne : « 3 types · 50 instances » ne tient pas
+                       à côté de la classe. -->
+                  <TextBlock Text="{Binding UtilisationsTexte}"
+                             FontSize="11"
+                             TextTrimming="CharacterEllipsis"
+                             Margin="0,0,0,10"
+                             ToolTip="{Binding UtilisationsTexte}">
+                    <TextBlock.Style>
+                      <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                        <Style.Triggers>
+                          <!-- « Non utilisé » : purgeable, donc en retrait. -->
+                          <DataTrigger Binding="{Binding EstUtilise}" Value="False">
+                            <Setter Property="Foreground" Value="{DynamicResource TextDisabledBrush}"/>
+                            <Setter Property="FontStyle" Value="Italic"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </TextBlock.Style>
+                  </TextBlock>
+
+                  <!-- Apparence : pastille de couleur + nom de l'asset -->
+                  <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="64" Height="28" CornerRadius="4"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            Background="{Binding ApparenceCouleur}"/>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding Apparence}"
+                               FontSize="11"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center"
+                               Margin="10,0,0,0"
+                               ToolTip="{Binding Apparence}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                  </Grid>
+
+                  <!-- Motif de coupe -->
+                  <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="64" Height="28" CornerRadius="4"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            Background="White">
+                      <Image Source="{Binding MotifCoupeImage}"
+                             Width="64" Height="28" Stretch="None"/>
+                    </Border>
+                    <StackPanel Grid.Column="1"
+                                Margin="10,0,0,0" VerticalAlignment="Center">
+                      <TextBlock Text="coupe" FontSize="10"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
+                      <TextBlock Text="{Binding MotifCoupeNom}"
+                                 FontSize="11"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip="{Binding MotifCoupeNom}"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                  </Grid>
+
+                  <!-- Motif de surface -->
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="64" Height="28" CornerRadius="4"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlBorderBrush}"
+                            Background="White">
+                      <Image Source="{Binding MotifSurfaceImage}"
+                             Width="64" Height="28" Stretch="None"/>
+                    </Border>
+                    <StackPanel Grid.Column="1"
+                                Margin="10,0,0,0" VerticalAlignment="Center">
+                      <TextBlock Text="surface" FontSize="10"
+                                 Foreground="{DynamicResource TextSecondaryBrush}"/>
+                      <TextBlock Text="{Binding MotifSurfaceNom}"
+                                 FontSize="11"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip="{Binding MotifSurfaceNom}"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                  </Grid>
+
+                </StackPanel>
+              </Border>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <!-- Câblé par MainWindowView sur la modale d'édition. Le double-clic sur
+         une card fait la même chose, en plus direct. -->
+    <Button Grid.Row="3"
+            x:Name="EditerButton"
+            Content="Éditer le matériau"
+            Style="{DynamicResource PrimaryActionButtonStyle}"
+            HorizontalAlignment="Right"
+            Margin="0,14,0,0"
+            IsEnabled="{Binding HasSelection}"/>
+  </Grid>
+</UserControl>

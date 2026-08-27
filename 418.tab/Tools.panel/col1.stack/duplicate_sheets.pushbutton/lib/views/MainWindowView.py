@@ -16,9 +16,12 @@ class MainWindowView(RailWindow):
     (Sélection / Paramètres / Nommage), sans modale bloquante."""
 
     ONGLETS = (
-        Onglet(u'selection', 'NavSelection', 'SelectionPage.xaml', 'SelectionVM'),
-        Onglet(u'params', 'NavParams', 'ParamsPage.xaml', 'OptionsVM'),
-        Onglet(u'options', 'NavOptions', 'OptionsPage.xaml', 'OptionsVM'),
+        Onglet(u'selection', 'SelectionPage.xaml', 'SelectionVM',
+               icone=u'IconSelection', tooltip=u'Sélection'),
+        Onglet(u'params', 'ParamsPage.xaml', 'OptionsVM',
+               icone=u'IconParametres', tooltip=u'Paramètres'),
+        Onglet(u'options', 'OptionsPage.xaml', 'OptionsVM',
+               icone=u'IconRenommer', tooltip=u'Nommage'),
     )
     SUIVANTS = (
         (u'selection', 'NextButton', u'params'),

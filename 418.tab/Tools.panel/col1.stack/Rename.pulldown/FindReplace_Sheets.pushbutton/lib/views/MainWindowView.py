@@ -15,11 +15,15 @@ class MainWindowView(RailWindow):
     """Fenêtre « Renommer les feuilles » : rail 2 onglets (Sélection / Nommage)."""
 
     ONGLETS = (
-        Onglet(u'selection', 'NavSelection', 'SelectionPage.xaml', 'SelectionVM'),
-        Onglet(u'nommage', 'NavNommage', 'NamingPage.xaml', 'NamingVM'),
+        Onglet(u'selection', 'SelectionPage.xaml', 'SelectionVM',
+               icone=u'IconSelection', tooltip=u'Sélection'),
+        Onglet(u'nommage', 'NamingPage.xaml', 'NamingVM',
+               icone=u'IconRenommer', tooltip=u'Nommage'),
     )
     SUIVANTS = ((u'selection', 'NextButton', u'nommage'),)
     RUN = (u'nommage', 'RunButton')
+    TAILLE = (680, 520)
+    TAILLE_MINI = (520, 400)
 
     def __init__(self, view_model, sheets_par_id):
         super(MainWindowView, self).__init__(_BOUTON, view_model, cible=sheets_par_id)

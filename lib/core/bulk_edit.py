@@ -21,6 +21,20 @@ def apply(items, prop, value):
             pass
 
 
+def apply_if(items, prop, predicat):
+    """Fixe `prop = bool(predicat(item))` sur tous les items.
+
+    Le pendant conditionnel d'`apply` : sert aux sélections préfabriquées
+    (« les non utilisés », « ceux sans instance ») — on coche ce qui répond
+    au critère ET on décoche le reste, en une passe.
+    """
+    for it in (items or []):
+        try:
+            setattr(it, prop, bool(predicat(it)))
+        except Exception:
+            pass
+
+
 def toggle(items, prop):
     """Bascule `prop` sur la sélection.
 

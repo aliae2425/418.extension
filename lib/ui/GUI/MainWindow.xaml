@@ -11,33 +11,38 @@
         WindowStartupLocation="CenterScreen">
 
   <!--
-    Fen&#234;tre Dupliquer les vues &#8212; coquille borderless &#224; rail, calqu&#233;e sur
-    la coquille commune Audit.
+    Coquille borderless à rail, PARTAGÉE par tous les outils qui héritent de
+    RailWindow. Elle remplace les exemplaires quasi identiques que chaque
+    bouton portait dans son GUI/Views/. Ce qui variait devient de la donnée :
+
+      - le titre       -> {Binding Titre} du ViewModel racine
+      - les onglets    -> RailWindow.ONGLETS, dont l'icône et l'infobulle ;
+                          les RadioButton sont construits côté Python et
+                          insérés dans NavItems
+      - la taille      -> RailWindow.TAILLE / TAILLE_MINI, appliquées après
+                          le parse
+
+    Un outil qui a besoin d'une coquille à lui dépose un MainWindow.xaml dans
+    son propre GUI/Views/ : RailWindow le préfère à celui-ci, exactement
+    comme pour les pages (cf. _chemin_page).
 
     Chargement
-    - Ce XAML est charg&#233; via XamlReader.Load (PAS de x:Class, PAS de code-behind).
-    - Les dictionnaires de th&#232;me (Colors/Styles + variantes Dark) sont fusionn&#233;s
-      dans window.Resources APR&#200;S le parse.
-    - CONS&#201;QUENCE : tout brush/style de th&#232;me est r&#233;f&#233;renc&#233; via DynamicResource.
+    - Chargée via XamlReader.Load (PAS de x:Class, PAS de code-behind).
+    - Les dictionnaires de thème sont fusionnés dans window.Resources APRÈS
+      le parse -> tout brush/style de thème est en DynamicResource.
 
     Chrome custom borderless
-    - WindowStyle="None" + AllowsTransparency : chrome dessin&#233; par le Border racine.
-    - WindowChrome : redimensionnement / maximize corrects (CaptionHeight=0 pour
-      laisser le TitleBar custom g&#233;rer le DragMove c&#244;t&#233; Python).
-    - TitleBar (x:Name requis) : le Python y c&#226;ble DragMove().
-    - Boutons de l&#233;gende nomm&#233;s : MinimizeButton / MaximizeRestoreButton / CloseButton.
-
-    Rail de navigation
-    - Deux RadioButton GroupName="nav" : NavSelection / NavOptions.
-    - PageHost (ContentControl) re&#231;oit la page courante (S&#233;lection ou Options),
-      charg&#233;e s&#233;par&#233;ment via XamlReader et inject&#233;e par la View.
+    - WindowStyle="None" + AllowsTransparency : chrome dessiné par le Border
+      racine ; WindowChrome pour un redimensionnement correct.
+    - TitleBar (x:Name requis) : BaseWindow y câble DragMove().
+    - Boutons de légende : MinimizeButton / MaximizeRestoreButton / CloseButton.
+    - PageHost (ContentControl) reçoit la page courante.
   -->
 
   <shell:WindowChrome.WindowChrome>
     <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0"/>
   </shell:WindowChrome.WindowChrome>
 
-  <!-- Border racine : coins arrondis, fond de fen&#234;tre -->
   <Border CornerRadius="12"
           Background="{DynamicResource WindowBackgroundBrush}">
     <Grid>
@@ -46,10 +51,6 @@
         <RowDefinition Height="*"/>
       </Grid.RowDefinitions>
 
-      <!--
-        Barre de titre (draggable c&#244;t&#233; Python via x:Name="TitleBar").
-        Titre &#224; gauche, boutons de l&#233;gende &#224; droite.
-      -->
       <Grid Grid.Row="0" x:Name="TitleBar"
             Height="44"
             Background="{DynamicResource TransparentBrush}">
@@ -59,7 +60,7 @@
         </Grid.ColumnDefinitions>
 
         <TextBlock Grid.Column="0"
-                   Text="418 &#183; Dupliquer les vues"
+                   Text="{Binding Titre}"
                    Foreground="{DynamicResource TextSecondaryBrush}"
                    FontSize="12.5"
                    FontWeight="SemiBold"
@@ -82,48 +83,30 @@
         </StackPanel>
       </Grid>
 
-      <!-- Corps : rail (Width 64) + surface de contenu (*) -->
-      <Grid Grid.Row="1" Margin="0,0,0,0">
+      <Grid Grid.Row="1">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="64"/>
           <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <!--
-          Rail de navigation : DockPanel vertical.
-          Logo en haut, puis les deux items de nav (S&#233;lection / Options).
-        -->
         <DockPanel Grid.Column="0"
                    LastChildFill="True"
                    HorizontalAlignment="Center"
                    Margin="0,6,0,10">
 
-          <!-- Pastille logo de marque (d&#233;grad&#233; accent) -->
           <Border DockPanel.Dock="Top"
                   Style="{DynamicResource BrandLogoBorderStyle}"
                   Margin="0,0,0,8">
             <Image Source="{Binding BrandLogoPath}" Width="30" Height="30"/>
           </Border>
 
-          <!-- Conteneur de navigation -->
-          <StackPanel Orientation="Vertical"
+          <!-- Rempli par RailWindow._construire_nav depuis ONGLETS. -->
+          <StackPanel x:Name="NavItems"
+                      Orientation="Vertical"
                       HorizontalAlignment="Center"
-                      VerticalAlignment="Top">
-            <RadioButton x:Name="NavSelection"
-                         GroupName="nav"
-                         Style="{DynamicResource NavRailButtonStyle}"
-                         Content="&#x2611;"
-                         ToolTip="S&#233;lection"
-                         Margin="0,0,0,6"/>
-            <RadioButton x:Name="NavOptions"
-                         GroupName="nav"
-                         Style="{DynamicResource NavRailButtonStyle}"
-                         Content="&#x2699;"
-                         ToolTip="Options"/>
-          </StackPanel>
+                      VerticalAlignment="Top"/>
         </DockPanel>
 
-        <!-- Surface de contenu flottante : h&#233;berge la page courante -->
         <Border Grid.Column="1"
                 Style="{DynamicResource ShellSurfaceStyle}"
                 Margin="6,0,12,12">

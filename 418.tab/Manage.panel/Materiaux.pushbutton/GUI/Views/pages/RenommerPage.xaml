@@ -1,0 +1,399 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Onglet 2 — renommage en masse. DataContext = RenommerPageVM. Chargée via
+    XamlReader.Load (PAS de x:Class, PAS de code-behind) : brushes et styles
+    en DynamicResource.
+
+    UN SEUL TABLEAU sert de liste ET d'aperçu :
+      [case] [nom actuel] → [nouveau nom] [rendu] [surface] [coupe] [usages]
+    Il est alimenté par {Binding SelectionVM.FilteredItems}, la
+    SelectionPageVM de CET onglet : la case liée est IsSelectedRenommer, donc
+    cocher ici ne touche pas aux autres onglets, et la recherche est propre à
+    la page. Le nouveau nom vient de MaterialCardVM.NouveauNom, réécrit à
+    chaque frappe par le VM — vide sur les lignes non cochées, elles ne
+    seront pas renommées.
+
+    Les trois vignettes sont les mêmes que dans l'onglet Remplacer (mêmes
+    bindings, mêmes tailles) : elles viennent des mêmes MaterialCardVM, il n'y
+    a rien à recalculer.
+
+    Le nom x:Name ItemsList est câblé par MainWindowView._wire_selection. La
+    case est display-only (IsHitTestVisible=False, binding OneWay) : tous les
+    clics passent par le handler unique posé sur la liste.
+
+    Les quatre champs sont sur une ligne, dans l'ordre d'application, et en
+    UpdateSourceTrigger=PropertyChanged : l'aperçu se recalcule à la frappe.
+    RenommerButton est câblé par MainWindowView.
+
+    Le mode regex est TOUJOURS actif (RenommerPageVM._UseRegex) : plus de case
+    à cocher, les deux ⓘ disent ce que Rechercher et Remplacer par acceptent.
+    L'erreur de regex reste affichée sous les champs.
+  -->
+
+  <UserControl.Resources>
+    <!-- Entêtes du tableau. Style local : DynamicResource fonctionne, le
+         dictionnaire du socle est fusionné dans la fenêtre avant le load. -->
+    <Style x:Key="EnteteColonneStyle" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+      <Setter Property="VerticalAlignment" Value="Bottom"/>
+    </Style>
+
+    <!-- Libellé au-dessus d'un champ de renommage. -->
+    <Style x:Key="EnteteChampStyle" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+      <Setter Property="Margin" Value="0,0,0,4"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- Pastille ⓘ : le Text est dans le style, seul le ToolTip varie.
+         Même geste que la page Nommage de « Rechercher/Remplacer feuilles ». -->
+    <Style x:Key="AideStyle" TargetType="TextBlock">
+      <Setter Property="Text" Value="&#9432;"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="Margin" Value="5,0,0,4"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="ToolTipService.InitialShowDelay" Value="150"/>
+      <Setter Property="ToolTipService.ShowDuration" Value="30000"/>
+    </Style>
+  </UserControl.Resources>
+
+  <Grid Background="{DynamicResource TransparentBrush}" Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>   <!-- titre -->
+      <RowDefinition Height="Auto"/>   <!-- champs -->
+      <RowDefinition Height="Auto"/>   <!-- erreur regex -->
+      <RowDefinition Height="Auto"/>   <!-- recherche + Tout/Aucun -->
+      <RowDefinition Height="Auto"/>   <!-- entêtes -->
+      <RowDefinition Height="*"/>      <!-- tableau = liste + aperçu -->
+      <RowDefinition Height="Auto"/>   <!-- footer -->
+    </Grid.RowDefinitions>
+
+    <TextBlock Grid.Row="0"
+               Text="Renommer les matériaux"
+               Style="{DynamicResource HeaderTextBlockStyle}"
+               Margin="0,0,0,14"/>
+
+    <!-- Les quatre champs sur UNE ligne, dans l'ordre d'application :
+         préfixe | rechercher | remplacer par | suffixe. -->
+    <Grid Grid.Row="1" Margin="0,0,0,12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="10"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="10"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="10"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="Préfixe"
+                 Style="{StaticResource EnteteChampStyle}"/>
+      <TextBox Grid.Row="1" Grid.Column="0"
+               Text="{Binding Prefixe, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+      <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal">
+        <TextBlock Text="Rechercher" Style="{StaticResource EnteteChampStyle}"/>
+        <TextBlock Style="{StaticResource AideStyle}">
+          <TextBlock.ToolTip>
+            <ToolTip MaxWidth="360">
+              <StackPanel Margin="2">
+                <TextBlock Text="Expression régulière" FontWeight="Bold" Margin="0,0,0,6"/>
+                <TextBlock Text="Ce champ est TOUJOURS lu comme une regex."
+                           TextWrapping="Wrap" Margin="0,0,0,6"/>
+                <TextBlock Text=".      n'importe quel caractère" Margin="0,1"/>
+                <TextBlock Text="\d     un chiffre · \s un espace" Margin="0,1"/>
+                <TextBlock Text="+ *    une ou plusieurs fois · zéro ou plus" Margin="0,1"/>
+                <TextBlock Text="^ $    début · fin du nom" Margin="0,1"/>
+                <TextBlock Text="( )    groupe capturé, repris par \1 \2… dans Remplacer par" Margin="0,1" TextWrapping="Wrap"/>
+                <TextBlock Text="Les caractères ( ) [ ] . * + ? | \ sont des opérateurs : pour les chercher tels quels, préfixez-les d'un \ — « \(ext\) » trouve « (ext) »."
+                           TextWrapping="Wrap" FontStyle="Italic" Margin="0,6,0,0"/>
+                <TextBlock Text="Une expression invalide s'affiche en rouge sous les champs et ne renomme rien."
+                           TextWrapping="Wrap" FontStyle="Italic" Margin="0,4,0,0"/>
+              </StackPanel>
+            </ToolTip>
+          </TextBlock.ToolTip>
+        </TextBlock>
+      </StackPanel>
+      <TextBox Grid.Row="1" Grid.Column="2"
+               Text="{Binding Rechercher, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+      <StackPanel Grid.Row="0" Grid.Column="4" Orientation="Horizontal">
+        <TextBlock Text="Remplacer par" Style="{StaticResource EnteteChampStyle}"/>
+        <TextBlock Style="{StaticResource AideStyle}">
+          <TextBlock.ToolTip>
+            <ToolTip MaxWidth="360">
+              <StackPanel Margin="2">
+                <TextBlock Text="Jetons disponibles" FontWeight="Bold" Margin="0,0,0,6"/>
+                <TextBlock Text="{}{date}   date du jour (AAAA-MM-JJ)" Margin="0,1"/>
+                <TextBlock Text="{}{annee}  année sur 4 chiffres" Margin="0,1"/>
+                <TextBlock Text="{}{mois}   mois sur 2 chiffres" Margin="0,1"/>
+                <TextBlock Text="{}{jour}   jour sur 2 chiffres" Margin="0,1"/>
+                <TextBlock Text="{}{n}      numéro de la ligne cochée (1, 2, 3…)" Margin="0,1"/>
+                <TextBlock Text="Utilisables dans Préfixe, Remplacer par et Suffixe."
+                           TextWrapping="Wrap" FontStyle="Italic" Margin="0,6,0,0"/>
+                <TextBlock Text="\1 \2… reprennent les groupes ( ) capturés par Rechercher."
+                           TextWrapping="Wrap" FontStyle="Italic" Margin="0,4,0,0"/>
+              </StackPanel>
+            </ToolTip>
+          </TextBlock.ToolTip>
+        </TextBlock>
+      </StackPanel>
+      <TextBox Grid.Row="1" Grid.Column="4"
+               Text="{Binding Remplacer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+      <TextBlock Grid.Row="0" Grid.Column="6" Text="Suffixe"
+                 Style="{StaticResource EnteteChampStyle}"/>
+      <TextBox Grid.Row="1" Grid.Column="6"
+               Text="{Binding Suffixe, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+    </Grid>
+
+    <TextBlock Grid.Row="2"
+               Text="{Binding RegexError}"
+               FontSize="11"
+               TextWrapping="Wrap"
+               Foreground="{DynamicResource WarningBrush}"
+               Margin="0,0,0,8">
+      <TextBlock.Style>
+        <Style TargetType="TextBlock">
+          <Setter Property="Visibility" Value="Collapsed"/>
+          <Style.Triggers>
+            <DataTrigger Binding="{Binding HasRegexError}" Value="True">
+              <Setter Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+          </Style.Triggers>
+        </Style>
+      </TextBlock.Style>
+    </TextBlock>
+
+    <!-- Recherche + menu de sélection + masque. Les trois sont portés par la
+         SelectionPageVM de cet onglet, donc sans effet sur les autres.
+         Le menu remplace Tout/Aucun, qui sont ses deux premières entrées. -->
+    <Grid Grid.Row="3" Margin="0,0,0,8">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <TextBox Grid.Column="0"
+               x:Name="SearchBox"
+               Text="{Binding SelectionVM.FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+      <ComboBox Grid.Column="1"
+                x:Name="PresetCombo"
+                Width="170"
+                Margin="8,0,0,0"
+                ItemsSource="{Binding SelectionVM.Presets}"
+                SelectedItem="{Binding SelectionVM.Preset, Mode=TwoWay}"/>
+      <CheckBox Grid.Column="2"
+                IsChecked="{Binding SelectionVM.MasquerNonSelectionnes, Mode=TwoWay}"
+                Style="{DynamicResource ToggleSwitchStyle}"
+                Content="Cochés seulement"
+                VerticalAlignment="Center"
+                Margin="14,0,0,0"
+                ToolTip="Masquer les matériaux non cochés. Le menu et la recherche continuent de porter sur toute la liste."/>
+    </Grid>
+
+    <!-- Entêtes : mêmes largeurs de colonnes que le DataTemplate. -->
+    <Grid Grid.Row="4" Margin="2,0,0,4">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="28"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="22"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="46"/>
+        <ColumnDefinition Width="72"/>
+        <ColumnDefinition Width="72"/>
+        <ColumnDefinition Width="110"/>
+      </Grid.ColumnDefinitions>
+      <TextBlock Grid.Column="1" Text="Nom actuel" Style="{StaticResource EnteteColonneStyle}"/>
+      <TextBlock Grid.Column="3" Text="Nouveau nom" Style="{StaticResource EnteteColonneStyle}"/>
+      <TextBlock Grid.Column="4" Text="Rendu" Style="{StaticResource EnteteColonneStyle}"/>
+      <TextBlock Grid.Column="5" Text="Surface" Style="{StaticResource EnteteColonneStyle}"/>
+      <TextBlock Grid.Column="6" Text="Coupe" Style="{StaticResource EnteteColonneStyle}"/>
+      <TextBlock Grid.Column="7" Text="Utilisations" Style="{StaticResource EnteteColonneStyle}"/>
+    </Grid>
+
+    <ScrollViewer Grid.Row="5"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+      <ItemsControl x:Name="ItemsList"
+                    ItemsSource="{Binding SelectionVM.FilteredItems}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border BorderBrush="{DynamicResource ControlBorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    Background="{DynamicResource TransparentBrush}"
+                    Padding="2,6">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="28"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="22"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="46"/>
+                  <ColumnDefinition Width="72"/>
+                  <ColumnDefinition Width="72"/>
+                  <ColumnDefinition Width="110"/>
+                </Grid.ColumnDefinitions>
+
+                <CheckBox Grid.Column="0"
+                          IsChecked="{Binding IsSelectedRenommer, Mode=OneWay}"
+                          IsHitTestVisible="False"
+                          Style="{DynamicResource CheckBoxStyle}"
+                          VerticalAlignment="Center"/>
+
+                <TextBlock Grid.Column="1"
+                           Text="{Binding Nom}"
+                           TextTrimming="CharacterEllipsis"
+                           Margin="0,0,8,0"
+                           VerticalAlignment="Center"
+                           ToolTip="{Binding Nom}">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <!-- Non coché : la ligne reste en retrait, elle ne
+                           sera pas renommée. -->
+                      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsSelectedRenommer}" Value="True">
+                          <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+
+                <!-- La flèche n'apparaît que là où il y a un changement. -->
+                <TextBlock Grid.Column="2" Text="&#x2192;"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource AccentBrush}">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <Setter Property="Visibility" Value="Hidden"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding NomChange}" Value="True">
+                          <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+
+                <TextBlock Grid.Column="3"
+                           Text="{Binding NouveauNom}"
+                           TextTrimming="CharacterEllipsis"
+                           Margin="0,0,8,0"
+                           VerticalAlignment="Center"
+                           ToolTip="{Binding NouveauNom}">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <!-- Cochée mais inchangée : reste en retrait. -->
+                      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding NomChange}" Value="True">
+                          <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                          <Setter Property="FontWeight" Value="SemiBold"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+
+                <!-- Vignettes : rendu (couleur d'apparence), motif de
+                     surface, motif de coupe. Fond blanc et ClipToBounds
+                     comme dans l'onglet Remplacer. -->
+                <Border Grid.Column="4" Width="40" Height="24" CornerRadius="3"
+                        BorderThickness="1"
+                        BorderBrush="{DynamicResource ControlBorderBrush}"
+                        Background="{Binding ApparenceCouleur}"
+                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                        ToolTip="{Binding Apparence}"/>
+
+                <Border Grid.Column="5" Width="64" Height="26" CornerRadius="3"
+                        BorderThickness="1"
+                        BorderBrush="{DynamicResource ControlBorderBrush}"
+                        Background="White"
+                        ClipToBounds="True"
+                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                        ToolTip="{Binding MotifSurfaceNom}">
+                  <Image Source="{Binding MotifSurfaceImage}" Stretch="UniformToFill"/>
+                </Border>
+
+                <Border Grid.Column="6" Width="64" Height="26" CornerRadius="3"
+                        BorderThickness="1"
+                        BorderBrush="{DynamicResource ControlBorderBrush}"
+                        Background="White"
+                        ClipToBounds="True"
+                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                        ToolTip="{Binding MotifCoupeNom}">
+                  <Image Source="{Binding MotifCoupeImage}" Stretch="UniformToFill"/>
+                </Border>
+
+                <TextBlock Grid.Column="7"
+                           Text="{Binding UtilisationsTexte}"
+                           FontSize="11"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center"
+                           ToolTip="{Binding UtilisationsTexte}">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                      <Style.Triggers>
+                        <!-- « Non utilisé » : purgeable, donc en retrait. -->
+                        <DataTrigger Binding="{Binding EstUtilise}" Value="False">
+                          <Setter Property="Foreground" Value="{DynamicResource TextDisabledBrush}"/>
+                          <Setter Property="FontStyle" Value="Italic"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <!-- ═══════════ Footer ═══════════ -->
+    <Border Grid.Row="6"
+            BorderBrush="{DynamicResource ControlBorderBrush}"
+            BorderThickness="0,1,0,0"
+            Margin="0,14,0,0"
+            Padding="0,12,0,0">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+          <TextBlock Text="{Binding Recapitulatif}"
+                     FontWeight="SemiBold"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource TextPrimaryBrush}"/>
+          <TextBlock Text="{Binding Etat}"
+                     FontSize="11"
+                     TextWrapping="Wrap"
+                     Margin="0,2,0,0"
+                     Foreground="{DynamicResource TextSecondaryBrush}"/>
+        </StackPanel>
+        <Button Grid.Column="1"
+                x:Name="RenommerButton"
+                Content="Renommer"
+                Style="{DynamicResource PrimaryActionButtonStyle}"
+                IsEnabled="{Binding PeutRenommer}"
+                VerticalAlignment="Center"/>
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

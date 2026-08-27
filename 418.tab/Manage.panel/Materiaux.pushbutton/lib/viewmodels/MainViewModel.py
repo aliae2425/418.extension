@@ -1,0 +1,159 @@
+# -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
+try:
+    from ui.base.BaseViewModel import BaseViewModel
+except Exception:
+    from lib.ui.base.BaseViewModel import BaseViewModel
+
+try:
+    from ui.base.SelectionPageVM import SelectionPageVM
+except Exception:
+    from lib.ui.base.SelectionPageVM import SelectionPageVM
+
+try:
+    from lib.viewmodels.RemplacerPageVM import RemplacerPageVM
+except Exception:
+    from viewmodels.RemplacerPageVM import RemplacerPageVM
+
+try:
+    from lib.viewmodels.RenommerPageVM import RenommerPageVM
+except Exception:
+    from viewmodels.RenommerPageVM import RenommerPageVM
+
+try:
+    from lib.viewmodels.AuditPageVM import AuditPageVM
+except Exception:
+    from viewmodels.AuditPageVM import AuditPageVM
+
+try:
+    from lib.viewmodels.EditeurVM import depuis_materiau
+except Exception:
+    from viewmodels.EditeurVM import depuis_materiau
+
+
+class MainViewModel(BaseViewModel):
+    """VM racine « Matériaux » : quatre onglets, TROIS sélections.
+
+    L'onglet 0 (Audit) est le mode initial. Il ne coche rien : il relit les
+    mêmes cards pour en tirer des compteurs, donc il n'a pas de sélection.
+
+    Les trois onglets affichent les mêmes `MaterialCardVM` — un seul objet
+    par matériau, donc les vignettes et le comptage d'usages ne sont calculés
+    qu'une fois — mais chacun a sa `SelectionPageVM` sur SA case
+    (`IsSelected`, `IsSelectedRenommer`, `IsSelectedRemplacer`). Cocher dans
+    un onglet ne touche pas aux autres, et chaque onglet a sa recherche.
+
+    L'onglet Matériaux garde donc une sélection à lui, pilotée par le menu
+    `PRESETS`. Elle n'alimente encore aucune action — c'est voulu, l'usage
+    viendra avec la suite (purge).
+    """
+
+    #: Menu de sélection des onglets Matériaux et Renommer : (libellé,
+    #: prédicat sur la card). Les critères d'usage viennent du comptage fait à
+    #: l'ouverture par script.py ; sans comptage, tout est « non utilisé ».
+    PRESETS = (
+        (u'Tout', lambda carte: True),
+        (u'Aucun', lambda carte: False),
+        (u'Utilisés', lambda carte: carte.EstUtilise),
+        (u'Non utilisés', lambda carte: not carte.EstUtilise),
+        (u'Sans instance', lambda carte: carte.SansInstance),
+    )
+
+    def __init__(self, service=None, doc=None):
+        super(MainViewModel, self).__init__()
+        self._service = service
+        self._doc = doc
+        self._materiaux_par_id = {}
+        self._motifs = []
+        self._apparences = []
+        self._mode = u'audit'
+        self.AuditVM = None
+        self.SelectionVM = None
+        self.RemplacerVM = None
+        self.RenommerVM = None
+
+    @property
+    def Titre(self):
+        return u'418 · Matériaux'
+
+    @property
+    def Mode(self):
+        return self._mode
+
+    def set_mode(self, mode):
+        if mode != self._mode:
+            self._mode = mode
+            self.notify_property('Mode')
+
+    def charger(self, cartes, materiaux_par_id, categories=None, motifs=None,
+                apparences=None):
+        """`cartes` : `MaterialCardVM` construites par script.py.
+        `materiaux_par_id` : id -> `Material` Revit, pour le renommage.
+        `categories` : `CategorieVM` présentes dans le modèle, pour le menu
+        déroulant de portée de l'onglet Remplacer.
+        `motifs` / `apparences` : catalogues du document (`MotifRef`,
+        `ApparenceRef`), lus une fois à l'ouverture et prêtés à chaque
+        éditeur."""
+        cartes = list(cartes or [])
+        self._materiaux_par_id = dict(materiaux_par_id or {})
+        self._motifs = list(motifs or [])
+        self._apparences = list(apparences or [])
+
+        self.AuditVM = AuditPageVM(cartes)
+        # L'onglet Matériaux est en sélection EXCLUSIVE : il ne mène qu'à
+        # l'éditeur, qui ne travaille que sur un matériau. Donc pas de menu de
+        # sélections préfabriquées non plus — « Tout » n'y voudrait rien dire.
+        self.SelectionVM = self._nouvelle_page(cartes, u'IsSelected',
+                                               u'Matériaux', mono=True)
+        page_renommer = self._nouvelle_page(cartes, u'IsSelectedRenommer',
+                                           u'Renommer',
+                                           presets=self.PRESETS)
+        page_remplacer = self._nouvelle_page(cartes, u'IsSelectedRemplacer',
+                                            u'Remplacer')
+        self.RenommerVM = RenommerPageVM(self._service, page_renommer,
+                                         self._materiaux_par_id)
+        self.RemplacerVM = RemplacerPageVM(self._service, page_remplacer,
+                                           categories)
+        # Le rappel se pose après coup : la page naît avant son VM d'onglet,
+        # qui a besoin d'elle. Même geste que le `_on_toggle` des CategorieVM.
+        page_renommer._on_selection_changed = self.RenommerVM.set_sources
+        page_remplacer._on_selection_changed = self.RemplacerVM.set_sources
+        for nom in ('AuditVM', 'SelectionVM', 'RemplacerVM', 'RenommerVM'):
+            self.notify_property(nom)
+        self.RenommerVM.set_sources(page_renommer.selected_ids())
+        self.RemplacerVM.set_sources(page_remplacer.selected_ids())
+
+    def editeur_pour(self, carte):
+        """L'`EditeurVM` d'une card, ou None si le matériau n'est plus là.
+
+        Un VM neuf à chaque ouverture : l'éditeur mémorise l'état lu au
+        chargement pour ne réécrire que ce qui a bougé, donc le recycler après
+        une sauvegarde ou un Annuler donnerait un diff faux.
+        """
+        # `getattr` et pas `carte.Id` : un double-clic dans le vide de la
+        # grille remonte le DataContext de la page, pas une card.
+        materiau = self._materiaux_par_id.get(getattr(carte, 'Id', None))
+        if materiau is None:
+            return None
+        return depuis_materiau(self._doc, materiau, carte, self._service,
+                               self._motifs, self._apparences)
+
+    def carte_selectionnee(self):
+        """La card de l'onglet Matériaux, ou None. Sélection exclusive."""
+        if self.SelectionVM is None:
+            return None
+        return self.SelectionVM.SelectionUnique
+
+    def _nouvelle_page(self, cartes, prop, titre, presets=None, mono=False):
+        """Une page de sélection sur `prop`, cards branchées sur elle."""
+        page = SelectionPageVM(
+            cartes,
+            id_getter=lambda carte: carte.Id,
+            filter_getters=[lambda carte: carte.Nom, lambda carte: carte.Classe],
+            prop=prop, titre=titre, presets=presets, mono=mono)
+        # Une case écrite directement (menu, code) doit prévenir SA page,
+        # sinon l'onglet ne voit pas la coche.
+        for carte in cartes:
+            carte.brancher(prop, page._on_item_toggle)
+        return page
