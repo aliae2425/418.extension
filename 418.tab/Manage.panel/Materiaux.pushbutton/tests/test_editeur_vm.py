@@ -362,7 +362,7 @@ class TestEchelleModele(unittest.TestCase):
         grille = hatch.Grille(offset=1.0)          # un pied entre deux droites
         proche = hatch.par_grille([grille], 150, 96, hatch.echelle_modele(20))
         loin = hatch.par_grille([grille], 150, 96, hatch.echelle_modele(200))
-        self.assertGreater(len(loin[0][0]), len(proche[0][0]))
+        self.assertGreater(len(loin[0].traits), len(proche[0].traits))
 
     def test_un_motif_de_dessin_ignore_lechelle_de_vue(self):
         # `ECHELLE_DESSIN` est une constante, pas une fonction de l'échelle :
@@ -371,7 +371,12 @@ class TestEchelleModele(unittest.TestCase):
         grille = hatch.Grille(offset=0.02)
         a = hatch.par_grille([grille], 150, 96, hatch.ECHELLE_DESSIN)
         b = hatch.par_grille([grille], 150, 96, hatch.ECHELLE_DESSIN)
-        self.assertEqual(len(a[0][0]), len(b[0][0]))
+        self.assertEqual(len(a[0].traits), len(b[0].traits))
+
+    def test_lechelle_de_dessin_est_la_taille_reelle_dimpression(self):
+        # 96 unités WPF par pouce de papier : l'aperçu montre ce qui sortira
+        # sur la feuille, pas une réduction.
+        self.assertEqual(hatch.ECHELLE_DESSIN, 96.0 * 12.0)
 
     def test_lechelle_par_defaut_reste_celle_de_la_vignette_de_card(self):
         self.assertEqual(hatch.echelle_modele(),

@@ -39,11 +39,30 @@ class TestSegments(unittest.TestCase):
             self.assertAlmostEqual(x1, 0.0)
             self.assertAlmostEqual(x2, 64.0)
 
-    def test_espacement_minimal_borne_le_nombre_de_droites(self):
-        # offset ridicule -> retombe sur ESPACEMENT_MINI, pas sur 10000 droites
+    def test_une_famille_illisible_passe_en_aplat_sans_segment(self):
+        # Offset ridicule : Revit affiche un aplat quand la hachure ne se
+        # résout plus. Écarter les droites mentirait sur la densité.
         grille = hatch.Grille(angle=0.0, offset=1e-6)
-        segs = hatch.segments([grille], 64.0, 32.0, echelle=1.0)
-        self.assertLessEqual(len(segs), int(32.0 / hatch.ESPACEMENT_MINI) + 2)
+        famille = hatch.par_grille([grille], 64.0, 32.0, echelle=1.0)[0]
+        self.assertTrue(famille.aplat)
+        self.assertEqual(famille.traits, [])
+        self.assertEqual(hatch.segments([grille], 64.0, 32.0, echelle=1.0), [])
+
+    def test_laplat_garde_lecart_pour_se_doser(self):
+        # L'adaptateur WPF en tire un taux de couverture : un motif à 60 %
+        # imprime gris, pas noir.
+        grille = hatch.Grille(angle=0.0, offset=0.12)
+        famille = hatch.par_grille([grille], 64.0, 32.0, echelle=10.0)[0]
+        self.assertTrue(famille.aplat)
+        self.assertAlmostEqual(famille.ecart, 1.2)
+
+    def test_deux_familles_de_densites_differentes_gardent_leur_rapport(self):
+        # L'ancien plancher d'espacement rapprochait la famille lâche de la
+        # serrée : le motif changeait de caractère. Ici le rapport tient.
+        serree = hatch.Grille(angle=0.0, offset=0.5)
+        lache = hatch.Grille(angle=0.0, offset=2.0)
+        familles = hatch.par_grille([serree, lache], 64.0, 96.0, echelle=10.0)
+        self.assertEqual(len(familles[0].traits), 4 * len(familles[1].traits))
 
     def test_deux_grilles_croisees_donnent_les_deux_familles(self):
         croix = [hatch.Grille(angle=0.0, offset=1.0),
@@ -75,9 +94,15 @@ class TestTirets(unittest.TestCase):
         self.assertEqual(hatch.tirets_px([0.5, -0.25], echelle=100.0),
                          [50.0, 25.0])
 
-    def test_liste_impaire_tronquee(self):
+    def test_liste_impaire_fusionnee_et_non_tronquee(self):
+        # Au bouclage, le dernier trait se colle au premier : 0,5 puis 0,1
+        # font un trait de 0,6. Tronquer donnerait 50/25 — une autre période,
+        # donc un autre dessin.
         self.assertEqual(hatch.tirets_px([0.5, -0.25, 0.1], echelle=100.0),
-                         [50.0, 25.0])
+                         [60.0, 25.0])
+
+    def test_un_seul_segment_qui_se_repete_est_un_trait_plein(self):
+        self.assertEqual(hatch.tirets_px([0.5], echelle=100.0), [])
 
     def test_periode_sub_pixel_donne_un_trait_plein(self):
         self.assertEqual(hatch.tirets_px([0.001, -0.001], echelle=100.0), [])
@@ -95,15 +120,43 @@ class TestParGrille(unittest.TestCase):
         familles = hatch.par_grille([pleine, pointillee], 64.0, 32.0,
                                     echelle=10.0)
         self.assertEqual(len(familles), 2)
-        self.assertEqual(familles[0][1], [])
-        self.assertEqual(familles[1][1], [5.0, 5.0])
+        self.assertEqual(familles[0].tirets, [])
+        self.assertEqual(familles[1].tirets, [5.0, 5.0])
 
     def test_segments_reste_la_somme_des_familles(self):
         grilles = [hatch.Grille(angle=0.0, offset=1.0),
                    hatch.Grille(angle=math.pi / 2.0, offset=1.0)]
         familles = hatch.par_grille(grilles, 64.0, 32.0, echelle=10.0)
-        total = sum(len(traits) for traits, _ in familles)
+        total = sum(len(famille.traits) for famille in familles)
         self.assertEqual(len(hatch.segments(grilles, 64.0, 32.0, 10.0)), total)
+
+
+class TestPhaseDesTirets(unittest.TestCase):
+    """La phase cale le motif de tirets sur l'origine de la grille, pas sur
+    le bord de la tuile — sinon un pointillé sort en escalier."""
+
+    def test_origine_sur_le_bord_donne_une_phase_nulle(self):
+        grille = hatch.Grille(angle=0.0, offset=1.0)
+        famille = hatch.par_grille([grille], 64.0, 32.0, echelle=10.0)[0]
+        for trait in famille.traits:
+            self.assertAlmostEqual(trait[4], 0.0)
+
+    def test_origine_decalee_recule_la_phase_dautant(self):
+        # Origine à 3 px : la tuile coupe chaque droite 3 px AVANT elle.
+        grille = hatch.Grille(angle=0.0, offset=1.0, origine_u=0.3)
+        famille = hatch.par_grille([grille], 64.0, 32.0, echelle=10.0)[0]
+        for trait in famille.traits:
+            self.assertAlmostEqual(trait[4], -3.0)
+
+    def test_lappareillage_decale_une_droite_sur_deux(self):
+        # `shift` fait glisser chaque droite le long d'elle-même : c'est ce
+        # qui donne l'appareillage des briques. Les phases doivent donc
+        # varier d'une droite à l'autre.
+        grille = hatch.Grille(angle=0.0, offset=1.0, shift=0.5)
+        famille = hatch.par_grille([grille], 64.0, 32.0, echelle=10.0)[0]
+        phases = sorted(set(round(trait[4], 6) for trait in famille.traits))
+        self.assertGreater(len(phases), 1)
+        self.assertAlmostEqual(phases[1] - phases[0], 5.0)
 
 
 if __name__ == '__main__':
