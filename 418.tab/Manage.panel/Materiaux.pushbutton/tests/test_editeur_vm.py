@@ -247,25 +247,30 @@ class TestRecherche(_Base):
         vm, _ = _vm()
         premier = vm.Faces[0].Premier                          # courant : Brique
         premier.Recherche = u'BETON'
-        # « Béton » remonte malgré l'accent et la casse ; « Brique » n'est là
-        # que parce que c'est le motif courant, toujours épinglé.
-        self.assertEqual([r.Nom for r in premier.MotifsFiltres],
-                         [u'Brique', u'Béton'])
+        # Vrai filtre : le motif courant lui-même disparaît s'il ne
+        # correspond pas.
+        self.assertEqual([r.Nom for r in premier.MotifsFiltres], [u'Béton'])
 
     def test_filtre_sur_le_type(self):
-        vm, motifs = _vm()
+        vm, _ = _vm()
         surface = vm.Faces[1].Premier
         surface.Recherche = u'modèle'
-        self.assertEqual([r.Nom for r in surface.MotifsFiltres],
-                         [u'Aucun', u'Béton'])                 # Aucun = courant
+        self.assertEqual([r.Nom for r in surface.MotifsFiltres], [u'Béton'])
 
-    def test_le_motif_courant_survit_a_la_recherche(self):
-        # WPF vide SelectedItem dès que l'élément quitte l'ItemsSource :
-        # sortir le motif courant de la liste l'effacerait à la frappe.
-        vm, motifs = _vm()
-        premier = vm.Faces[0].Premier                          # Brique
+    def test_un_filtre_sans_resultat_ne_laisse_rien(self):
+        vm, _ = _vm()
+        premier = vm.Faces[0].Premier
         premier.Recherche = u'zzzz'
-        self.assertEqual(premier.MotifsFiltres, [motifs[1]])
+        self.assertEqual(premier.MotifsFiltres, [])
+
+    def test_filtrer_naffecte_pas_le_motif_pose(self):
+        # Le menu s'affiche vide, mais le matériau porte toujours sa hachure :
+        # tant qu'on n'en choisit pas une autre, il n'y a rien à enregistrer.
+        vm, motifs = _vm()
+        premier = vm.Faces[0].Premier
+        premier.Recherche = u'zzzz'
+        self.assertIs(premier.Motif, motifs[1])
+        self.assertEqual(vm.valeurs_modifiees(), {})
 
     def test_un_none_venu_de_wpf_neffave_pas_le_motif(self):
         vm, motifs = _vm()

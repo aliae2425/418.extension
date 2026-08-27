@@ -144,11 +144,12 @@ class EmplacementVM(BaseViewModel):
     def Motif(self, valeur):
         """Écrit à la main, et pas via `_champ` : le None doit être ignoré.
 
-        WPF vide `SelectedItem` dès que l'élément sélectionné quitte
-        l'ItemsSource — ce qui arrive à chaque frappe dans la recherche.
-        `MotifsFiltres` garde déjà le motif courant dans sa liste ; ce garde-fou
-        est la seconde ceinture, parce qu'un None qui passerait ici effacerait
-        le motif sans que personne l'ait demandé.
+        Un filtre qui exclut le motif courant le fait sortir de l'ItemsSource,
+        et WPF vide alors `SelectedItem` — le menu s'affiche vide, ce qui est
+        le comportement attendu d'un filtre. Mais la VALEUR, elle, ne doit pas
+        disparaître pour autant : le motif reste posé tant qu'on n'en a pas
+        choisi un autre. D'où le None ignoré, et la renotification de `Motif`
+        par la recherche qui remet la sélection dès que le filtre la ramène.
         """
         if valeur is None or valeur is self._Motif:
             return
@@ -168,20 +169,23 @@ class EmplacementVM(BaseViewModel):
         self._recherche = valeur
         self.notify_property('Recherche')
         self.notify_property('MotifsFiltres')
+        # Dans cet ordre : le menu reconstruit d'abord ses items, puis
+        # re-sélectionne le motif courant s'il est de retour dans la liste.
+        # Sans ça, relâcher le filtre laisse le menu vide alors que le
+        # matériau porte toujours son motif.
+        self.notify_property('Motif')
 
     @property
     def MotifsFiltres(self):
         """Les motifs offerts, réduits à la recherche.
 
-        Porte sur le nom ET sur le type : taper « modèle » ne laisse que les
-        motifs de modèle, sans case à cocher de plus. Le motif COURANT reste
-        toujours dans la liste, quoi qu'on tape — cf. le setter de `Motif`.
+        Un vrai filtre : ce qui ne correspond pas ne s'affiche pas, y compris
+        le motif courant et l'entrée « Aucun ». La recherche porte sur le nom
+        ET sur le type, taper « modèle » ne laisse donc que les motifs de
+        modèle, sans case à cocher de plus.
         """
-        offerts = filtrer(self.Motifs, self._recherche,
-                          [lambda ref: ref.Nom, lambda ref: ref.Type])
-        if self._Motif is not None and self._Motif not in offerts:
-            offerts.insert(0, self._Motif)
-        return offerts
+        return filtrer(self.Motifs, self._recherche,
+                       [lambda ref: ref.Nom, lambda ref: ref.Type])
 
     @staticmethod
     def _proposables(couche, motifs, courant):
