@@ -14,7 +14,7 @@ if _BUTTON not in sys.path:
 
 from lib.viewmodels.AuditPageVM import AuditPageVM, _cle_nom
 from lib.viewmodels.MaterialCardVM import Couche, MaterialCardVM, Motif
-from lib.views import donut_image
+from ui.helpers import donut_image
 
 
 class FakeUsages(object):

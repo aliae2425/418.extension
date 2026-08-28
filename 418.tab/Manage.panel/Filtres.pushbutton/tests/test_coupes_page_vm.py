@@ -17,9 +17,14 @@ from lib.viewmodels.MainViewModel import MainViewModel
 
 
 class _ServiceFactice(object):
+    """Le contrat que `MainViewModel.charger()` attend d'un FiltresService."""
+
     def collecter_coupes(self):
         return [{'id': 1, 'nom': u'Coupe AA', 'type': 'Section'},
                 {'id': 2, 'nom': u'Façade Sud', 'type': 'Elevation'}]
+
+    def collecter_filtres(self):
+        return []
 
 
 class TestCoupesPageVM(unittest.TestCase):

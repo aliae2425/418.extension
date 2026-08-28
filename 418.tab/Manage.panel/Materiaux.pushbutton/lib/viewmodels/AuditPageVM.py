@@ -18,10 +18,10 @@ except Exception:
             pass
 
 try:
-    from lib.views import donut_image
+    from ui.helpers import donut_image
 except Exception:
     try:
-        from views import donut_image
+        from lib.ui.helpers import donut_image
     except Exception:
         donut_image = None
 

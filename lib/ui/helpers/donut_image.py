@@ -40,10 +40,12 @@ EPAISSEUR = 20.0
 #: DrawingImage est construite en Python, elle ne peut pas aller chercher un
 #: DynamicResource, mais les teintes doivent rester celles du thème.
 #: 'sains' = SuccessBrush · 'doublons' = WarningBrush ·
-#: 'non_utilises' = TextDisabledBrush · 'piste' = fond de l'anneau.
+#: 'sans_effet' = ErrorBrush · 'non_utilises' = TextDisabledBrush ·
+#: 'piste' = fond de l'anneau.
 PALETTE = {
     'sains': ((46, 158, 79), (86, 194, 113)),
     'doublons': ((184, 134, 11), (229, 169, 59)),
+    'sans_effet': ((209, 52, 56), (209, 52, 56)),
     'non_utilises': ((157, 157, 157), (93, 93, 93)),
     'piste': ((229, 229, 229), (58, 64, 74)),
 }
