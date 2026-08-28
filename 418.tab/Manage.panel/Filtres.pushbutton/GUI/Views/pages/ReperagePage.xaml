@@ -1,0 +1,21 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Onglet 2 - Filtres des plans de rep&#233;rage. Scaffold : page statique,
+    DataContext nul. XamlReader.Load, pas de x:Class.
+  -->
+
+  <Grid Margin="20">
+    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+      <TextBlock Text="Filtres des plans de rep&#233;rage"
+                 Style="{DynamicResource HeaderTextBlockStyle}"
+                 HorizontalAlignment="Center"/>
+      <TextBlock Text="&#192; venir."
+                 Foreground="{DynamicResource TextSecondaryBrush}"
+                 FontSize="12"
+                 HorizontalAlignment="Center"
+                 Margin="0,8,0,0"/>
+    </StackPanel>
+  </Grid>
+</UserControl>
