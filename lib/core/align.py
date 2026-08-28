@@ -38,36 +38,55 @@ MODES = {
 TOLERANCE = 1e-9
 
 
-def deltas_alignement(bornes, operation):
+def deltas_alignement(bornes, operation, ancres=None):
     """Déplacements à appliquer pour aligner sur le bord extrême.
 
     `bornes` : liste de couples (mini, maxi) projetés sur l'axe.
     `operation` : 'min' (bord le plus bas/gauche), 'max', ou 'centre'
     (centres calés sur le milieu de l'étendue globale de la sélection).
+    `ancres` : liste de booléens de même longueur. Les ancres (éléments
+    épinglés) ne bougent jamais et sont prioritaires : dès qu'il y en a une,
+    la cible est calculée sur elles seules.
     """
+    reference = [b for b, a in zip(bornes, ancres or []) if a] or bornes
     if operation == 'centre':
-        cible = (min(b[0] for b in bornes) + max(b[1] for b in bornes)) / 2
-        return [cible - (b[0] + b[1]) / 2 for b in bornes]
-    if operation == 'min':
-        cible = min(b[0] for b in bornes)
-        return [cible - b[0] for b in bornes]
-    cible = max(b[1] for b in bornes)
-    return [cible - b[1] for b in bornes]
+        cible = (min(b[0] for b in reference) + max(b[1] for b in reference)) / 2
+        deltas = [cible - (b[0] + b[1]) / 2 for b in bornes]
+    elif operation == 'min':
+        cible = min(b[0] for b in reference)
+        deltas = [cible - b[0] for b in bornes]
+    else:
+        cible = max(b[1] for b in reference)
+        deltas = [cible - b[1] for b in bornes]
+    if ancres:
+        return [0.0 if a else d for d, a in zip(deltas, ancres)]
+    return deltas
 
 
-def deltas_distribution(centres):
+def deltas_distribution(centres, ancres=None):
     """Déplacements pour espacer également les centres entre les 2 extrêmes.
 
     Les éléments extrêmes ne bougent pas. Moins de 3 éléments : rien à faire.
+    `ancres` : liste de booléens (éléments épinglés). Chaque ancre est un point
+    fixe supplémentaire ; les éléments libres sont répartis régulièrement dans
+    chaque intervalle délimité par deux points fixes consécutifs.
     """
     if len(centres) < 3:
         return [0.0] * len(centres)
     ordre = sorted(range(len(centres)), key=lambda i: centres[i])
-    debut = centres[ordre[0]]
-    pas = (centres[ordre[-1]] - debut) / (len(centres) - 1)
+    fixes = [0, len(ordre) - 1]
+    if ancres:
+        fixes += [rang for rang, i in enumerate(ordre) if ancres[i]]
+    fixes = sorted(set(fixes))
+
     deltas = [0.0] * len(centres)
-    for rang, i in enumerate(ordre):
-        deltas[i] = debut + rang * pas - centres[i]
+    for debut_rang, fin_rang in zip(fixes, fixes[1:]):
+        if fin_rang - debut_rang < 2:
+            continue   # ancres adjacentes : aucun élément libre entre elles
+        debut = centres[ordre[debut_rang]]
+        pas = (centres[ordre[fin_rang]] - debut) / (fin_rang - debut_rang)
+        for rang in range(debut_rang + 1, fin_rang):
+            deltas[ordre[rang]] = debut + (rang - debut_rang) * pas - centres[ordre[rang]]
     return deltas
 
 
@@ -93,7 +112,7 @@ def executer(uidoc, mode):
     axe = view.RightDirection if axe_nom == 'right' else view.UpDirection
 
     elements = [doc.GetElement(eid) for eid in uidoc.Selection.GetElementIds()]
-    elements = [e for e in elements if e is not None and not e.Pinned]
+    elements = [e for e in elements if e is not None]
 
     mesures = []
     for e in elements:
@@ -103,14 +122,21 @@ def executer(uidoc, mode):
 
     minimum = 3 if operation == 'repartir' else 2
     if len(mesures) < minimum:
-        TaskDialog.Show('418', u'Sélectionner au moins %d éléments non épinglés '
+        TaskDialog.Show('418', u'Sélectionner au moins %d éléments '
                                u'visibles dans la vue active.' % minimum)
         return 0
 
+    # Les épinglés servent de référence : ils ne bougent pas, les autres s'y calent.
+    ancres = [bool(element.Pinned) for element, _ in mesures]
+    if all(ancres):
+        TaskDialog.Show('418', u'Tous les éléments sélectionnés sont épinglés : '
+                               u'aucun élément à déplacer.')
+        return 0
+
     if operation == 'repartir':
-        deltas = deltas_distribution([(b[0] + b[1]) / 2 for _, b in mesures])
+        deltas = deltas_distribution([(b[0] + b[1]) / 2 for _, b in mesures], ancres)
     else:
-        deltas = deltas_alignement([b for _, b in mesures], operation)
+        deltas = deltas_alignement([b for _, b in mesures], operation, ancres)
 
     deplaces = 0
     with revit_transaction(doc, u'Aligner la sélection'):
