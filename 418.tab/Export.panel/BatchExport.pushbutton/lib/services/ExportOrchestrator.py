@@ -12,6 +12,16 @@ try:
 except Exception:
     DB = None  # type: ignore
 
+class ExportAnnule(Exception):
+    """L'utilisateur a choisi d'arrêter l'export sur un fichier existant.
+
+    Levée par `_unique_with_ext` (seul point de passage des chemins de
+    sortie) et interceptée par `run`/`run_manual` : c'est le seul moyen de
+    dénouer les boucles imbriquées jeu -> feuille -> format sans câbler un
+    code de retour à chaque étage.
+    """
+
+
 ExportPlan = namedtuple('ExportPlan', [
     'collection_name',
     'do_export',
@@ -87,6 +97,12 @@ class ExportOrchestrator(object):
         self._NamingService_cls = NamingService
         self._naming = None
         self._log_cb = None  # câblé pendant run() pour le diagnostic destination
+        # Collisions de fichiers : politique retenue pour TOUT l'export
+        # ('ecraser_tous' / 'renommer_tous' / 'arreter'), remise à None au
+        # début de chaque run. `_demander_collision` permet d'injecter un
+        # faux dialogue dans les tests (hors Revit, pas de pyrevit.forms).
+        self._politique_collision = None
+        self._demander_collision = None
 
     def erreur_dependances(self):
         """Retourne un message si un import interne a échoué (mode dégradé),
@@ -238,52 +254,74 @@ class ExportOrchestrator(object):
         setup_name = self._dwg.get_saved_setup()
         return self._dwg.build_options(doc, setup_name=setup_name)
 
-    # ------------------- Détection des fichiers existants ------------------- #
-    def _detect_existing_files(self, doc, plans):
-        for plan in plans:
-            if not plan.do_export: continue
-            
-            collection = self._find_collection_by_name(doc, plan.collection_name)
-            sheets = self._get_collection_sheets(doc, collection) if collection else []
-            # Tri des feuilles par numéro croissant
-            try:
-                sheets = sorted(sheets, key=lambda sh: u'{}'.format(getattr(sh, 'SheetNumber', '') or ''))
-            except Exception:
-                pass
-            
-            base_pdf = self._get_destination_base('PDF', plan.collection_name) if plan.do_pdf else None
-            base_dwg = self._get_destination_base('DWG', plan.collection_name) if plan.do_dwg else None
-            
-            # Check PDF
-            if plan.do_pdf and base_pdf:
-                if plan.per_sheet:
-                    for sh in sheets:
-                        name = self._resolve_sheet_name(sh)
-                        if os.path.exists(os.path.join(base_pdf, name + '.pdf')): return True
-                else:
-                    # Collection PDF (carnet) : même nommage qu'à l'export réel.
-                    name = self._resolve_name(
-                        collection, 'set',
-                        fallback=self._collection_fallback_name(collection, sheets))
-                    if os.path.exists(os.path.join(base_pdf, name + '.pdf')): return True
+    # ------------------- Collisions de fichiers ------------------- #
+    def _demander_politique_collision(self, path):
+        """Que faire du fichier `path` déjà présent ?
 
-            # Check DWG (always per sheet)
-            if plan.do_dwg and base_dwg:
-                for sh in sheets:
-                    name = self._resolve_sheet_name(sh)
-                    if os.path.exists(os.path.join(base_dwg, name + '.dwg')): return True
-                    
-        return False
+        Retourne 'ecraser' (ce fichier seulement), 'ecraser_tous',
+        'renommer_tous' ou 'arreter'. Repli 'renommer_tous' si aucune UI
+        n'est disponible (hors Revit) ou si le dialogue échoue : on ne
+        remplace JAMAIS un fichier sans un oui explicite.
+        """
+        cb = self._demander_collision or self._dialogue_collision_pyrevit
+        try:
+            reponse = cb(path)
+        except Exception:
+            reponse = None
+        if reponse not in ('ecraser', 'ecraser_tous', 'renommer_tous', 'arreter'):
+            return 'renommer_tous'
+        return reponse
+
+    def _dialogue_collision_pyrevit(self, path):
+        """Dialogue pyRevit en deux temps : remplacer ou non, puis — si non —
+        renommer ou arrêter. « Non » vaut pour tous les fichiers, donc sa
+        suite (renommer / arrêter) aussi."""
+        from pyrevit import forms
+        reponse = forms.alert(
+            u"« {} » existe déjà dans le dossier de destination.\n"
+            u"Le remplacer ?".format(os.path.basename(path)),
+            title=u"Fichier existant",
+            options=[u'Oui', u'Oui pour tous', u'Non'])
+        if reponse == u'Oui':
+            return 'ecraser'
+        if reponse == u'Oui pour tous':
+            return 'ecraser_tous'
+        suite = forms.alert(
+            u"Aucun fichier existant ne sera remplacé.",
+            title=u"Fichier existant",
+            options=[u'Ajouter (1), (2)… à la fin du nom', u"Arrêter l'export"])
+        if suite == u"Arrêter l'export":
+            return 'arreter'
+        return 'renommer_tous'
 
     # ------------------- Exécution ------------------- #
     def run(self, doc, pname_export, pname_per_sheet, pname_dwg,
             progress_cb=None, log_cb=None, destination=None):
         self._destination_override = destination or None
+        self._politique_collision = None
         try:
             return self._run_impl(doc, pname_export, pname_per_sheet, pname_dwg,
                                   progress_cb=progress_cb, log_cb=log_cb)
+        except ExportAnnule:
+            return self._annuler(progress_cb, log_cb)
         finally:
             self._destination_override = None
+
+    def _annuler(self, progress_cb, log_cb):
+        """Sortie propre après `ExportAnnule` : message + retour False (le
+        ViewModel n'affiche pas la modale de fin sur un export annulé)."""
+        msg = u"Export arrêté : les fichiers déjà présents ont été conservés."
+        if log_cb:
+            try:
+                log_cb(msg)
+            except Exception:
+                pass
+        if progress_cb:
+            try:
+                progress_cb(0, 1, msg)
+            except Exception:
+                pass
+        return False
 
     def _run_impl(self, doc, pname_export, pname_per_sheet, pname_dwg,
                   progress_cb=None, log_cb=None):
@@ -321,22 +359,6 @@ class ExportOrchestrator(object):
             return True
 
         total = len(plans)
-
-        # --- Check existing files ---
-        overwrite = False
-        try:
-            if self._detect_existing_files(doc, plans):
-                from pyrevit import forms
-                res = forms.alert(
-                    "Des fichiers existent déjà.\nVoulez-vous les remplacer ?",
-                    options=["Remplacer", "Renommer (garder les deux)"],
-                    footer="Les fichiers existants seront écrasés si vous choisissez Remplacer."
-                )
-                if res == "Remplacer":
-                    overwrite = True
-        except Exception:
-            pass
-        # ----------------------------
 
         if progress_cb:
             progress_cb(0, max(total, 1), 'Préparation...')
@@ -377,14 +399,14 @@ class ExportOrchestrator(object):
                                 progress_cb(i, total, u'{}: {} (PDF)'.format(plan.collection_name, self._safe_sheet_name(sh)))
                             except Exception:
                                 pass
-                        ok, path = self._export_pdf_sheet(doc, sh, base_pdf, pdf_opt, overwrite=overwrite, log_cb=log_cb)
+                        ok, path = self._export_pdf_sheet(doc, sh, base_pdf, pdf_opt, log_cb=log_cb)
                     if plan.do_dwg and base_dwg:
                         if progress_cb:
                             try:
                                 progress_cb(i, total, u'{}: {} (DWG)'.format(plan.collection_name, self._safe_sheet_name(sh)))
                             except Exception:
                                 pass
-                        ok, path = self._export_dwg_sheet(doc, sh, base_dwg, dwg_opt, overwrite=overwrite, log_cb=log_cb)
+                        ok, path = self._export_dwg_sheet(doc, sh, base_dwg, dwg_opt, log_cb=log_cb)
             else:
                 if plan.do_pdf and base_pdf:
                     if progress_cb:
@@ -392,7 +414,7 @@ class ExportOrchestrator(object):
                             progress_cb(i, total, u'{}: PDF (combiné)'.format(plan.collection_name))
                         except Exception:
                             pass
-                    ok, path = self._export_pdf_collection(doc, sheets, base_pdf, pdf_opt, collection=collection, overwrite=overwrite, log_cb=log_cb)
+                    ok, path = self._export_pdf_collection(doc, sheets, base_pdf, pdf_opt, collection=collection, log_cb=log_cb)
                 if plan.do_dwg and base_dwg:
                     for sh in sheets:
                         if progress_cb:
@@ -400,7 +422,7 @@ class ExportOrchestrator(object):
                                 progress_cb(i, total, u'{}: {} (DWG)'.format(plan.collection_name, self._safe_sheet_name(sh)))
                             except Exception:
                                 pass
-                        ok, path = self._export_dwg_sheet(doc, sh, base_dwg, dwg_opt, overwrite=overwrite, log_cb=log_cb)
+                        ok, path = self._export_dwg_sheet(doc, sh, base_dwg, dwg_opt, log_cb=log_cb)
 
         if progress_cb:
             progress_cb(total, max(total, 1), u'')
@@ -416,10 +438,13 @@ class ExportOrchestrator(object):
         destination: chemin de destination explicite (prioritaire sur DestinationService).
         """
         self._destination_override = destination or None
+        self._politique_collision = None
         try:
             return self._run_manual_impl(doc, sheet_vms, combine_pdf=combine_pdf,
                                          pdf_title=pdf_title, progress_cb=progress_cb,
                                          log_cb=log_cb)
+        except ExportAnnule:
+            return self._annuler(progress_cb, log_cb)
         finally:
             self._destination_override = None
 
@@ -540,16 +565,48 @@ class ExportOrchestrator(object):
         via NamingService, repli sur `SheetNumber_Name`."""
         return self._resolve_name(elem, 'sheet', fallback=self._safe_sheet_name(elem))
 
-    def _unique_with_ext(self, folder, file_no_ext, ext, overwrite=False):
+    def _unique_with_ext(self, folder, file_no_ext, ext):
+        """Chemin de sortie pour `file_no_ext.ext` dans `folder`.
+
+        SEUL point de passage des chemins d'export (PDF feuille, PDF combiné,
+        DWG) : c'est donc ici que se règle la collision avec un fichier
+        existant. La question n'est posée qu'UNE fois par export dès que la
+        réponse est globale ('Oui pour tous' / 'Non') ; « Oui » seul ne vaut
+        que pour le fichier courant et laisse la question ouverte pour les
+        suivants.
+
+        Lève `ExportAnnule` si l'utilisateur choisit d'arrêter.
+        """
+        base = os.path.join(folder, file_no_ext + '.' + ext)
         try:
-            base = os.path.join(folder, file_no_ext + '.' + ext)
-            if overwrite:
-                return base
+            existe = os.path.exists(base)
+        except Exception:
+            existe = False
+        if not existe:
+            return base
+
+        politique = self._politique_collision
+        if politique is None:
+            politique = self._demander_politique_collision(base)
+            if politique != 'ecraser':
+                self._politique_collision = politique
+            if self._log_cb is not None:
+                try:
+                    self._log_cb(u"[COLLISION] {!r} existe → {}".format(
+                        os.path.basename(base), politique))
+                except Exception:
+                    pass
+
+        if politique == 'arreter':
+            raise ExportAnnule()
+        if politique in ('ecraser', 'ecraser_tous'):
+            return base
+        try:
             return self._dest.unique_path(base) if self._dest is not None else base
         except Exception:
-            return os.path.join(folder, file_no_ext + '.' + ext)
+            return base
 
-    def _export_pdf_sheet(self, doc, sheet, base_folder, options, overwrite=False, log_cb=None):
+    def _export_pdf_sheet(self, doc, sheet, base_folder, options, log_cb=None):
         def _log(msg):
             if log_cb:
                 try:
@@ -562,7 +619,7 @@ class ExportOrchestrator(object):
             self._dest.ensure(base_folder)
         except Exception:
             pass
-        path = self._unique_with_ext(base_folder, name_no_ext, 'pdf', overwrite=overwrite)
+        path = self._unique_with_ext(base_folder, name_no_ext, 'pdf')
         folder = os.path.dirname(path)
         file_no_ext = os.path.splitext(os.path.basename(path))[0]
         ok = False
@@ -634,7 +691,7 @@ class ExportOrchestrator(object):
                 ok = False
         return ok, path
 
-    def _export_dwg_sheet(self, doc, sheet, base_folder, options, overwrite=False, log_cb=None):
+    def _export_dwg_sheet(self, doc, sheet, base_folder, options, log_cb=None):
         def _log(msg):
             if log_cb:
                 try:
@@ -647,7 +704,7 @@ class ExportOrchestrator(object):
             self._dest.ensure(base_folder)
         except Exception:
             pass
-        final_path = self._unique_with_ext(base_folder, name_no_ext, 'dwg', overwrite=overwrite)
+        final_path = self._unique_with_ext(base_folder, name_no_ext, 'dwg')
         try:
             tmp_dir = tempfile.mkdtemp(prefix='batchexport_dwg_')
         except Exception:
@@ -747,7 +804,7 @@ class ExportOrchestrator(object):
         return ok, final_path
 
     def _export_pdf_collection(self, doc, sheets, base_folder, options, collection=None,
-                               titre_litteral=u'', overwrite=False, log_cb=None):
+                               titre_litteral=u'', log_cb=None):
         def _log(msg):
             if log_cb:
                 try:
@@ -774,7 +831,7 @@ class ExportOrchestrator(object):
             self._dest.ensure(base_folder)
         except Exception:
             pass
-        path = self._unique_with_ext(base_folder, name_no_ext or 'export', 'pdf', overwrite=overwrite)
+        path = self._unique_with_ext(base_folder, name_no_ext or 'export', 'pdf')
         folder = os.path.dirname(path)
         file_no_ext = os.path.splitext(os.path.basename(path))[0]
         ok = False

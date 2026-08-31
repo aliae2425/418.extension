@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+import io
 import os
 import sys
 import unittest
@@ -15,7 +16,7 @@ if _BUTTON not in sys.path:
 import tempfile as _tf
 os.environ['PY418_CONFIG_DIR'] = _tf.mkdtemp(prefix='418test_')
 
-from lib.services.ExportOrchestrator import ExportOrchestrator
+from lib.services.ExportOrchestrator import ExportOrchestrator, ExportAnnule
 
 
 class FakeNaming(object):
@@ -122,6 +123,98 @@ class TestConfigInjection(unittest.TestCase):
         nom = orch._resolve_name(FakeColl(u'02.1_Plans'), 'set', fallback=u'FB')
         # Motif 'CARNET_{titre}' appliqué -> distinct du repli titre nu.
         self.assertEqual(nom, u'CARNET_02.1_Plans')
+
+
+class TestCollisionFichierExistant(unittest.TestCase):
+    """`_unique_with_ext` face à un fichier déjà présent : les 4 réponses du
+    dialogue, et la mémorisation globale (la question n'est posée qu'une fois
+    sauf pour « Oui » seul). Dialogue injecté via `_demander_collision` —
+    pyrevit.forms est indisponible hors Revit."""
+
+    def setUp(self):
+        self.dossier = _tf.mkdtemp(prefix='418collision_')
+        self.orch = ExportOrchestrator()
+        self.appels = []
+
+    def _repondre(self, *reponses):
+        """Câble un faux dialogue qui rend `reponses` dans l'ordre."""
+        suite = list(reponses)
+
+        def cb(path):
+            self.appels.append(path)
+            return suite.pop(0) if suite else 'renommer_tous'
+
+        self.orch._demander_collision = cb
+
+    def _creer(self, nom):
+        f = io.open(os.path.join(self.dossier, nom), 'w', encoding='utf-8')
+        f.write(u'x')
+        f.close()
+
+    def test_fichier_absent_ne_demande_rien(self):
+        self._repondre('arreter')
+        path = self.orch._unique_with_ext(self.dossier, u'A101', 'pdf')
+        self.assertEqual(path, os.path.join(self.dossier, u'A101.pdf'))
+        self.assertEqual(self.appels, [])
+
+    def test_oui_ecrase_ce_fichier_et_redemande_pour_le_suivant(self):
+        self._creer(u'A101.pdf')
+        self._creer(u'A102.pdf')
+        self._repondre('ecraser', 'ecraser')
+        p1 = self.orch._unique_with_ext(self.dossier, u'A101', 'pdf')
+        p2 = self.orch._unique_with_ext(self.dossier, u'A102', 'pdf')
+        self.assertEqual(p1, os.path.join(self.dossier, u'A101.pdf'))
+        self.assertEqual(p2, os.path.join(self.dossier, u'A102.pdf'))
+        self.assertEqual(len(self.appels), 2)  # « Oui » n'est pas mémorisé
+
+    def test_oui_pour_tous_ne_demande_qu_une_fois(self):
+        self._creer(u'A101.pdf')
+        self._creer(u'A102.pdf')
+        self._repondre('ecraser_tous')
+        p1 = self.orch._unique_with_ext(self.dossier, u'A101', 'pdf')
+        p2 = self.orch._unique_with_ext(self.dossier, u'A102', 'pdf')
+        self.assertEqual(p1, os.path.join(self.dossier, u'A101.pdf'))
+        self.assertEqual(p2, os.path.join(self.dossier, u'A102.pdf'))
+        self.assertEqual(len(self.appels), 1)
+
+    def test_non_puis_renommer_suffixe_et_vaut_pour_tous(self):
+        self._creer(u'A101.pdf')
+        self._creer(u'A102.pdf')
+        self._repondre('renommer_tous')
+        p1 = self.orch._unique_with_ext(self.dossier, u'A101', 'pdf')
+        p2 = self.orch._unique_with_ext(self.dossier, u'A102', 'pdf')
+        self.assertEqual(p1, os.path.join(self.dossier, u'A101 (1).pdf'))
+        self.assertEqual(p2, os.path.join(self.dossier, u'A102 (1).pdf'))
+        self.assertEqual(len(self.appels), 1)
+
+    def test_non_puis_arreter_leve_export_annule(self):
+        self._creer(u'A101.pdf')
+        self._repondre('arreter')
+        self.assertRaises(ExportAnnule, self.orch._unique_with_ext,
+                          self.dossier, u'A101', 'pdf')
+
+    def test_run_manual_annule_rend_false_et_ne_leve_pas(self):
+        # `arreter` remonte jusqu'à run_manual, qui le convertit en False.
+        self._creer(u'A101.pdf')
+        self._repondre('arreter')
+        feuille = FakeSheet(u'A101', u'RDC')
+        vm = FakeSheet(u'A101', u'RDC')
+        vm.ExportPdf, vm.ExportDwg, vm.Elem, vm.Numero = True, False, feuille, u'A101'
+        self.orch._naming = FakeNaming({'sheet': u'{numero}'})
+        res = self.orch.run_manual(None, [vm], destination=self.dossier)
+        self.assertFalse(res)
+
+    def test_sans_dialogue_disponible_renomme_jamais_ecrase(self):
+        # Hors Revit, pyrevit.forms lève -> repli 'renommer_tous' : aucun
+        # fichier existant n'est écrasé sans un oui explicite.
+        self._creer(u'A101.pdf')
+        path = self.orch._unique_with_ext(self.dossier, u'A101', 'pdf')
+        self.assertEqual(path, os.path.join(self.dossier, u'A101 (1).pdf'))
+
+    def test_politique_remise_a_zero_a_chaque_run(self):
+        self.orch._politique_collision = 'ecraser_tous'
+        self.orch.run_manual(None, [], destination=self.dossier)
+        self.assertIsNone(self.orch._politique_collision)
 
 
 class FakeConfigStore(object):
