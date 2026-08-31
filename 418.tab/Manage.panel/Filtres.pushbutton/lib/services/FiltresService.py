@@ -1,17 +1,19 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-# Collecte Revit de l'outil « Gérer les filtres ».
+# Collecte et écriture Revit de l'outil « Gérer les filtres ».
 #
-# Le service ne fait QUE lire et mettre en dictionnaires : tout le comptage,
-# le regroupement et la notation vivent dans les ViewModels, qui tournent donc
-# hors Revit et se testent. Même partage que MaterialService / AuditPageVM.
+# Le service ne DÉCIDE rien : `reperage` produit un arbre booléen, il le
+# traduit en objets Revit ; les ViewModels comptent et notent. Tout ce qui
+# n'est pas une conversation avec l'API vit ailleurs, et se teste hors Revit.
 
 try:
     from Autodesk.Revit.DB import (BuiltInCategory, BuiltInParameter, Category,
-                                   Element, ElementId, ElementParameterFilter,
+                                   Element, ElementFilter, ElementId,
+                                   ElementParameterFilter,
                                    FilteredElementCollector, FilterElement,
-                                   FilterRule, ParameterFilterElement,
+                                   FilterRule, LabelUtils, LogicalAndFilter,
+                                   LogicalOrFilter, ParameterFilterElement,
                                    ParameterFilterRuleFactory,
                                    ParameterFilterUtilities,
                                    SelectionFilterElement, SheetCollection,
@@ -21,11 +23,15 @@ except Exception:
     BuiltInParameter = None
     Category = None
     Element = None
+    ElementFilter = None
     ElementId = None
     ElementParameterFilter = None
     FilteredElementCollector = None
     FilterElement = None
     FilterRule = None
+    LabelUtils = None
+    LogicalAndFilter = None
+    LogicalOrFilter = None
     ParameterFilterElement = None
     ParameterFilterRuleFactory = None
     ParameterFilterUtilities = None
@@ -41,6 +47,11 @@ except Exception:
     List = None
 
 try:
+    from System import Enum
+except Exception:
+    Enum = None
+
+try:
     from core.transaction import revit_transaction
 except Exception:
     try:
@@ -48,24 +59,41 @@ except Exception:
     except Exception:
         revit_transaction = None
 
-# Les deux types de vue que l'onglet Coupes liste pour l'instant.
-TYPES_COUPE = ('Section', 'Elevation')
+try:
+    from lib.services import reperage
+except Exception:
+    from services import reperage
 
-#: Préfixe des filtres fabriqués par l'onglet Repérage. Sert de marque de
-#: propriété : l'outil ne retire et ne réécrit QUE ce qui commence par là.
-#: Le prototype, lui, supprimait tous les filtres de la vue — 418 ou pas.
-PREFIXE_FILTRE = u'418_PDR_S'
+try:
+    from lib.services.stockage import StockageReperage
+except Exception:
+    from services.stockage import StockageReperage
 
-#: Catégories des repères à masquer sur un plan de repérage, par ordre de
-#: préférence. `OST_Elev` est le marqueur d'élévation (un `ElevationMarker`,
-#: pas une vue) : rien ne garantit qu'il porte « Nom de la vue », d'où
-#: l'essai dégressif de `_categories_et_parametre`.
-_CATS_REPERES = ('OST_Sections', 'OST_Elev')
+#: Le seul type de vue qui laisse un repère filtrable. Les élévations sont hors
+#: du repérage : leur repère est un `ElevationMarker`, un élément d'annotation
+#: qui ne porte pas les paramètres sur lesquels une règle s'exprime.
+TYPES_COUPE = ('Section',)
 
-#: Nom impossible pour une vue : sert de règle « ne rien laisser passer »
-#: quand un PDR ne doit montrer AUCUN repère. Une liste de règles vide n'est
-#: pas un filtre valide, il faut donc bien une règle.
-_AUCUN = u'418_PDR_AUCUN'
+#: La catégorie des repères de coupe. Une seule — d'où la disparition de
+#: l'essai dégressif sur `OST_Elev` du premier jet.
+CATEGORIE_REPERE = 'OST_Sections'
+
+#: Marque de propriété des filtres de l'outil : il ne retire et ne réécrit QUE
+#: ce qui commence par là. Attrape aussi les `418_PDR_S…` du prototype, ce qui
+#: est voulu — c'est ce qui permet au bouton de retrait de nettoyer un modèle
+#: qu'il avait touché.
+PREFIXE_FILTRE = reperage.PREFIXE_FILTRE
+
+#: Noms de `BuiltInParameter` tentés pour « Jeu de feuilles », dans l'ordre.
+#: Le millésime qui l'expose n'est pas connu de façon fiable, d'où le repli sur
+#: la recherche par libellé.
+_CANDIDATS_JEU = ('VIEWPORT_SHEET_COLLECTION', 'SHEET_COLLECTION',
+                  'SHEET_COLLECTION_NAME')
+
+#: Libellés acceptés pour « Jeu de feuilles », comparés en minuscules. Deux
+#: langues suffisent : l'outil tourne en français, la recherche par libellé
+#: n'est qu'un filet.
+_LIBELLES_JEU = (u'jeu de feuilles', u'sheet collection')
 
 #: Sondes de surcharge graphique : (nom de propriété, « est-elle posée ? »).
 #: Un filtre laissé visible ET sans aucune de ces surcharges ne change rien à
@@ -121,194 +149,356 @@ def _entier(element_id):
 class FiltresService(object):
     def __init__(self, doc=None):
         self._doc = doc
+        self._stockage = StockageReperage(doc)
+        self._parametres = None
 
-    # -- Onglet Coupes ----------------------------------------------------
+    # -- Collecte ---------------------------------------------------------
 
     def collecter_coupes(self):
-        """[{'id', 'nom', 'type', 'feuille', 'jeu'}] — coupes et élévations,
-        triées par nom.
+        """[{'nom', 'feuille', 'jeu'}] — les coupes, triées par nom.
 
-        `type` est le nom brut de `ViewType` ('Section' / 'Elevation') : le
-        tri par nom de ViewType est la forme utilisée partout dans le dépôt,
-        elle survit aux vues qui ne dérivent pas de la classe attendue.
-
-        `feuille` / `jeu` : là où la vue est POSÉE. Vides si elle ne l'est pas
-        — une coupe hors feuille n'a pas de jeu, donc pas de repérage « par
-        jeu » possible.
+        Ne sert plus qu'au mode « Coupes choisies » et à la détection de
+        dérive : les deux autres modes n'ont besoin d'aucune coupe, c'est tout
+        l'intérêt des règles vivantes.
         """
         if self._doc is None or FilteredElementCollector is None:
             return []
         place = self._placement()
-        vues = []
+        coupes = []
         for vue in self._toutes_les_vues():
             if getattr(vue, 'IsTemplate', False):
                 continue
-            type_vue = self._type(vue)
-            if type_vue in TYPES_COUPE:
-                (feuille, jeu) = place.get(_entier(vue.Id), (u'', u''))
-                vues.append({'id': vue.Id, 'nom': vue.Name, 'type': type_vue,
-                             'feuille': feuille, 'jeu': jeu})
-        vues.sort(key=lambda v: v['nom'])
-        return vues
+            if self._type(vue) not in TYPES_COUPE:
+                continue
+            (feuille, jeu) = place.get(_entier(vue.Id), (u'', u''))
+            coupes.append({'nom': vue.Name, 'feuille': feuille, 'jeu': jeu})
+        coupes.sort(key=lambda c: c['nom'])
+        return coupes
 
-    def titre_document(self):
-        """Titre du document, clé de rangement des règles dans la config.
+    def collecter_plans(self):
+        """[{'id', 'uid', 'nom', 'type', 'feuille', 'jeu'}] — TOUTES les vues en
+        plan, triées par feuille puis par nom.
 
-        `UserConfig` est un fichier par utilisateur, pas par projet : sans
-        cette clé, les règles d'un projet s'appliqueraient aux vues de même
-        nom du projet suivant — et « Coupe AA » existe dans tous.
-        """
-        try:
-            return self._doc.Title
-        except Exception:
-            return u''
+        Toutes, et pas seulement celles d'un type mémorisé : un plan de repérage
+        se reconnaît à l'usage qu'on en fait, pas à son type de vue. Le type
+        n'est plus qu'un critère de sélection préfabriqué, offert à côté de la
+        recherche.
 
-    # -- Onglet Repérage ---------------------------------------------------
-
-    def types_de_plan(self):
-        """[{'id' (entier), 'nom'}] — les types de vue en plan du modèle.
-
-        Le plan de repérage se reconnaît à SON TYPE de vue : c'est le réglage
-        que l'outil mémorise, comme le prototype de `origin/section-filter`.
-        Un type sert donc à désigner d'un coup tous les PDR du projet.
+        `uid` est l'`UniqueId` : c'est LUI qui range les règles, de sorte qu'un
+        plan renommé garde la sienne.
         """
         if self._doc is None or FilteredElementCollector is None:
             return []
-        types = {}
-        for vue in FilteredElementCollector(self._doc).OfClass(ViewPlan).ToElements():
-            if getattr(vue, 'IsTemplate', False):
-                continue
-            entier = _entier(vue.GetTypeId())
-            if entier <= 0 or entier in types:
-                continue
-            try:
-                types[entier] = self._nom_de_type(self._doc.GetElement(vue.GetTypeId()))
-            except Exception:
-                continue
-        resultat = [{'id': k, 'nom': v} for (k, v) in types.items() if v]
-        resultat.sort(key=lambda t: t['nom'])
-        return resultat
-
-    def collecter_pdr(self, type_id):
-        """[{'id', 'nom', 'feuille', 'jeu'}] — les plans de repérage.
-
-        Un PDR est une vue en plan du type mémorisé. Celles qui ne sont
-        posées sur aucune feuille sont gardées : elles restent filtrables, et
-        les écarter en silence donnerait un « il en manque » inexplicable.
-        Triées par feuille puis par nom, l'ordre dans lequel on les parcourt.
-        """
-        if self._doc is None or FilteredElementCollector is None or not type_id:
-            return []
-        try:
-            attendu = int(type_id)
-        except Exception:
-            return []
         place = self._placement()
-        pdrs = []
+        plans = []
         for vue in FilteredElementCollector(self._doc).OfClass(ViewPlan).ToElements():
             if getattr(vue, 'IsTemplate', False):
-                continue
-            if _entier(vue.GetTypeId()) != attendu:
                 continue
             (feuille, jeu) = place.get(_entier(vue.Id), (u'', u''))
-            pdrs.append({'id': vue.Id, 'nom': vue.Name,
-                         'feuille': feuille, 'jeu': jeu})
-        pdrs.sort(key=lambda p: (p['feuille'], p['nom']))
-        return pdrs
+            plans.append({'id': vue.Id, 'uid': vue.UniqueId, 'nom': vue.Name,
+                          'type': self._nom_de_type_de(vue),
+                          'feuille': feuille, 'jeu': jeu})
+        plans.sort(key=lambda p: (p['feuille'], p['nom']))
+        return plans
 
-    def appliquer_reperage(self, cibles):
-        """Pose sur chaque PDR le filtre qui masque les repères des AUTRES
-        coupes. Une transaction, une liste de messages en retour.
+    def lire_regles(self):
+        """{uid de plan: Regle} — ce que le DOCUMENT porte."""
+        return self._stockage.lire()
 
-        `cibles` : [{'id', 'nom', 'feuille', 'visibles': [noms de coupes]}].
-        Le filtre est nommé d'après la feuille du PDR (ou son nom s'il n'est
-        pas posé) et REPRIS s'il existe déjà : deux passages ne laissent
-        qu'un filtre par plan.
+    def filtres_poses(self):
+        """{uid de plan: [noms des filtres 418 posés]}.
 
-        L'inversion est le cœur : Revit sait masquer ce qu'une règle
-        SÉLECTIONNE, on lui fait donc sélectionner « toutes les vues dont le
-        nom n'est aucun des noms visibles » (des `NotEquals` en ET), et on
-        coupe la visibilité. C'est ce qui remplace le `NotContains` sur le
-        numéro de feuille du prototype, qui ne savait dire que « même
-        feuille ».
+        C'est la matière de la détection de dérive : le VM compare ces noms à
+        celui que la règle produirait aujourd'hui.
+        """
+        poses = {}
+        if self._doc is None or FilteredElementCollector is None:
+            return poses
+        for vue in FilteredElementCollector(self._doc).OfClass(ViewPlan).ToElements():
+            if getattr(vue, 'IsTemplate', False):
+                continue
+            noms = [n for n in self._noms_de_filtres(vue)
+                    if n.startswith(PREFIXE_FILTRE)]
+            if noms:
+                poses[vue.UniqueId] = noms
+        return poses
+
+    # -- Paramètres filtrables -------------------------------------------
+
+    def parametres(self):
+        """{reperage.FEUILLE|JEU|NOM: ElementId} — ceux qui sont filtrables.
+
+        Une clé absente veut dire « ce modèle ne sait pas filtrer là-dessus » :
+        le mode qui en dépend se grise, au lieu d'échouer à l'écriture.
+
+        « Jeu de feuilles » est cherché par son LIBELLÉ et non par un
+        `BuiltInParameter` supposé : le nom interne n'est pas connu de façon
+        fiable, alors que le libellé est celui que l'utilisateur lit dans la
+        boîte de dialogue des filtres.
+        """
+        if self._parametres is not None:
+            return self._parametres
+        self._parametres = self._resoudre_parametres()
+        return self._parametres
+
+    def _resoudre_parametres(self):
+        trouves = {}
+        categories = self._categories()
+        if categories is None:
+            return trouves
+        try:
+            communs = list(ParameterFilterUtilities
+                           .GetFilterableParametersInCommon(self._doc, categories))
+        except Exception:
+            return trouves
+        entiers = set(_entier(pid) for pid in communs)
+
+        for (cle, nom_bip) in ((reperage.FEUILLE, 'VIEWPORT_SHEET_NUMBER'),
+                               (reperage.NOM, 'VIEW_NAME')):
+            pid = self._bip(nom_bip)
+            if pid is not None and _entier(pid) in entiers:
+                trouves[cle] = pid
+
+        for nom_bip in _CANDIDATS_JEU:
+            pid = self._bip(nom_bip)
+            if pid is not None and _entier(pid) in entiers:
+                trouves[reperage.JEU] = pid
+                break
+        else:
+            pid = self._par_libelle(communs, _LIBELLES_JEU)
+            if pid is not None:
+                trouves[reperage.JEU] = pid
+        return trouves
+
+    @staticmethod
+    def _bip(nom):
+        """L'ElementId d'un `BuiltInParameter` désigné par son nom, ou None si
+        ce millésime ne le connaît pas."""
+        if BuiltInParameter is None or ElementId is None:
+            return None
+        valeur = getattr(BuiltInParameter, nom, None)
+        if valeur is None:
+            return None
+        try:
+            return ElementId(valeur)
+        except Exception:
+            return None
+
+    def _par_libelle(self, communs, libelles):
+        """Le premier paramètre filtrable dont le libellé est dans `libelles`.
+
+        Résiste au changement de nom interne ET à la langue de l'installation,
+        puisqu'on compare ce que Revit affiche.
+        """
+        if LabelUtils is None or Enum is None or BuiltInParameter is None:
+            return None
+        attendus = set(l.lower() for l in libelles)
+        for pid in communs:
+            entier = _entier(pid)
+            if entier >= 0:
+                continue          # un paramètre de projet, pas un BuiltIn
+            try:
+                bip = Enum.ToObject(BuiltInParameter, entier)
+                libelle = LabelUtils.GetLabelFor(bip)
+            except Exception:
+                continue
+            if libelle and libelle.lower() in attendus:
+                return pid
+        return None
+
+    def _categories(self):
+        """`List[ElementId]` de la seule catégorie de repères."""
+        if List is None or ElementId is None or BuiltInCategory is None:
+            return None
+        bic = getattr(BuiltInCategory, CATEGORIE_REPERE, None)
+        if bic is None:
+            return None
+        categories = List[ElementId]()
+        categories.Add(ElementId(bic))
+        return categories
+
+    # -- Écriture ---------------------------------------------------------
+
+    def appliquer(self, cibles):
+        """Pose les filtres et enregistre les règles. UNE transaction.
+
+        `cibles` : [{'plan': {...}, 'regle': Regle}] — tous les plans à l'écran,
+        gérés ou non. Un plan « Non géré » voit ses filtres 418 retirés.
+
+        Les règles et les filtres tombent dans la même transaction : un état
+        « enregistré mais pas posé » ferait diverger l'intention du modèle,
+        exactement ce que le stockage dans le document sert à empêcher.
+        """
+        manque = self._verifier(cibles)
+        if manque:
+            return manque
+
+        messages = []
+        regles = dict((c['plan']['uid'], c['regle']) for c in cibles
+                      if c['regle'].mode != reperage.MODE_AUCUN)
+        existants = self._filtres_par_nom()
+        params = self.parametres()
+        categories = self._categories()
+
+        with revit_transaction(self._doc, u'Repérage des coupes'):
+            for cible in cibles:
+                message = self._poser(cible, params, categories, existants)
+                if message:
+                    messages.append(message)
+            erreur = self._stockage.ecrire(regles)
+            if erreur:
+                messages.append(erreur)
+        if not messages:
+            messages.append(u'Aucun plan géré : rien à poser.')
+        return messages
+
+    def _verifier(self, cibles):
+        """Les raisons de ne RIEN écrire, ou une liste vide.
+
+        Tout se vérifie avant d'ouvrir la transaction : échouer à moitié est
+        pire que ne pas commencer.
         """
         if self._doc is None or ParameterFilterElement is None or List is None:
             return [u'API Revit indisponible : rien n\'a été écrit.']
         if revit_transaction is None:
             return [u'Socle indisponible : transaction introuvable.']
-        (categories, parametre, ecartees) = self._categories_et_parametre()
-        if parametre is None:
-            return [u'« Nom de la vue » n\'est filtrable pour aucune '
-                    u'catégorie de repère : rien n\'a été écrit.']
-        messages = []
-        for nom in ecartees:
-            messages.append(u'Catégorie « %s » écartée : elle ne porte pas '
-                            u'« Nom de la vue ».' % nom)
-        existants = self._filtres_par_nom()
-        with revit_transaction(self._doc, u'Repérage des coupes'):
-            for cible in cibles:
-                messages.append(
-                    self._poser_filtre(cible, categories, parametre, existants))
-        return messages
+        if self._categories() is None:
+            return [u'Catégorie « Coupes » introuvable : rien n\'a été écrit.']
+        params = self.parametres()
+        besoins = set()
+        for cible in cibles:
+            arbre = reperage.masque(cible['regle'], cible['plan'])
+            besoins.update(reperage.parametres_utilises(arbre))
+        absents = sorted(b for b in besoins if b not in params)
+        if absents:
+            return [u'Paramètre non filtrable dans ce modèle : %s. '
+                    u'Rien n\'a été écrit.' % u', '.join(absents)]
+        return []
 
-    def _poser_filtre(self, cible, categories, parametre, existants):
-        """`_ecrire_filtre` sous filet.
+    def _poser(self, cible, params, categories, existants):
+        """`_ecrire` sous filet.
 
         Un plan qui échoue ne doit pas emporter les autres : sans ce filet,
-        l'exception traverse le `with` et la transaction est annulée EN
-        ENTIER — un seul filtre homonyme d'un autre genre suffirait à perdre
-        tout le travail.
+        l'exception traverse le `with` et la transaction est annulée EN ENTIER —
+        un seul filtre homonyme d'un autre genre suffirait à perdre tout le
+        travail.
         """
         try:
-            return self._ecrire_filtre(cible, categories, parametre, existants)
+            return self._ecrire(cible, params, categories, existants)
         except Exception as erreur:
-            return u'%s : filtre non posé (%s).' % (cible.get('nom'), erreur)
+            return u'%s : filtre non posé (%s).' % (cible['plan'].get('nom'),
+                                                    erreur)
 
-    def _ecrire_filtre(self, cible, categories, parametre, existants):
-        """Crée ou met à jour le filtre d'UN plan de repérage, et le pose."""
-        vue = self._doc.GetElement(cible['id'])
+    def _ecrire(self, cible, params, categories, existants):
+        """Crée ou met à jour le filtre d'UN plan, et le pose."""
+        plan = cible['plan']
+        regle = cible['regle']
+        vue = self._doc.GetElement(plan['id'])
         if vue is None:
-            return u'%s : vue introuvable.' % cible.get('nom')
-        visibles = cible.get('visibles') or []
-        nom_filtre = PREFIXE_FILTRE + (cible.get('feuille') or cible.get('nom'))
-        # List[FilterRule] et pas List[<type concret de la règle>] : IList
-        # n'est pas covariant, un List[FilterStringRule] serait refusé par
-        # ElementParameterFilter.
-        regles = List[FilterRule]()
-        for nom in (visibles or [_AUCUN]):
-            regles.Add(ParameterFilterRuleFactory.CreateNotEqualsRule(
-                parametre, nom))
+            return u'%s : vue introuvable.' % plan.get('nom')
+
+        arbre = reperage.masque(regle, plan)
+        nom_filtre = reperage.nom_de_filtre(regle, plan) if arbre else None
+        if nom_filtre is None:
+            # Rien à poser. Un plan non géré ne mérite pas une ligne de compte
+            # rendu — sinon 400 plans en produisent 400 et le seul message qui
+            # compte se noie. Sauf s'il RESTAIT un filtre : ça, il faut le dire.
+            retires = self._nettoyer(vue, None)
+            if regle.mode != reperage.MODE_AUCUN:
+                return u'%s : %s — aucun filtre posé.' % (
+                    plan['nom'], reperage.phrase(regle, plan))
+            if retires:
+                return u'%s : non géré, %d filtre%s retiré%s.' % (
+                    plan['nom'], retires, u's' if retires > 1 else u'',
+                    u's' if retires > 1 else u'')
+            return None
+
         filtre = existants.get(nom_filtre)
+        element_filter = self._traduire(arbre, params)
         if filtre is None:
             filtre = ParameterFilterElement.Create(
-                self._doc, nom_filtre, categories,
-                ElementParameterFilter(regles))
+                self._doc, nom_filtre, categories, element_filter)
             existants[nom_filtre] = filtre
         else:
             filtre.SetCategories(categories)
-            filtre.SetElementFilter(ElementParameterFilter(regles))
+            filtre.SetElementFilter(element_filter)
+
         self._nettoyer(vue, nom_filtre)
         if _entier(filtre.Id) not in [_entier(f) for f in vue.GetFilters()]:
             vue.AddFilter(filtre.Id)
         vue.SetFilterVisibility(filtre.Id, False)
-        return u'%s : %d repère%s visible%s.' % (
-            cible['nom'], len(visibles),
-            u's' if len(visibles) > 1 else u'',
-            u's' if len(visibles) > 1 else u'')
+        return u'%s : %s.' % (plan['nom'], reperage.phrase(regle, plan))
 
-    def _nettoyer(self, vue, garder):
-        """Retire de la vue les filtres 418 qui ne sont plus le sien.
+    def _traduire(self, arbre, params):
+        """Arbre booléen de `reperage` -> `ElementFilter` Revit.
+
+        Le OU est la raison d'être de cette fonction : une liste de règles dans
+        un `ElementParameterFilter` ne sait faire QUE des ET, et un retrait
+        (« tout mon jeu sauf cette coupe ») est un OU une fois nié.
+        """
+        if arbre[0] in ('et', 'ou'):
+            enfants = List[ElementFilter]()
+            for noeud in arbre[1]:
+                enfants.Add(self._traduire(noeud, params))
+            return (LogicalAndFilter(enfants) if arbre[0] == 'et'
+                    else LogicalOrFilter(enfants))
+        return ElementParameterFilter(self._regle_revit(arbre, params))
+
+    @staticmethod
+    def _regle_revit(feuille, params):
+        """Une feuille de l'arbre -> `FilterRule`."""
+        (propriete, operateur, valeur) = feuille
+        pid = params[propriete]
+        if operateur == reperage.EGAL:
+            return ParameterFilterRuleFactory.CreateEqualsRule(pid, valeur)
+        if operateur == reperage.DIFFERENT:
+            return ParameterFilterRuleFactory.CreateNotEqualsRule(pid, valeur)
+        # PAS_VIDE — « la coupe est posée sur une feuille ».
+        #
+        # ponytail: `CreateHasValueRule` d'abord, repli sur « différent de la
+        # chaîne vide ». Selon le millésime, un paramètre texte non renseigné
+        # est tantôt sans valeur, tantôt une chaîne vide, et les deux règles ne
+        # se recouvrent pas. Si les coupes non posées disparaissent des plans,
+        # c'est ICI qu'il faut regarder.
+        for fabrique in ('CreateHasValueRule', 'CreateHasValueParameterRule'):
+            methode = getattr(ParameterFilterRuleFactory, fabrique, None)
+            if methode is None:
+                continue
+            try:
+                return methode(pid)
+            except Exception:
+                continue
+        return ParameterFilterRuleFactory.CreateNotEqualsRule(pid, u'')
+
+    def retirer_tout(self):
+        """Retire de toutes les vues les filtres 418, sans rien supprimer.
 
         `RemoveFilter` et pas `Delete` : le prototype supprimait le
-        FilterElement du MODÈLE, ce qui le retirait aussi de toutes les
-        autres vues qui l'utilisaient. Les filtres 418 devenus orphelins
-        restent dans le modèle — l'onglet Audit les liste en « non
-        utilisés », c'est là qu'on les purge.
+        `FilterElement` du MODÈLE, ce qui le retirait aussi de toutes les autres
+        vues qui l'utilisaient. Les filtres devenus orphelins restent dans le
+        modèle — l'onglet Audit les liste en « non utilisés », c'est là qu'on
+        les purge.
         """
+        if self._doc is None or revit_transaction is None:
+            return [u'API Revit indisponible : rien n\'a été retiré.']
+        compte = 0
+        with revit_transaction(self._doc, u'Retirer les filtres 418'):
+            for vue in self._toutes_les_vues():
+                compte += self._nettoyer(vue, None)
+        return [u'%d filtre%s retiré%s.' % (compte, u's' if compte > 1 else u'',
+                                            u's' if compte > 1 else u'')]
+
+    def _nettoyer(self, vue, garder):
+        """Retire de la vue les filtres 418 qui ne sont pas `garder`.
+
+        Retourne le nombre de retraits — de quoi rendre compte du bouton de
+        retrait sans le compter deux fois.
+        """
+        retires = 0
         try:
             ids = list(vue.GetFilters())
         except Exception:
-            return
+            return 0
         for fid in ids:
             try:
                 nom = self._doc.GetElement(fid).Name
@@ -317,8 +507,23 @@ class FiltresService(object):
             if nom.startswith(PREFIXE_FILTRE) and nom != garder:
                 try:
                     vue.RemoveFilter(fid)
+                    retires += 1
                 except Exception:
                     continue
+        return retires
+
+    def _noms_de_filtres(self, vue):
+        noms = []
+        try:
+            ids = list(vue.GetFilters())
+        except Exception:
+            return noms
+        for fid in ids:
+            try:
+                noms.append(self._doc.GetElement(fid).Name)
+            except Exception:
+                continue
+        return noms
 
     def _filtres_par_nom(self):
         filtres = {}
@@ -329,60 +534,14 @@ class FiltresService(object):
                 continue
         return filtres
 
-    def _categories_et_parametre(self):
-        """(catégories, paramètre « Nom de la vue », noms écartés).
-
-        Essai dégressif : les deux catégories de repères, puis les coupes
-        seules. Un repère d'élévation est un `ElevationMarker` et non une
-        vue ; s'il ne porte pas « Nom de la vue », le paramètre n'est plus
-        commun aux deux catégories et Revit refuserait le filtre. Mieux vaut
-        écarter la catégorie EN LE DISANT que de tout faire échouer.
-        """
-        if ParameterFilterUtilities is None or List is None:
-            return ([], None, [])
-        try:
-            filtrables = set(_entier(c) for c in
-                             ParameterFilterUtilities.GetAllFilterableCategories())
-        except Exception:
-            filtrables = None
-        souhaitees = []
-        for nom in _CATS_REPERES:
-            bic = getattr(BuiltInCategory, nom, None)
-            if bic is None:
-                continue
-            cat_id = ElementId(bic)
-            if filtrables is None or _entier(cat_id) in filtrables:
-                souhaitees.append((nom, cat_id))
-        for taille in range(len(souhaitees), 0, -1):
-            essai = souhaitees[:taille]
-            categories = List[ElementId]()
-            for (_, cat_id) in essai:
-                categories.Add(cat_id)
-            parametre = self._parametre_nom_de_vue(categories)
-            if parametre is not None:
-                return (categories, parametre,
-                        [nom for (nom, _) in souhaitees[taille:]])
-        return ([], None, [nom for (nom, _) in souhaitees])
-
-    def _parametre_nom_de_vue(self, categories):
-        """`VIEW_NAME` s'il est filtrable pour TOUTES ces catégories."""
-        cible = ElementId(BuiltInParameter.VIEW_NAME)
-        try:
-            communs = ParameterFilterUtilities.GetFilterableParametersInCommon(
-                self._doc, categories)
-        except Exception:
-            return None
-        for pid in communs:
-            if _entier(pid) == _entier(cible):
-                return cible
-        return None
+    # -- Placement --------------------------------------------------------
 
     def _placement(self):
         """{id entier de vue: (n° de feuille, nom du jeu)} pour les vues posées.
 
         Un seul balayage des viewports : l'API ne donne pas le chemin inverse
-        vue -> feuille, et `ViewSheet.GetAllPlacedViews` demanderait de
-        balayer toutes les feuilles pour le même résultat.
+        vue -> feuille, et `ViewSheet.GetAllPlacedViews` demanderait de balayer
+        toutes les feuilles pour le même résultat.
         """
         place = {}
         if Viewport is None or self._doc is None:
@@ -417,6 +576,12 @@ class FiltresService(object):
             except Exception:
                 continue
         return noms
+
+    def _nom_de_type_de(self, vue):
+        try:
+            return self._nom_de_type(self._doc.GetElement(vue.GetTypeId()))
+        except Exception:
+            return u''
 
     @staticmethod
     def _nom_de_type(element):
@@ -457,7 +622,7 @@ class FiltresService(object):
             filtres.append({
                 'nom': filtre.Name,
                 'genre': self._genre(filtre),
-                'categories': self._categories(filtre),
+                'categories': self._categories_de(filtre),
                 'vues': sorted(usage['vues']),
                 'gabarits': sorted(usage['gabarits']),
                 'effets': usage['effets'],
@@ -468,9 +633,9 @@ class FiltresService(object):
     def _usages(self):
         """{id entier du filtre: {'vues', 'gabarits', 'effets'}}.
 
-        Un seul balayage des vues : `GetFilters()` est la seule façon de
-        savoir où un filtre sert, il n'y a pas de chemin inverse dans l'API.
-        Les vues qui n'admettent pas de filtre (légendes, feuilles, certaines
+        Un seul balayage des vues : `GetFilters()` est la seule façon de savoir
+        où un filtre sert, il n'y a pas de chemin inverse dans l'API. Les vues
+        qui n'admettent pas de filtre (légendes, feuilles, certaines
         nomenclatures) lèvent — d'où le try/except par vue.
         """
         usages = {}
@@ -514,7 +679,7 @@ class FiltresService(object):
             return 'selection'
         return 'parametrique'
 
-    def _categories(self, filtre):
+    def _categories_de(self, filtre):
         """Noms des catégories ciblées. Vide pour un filtre de sélection."""
         try:
             ids = list(filtre.GetCategories())

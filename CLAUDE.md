@@ -68,6 +68,8 @@ lib/
 
 **MVVM**: `script.py` → `MainViewModel` → `MainWindowView` (hérite de `BaseWindow`). Les services sont instanciés par le VM et **injectés** aux couches basses — elles n'en créent jamais.
 
+**Persistance**: `UserConfig` pour les *préférences* (par utilisateur, sur son poste). Une décision de *projet* va dans le document : le repérage des coupes de `Filtres.pushbutton` utilise l'Extensible Storage (`lib/services/stockage.py`), pas `UserConfig` — voir `docs/adr/0002-intention-de-reperage-dans-le-modele.md`. Le glossaire métier est dans `CONTEXT.md`.
+
 **UserConfig**: `lib/core/UserConfig.py`, unique implémentation. Persiste en JSON dans `418.extension/data/<namespace>.json` (indépendant de `pyrevit.userconfig`, qui ne persiste rien en mode admin). Clés insensibles à la casse. BatchExport utilise le namespace `'batch_export'`. Le VM crée UNE instance et l'injecte à tous les services.
 
 **AppPaths**: Never hardcode paths to XAML or resources. `AppPaths().resources_dir()` / `.data_dir()`.
@@ -84,6 +86,6 @@ lib/
 
 **Sélection de liste**: `SelectionPageVM` (socle, `lib/ui/base/`) — une seule couche. Un outil appelle `SelectionPageVM.depuis_descripteurs(descripteurs, ids, titre, est_identifiant=…)` avec des triplets `(id, colonne_gauche, nom)`.
 
-**Outils à rail**: les 4 outils de `Tools.panel` héritent de `RailWindow` (socle) et ne déclarent que de la donnée — `ONGLETS`, `SUIVANTS`, `RUN`, `RADIOS`. Contrat côté VM : `Mode` (chaîne) + `set_mode()` + un attribut par onglet. La page Sélection est partagée (`lib/ui/GUI/pages/SelectionPage.xaml`) ; un outil peut la surcharger en déposant un `SelectionPage.xaml` dans son propre `GUI/Views/pages/`.
+**Outils à rail**: les 4 outils de `Tools.panel` héritent de `RailWindow` (socle) et ne déclarent que de la donnée — `ONGLETS`, `SUIVANTS`, `RUN`, `RADIOS`, plus `RUN_GARDE_OUVERT` (l'action ne referme pas la fenêtre — pour un réglage qu'on ajuste et réapplique ; la page doit alors rendre compte elle-même) et `SELECTION` (où trouver la liste cochable à câbler, `('selection', 'SelectionVM')` par défaut). Contrat côté VM : `Mode` (chaîne) + `set_mode()` + un attribut par onglet. La page Sélection est partagée (`lib/ui/GUI/pages/SelectionPage.xaml`) ; un outil peut la surcharger en déposant un `SelectionPage.xaml` dans son propre `GUI/Views/pages/`.
 
 **WPF loading**: `UIResourceLoader` merges resource dictionaries into the window before loading XAML. Always load resources before loading a window that references them.

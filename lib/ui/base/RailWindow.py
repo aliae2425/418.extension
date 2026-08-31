@@ -64,6 +64,12 @@ class RailWindow(BaseWindow):
     - `SUIVANTS` : tuple de `(mode_page, nom_bouton, mode_cible)` — un bouton
                    « Suivant » qui coche le radio de `mode_cible`.
     - `RUN`      : `(mode_page, nom_bouton)` du bouton d'action final.
+    - `RUN_GARDE_OUVERT` : optionnel. Par défaut l'action ferme la fenêtre —
+                   un outil qui agit une fois puis rend la main. À True, la
+                   fenêtre reste ouverte : c'est ce qu'il faut pour un réglage
+                   qu'on ajuste et réapplique, à condition que la page rende
+                   compte elle-même (la console n'est plus consultable en un
+                   coup d'œil si la fenêtre est encore devant).
     - `RADIOS`   : optionnel, `(mode_page, (noms...), vm_attr, propriete)` —
                    des RadioButton dont le `.Tag` alimente `propriete`.
     - `TAILLE` / `TAILLE_MINI` : optionnel, `(largeur, hauteur)` de la
@@ -76,7 +82,13 @@ class RailWindow(BaseWindow):
     ONGLETS = ()
     SUIVANTS = ()
     RUN = None
+    RUN_GARDE_OUVERT = False
     RADIOS = None
+    #: (mode de la page, attribut du VM) de la liste cochable à câbler —
+    #: recherche, Tout/Aucun, clic de ligne avec Maj et Ctrl. Par défaut la page
+    #: « selection » des 4 outils de Tools.panel ; un outil dont la liste vit
+    #: sur une autre page le redéclare.
+    SELECTION = (u'selection', 'SelectionVM')
     TAILLE = None
     TAILLE_MINI = None
 
@@ -277,10 +289,11 @@ class RailWindow(BaseWindow):
     # ------------------------------------------------------------------
 
     def _wire_selection_interactions(self):
-        page = self._page(u'selection')
+        (mode, vm_attr) = self.SELECTION
+        page = self._page(mode)
         if page is None:
             return
-        vm = getattr(self._vm, 'SelectionVM', None)
+        vm = getattr(self._vm, vm_attr, None)
         if vm is None:
             return
 
@@ -352,7 +365,8 @@ class RailWindow(BaseWindow):
                 resultat = self._vm.lancer(self._cible)
                 self._apres_run(resultat)
             finally:
-                self._window.Close()
+                if not self.RUN_GARDE_OUVERT:
+                    self._window.Close()
         btn.Click += _on_run
 
     def _apres_run(self, resultat):

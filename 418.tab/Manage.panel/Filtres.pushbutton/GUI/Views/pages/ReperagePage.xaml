@@ -2,20 +2,454 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <!--
-    Onglet 2 - Filtres des plans de rep&#233;rage. Scaffold : page statique,
-    DataContext nul. XamlReader.Load, pas de x:Class.
+    Onglet Rep&#233;rage des coupes. DataContext = ReperagePageVM.
+    XamlReader.Load, pas de x:Class : brushes et styles en DynamicResource.
+
+    Ma&#238;tre / d&#233;tail. &#192; gauche la liste du socle (DataContext = Liste, une
+    SelectionPageVM) : recherche, s&#233;lections pr&#233;fabriqu&#233;es, multi-s&#233;lection.
+    &#192; droite l'&#233;diteur, qui &#233;crit sur TOUTE la s&#233;lection.
+
+    Comme la page S&#233;lection partag&#233;e, la case d'une ligne de plan est
+    d'AFFICHAGE SEUL (IsHitTestVisible=False, binding OneWay) : tous les clics
+    sont capt&#233;s par un handler unique sur ItemsList, c&#226;bl&#233; c&#244;t&#233; Python. C'est
+    ce qui &#233;vite un double d&#233;clenchement entre la case et la ligne, et ce qui
+    donne Maj+clic et Ctrl+clic gratuitement.
+
+    x:Name &#224; c&#226;bler : ItemsList / SelectAllButton / DeselectAllButton (socle),
+    AppliquerButton (RailWindow.RUN), AllerAuPlanButton (l'outil).
   -->
 
   <Grid Margin="20">
-    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-      <TextBlock Text="Filtres des plans de rep&#233;rage"
-                 Style="{DynamicResource HeaderTextBlockStyle}"
-                 HorizontalAlignment="Center"/>
-      <TextBlock Text="&#192; venir."
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>   <!-- titre + r&#233;sum&#233; -->
+      <RowDefinition Height="Auto"/>   <!-- bandeau de d&#233;rive -->
+      <RowDefinition Height="*"/>      <!-- ma&#238;tre / d&#233;tail -->
+      <RowDefinition Height="Auto"/>   <!-- compte rendu + actions -->
+    </Grid.RowDefinitions>
+
+    <StackPanel Grid.Row="0" Margin="0,0,0,12">
+      <TextBlock Text="{Binding TitrePage}"
+                 Style="{DynamicResource HeaderTextBlockStyle}"/>
+      <TextBlock Text="{Binding Resume}"
                  Foreground="{DynamicResource TextSecondaryBrush}"
-                 FontSize="12"
-                 HorizontalAlignment="Center"
-                 Margin="0,8,0,0"/>
+                 FontSize="11"
+                 Margin="0,2,0,0"/>
     </StackPanel>
+
+    <!-- ============ D&#233;rive ============
+         Le mod&#232;le a boug&#233; sous une r&#232;gle : feuille renum&#233;rot&#233;e, plan
+         d&#233;plac&#233;, coupe renomm&#233;e. Signal&#233; &#224; l'ouverture, JAMAIS r&#233;par&#233;
+         d'office &#8212; ouvrir un outil pour regarder ne doit pas &#233;crire dans le
+         document. -->
+    <!-- Grid enveloppante : le Border porte d&#233;j&#224; CardStyle en attribut, on ne
+         peut pas lui poser en plus un Style inline pour la visibilit&#233;. -->
+    <Grid Grid.Row="1">
+      <Grid.Style>
+        <Style TargetType="Grid">
+          <Setter Property="Visibility" Value="Collapsed"/>
+          <Style.Triggers>
+            <DataTrigger Binding="{Binding ADerive}" Value="True">
+              <Setter Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+          </Style.Triggers>
+        </Style>
+      </Grid.Style>
+      <Border Style="{DynamicResource CardStyle}"
+              Padding="12,10" Margin="0,0,0,12">
+        <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0"
+                   Text="{Binding DeriveTexte}"
+                   Foreground="{DynamicResource WarningBrush}"
+                   FontSize="11"
+                   TextWrapping="Wrap"
+                   VerticalAlignment="Center"/>
+          <Button Grid.Column="1"
+                  Content="R&#233;appliquer"
+                  Command="{Binding Reappliquer}"
+                  Style="{DynamicResource SecondaryActionButtonStyle}"
+                  Margin="12,0,0,0"/>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <!-- ============ Ma&#238;tre / d&#233;tail ============ -->
+    <Grid Grid.Row="2">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="330"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+
+      <!-- Gauche : les plans (DataContext = Liste) -->
+      <Border Grid.Column="0"
+              Style="{DynamicResource CardStyle}"
+              Padding="12,10"
+              Margin="0,0,12,0"
+              DataContext="{Binding Liste}">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+
+          <TextBlock Grid.Row="0"
+                     Text="{Binding TitrePage}"
+                     FontSize="12" FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextPrimaryBrush}"
+                     Margin="0,0,0,8"/>
+
+          <TextBox Grid.Row="1"
+                   x:Name="SearchBox"
+                   Text="{Binding FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                   Margin="0,0,0,6"/>
+
+          <Grid Grid.Row="2" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <!-- Les s&#233;lections pr&#233;fabriqu&#233;es : c'est ce qui remplace le type
+                 de vue m&#233;moris&#233;. Le menu est une ACTION, il retombe seul sur
+                 son libell&#233; neutre. -->
+            <ComboBox Grid.Column="0"
+                      ItemsSource="{Binding Presets}"
+                      SelectedItem="{Binding Preset, Mode=TwoWay}"
+                      IsEnabled="{Binding HasPresets}"/>
+            <Button Grid.Column="1" x:Name="SelectAllButton" Content="Tout"
+                    Style="{DynamicResource SecondaryActionButtonStyle}"
+                    Margin="6,0,0,0"/>
+            <Button Grid.Column="2" x:Name="DeselectAllButton" Content="Aucun"
+                    Style="{DynamicResource SecondaryActionButtonStyle}"
+                    Margin="6,0,0,0"/>
+          </Grid>
+
+          <ScrollViewer Grid.Row="3"
+                        VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl x:Name="ItemsList" ItemsSource="{Binding FilteredItems}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border BorderBrush="{DynamicResource ControlBorderBrush}"
+                          BorderThickness="0,0,0,1"
+                          Background="{DynamicResource TransparentBrush}"
+                          Padding="2,6">
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                      </Grid.ColumnDefinitions>
+
+                      <CheckBox Grid.Column="0"
+                                IsChecked="{Binding IsSelected, Mode=OneWay}"
+                                IsHitTestVisible="False"
+                                Style="{DynamicResource CheckBoxStyle}"
+                                VerticalAlignment="Top"
+                                Margin="0,2,10,0"/>
+
+                      <StackPanel Grid.Column="1">
+                        <TextBlock Text="{Binding Nom}"
+                                   FontSize="12"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding Nom}"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="{Binding ColonneGauche}"
+                                   FontSize="10"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <!-- La r&#232;gle en toutes lettres. Aucun compte de
+                             rep&#232;res : une r&#232;gle vivante change toute seule, un
+                             chiffre serait faux le lendemain. -->
+                        <TextBlock Text="{Binding Phrase}"
+                                   FontSize="10"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding Phrase}"
+                                   Margin="0,1,0,0">
+                          <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                              <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding Geree}" Value="True">
+                                  <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock Text="{Binding Derive}"
+                                   FontSize="10"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource WarningBrush}"
+                                   Margin="0,1,0,0">
+                          <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                              <Setter Property="Visibility" Value="Collapsed"/>
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding ADerive}" Value="True">
+                                  <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBlock.Style>
+                        </TextBlock>
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+
+      <!-- Droite : l'&#233;diteur de r&#232;gle -->
+      <Border Grid.Column="1"
+              Style="{DynamicResource CardStyle}"
+              Padding="14,12"
+              IsEnabled="{Binding EditeurActif}">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>   <!-- en-t&#234;te -->
+            <RowDefinition Height="Auto"/>   <!-- avertissement -->
+            <RowDefinition Height="Auto"/>   <!-- mode -->
+            <RowDefinition Height="Auto"/>   <!-- jeu -->
+            <RowDefinition Height="Auto"/>   <!-- titre des coupes -->
+            <RowDefinition Height="*"/>      <!-- coupes -->
+          </Grid.RowDefinitions>
+
+          <TextBlock Grid.Row="0"
+                     Text="{Binding Entete}"
+                     FontSize="13" FontWeight="SemiBold"
+                     TextTrimming="CharacterEllipsis"
+                     Foreground="{DynamicResource TextPrimaryBrush}"/>
+
+          <TextBlock Grid.Row="1"
+                     Text="{Binding Avertissement}"
+                     FontSize="11"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource WarningBrush}"
+                     Margin="0,6,0,0">
+            <TextBlock.Style>
+              <Style TargetType="TextBlock">
+                <Setter Property="Visibility" Value="Collapsed"/>
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding AAvertissement}" Value="True">
+                    <Setter Property="Visibility" Value="Visible"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </TextBlock.Style>
+          </TextBlock>
+
+          <StackPanel Grid.Row="2" Margin="0,12,0,0">
+            <TextBlock Text="Ces plans montrent"
+                       FontSize="11"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <!-- Un mode indisponible reste VISIBLE mais gris&#233; : un mode absent
+                 sans explication passerait pour un bug. -->
+            <ComboBox ItemsSource="{Binding Modes}"
+                      DisplayMemberPath="Libelle"
+                      SelectedItem="{Binding ModeChoisi, Mode=TwoWay}"
+                      Margin="0,4,0,0">
+              <ComboBox.ItemContainerStyle>
+                <Style TargetType="ComboBoxItem">
+                  <Setter Property="IsEnabled" Value="{Binding Disponible}"/>
+                  <Setter Property="ToolTip" Value="{Binding Raison}"/>
+                </Style>
+              </ComboBox.ItemContainerStyle>
+            </ComboBox>
+          </StackPanel>
+
+          <StackPanel Grid.Row="3" Margin="0,10,0,0">
+            <StackPanel.Style>
+              <Style TargetType="StackPanel">
+                <Setter Property="Visibility" Value="Collapsed"/>
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding ModeEstJeu}" Value="True">
+                    <Setter Property="Visibility" Value="Visible"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </StackPanel.Style>
+            <TextBlock Text="Quel jeu de feuilles"
+                       FontSize="11"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <ComboBox ItemsSource="{Binding Jeux}"
+                      SelectedItem="{Binding JeuChoisi, Mode=TwoWay}"
+                      Margin="0,4,0,0"/>
+          </StackPanel>
+
+          <Grid Grid.Row="4" Margin="0,14,0,6">
+            <Grid.Style>
+              <Style TargetType="Grid">
+                <Setter Property="Visibility" Value="Collapsed"/>
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding CoupesVisibles}" Value="True">
+                    <Setter Property="Visibility" Value="Visible"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </Grid.Style>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="130"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0"
+                       Text="{Binding TitreCoupes}"
+                       FontSize="12" FontWeight="SemiBold"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+            <TextBox Grid.Column="1"
+                     Text="{Binding FiltreCoupes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+          </Grid>
+
+          <Border Grid.Row="5"
+                  BorderBrush="{DynamicResource ControlBorderBrush}"
+                  BorderThickness="1"
+                  CornerRadius="8"
+                  Padding="8,6">
+            <Border.Style>
+              <Style TargetType="Border">
+                <Setter Property="Visibility" Value="Collapsed"/>
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding CoupesVisibles}" Value="True">
+                    <Setter Property="Visibility" Value="Visible"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </Border.Style>
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+              <ItemsControl ItemsSource="{Binding CoupesFiltrees}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid Margin="0,3">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                      </Grid.ColumnDefinitions>
+
+                      <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Nom}"
+                                   FontSize="11"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding Nom}"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="{Binding Origine}"
+                                   FontSize="10"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                      </StackPanel>
+
+                      <CheckBox Grid.Column="1"
+                                Content="Montrer"
+                                IsChecked="{Binding Forcee, Mode=TwoWay}"
+                                Style="{DynamicResource CheckBoxStyle}"
+                                VerticalAlignment="Center"
+                                Margin="8,0,0,0"/>
+
+                      <!-- Masquer n'a pas de sens quand on choisit les coupes
+                           une par une : ce qui n'est pas coch&#233; est d&#233;j&#224;
+                           masqu&#233;. -->
+                      <!-- Visibilit&#233; bind&#233;e &#224; une cha&#238;ne du ViewModel plut&#244;t
+                           qu'&#224; un DataTrigger : le style de la case vient d&#233;j&#224;
+                           d'un attribut, et WPF convertit seul la cha&#238;ne en
+                           Visibility. Pas de convertisseur &#224; &#233;crire. -->
+                      <CheckBox Grid.Column="2"
+                                Content="Masquer"
+                                IsChecked="{Binding Exclue, Mode=TwoWay}"
+                                Style="{DynamicResource CheckBoxStyle}"
+                                VerticalAlignment="Center"
+                                Margin="10,0,0,0"
+                                Visibility="{Binding DataContext.VisibiliteMasquer, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Border>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <!-- ============ Compte rendu + actions ============
+         Le compte rendu est DANS la page : « Appliquer » ne ferme plus la
+         fen&#234;tre, la console pyRevit n'est plus consultable d'un coup d'&#339;il. -->
+    <Grid Grid.Row="3" Margin="0,12,0,0">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <Border Grid.Row="0"
+              BorderBrush="{DynamicResource ControlBorderBrush}"
+              BorderThickness="1"
+              CornerRadius="8"
+              Padding="10,8"
+              MaxHeight="96"
+              Margin="0,0,0,10">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding AMessages}" Value="True">
+                <Setter Property="Visibility" Value="Visible"/>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding Messages}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}"
+                           FontSize="10"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Border>
+
+      <Grid Grid.Row="1">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+          <ColumnDefinition Width="Auto"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Column="0"
+                   Text="Un filtre par r&#232;gle, partag&#233; par les plans d'accord. Revit tient la r&#232;gle &#224; jour seul, sauf pour les coupes nomm&#233;es une par une."
+                   FontSize="10"
+                   TextWrapping="Wrap"
+                   VerticalAlignment="Center"
+                   Margin="0,0,12,0"
+                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+
+        <Button Grid.Column="1"
+                Content="Retirer les filtres 418"
+                Command="{Binding RetirerTout}"
+                Style="{DynamicResource SecondaryActionButtonStyle}"/>
+
+        <Button Grid.Column="2"
+                x:Name="AllerAuPlanButton"
+                Content="Aller au plan"
+                Style="{DynamicResource SecondaryActionButtonStyle}"
+                IsEnabled="{Binding EditeurActif}"
+                Margin="8,0,0,0"/>
+
+        <Button Grid.Column="3"
+                x:Name="AppliquerButton"
+                Content="Appliquer"
+                Style="{DynamicResource PrimaryActionButtonStyle}"
+                Margin="8,0,0,0"/>
+      </Grid>
+    </Grid>
   </Grid>
 </UserControl>
