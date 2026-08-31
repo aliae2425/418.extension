@@ -254,6 +254,9 @@ class MainViewModel(BaseViewModel):
                                if ListSelectionService is not None else None)
         self._filtres_manuel = []
         self._recherche_manuel = u''
+        # Préférence d'affichage (pas un état de sélection) : ne montrer que
+        # les feuilles cochées PDF ou DWG. Survit à refresh_manuel().
+        self._masquer_non_selectionnees = False
         self._on_export_done_cb = None
 
         # Aperçu des conventions de nommage (page Réglages) : motifs bruts
@@ -781,8 +784,15 @@ class MainViewModel(BaseViewModel):
     def _on_manual_sheet_change(self):
         """Callback passé à chaque `ManualSheetVM` : un toggle ExportPdf/
         ExportDwg/Selected impacte les compteurs (calculés à la volée sur
-        les feuilles FILTRÉES), jamais la liste ni les filtres eux-mêmes."""
-        for name in (u'NbPdf', u'NbDwg', u'NbSelected'):
+        les feuilles FILTRÉES), jamais la liste ni les filtres eux-mêmes.
+
+        Exception : si `MasquerNonSelectionnees` est actif, décocher le
+        dernier format d'une ligne la fait sortir de la liste visible -> il
+        faut aussi notifier celle-ci."""
+        noms = [u'NbPdf', u'NbDwg', u'NbSelected']
+        if self._masquer_non_selectionnees:
+            noms += [u'SheetsManuelFiltrees', u'NbFeuillesManuel']
+        for name in noms:
             self.notify_property(name)
 
     def _on_format_propagate(self, source, prop, value):
@@ -858,6 +868,27 @@ class MainViewModel(BaseViewModel):
                      u'NbFeuillesManuel', u'NbPdf', u'NbDwg'):
             self.notify_property(name)
 
+    @property
+    def MasquerNonSelectionnees(self):
+        """N'afficher que les feuilles cochées PDF ou DWG (case de la barre
+        d'état, mode manuel). Éphémère comme le reste de l'état manuel."""
+        return self._masquer_non_selectionnees
+
+    @MasquerNonSelectionnees.setter
+    def MasquerNonSelectionnees(self, value):
+        value = bool(value)
+        if value == self._masquer_non_selectionnees:
+            return
+        self._masquer_non_selectionnees = value
+        if self._selection_svc is not None:
+            try:
+                self._selection_svc.reset()
+            except Exception:
+                pass
+        for name in (u'MasquerNonSelectionnees', u'SheetsManuelFiltrees',
+                     u'NbFeuillesManuel', u'NbPdf', u'NbDwg', u'NbSelected'):
+            self.notify_property(name)
+
     def _sheet_matches_filtre(self, sheet, filtre):
         """Applique le critère de correspondance feuille <-> UN filtre.
 
@@ -887,11 +918,16 @@ class MainViewModel(BaseViewModel):
         Sémantique multi-filtre OU : si AUCUN filtre n'est actif
         (`FiltreItemVM.IsActif`), TOUTES les feuilles passent le filtre ;
         sinon une feuille passe si elle correspond à AU MOINS UN filtre
-        actif (union OU), via `_sheet_matches_filtre`."""
+        actif (union OU), via `_sheet_matches_filtre`.
+
+        `MasquerNonSelectionnees` retire en plus les feuilles sans aucun
+        format coché."""
         recherche = (self._recherche_manuel or u'').strip().lower()
         filtres_actifs = [f for f in self._filtres_manuel if f.IsActif]
         out = []
         for sheet in self._sheets_manuel:
+            if self._masquer_non_selectionnees and not (sheet.ExportPdf or sheet.ExportDwg):
+                continue
             if filtres_actifs:
                 if not any(self._sheet_matches_filtre(sheet, f) for f in filtres_actifs):
                     continue
@@ -930,15 +966,16 @@ class MainViewModel(BaseViewModel):
         """Retourne les `ManualSheetVM` cochées (ExportPdf OU ExportDwg),
         pour un futur export.
 
-        Porte sur `self._sheets_manuel` EN ENTIER (pas sur
-        `SheetsManuelFiltrees`) : une feuille cochée puis masquée par un
-        changement de filtre/recherche doit rester dans la sélection --
-        seul `refresh_manuel()` réinitialise l'état des cases.
+        Porte sur `SheetsManuelFiltrees` (feuilles VISIBLES), pas sur
+        `self._sheets_manuel` : chaque feuille naît avec `ExportPdf=True`
+        (`refresh_manuel`), donc balayer la liste entière exportait TOUT le
+        document en ignorant le filtre/la recherche affichés. Ce qui est à
+        l'écran est ce qui est exporté.
 
         Le critère reste UNIQUEMENT les cases de format ExportPdf/ExportDwg
         (pas de case de sélection de ligne dédiée -- retirée car redondante,
         cf. docstring de `ManualSheetVM`)."""
-        return [s for s in self._sheets_manuel if s.ExportPdf or s.ExportDwg]
+        return [s for s in self.SheetsManuelFiltrees if s.ExportPdf or s.ExportDwg]
 
     # ------------------------------------------------------------------
     # Édition en masse (multi-sélection de lignes)

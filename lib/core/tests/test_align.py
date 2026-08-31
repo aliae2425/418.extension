@@ -43,6 +43,40 @@ class TestAlignement(unittest.TestCase):
                 self.assertAlmostEqual((maxi + d) - (mini + d), maxi - mini)
 
 
+class TestAlignementAvecEpingles(unittest.TestCase):
+
+    def test_centre_sur_lunique_epingle(self):
+        # (0,2) épinglé -> centre 1.0 ; le libre (10,14) doit venir dessus
+        bornes = [(0.0, 2.0), (10.0, 14.0)]
+        deltas = deltas_alignement(bornes, 'centre', [True, False])
+        self.assertEqual(deltas[0], 0.0)
+        self.assertEqual((bornes[1][0] + bornes[1][1]) / 2 + deltas[1], 1.0)
+
+    def test_min_se_cale_sur_lepingle_pas_sur_lextreme(self):
+        bornes = [(5.0, 6.0), (-3.0, 1.0), (0.0, 2.0)]
+        deltas = deltas_alignement(bornes, 'min', [True, False, False])
+        self.assertEqual(deltas[0], 0.0)
+        self.assertEqual([b[0] + d for b, d in zip(bornes, deltas)], [5.0] * 3)
+
+    def test_max_se_cale_sur_lepingle(self):
+        bornes = [(5.0, 6.0), (-3.0, 1.0), (0.0, 2.0)]
+        deltas = deltas_alignement(bornes, 'max', [False, False, True])
+        self.assertEqual(deltas[2], 0.0)
+        self.assertEqual([b[1] + d for b, d in zip(bornes, deltas)], [2.0] * 3)
+
+    def test_plusieurs_epingles_donnent_letendue_de_reference(self):
+        bornes = [(0.0, 2.0), (8.0, 10.0), (100.0, 120.0)]
+        deltas = deltas_alignement(bornes, 'centre', [True, True, False])
+        self.assertEqual(deltas[:2], [0.0, 0.0])          # les 2 ancres immobiles
+        self.assertEqual(110.0 + deltas[2], 5.0)          # milieu de 0 -> 10
+
+    def test_aucun_epingle_comportement_inchange(self):
+        bornes = [(0.0, 2.0), (5.0, 6.0), (-3.0, 1.0)]
+        for op in ('min', 'max', 'centre'):
+            self.assertEqual(deltas_alignement(bornes, op, [False] * 3),
+                             deltas_alignement(bornes, op))
+
+
 class TestDistribution(unittest.TestCase):
 
     def test_espacement_regulier_extremes_fixes(self):
@@ -61,6 +95,24 @@ class TestDistribution(unittest.TestCase):
     def test_moins_de_trois_elements_ne_bouge_rien(self):
         self.assertEqual(deltas_distribution([3.0, 8.0]), [0.0, 0.0])
         self.assertEqual(deltas_distribution([]), [])
+
+    def test_epingle_au_milieu_est_un_point_fixe(self):
+        # 0 et 12 extrêmes, 4 épinglé : 1 libre entre 0 et 4, 1 libre entre 4 et 12
+        centres = [0.0, 1.0, 4.0, 11.0, 12.0]
+        deltas = deltas_distribution(centres, [False, False, True, False, False])
+        self.assertEqual(deltas[2], 0.0)                              # ancre immobile
+        finaux = [c + d for c, d in zip(centres, deltas)]
+        self.assertEqual(finaux, [0.0, 2.0, 4.0, 8.0, 12.0])
+
+    def test_epingles_adjacents_ne_bougent_pas(self):
+        centres = [0.0, 5.0, 10.0]
+        deltas = deltas_distribution(centres, [True, True, True])
+        self.assertEqual(deltas, [0.0, 0.0, 0.0])
+
+    def test_aucun_epingle_comportement_inchange(self):
+        centres = [0.0, 1.0, 9.0, 10.0]
+        self.assertEqual(deltas_distribution(centres, [False] * 4),
+                         deltas_distribution(centres))
 
 
 if __name__ == '__main__':
