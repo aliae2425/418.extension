@@ -1466,14 +1466,16 @@ class MainViewModel(BaseViewModel):
         _export_ok = False
         try:
             p_export, p_carnet, p_dwg = self._noms_params_mappes()
-            orch.run(
+            # `run()` rend False si l'utilisateur a arrêté l'export sur un
+            # fichier existant -> pas de modale de fin, StatusText conserve
+            # le message posé par log_cb.
+            _export_ok = orch.run(
                 self._doc,
                 p_export, p_carnet, p_dwg,
                 progress_cb=progress_cb,
                 log_cb=log_cb,
                 destination=self.DestinationPath,
-            )
-            _export_ok = True
+            ) is not False
         except Exception as exc:
             try:
                 msg = u"Erreur pendant l'export : {}".format(exc)
@@ -1534,7 +1536,8 @@ class MainViewModel(BaseViewModel):
 
         _export_ok = False
         try:
-            orch.run_manual(
+            # Cf. lancer_export() : False = arrêté sur un fichier existant.
+            _export_ok = orch.run_manual(
                 self._doc,
                 selection,
                 combine_pdf=self.CombinerPdf,
@@ -1542,8 +1545,7 @@ class MainViewModel(BaseViewModel):
                 progress_cb=progress_cb,
                 log_cb=log_cb,
                 destination=self.DestinationPath,
-            )
-            _export_ok = True
+            ) is not False
         except Exception as exc:
             try:
                 msg = u"Erreur pendant l'export : {}".format(exc)
