@@ -613,17 +613,32 @@ class TestMainViewModelModeManuel(unittest.TestCase):
         numeros = sorted([s.Numero for s in selection])
         self.assertEqual(numeros, ['01'])
 
-    def test_selection_manuelle_persiste_malgre_changement_de_filtre(self):
-        """Une feuille cochée puis masquée par un filtre doit rester dans
-        selection_manuelle() -- celle-ci porte sur toutes les feuilles, pas
-        sur SheetsManuelFiltrees."""
+    def test_selection_manuelle_ignore_les_feuilles_masquees(self):
+        """Une feuille masquée par un filtre ne doit PAS être exportée :
+        toutes les feuilles naissent avec ExportPdf=True, donc porter sur la
+        liste entière exportait tout le document malgré le filtre."""
         self.vm.refresh_manuel()
         self.vm.SheetsManuel[2].ExportDwg = True  # '03' (Jeu B)
         filtre_jeu_a = next(f for f in self.vm.FiltresManuel if f.Label == u'Jeu : Jeu A')
         filtre_jeu_a.IsActif = True  # masque '03'
-        selection = self.vm.selection_manuelle()
-        numeros = [s.Numero for s in selection]
-        self.assertIn('03', numeros)
+        numeros = sorted([s.Numero for s in self.vm.selection_manuelle()])
+        self.assertEqual(numeros, ['01', '02'])
+
+    def test_masquer_non_selectionnees(self):
+        self.vm.refresh_manuel()  # toutes ExportPdf=True par défaut
+        self.vm.MasquerNonSelectionnees = True
+        self.assertEqual(self.vm.NbFeuillesManuel, 3)
+        self.vm.SheetsManuel[1].ExportPdf = False  # '02' : plus aucun format
+        numeros = [s.Numero for s in self.vm.SheetsManuelFiltrees]
+        self.assertEqual(numeros, ['01', '03'])
+        self.vm.MasquerNonSelectionnees = False
+        self.assertEqual(self.vm.NbFeuillesManuel, 3)
+
+    def test_selection_manuelle_ignore_les_feuilles_hors_recherche(self):
+        self.vm.refresh_manuel()
+        self.vm.RechercheManuel = u'01'
+        numeros = [s.Numero for s in self.vm.selection_manuelle()]
+        self.assertEqual(numeros, ['01'])
 
     def test_refresh_manuel_reinitialise_la_selection(self):
         self.vm.refresh_manuel()

@@ -447,6 +447,12 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
+                  <CheckBox Style="{DynamicResource CheckBoxStyle}"
+                            Content="Masquer les non sélectionnées"
+                            IsChecked="{Binding MasquerNonSelectionnees, Mode=TwoWay}"
+                            FontSize="11"
+                            Margin="0,0,10,0"
+                            VerticalAlignment="Center"/>
                   <Button x:Name="ToggleAllPdfButton"
                           Content="Tout PDF"
                           Style="{DynamicResource SecondaryActionButtonStyle}"
