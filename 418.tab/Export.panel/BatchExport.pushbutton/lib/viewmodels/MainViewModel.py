@@ -670,7 +670,9 @@ class MainViewModel(BaseViewModel):
         `_sheet_service`.
 
         Sélection ÉPHÉMÈRE : chaque appel reconstruit entièrement les
-        `ManualSheetVM` (défauts `ExportPdf=True`/`ExportDwg=False`) et les
+        `ManualSheetVM` (défauts `ExportPdf=False`/`ExportDwg=False` : rien
+        n'est coché à l'ouverture, l'utilisateur choisit ; « Tout PDF »
+        reste là pour tout activer d'un clic) et les
         `FiltreItemVM` (défaut `IsActif=False` : aucun filtre actif ->
         toutes les feuilles visibles), sans tenter de préserver l'état
         précédent.
@@ -730,7 +732,7 @@ class MainViewModel(BaseViewModel):
 
             sheets_out.append(ManualSheetVM(
                 numero, nom, collection_id=coll_id, elem=elem,
-                export_pdf=True, export_dwg=False,
+                export_pdf=False, export_dwg=False,
                 jeu_nom=jeu_nom, nom_projete=nom_projete,
                 on_change=self._on_manual_sheet_change,
                 on_format_change=self._on_format_propagate,
@@ -967,9 +969,9 @@ class MainViewModel(BaseViewModel):
         pour un futur export.
 
         Porte sur `SheetsManuelFiltrees` (feuilles VISIBLES), pas sur
-        `self._sheets_manuel` : chaque feuille naît avec `ExportPdf=True`
-        (`refresh_manuel`), donc balayer la liste entière exportait TOUT le
-        document en ignorant le filtre/la recherche affichés. Ce qui est à
+        `self._sheets_manuel` : balayer la liste entière exporterait des
+        feuilles masquées par le filtre/la recherche affichés (typiquement
+        après un « Tout PDF » puis un changement de filtre). Ce qui est à
         l'écran est ce qui est exporté.
 
         Le critère reste UNIQUEMENT les cases de format ExportPdf/ExportDwg

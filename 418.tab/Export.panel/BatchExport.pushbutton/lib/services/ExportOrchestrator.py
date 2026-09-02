@@ -470,8 +470,10 @@ class ExportOrchestrator(object):
         done = 0
 
         if pdf_vms:
-            base_pdf = self._get_destination_base('PDF', None)
             if combine_pdf:
+                # PDF combiné : un seul fichier, donc pas de sous-dossier par jeu
+                # (les feuilles fusionnées peuvent venir de plusieurs jeux).
+                base_pdf = self._get_destination_base('PDF', None)
                 elems = [s.Elem for s in pdf_vms if s.Elem is not None]
                 if progress_cb:
                     progress_cb(done, max(total, 1), u'PDF combiné...')
@@ -489,6 +491,7 @@ class ExportOrchestrator(object):
                             progress_cb(done, max(total, 1), u'{} (PDF)'.format(svm.Numero))
                         except Exception:
                             pass
+                    base_pdf = self._get_destination_base('PDF', self._jeu_de(svm))
                     ok, path = self._export_pdf_sheet(doc, svm.Elem, base_pdf, pdf_opt,
                                                       log_cb=log_cb)
                     done += 1
@@ -497,7 +500,7 @@ class ExportOrchestrator(object):
             if svm.Elem is None:
                 done += 1
                 continue
-            base_dwg = self._get_destination_base('DWG', None)
+            base_dwg = self._get_destination_base('DWG', self._jeu_de(svm))
             if progress_cb:
                 try:
                     progress_cb(done, max(total, 1), u'{} (DWG)'.format(svm.Numero))
@@ -511,6 +514,17 @@ class ExportOrchestrator(object):
         return True
 
     # ------------------- Helpers noms/export ------------------- #
+    def _jeu_de(self, sheet_vm):
+        """Nom du jeu d'origine d'un `ManualSheetVM`, ou None si inconnu.
+
+        Passé comme `collection_name` à `_get_destination_base` : le
+        sous-dossier n'est créé que si le flag `create_subfolders` est actif
+        (toggle « Séparer par jeu »), exactement comme en mode par jeu."""
+        try:
+            return (getattr(sheet_vm, 'JeuNom', u'') or u'').strip() or None
+        except Exception:
+            return None
+
     def _safe_sheet_name(self, sheet):
         try:
             return sheet.SheetNumber + '_' + sheet.Name

@@ -935,27 +935,45 @@
                                 Margin="0,4"/>
                     </StackPanel>
 
-                    <!-- Mode « feuille par feuille » : PDF combiné (+ titre) + séparation formats.
-                         Le champ titre n'est éditable que si « Combiné » est actif
-                         (IsEnabled lié à CombinerPdf). -->
-                    <StackPanel Orientation="Horizontal"
+                    <!-- Mode « feuille par feuille » : deux rangées empilées.
+                         (1) « Combiné » + le titre du PDF combiné (champ éditable
+                             seulement si Combiné est actif, IsEnabled lié à
+                             CombinerPdf) ;
+                         (2) les deux toggles de séparation, côte à côte SOUS le
+                             champ titre. -->
+                    <StackPanel Orientation="Vertical"
                                 Visibility="{Binding IsManual, Converter={StaticResource BoolToVisibilityConverter}}">
-                      <CheckBox Content="Combiné"
-                                Style="{DynamicResource ToggleSwitchStyle}"
-                                IsChecked="{Binding CombinerPdf, Mode=TwoWay}"
-                                VerticalAlignment="Center"
-                                Margin="0,4,12,4"/>
-                      <TextBox Text="{Binding TitrePdfCombine, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
-                               IsEnabled="{Binding CombinerPdf}"
-                               Width="200"
-                               VerticalAlignment="Center"
-                               ToolTip="Titre du PDF combiné"
-                               Margin="0,4,20,4"/>
-                      <CheckBox Content="Séparer PDF / DWG"
-                                Style="{DynamicResource ToggleSwitchStyle}"
-                                IsChecked="{Binding SeparerFormats, Mode=TwoWay}"
-                                VerticalAlignment="Center"
-                                Margin="0,4"/>
+                      <StackPanel Orientation="Horizontal">
+                        <CheckBox Content="Combiné"
+                                  Style="{DynamicResource ToggleSwitchStyle}"
+                                  IsChecked="{Binding CombinerPdf, Mode=TwoWay}"
+                                  VerticalAlignment="Center"
+                                  Margin="0,4,12,4"/>
+                        <TextBox Text="{Binding TitrePdfCombine, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                 IsEnabled="{Binding CombinerPdf}"
+                                 Width="200"
+                                 VerticalAlignment="Center"
+                                 ToolTip="Titre du PDF combiné"
+                                 Margin="0,4"/>
+                      </StackPanel>
+
+                      <!-- « Séparer par jeu » : même flag que « Sous-dossier par
+                           jeu » du mode par jeu (CreerSousDossiers) — un
+                           sous-dossier par jeu d'origine des feuilles exportées.
+                           Sans effet sur le PDF combiné, qui reste un fichier
+                           unique à la racine. -->
+                      <StackPanel Orientation="Horizontal">
+                        <CheckBox Content="Séparer PDF / DWG"
+                                  Style="{DynamicResource ToggleSwitchStyle}"
+                                  IsChecked="{Binding SeparerFormats, Mode=TwoWay}"
+                                  VerticalAlignment="Center"
+                                  Margin="0,4,20,4"/>
+                        <CheckBox Content="Séparer par jeu"
+                                  Style="{DynamicResource ToggleSwitchStyle}"
+                                  IsChecked="{Binding CreerSousDossiers, Mode=TwoWay}"
+                                  VerticalAlignment="Center"
+                                  Margin="0,4"/>
+                      </StackPanel>
                     </StackPanel>
                   </StackPanel>
 
