@@ -217,6 +217,39 @@ class TestCollisionFichierExistant(unittest.TestCase):
         self.assertIsNone(self.orch._politique_collision)
 
 
+class TestRunManualSousDossierParJeu(unittest.TestCase):
+    """Toggle « Séparer par jeu » (flag `create_subfolders`) en mode manuel :
+    chaque feuille part dans le sous-dossier de son jeu d'origine."""
+
+    def _vm(self, numero, jeu):
+        vm = FakeSheet(numero, u'RDC')
+        vm.ExportPdf, vm.ExportDwg = True, False
+        vm.Elem, vm.Numero, vm.JeuNom = FakeSheet(numero, u'RDC'), numero, jeu
+        return vm
+
+    def _run(self, flag, jeu):
+        import tempfile
+        cfg = FakeConfigStore()
+        cfg.set('create_subfolders', '1' if flag else '0')
+        orch = ExportOrchestrator(config=cfg)
+        orch._naming = FakeNaming({'sheet': u'{numero}'})
+        dossier = tempfile.mkdtemp(prefix='418dest_')
+        orch.run_manual(None, [self._vm(u'A101', jeu)], destination=dossier)
+        return dossier
+
+    def test_sous_dossier_cree_quand_le_flag_est_actif(self):
+        dossier = self._run(True, u'Jeu A')
+        self.assertTrue(os.path.isdir(os.path.join(dossier, u'Jeu A')))
+
+    def test_pas_de_sous_dossier_quand_le_flag_est_inactif(self):
+        dossier = self._run(False, u'Jeu A')
+        self.assertFalse(os.path.exists(os.path.join(dossier, u'Jeu A')))
+
+    def test_feuille_sans_jeu_reste_a_la_racine(self):
+        dossier = self._run(True, u'')
+        self.assertEqual(os.listdir(dossier), [])
+
+
 class FakeConfigStore(object):
     def __init__(self):
         self._s = {}

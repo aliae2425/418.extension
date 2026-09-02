@@ -481,10 +481,10 @@ class TestMainViewModelModeManuel(unittest.TestCase):
         for s in self.vm.SheetsManuel:
             self.assertIsInstance(s, ManualSheetVM)
 
-    def test_defaut_export_pdf_true_dwg_false(self):
+    def test_defaut_aucun_format_coche(self):
         self.vm.refresh_manuel()
         for s in self.vm.SheetsManuel:
-            self.assertTrue(s.ExportPdf)
+            self.assertFalse(s.ExportPdf)
             self.assertFalse(s.ExportDwg)
 
     def test_filtres_manuel_contient_jeux_et_sets_sans_toutes_les_feuilles(self):
@@ -579,9 +579,9 @@ class TestMainViewModelModeManuel(unittest.TestCase):
 
     def test_toggle_export_pdf_met_a_jour_nb_pdf(self):
         self.vm.refresh_manuel()
-        self.assertEqual(self.vm.NbPdf, 3)  # défaut PDF=True pour toutes
-        self.vm.SheetsManuel[0].ExportPdf = False
-        self.assertEqual(self.vm.NbPdf, 2)
+        self.assertEqual(self.vm.NbPdf, 0)  # défaut : rien de coché
+        self.vm.SheetsManuel[0].ExportPdf = True
+        self.assertEqual(self.vm.NbPdf, 1)
 
     def test_toggle_export_dwg_met_a_jour_nb_dwg(self):
         self.vm.refresh_manuel()
@@ -605,7 +605,7 @@ class TestMainViewModelModeManuel(unittest.TestCase):
 
     def test_selection_manuelle_retourne_les_feuilles_cochees(self):
         self.vm.refresh_manuel()
-        self.vm.SheetsManuel[0].ExportDwg = True  # '01' : PDF=True (défaut) + DWG=True
+        self.vm.SheetsManuel[0].ExportDwg = True  # '01' : seule feuille cochée
         self.vm.SheetsManuel[1].ExportPdf = False  # '02' : ni PDF ni DWG
         self.vm.SheetsManuel[2].ExportPdf = False
         self.vm.SheetsManuel[2].ExportDwg = False
@@ -614,10 +614,11 @@ class TestMainViewModelModeManuel(unittest.TestCase):
         self.assertEqual(numeros, ['01'])
 
     def test_selection_manuelle_ignore_les_feuilles_masquees(self):
-        """Une feuille masquée par un filtre ne doit PAS être exportée :
-        toutes les feuilles naissent avec ExportPdf=True, donc porter sur la
-        liste entière exportait tout le document malgré le filtre."""
+        """Une feuille masquée par un filtre ne doit PAS être exportée, même
+        cochée : porter sur la liste entière exportait des feuilles invisibles."""
         self.vm.refresh_manuel()
+        for s in self.vm.SheetsManuel:
+            s.ExportPdf = True
         self.vm.SheetsManuel[2].ExportDwg = True  # '03' (Jeu B)
         filtre_jeu_a = next(f for f in self.vm.FiltresManuel if f.Label == u'Jeu : Jeu A')
         filtre_jeu_a.IsActif = True  # masque '03'
@@ -625,7 +626,9 @@ class TestMainViewModelModeManuel(unittest.TestCase):
         self.assertEqual(numeros, ['01', '02'])
 
     def test_masquer_non_selectionnees(self):
-        self.vm.refresh_manuel()  # toutes ExportPdf=True par défaut
+        self.vm.refresh_manuel()
+        for s in self.vm.SheetsManuel:
+            s.ExportPdf = True
         self.vm.MasquerNonSelectionnees = True
         self.assertEqual(self.vm.NbFeuillesManuel, 3)
         self.vm.SheetsManuel[1].ExportPdf = False  # '02' : plus aucun format
@@ -636,6 +639,8 @@ class TestMainViewModelModeManuel(unittest.TestCase):
 
     def test_selection_manuelle_ignore_les_feuilles_hors_recherche(self):
         self.vm.refresh_manuel()
+        for s in self.vm.SheetsManuel:
+            s.ExportPdf = True
         self.vm.RechercheManuel = u'01'
         numeros = [s.Numero for s in self.vm.selection_manuelle()]
         self.assertEqual(numeros, ['01'])
@@ -643,9 +648,10 @@ class TestMainViewModelModeManuel(unittest.TestCase):
     def test_refresh_manuel_reinitialise_la_selection(self):
         self.vm.refresh_manuel()
         self.vm.SheetsManuel[0].ExportDwg = True
+        self.vm.SheetsManuel[1].ExportPdf = True
         self.vm.refresh_manuel()
         for s in self.vm.SheetsManuel:
-            self.assertTrue(s.ExportPdf)
+            self.assertFalse(s.ExportPdf)
             self.assertFalse(s.ExportDwg)
 
     def test_jeu_nom_renseigne_depuis_la_collection(self):
