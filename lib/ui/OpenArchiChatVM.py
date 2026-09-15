@@ -36,8 +36,24 @@ except Exception:
 
 
 class _ListeSimple(list):
-    """Liste Python exposant l'API .Add d'ObservableCollection (tests hors .NET)."""
+    """Liste Python exposant l'API d'ObservableCollection (tests hors .NET)."""
     Add = list.append
+
+    def Clear(self):
+        del self[:]
+
+
+class SuggestionVM(BaseViewModel):
+    """Une entrée de l'autocomplétion des commandes."""
+
+    def __init__(self, nom, description):
+        try:
+            BaseViewModel.__init__(self)
+        except Exception:
+            pass
+        self.Nom = nom
+        self.Libelle = '/' + nom
+        self.Description = description
 
 
 class MessageVM(BaseViewModel):
@@ -68,16 +84,27 @@ class OpenArchiChatVM(BaseViewModel):
         # rendrait intestable hors Revit.
         self._ouvrir_config = ouvrir_config
         self._saisie = ''
-        self.Messages = (ObservableCollection[object]() if ObservableCollection
-                         else _ListeSimple())
-        self.EnvoyerCommand = (RelayCommand(self._envoyer, self._peut_envoyer)
-                               if RelayCommand else None)
+        self.Messages = self._nouvelle_liste()
+        # Déclarées AVANT toute écriture de Saisie : son setter rafraîchit
+        # l'autocomplétion, qui lit COMMANDES et Suggestions.
         self.COMMANDES = {
             'config': ('choisir le fournisseur, le modèle et le projet',
                        self._commande_config),
             'aide': ('lister les commandes disponibles', self._commande_aide),
         }
+        self.Suggestions = self._nouvelle_liste()
+        self.EnvoyerCommand = (RelayCommand(self._envoyer, self._peut_envoyer)
+                               if RelayCommand else None)
+        self.ChoisirSuggestionCommand = (RelayCommand(self._choisir)
+                                         if RelayCommand else None)
+        self.CompleterCommand = (RelayCommand(self._completer)
+                                 if RelayCommand else None)
         self.Messages.Add(MessageVM('OpenArchi', self.ACCUEIL, False))
+
+    @staticmethod
+    def _nouvelle_liste():
+        return (ObservableCollection[object]() if ObservableCollection
+                else _ListeSimple())
 
     # --- état affiché ----------------------------------------------------
 
@@ -89,10 +116,40 @@ class OpenArchiChatVM(BaseViewModel):
     def Saisie(self, valeur):
         self._saisie = valeur or ''
         self.notify_property('Saisie')
+        self._rafraichir_suggestions()
 
     @property
     def Statut(self):
         return self._config.resume()
+
+    # --- autocomplétion des commandes ------------------------------------
+
+    @property
+    def SuggestionsVisibles(self):
+        return len(self.Suggestions) > 0
+
+    def _rafraichir_suggestions(self):
+        self.Suggestions.Clear()
+        debut = self._saisie
+        # Uniquement pendant la frappe du nom : dès qu'une espace suit, la
+        # commande est complète et la liste n'a plus rien à proposer.
+        if debut.startswith('/') and ' ' not in debut:
+            prefixe = debut[1:].lower()
+            for nom in sorted(self.COMMANDES):
+                if nom.startswith(prefixe):
+                    self.Suggestions.Add(
+                        SuggestionVM(nom, self.COMMANDES[nom][0]))
+        self.notify_property('SuggestionsVisibles')
+
+    def _choisir(self, suggestion=None):
+        if suggestion is None:
+            return
+        self.Saisie = '/{0} '.format(suggestion.Nom)
+
+    def _completer(self, _=None):
+        # Tab : complète sur la première proposition, comme un shell.
+        if len(self.Suggestions) > 0:
+            self._choisir(self.Suggestions[0])
 
     # --- envoi -----------------------------------------------------------
 

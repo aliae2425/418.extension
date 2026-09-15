@@ -86,6 +86,60 @@ class TestChat(unittest.TestCase):
         self.assertIn(AUCUN_PROJET, self.vm.Statut)
 
 
+class TestAutocomplete(unittest.TestCase):
+    def setUp(self):
+        self.vm = OpenArchiChatVM(config=OpenArchiConfig(_StoreMemoire()))
+
+    def _libelles(self):
+        return [s.Libelle for s in self.vm.Suggestions]
+
+    def test_rien_sans_barre_oblique(self):
+        self.vm.Saisie = 'bonjour'
+        self.assertFalse(self.vm.SuggestionsVisibles)
+
+    def test_barre_oblique_seule_propose_tout(self):
+        self.vm.Saisie = '/'
+        self.assertTrue(self.vm.SuggestionsVisibles)
+        self.assertEqual(self._libelles(), ['/aide', '/config'])
+
+    def test_filtre_sur_le_prefixe(self):
+        self.vm.Saisie = '/co'
+        self.assertEqual(self._libelles(), ['/config'])
+
+    def test_prefixe_insensible_a_la_casse(self):
+        self.vm.Saisie = '/CO'
+        self.assertEqual(self._libelles(), ['/config'])
+
+    def test_prefixe_sans_correspondance(self):
+        self.vm.Saisie = '/zzz'
+        self.assertFalse(self.vm.SuggestionsVisibles)
+
+    def test_liste_fermee_une_fois_la_commande_ecrite(self):
+        self.vm.Saisie = '/config '
+        self.assertFalse(self.vm.SuggestionsVisibles)
+
+    def test_choisir_remplit_la_saisie_et_ferme(self):
+        self.vm.Saisie = '/co'
+        self.vm._choisir(self.vm.Suggestions[0])
+        self.assertEqual(self.vm.Saisie, '/config ')
+        self.assertFalse(self.vm.SuggestionsVisibles)
+
+    def test_completer_prend_la_premiere(self):
+        self.vm.Saisie = '/'
+        self.vm._completer()
+        self.assertEqual(self.vm.Saisie, '/aide ')
+
+    def test_completer_sans_proposition_ne_fait_rien(self):
+        self.vm.Saisie = 'bonjour'
+        self.vm._completer()
+        self.assertEqual(self.vm.Saisie, 'bonjour')
+
+    def test_envoi_referme_la_liste(self):
+        self.vm.Saisie = '/aide'
+        self.vm._envoyer()
+        self.assertFalse(self.vm.SuggestionsVisibles)
+
+
 class TestConfigVM(unittest.TestCase):
     def setUp(self):
         self.config = OpenArchiConfig(_StoreMemoire())
