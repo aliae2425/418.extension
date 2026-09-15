@@ -11,9 +11,13 @@ from pyrevit import forms
 from ui.OpenArchiPanel import OpenArchiPanel
 
 if __name__ == '__main__':
-    if forms.is_registered_dockable_panel(OpenArchiPanel):
+    # On tente l'ouverture sans pré-contrôle : `PaneIsRegistered` répond « oui »
+    # dès que RegisterDockablePane a été appelé, y compris quand Revit a refusé
+    # de créer le volet (appel hors OnStartup, cas d'un Reload pyRevit qui
+    # rejoue startup.py). Seul GetDockablePane dit la vérité.
+    try:
         forms.open_dockable_panel(OpenArchiPanel)
-    else:
-        forms.alert("Le panneau OpenArchi n'est pas enregistré.\n"
-                    "Redémarrez Revit : un panneau ancrable ne peut "
+    except Exception:
+        forms.alert("Le volet OpenArchi n'a pas été créé par Revit.\n"
+                    "Redémarrez Revit : un volet ancrable ne peut "
                     "s'enregistrer qu'au démarrage.", title='OpenArchi')
