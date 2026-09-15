@@ -83,4 +83,9 @@
     <PathGeometry x:Key="IconChat"
                   Figures="M7.9 20 A9 9 0 1 0 4 16.1 L2 22 Z"/>
 
+    <!-- lucide: arrow-up — envoi d'un message dans le chat -->
+    <PathGeometry x:Key="IconEnvoyer"
+                  Figures="M5 12 L12 5 L19 12
+                           M12 19 V5"/>
+
 </ResourceDictionary>
