@@ -79,4 +79,8 @@
                            M2 12 a1 1 0 0 0 0.58 0.91 l8.6 3.91 a2 2 0 0 0 1.65 0 l8.58 -3.9 A1 1 0 0 0 22 12
                            M2 17 a1 1 0 0 0 0.58 0.91 l8.6 3.91 a2 2 0 0 0 1.65 0 l8.58 -3.9 A1 1 0 0 0 22 17"/>
 
+    <!-- lucide: message-circle — panneau de chat OpenArchi -->
+    <PathGeometry x:Key="IconChat"
+                  Figures="M7.9 20 A9 9 0 1 0 4 16.1 L2 22 Z"/>
+
 </ResourceDictionary>
