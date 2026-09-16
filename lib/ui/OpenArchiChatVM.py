@@ -23,9 +23,9 @@ except Exception:
     from lib.core.chat_syntaxe import analyser
 
 try:
-    from ui.OpenArchiConfigVM import OpenArchiConfig
+    from ui.OpenArchiConfig import OpenArchiConfig, PROVIDERS
 except Exception:
-    from lib.ui.OpenArchiConfigVM import OpenArchiConfig
+    from lib.ui.OpenArchiConfig import OpenArchiConfig, PROVIDERS
 
 # Hors Revit (tests unitaires en CPython), .NET est absent : on retombe sur
 # une liste Python. Le VM reste testable, seule la notification WPF disparaît.
@@ -44,15 +44,19 @@ class _ListeSimple(list):
 
 
 class SuggestionVM(BaseViewModel):
-    """Une entrée de l'autocomplétion des commandes."""
+    """Une entrée de la liste en place : commande ou fournisseur.
 
-    def __init__(self, nom, description):
+    ``libelle`` n'est fourni que pour les fournisseurs, qui s'affichent sans
+    la barre oblique des commandes.
+    """
+
+    def __init__(self, nom, description='', libelle=None):
         try:
             BaseViewModel.__init__(self)
         except Exception:
             pass
         self.Nom = nom
-        self.Libelle = '/' + nom
+        self.Libelle = libelle if libelle is not None else '/' + nom
         self.Description = description
 
 
@@ -71,28 +75,28 @@ class MessageVM(BaseViewModel):
 
 
 class OpenArchiChatVM(BaseViewModel):
-    ACCUEIL = ("Panneau OpenArchi prêt. /config pour choisir le fournisseur, "
-               "le modèle et le projet. #{Nom} pour citer un élément.")
+    ACCUEIL = ("Panneau OpenArchi prêt. /connect pour choisir le fournisseur. "
+               "#{Nom} pour citer un élément.")
 
-    def __init__(self, config=None, ouvrir_config=None):
+    def __init__(self, config=None):
         try:
             BaseViewModel.__init__(self)
         except Exception:
             pass
         self._config = config if config is not None else OpenArchiConfig()
-        # Injecté par le panneau : ouvrir une fenêtre WPF depuis le VM le
-        # rendrait intestable hors Revit.
-        self._ouvrir_config = ouvrir_config
         self._saisie = ''
         self.Messages = self._nouvelle_liste()
         # Déclarées AVANT toute écriture de Saisie : son setter rafraîchit
         # l'autocomplétion, qui lit COMMANDES et Suggestions.
         self.COMMANDES = {
-            'config': ('choisir le fournisseur, le modèle et le projet',
-                       self._commande_config),
+            'connect': ('choisir le fournisseur de modèle',
+                        self._commande_connect),
             'aide': ('lister les commandes disponibles', self._commande_aide),
         }
         self.Suggestions = self._nouvelle_liste()
+        # La liste en place sert deux usages : l'autocomplétion pendant la
+        # frappe, et le choix du fournisseur après /connect.
+        self._mode_liste = 'commandes'
         self.EnvoyerCommand = (RelayCommand(self._envoyer, self._peut_envoyer)
                                if RelayCommand else None)
         self.ChoisirSuggestionCommand = (RelayCommand(self._choisir)
@@ -120,15 +124,24 @@ class OpenArchiChatVM(BaseViewModel):
 
     @property
     def Statut(self):
-        return self._config.resume()
+        return self._config.provider
 
-    # --- autocomplétion des commandes ------------------------------------
+    # --- liste en place : commandes ou fournisseurs -----------------------
 
     @property
     def SuggestionsVisibles(self):
         return len(self.Suggestions) > 0
 
+    def _fermer_liste(self):
+        self._mode_liste = 'commandes'
+        self.Suggestions.Clear()
+        self.notify_property('SuggestionsVisibles')
+
     def _rafraichir_suggestions(self):
+        # La liste des fournisseurs attend un choix : la frappe ne la balaie
+        # pas, contrairement à l'autocomplétion.
+        if self._mode_liste == 'providers':
+            return
         self.Suggestions.Clear()
         debut = self._saisie
         # Uniquement pendant la frappe du nom : dès qu'une espace suit, la
@@ -143,6 +156,14 @@ class OpenArchiChatVM(BaseViewModel):
 
     def _choisir(self, suggestion=None):
         if suggestion is None:
+            return
+        if self._mode_liste == 'providers':
+            self._fermer_liste()
+            self._config.appliquer(suggestion.Nom)
+            self.notify_property('Statut')
+            self.Messages.Add(MessageVM(
+                'OpenArchi',
+                'Fournisseur : {0}'.format(suggestion.Nom), False))
             return
         self.Saisie = '/{0} '.format(suggestion.Nom)
 
@@ -160,6 +181,8 @@ class OpenArchiChatVM(BaseViewModel):
         texte = self._saisie.strip()
         if not texte:
             return
+        # Envoyer abandonne un choix de fournisseur en cours.
+        self._fermer_liste()
         self.Messages.Add(MessageVM('Moi', texte, True))
         self.Saisie = ''
         self.Messages.Add(MessageVM('OpenArchi', self.repondre(texte), False))
@@ -192,9 +215,12 @@ class OpenArchiChatVM(BaseViewModel):
             lignes.append('  /{0} — {1}'.format(nom, self.COMMANDES[nom][0]))
         return '\n'.join(lignes)
 
-    def _commande_config(self, _arguments):
-        if self._ouvrir_config is None:
-            return "Configuration indisponible hors Revit.\n" + self.Statut
-        self._ouvrir_config(self._config)
-        self.notify_property('Statut')
-        return "Configuration enregistrée : {0}".format(self.Statut)
+    def _commande_connect(self, _arguments):
+        # Pas de fenêtre : on réutilise la liste en place au-dessus du champ,
+        # comme le /connect d'opencode dans son terminal.
+        self._mode_liste = 'providers'
+        self.Suggestions.Clear()
+        for nom in PROVIDERS:
+            self.Suggestions.Add(SuggestionVM(nom, libelle=nom))
+        self.notify_property('SuggestionsVisibles')
+        return "Choisir un fournisseur. Actuel : {0}".format(self.Statut)

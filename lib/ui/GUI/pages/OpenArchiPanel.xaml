@@ -53,9 +53,10 @@
     </ScrollViewer>
 
     <!--
-      Autocomplétion des commandes : liste en place au-dessus du champ plutôt
-      qu'un Popup — pas de vol de focus ni de souci de z-order dans un volet
-      ancré, et la conversation se réduit d'autant.
+      Liste en place au-dessus du champ plutôt qu'un Popup — pas de vol de
+      focus ni de souci de z-order dans un volet ancré, et la conversation se
+      réduit d'autant. Elle sert l'autocomplétion des commandes ET le choix du
+      fournisseur après /connect : aucune fenêtre modale dans cet outil.
     -->
     <Border Grid.Row="1" Margin="0,10,0,0" Padding="4" CornerRadius="8"
             Background="{DynamicResource CardBackgroundBrush}"

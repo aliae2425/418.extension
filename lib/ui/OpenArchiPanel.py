@@ -12,22 +12,11 @@ except Exception:
 try:
     from ui.helpers.UIResourceLoader import UIResourceLoader
     from ui.helpers.DarkMode import is_dark
-    from ui.base.BaseWindow import BaseWindow
     from ui.OpenArchiChatVM import OpenArchiChatVM
-    from ui.OpenArchiConfigVM import OpenArchiConfigVM
 except Exception:
     from lib.ui.helpers.UIResourceLoader import UIResourceLoader
     from lib.ui.helpers.DarkMode import is_dark
-    from lib.ui.base.BaseWindow import BaseWindow
     from lib.ui.OpenArchiChatVM import OpenArchiChatVM
-    from lib.ui.OpenArchiConfigVM import OpenArchiConfigVM
-
-_FENETRE_CONFIG = os.path.join(AppPaths().ui_gui_dir(), 'OpenArchiConfigWindow.xaml')
-
-
-def ouvrir_config(config):
-    """Modale /config : fournisseur, modèle, projet. Bloquante (ShowDialog)."""
-    BaseWindow(_FENETRE_CONFIG, OpenArchiConfigVM(config)).show()
 
 
 class OpenArchiPanel(forms.WPFPanel):
@@ -46,7 +35,7 @@ class OpenArchiPanel(forms.WPFPanel):
         # DynamicResource du panneau se résolvent sur Page.Resources.
         UIResourceLoader(self, dark=is_dark()).merge_theme()
         forms.WPFPanel.__init__(self)
-        vm = OpenArchiChatVM(ouvrir_config=ouvrir_config)
+        vm = OpenArchiChatVM()
         self.DataContext = vm
         self._suivre_dernier_message(vm)
 

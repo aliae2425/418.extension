@@ -10,8 +10,7 @@ if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
 
 from ui.OpenArchiChatVM import OpenArchiChatVM
-from ui.OpenArchiConfigVM import (OpenArchiConfig, OpenArchiConfigVM,
-                                  PROVIDERS, AUCUN_PROJET)
+from ui.OpenArchiConfig import OpenArchiConfig, PROVIDERS
 
 
 class _StoreMemoire(object):
@@ -60,30 +59,16 @@ class TestChat(unittest.TestCase):
 
     def test_commande_aide_liste_les_commandes(self):
         reponse = self.vm.repondre('/aide')
-        self.assertIn('/config', reponse)
+        self.assertIn('/connect', reponse)
         self.assertIn('/aide', reponse)
 
     def test_commande_inconnue_renvoie_laide(self):
         reponse = self.vm.repondre('/nimportequoi')
         self.assertIn('inconnue', reponse)
-        self.assertIn('/config', reponse)
+        self.assertIn('/connect', reponse)
 
-    def test_config_appelle_le_callback_et_rafraichit_le_statut(self):
-        appels = []
-
-        def _ouvrir(config):
-            appels.append(config)
-            config.appliquer('OpenAI', 'gpt-5', 'Tour Nord.rvt')
-
-        vm = OpenArchiChatVM(config=self.config, ouvrir_config=_ouvrir)
-        reponse = vm.repondre('/config')
-        self.assertEqual(len(appels), 1)
-        self.assertIn('OpenAI', reponse)
-        self.assertIn('gpt-5', reponse)
-        self.assertIn('Tour Nord.rvt', vm.Statut)
-
-    def test_statut_par_defaut(self):
-        self.assertIn(AUCUN_PROJET, self.vm.Statut)
+    def test_statut_est_le_fournisseur(self):
+        self.assertEqual(self.vm.Statut, self.config.provider)
 
 
 class TestAutocomplete(unittest.TestCase):
@@ -100,28 +85,28 @@ class TestAutocomplete(unittest.TestCase):
     def test_barre_oblique_seule_propose_tout(self):
         self.vm.Saisie = '/'
         self.assertTrue(self.vm.SuggestionsVisibles)
-        self.assertEqual(self._libelles(), ['/aide', '/config'])
+        self.assertEqual(self._libelles(), ['/aide', '/connect'])
 
     def test_filtre_sur_le_prefixe(self):
         self.vm.Saisie = '/co'
-        self.assertEqual(self._libelles(), ['/config'])
+        self.assertEqual(self._libelles(), ['/connect'])
 
     def test_prefixe_insensible_a_la_casse(self):
         self.vm.Saisie = '/CO'
-        self.assertEqual(self._libelles(), ['/config'])
+        self.assertEqual(self._libelles(), ['/connect'])
 
     def test_prefixe_sans_correspondance(self):
         self.vm.Saisie = '/zzz'
         self.assertFalse(self.vm.SuggestionsVisibles)
 
     def test_liste_fermee_une_fois_la_commande_ecrite(self):
-        self.vm.Saisie = '/config '
+        self.vm.Saisie = '/connect '
         self.assertFalse(self.vm.SuggestionsVisibles)
 
     def test_choisir_remplit_la_saisie_et_ferme(self):
         self.vm.Saisie = '/co'
         self.vm._choisir(self.vm.Suggestions[0])
-        self.assertEqual(self.vm.Saisie, '/config ')
+        self.assertEqual(self.vm.Saisie, '/connect ')
         self.assertFalse(self.vm.SuggestionsVisibles)
 
     def test_completer_prend_la_premiere(self):
@@ -140,35 +125,60 @@ class TestAutocomplete(unittest.TestCase):
         self.assertFalse(self.vm.SuggestionsVisibles)
 
 
-class TestConfigVM(unittest.TestCase):
+class TestConnect(unittest.TestCase):
     def setUp(self):
-        self.config = OpenArchiConfig(_StoreMemoire())
-        self.vm = OpenArchiConfigVM(self.config, projets=['A.rvt', 'B.rvt'])
+        self.store = _StoreMemoire()
+        self.config = OpenArchiConfig(self.store)
+        self.vm = OpenArchiChatVM(config=self.config)
 
-    def test_modele_suit_le_fournisseur(self):
-        self.vm.Provider = 'OpenAI'
-        self.assertEqual(list(self.vm.Modeles), PROVIDERS['OpenAI'])
-        self.assertEqual(self.vm.Modele, PROVIDERS['OpenAI'][0])
+    def _ouvrir_la_liste(self):
+        """Envoie /connect : la liste des fournisseurs remplace les commandes."""
+        self.vm.Saisie = '/connect'
+        self.vm._envoyer()
 
-    def test_valider_persiste(self):
-        self.vm.Provider = 'OpenAI'
-        self.vm.Projet = 'B.rvt'
-        self.vm._valider()
-        self.assertEqual(self.config.provider, 'OpenAI')
-        self.assertEqual(self.config.projet, 'B.rvt')
+    def test_connect_ouvre_la_liste_des_fournisseurs(self):
+        self._ouvrir_la_liste()
+        self.assertEqual([s.Nom for s in self.vm.Suggestions], list(PROVIDERS))
 
-    def test_sans_projet_ouvert(self):
-        vm = OpenArchiConfigVM(self.config, projets=[])
-        self.assertEqual(vm.Projet, AUCUN_PROJET)
-        vm._valider()
-        self.assertEqual(self.config.projet, '')
+    def test_libelles_des_fournisseurs_sans_barre_oblique(self):
+        self._ouvrir_la_liste()
+        self.assertEqual([s.Libelle for s in self.vm.Suggestions],
+                         list(PROVIDERS))
 
-    def test_reglages_precedents_reconduits(self):
-        self.config.appliquer('OpenAI', 'gpt-5-mini', 'A.rvt')
-        vm = OpenArchiConfigVM(self.config, projets=['A.rvt', 'B.rvt'])
-        self.assertEqual(vm.Provider, 'OpenAI')
-        self.assertEqual(vm.Modele, 'gpt-5-mini')
-        self.assertEqual(vm.Projet, 'A.rvt')
+    def test_la_frappe_ne_referme_pas_la_liste(self):
+        self._ouvrir_la_liste()
+        self.vm.Saisie = 'Anth'
+        self.assertTrue(self.vm.SuggestionsVisibles)
+
+    def test_choix_persiste_et_met_le_statut_a_jour(self):
+        self._ouvrir_la_liste()
+        cible = PROVIDERS[1]
+        self.vm._choisir([s for s in self.vm.Suggestions
+                          if s.Nom == cible][0])
+        self.assertEqual(self.config.provider, cible)
+        self.assertEqual(self.vm.Statut, cible)
+        # Relu depuis le même store : la valeur a bien été persistée.
+        self.assertEqual(OpenArchiConfig(self.store).provider, cible)
+
+    def test_choix_referme_la_liste_et_rend_les_commandes(self):
+        self._ouvrir_la_liste()
+        avant = len(self.vm.Messages)
+        self.vm._choisir(self.vm.Suggestions[0])
+        self.assertFalse(self.vm.SuggestionsVisibles)
+        self.assertEqual(len(self.vm.Messages), avant + 1)
+        self.vm.Saisie = '/'
+        self.assertEqual([s.Libelle for s in self.vm.Suggestions],
+                         ['/aide', '/connect'])
+
+    def test_tab_choisit_le_premier_fournisseur(self):
+        self._ouvrir_la_liste()
+        self.vm._completer()
+        self.assertEqual(self.config.provider, PROVIDERS[0])
+
+    def test_fournisseur_inconnu_retombe_sur_le_premier(self):
+        store = _StoreMemoire()
+        store.set('provider', 'Fournisseur Fantome')
+        self.assertEqual(OpenArchiConfig(store).provider, PROVIDERS[0])
 
 
 if __name__ == '__main__':
