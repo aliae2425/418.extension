@@ -1681,9 +1681,9 @@ class TestExportDoneCallback(unittest.TestCase):
 
 
 class TestCollectionItemVMSetters(unittest.TestCase):
-    """Setters des trois flags (mode « par jeu — choix manuel ») : chacun
-    notifie ses propriétés dérivées et rappelle `on_change`, et le garde
-    « même valeur » coupe court avant toute notification."""
+    """Setters des trois flags (badges cliquables du mode « par jeu ») :
+    chacun notifie ses propriétés dérivées et rappelle `on_change`, et le
+    garde « même valeur » coupe court avant toute notification."""
 
     def setUp(self):
         self.appels = []
@@ -1732,15 +1732,16 @@ class TestCollectionItemVMSetters(unittest.TestCase):
         self.assertEqual(len(self.appels), 1)
 
 
-class TestMainViewModelCollectionsManuel(unittest.TestCase):
-    """`CollectionsManuel` : double ÉDITABLE de `Collections`, mêmes valeurs
-    de départ mais instances distinctes — cocher un badge dans l'onglet
-    manuel ne doit jamais altérer la « vérité Revit » de l'onglet par jeu."""
+class TestMainViewModelCollectionsEditables(unittest.TestCase):
+    """`Collections` : liste UNIQUE et éditable. Les flags partent des
+    paramètres Oui/Non lus dans Revit (seeding), puis suivent les clics de
+    l'utilisateur sur les badges."""
 
     def setUp(self):
+        self.sheet_service = FakeSheetService()
         self.vm = MainViewModel(
             doc=None,
-            sheet_service=FakeSheetService(),
+            sheet_service=self.sheet_service,
             naming_service=FakeNamingServiceCarnet(),
             destination_service=None,
             config=FakeConfig(),
@@ -1750,68 +1751,66 @@ class TestMainViewModelCollectionsManuel(unittest.TestCase):
         self.vm.ParamDwg = 'Dwg'
         self.vm.refresh_par_jeu()
 
-    def test_memes_valeurs_de_depart_que_collections(self):
-        self.assertEqual(len(self.vm.CollectionsManuel), len(self.vm.Collections))
-        for revit, manuel in zip(self.vm.Collections, self.vm.CollectionsManuel):
-            self.assertEqual(manuel.Titre, revit.Titre)
-            self.assertEqual(manuel.Id, revit.Id)
-            self.assertEqual(manuel.FlagExport, revit.FlagExport)
-            self.assertEqual(manuel.FlagCarnet, revit.FlagCarnet)
-            self.assertEqual(manuel.FlagDwg, revit.FlagDwg)
-            self.assertEqual(manuel.CarnetApercu, revit.CarnetApercu)
+    def _jeu(self, titre):
+        return next(c for c in self.vm.Collections if c.Titre == titre)
 
-    def test_instances_distinctes(self):
-        for revit, manuel in zip(self.vm.Collections, self.vm.CollectionsManuel):
-            self.assertIsNot(manuel, revit)
+    def test_flags_seedes_depuis_les_parametres_revit(self):
+        jeu_a = self._jeu(u'Jeu A')
+        self.assertTrue(jeu_a.FlagExport)
+        self.assertTrue(jeu_a.FlagCarnet)
+        self.assertFalse(jeu_a.FlagDwg)
+        self.assertFalse(self._jeu(u'Jeu B').FlagExport)
 
-    def test_modifier_le_double_manuel_ne_touche_pas_la_verite_revit(self):
-        revit, manuel = self.vm.Collections[0], self.vm.CollectionsManuel[0]
-        self.assertTrue(revit.FlagExport)
-        manuel.FlagExport = False
-        manuel.FlagCarnet = False
-        manuel.FlagDwg = True
-        self.assertFalse(manuel.FlagExport)
-        self.assertTrue(revit.FlagExport)
+    def test_chaque_item_porte_le_callback_du_vm(self):
+        # Badges cliquables : sans `on_change`, ni les compteurs ni le report
+        # des choix (cf. `_choix_manuels`) ne fonctionneraient.
+        for c in self.vm.Collections:
+            self.assertTrue(callable(c._on_change))
 
     def test_les_choix_survivent_a_un_refresh_en_cours_de_session(self):
         """`refresh_par_jeu()` est ré-appelé en cours de session (retour de la
-        modale de nommage, changement de mappage) : les badges cochés doivent
+        modale de nommage, changement de mappage) : les badges cliqués doivent
         être reportés, pas remis à la valeur Revit."""
-        manuel = self.vm.CollectionsManuel[0]
-        manuel.FlagExport = False
-        manuel.FlagDwg = True
+        jeu_a = self._jeu(u'Jeu A')
+        jeu_a.FlagExport = False
+        jeu_a.FlagDwg = True
 
         self.vm.refresh_par_jeu()
 
-        apres = self.vm.CollectionsManuel[0]
-        self.assertEqual(apres.Titre, manuel.Titre)
+        apres = self._jeu(u'Jeu A')
         self.assertFalse(apres.FlagExport)
         self.assertTrue(apres.FlagDwg)
-        # La vérité Revit, elle, est bien relue.
-        self.assertTrue(self.vm.Collections[0].FlagExport)
 
     def test_un_jeu_jamais_clique_repart_de_la_valeur_revit(self):
-        """Aucun clic sur ce jeu -> valeurs Revit relues à chaque refresh.
+        """Aucun clic sur ce jeu -> valeur Revit relue à chaque refresh.
 
         Point important : `refresh_par_jeu()` tourne une fois par setter
         `Param*` au démarrage, donc sur des flags encore incomplets — figer
-        toute la liste au lieu des seuls jeux cliqués les gèlerait à faux."""
+        toute la liste au lieu des seuls jeux cliqués gèlerait les badges à
+        faux dès l'ouverture de la fenêtre."""
+        self.assertFalse(self._jeu(u'Jeu B').FlagExport)
+        # Le paramètre Revit passe à vrai ; Jeu B n'a jamais été cliqué.
+        self.sheet_service._flags[(self.sheet_service._elem_b, 'Export')] = True
+
         self.vm.refresh_par_jeu()
-        for revit, manuel in zip(self.vm.Collections, self.vm.CollectionsManuel):
-            self.assertEqual(manuel.FlagExport, revit.FlagExport)
-            self.assertEqual(manuel.FlagCarnet, revit.FlagCarnet)
-            self.assertEqual(manuel.FlagDwg, revit.FlagDwg)
 
-    def test_seul_le_double_manuel_porte_le_callback_du_vm(self):
-        # Les items « vérité Revit » sont en lecture seule côté UI : aucun
-        # on_change n'y est câblé, contrairement au double manuel.
-        self.assertIsNone(self.vm.Collections[0]._on_change)
-        self.assertTrue(callable(self.vm.CollectionsManuel[0]._on_change))
+        self.assertTrue(self._jeu(u'Jeu B').FlagExport)
+
+    def test_un_jeu_clique_ne_suit_plus_la_valeur_revit(self):
+        # Pendant du test précédent : le clic fige ce jeu-là, et lui seul.
+        # Revit dit toujours « non » pour Jeu B, le badge coché doit tenir.
+        self._jeu(u'Jeu B').FlagExport = True
+
+        self.vm.refresh_par_jeu()
+
+        self.assertFalse(
+            self.sheet_service.read_flag(self.sheet_service._elem_b, 'Export'))
+        self.assertTrue(self._jeu(u'Jeu B').FlagExport)
 
 
-class TestMainViewModelCompteursSelonMode(unittest.TestCase):
-    """`NbJeuxQualifies`/`NbFeuillesQualifiees` portent sur la liste ACTIVE :
-    la vérité Revit en mode `auto`, les choix mémoire en `jeux_manuel`."""
+class TestMainViewModelCompteurs(unittest.TestCase):
+    """`NbJeuxQualifies`/`NbFeuillesQualifiees` : calculés sur `Collections`,
+    donc sensibles aux clics sur les badges et INDÉPENDANTS du mode."""
 
     def setUp(self):
         self.vm = MainViewModel(
@@ -1825,75 +1824,30 @@ class TestMainViewModelCompteursSelonMode(unittest.TestCase):
         self.vm.ParamCarnet = 'Carnet'
         self.vm.ParamDwg = 'Dwg'
         self.vm.refresh_par_jeu()
-        # Choix mémoire OPPOSÉS à Revit : Jeu A (2 feuilles) décoché,
-        # Jeu B (1 feuille) coché.
-        self.vm.CollectionsManuel[0].FlagExport = False
-        self.vm.CollectionsManuel[1].FlagExport = True
 
-    def test_mode_auto_compte_la_liste_revit(self):
-        self.vm.set_mode(u'auto')
+    def test_compteurs_seedes_depuis_revit(self):
+        # Jeu A seul qualifié, avec ses 2 feuilles.
         self.assertEqual(self.vm.NbJeuxQualifies, 1)
         self.assertEqual(self.vm.NbFeuillesQualifiees, 2)
 
-    def test_mode_jeux_manuel_compte_les_choix_memoire(self):
-        self.vm.set_mode(u'jeux_manuel')
+    def test_clic_sur_un_badge_met_a_jour_les_compteurs(self):
+        # Jeu A (2 feuilles) décoché, Jeu B (1 feuille) coché.
+        self.vm.Collections[0].FlagExport = False
+        self.vm.Collections[1].FlagExport = True
         self.assertEqual(self.vm.NbJeuxQualifies, 1)
         self.assertEqual(self.vm.NbFeuillesQualifiees, 1)
 
-    def test_tout_cocher_en_manuel_ne_change_pas_les_compteurs_auto(self):
-        for c in self.vm.CollectionsManuel:
-            c.FlagExport = True
-        self.vm.set_mode(u'jeux_manuel')
-        self.assertEqual(self.vm.NbJeuxQualifies, 2)
-        self.assertEqual(self.vm.NbFeuillesQualifiees, 3)
-        self.vm.set_mode(u'auto')
-        self.assertEqual(self.vm.NbJeuxQualifies, 1)
-        self.assertEqual(self.vm.NbFeuillesQualifiees, 2)
-
-    def test_modes_manual_et_settings_comptent_la_liste_revit(self):
-        for mode in (u'manual', u'settings'):
+    def test_compteurs_identiques_quel_que_soit_le_mode(self):
+        for mode in (u'auto', u'manual', u'settings'):
             self.vm.set_mode(mode)
             self.assertEqual(self.vm.NbJeuxQualifies, 1)
             self.assertEqual(self.vm.NbFeuillesQualifiees, 2)
 
 
-class TestMainViewModelModeJeuxManuel(unittest.TestCase):
-    """Le 3e mode `jeux_manuel` : drapeaux de mode et titre de surface."""
-
-    def setUp(self):
-        self.vm = MainViewModel(doc=None)
-
-    def test_set_mode_jeux_manuel(self):
-        self.vm.set_mode(u'jeux_manuel')
-        self.assertEqual(self.vm.ActiveMode, u'jeux_manuel')
-        self.assertTrue(self.vm.IsJeuxManuel)
-        self.assertFalse(self.vm.IsAuto)
-        self.assertFalse(self.vm.IsManual)
-        self.assertFalse(self.vm.IsSettings)
-        self.assertTrue(self.vm.IsParJeu)
-
-    def test_is_par_jeu_vrai_pour_les_deux_modes_par_jeu(self):
-        self.vm.set_mode(u'auto')
-        self.assertTrue(self.vm.IsParJeu)
-        self.assertFalse(self.vm.IsJeuxManuel)
-        self.vm.set_mode(u'jeux_manuel')
-        self.assertTrue(self.vm.IsParJeu)
-
-    def test_is_par_jeu_faux_hors_des_modes_par_jeu(self):
-        for mode in (u'manual', u'settings'):
-            self.vm.set_mode(mode)
-            self.assertFalse(self.vm.IsParJeu)
-            self.assertFalse(self.vm.IsJeuxManuel)
-
-    def test_surface_titre_renseigne(self):
-        self.vm.set_mode(u'jeux_manuel')
-        self.assertTrue(self.vm.SurfaceTitre)
-        self.assertIn(u'manuel', self.vm.SurfaceTitre.lower())
-
-
 class OrchestrateurEspion(object):
-    """Faux ExportOrchestrator : retient les arguments nommés reçus par
-    `run()` (notamment `flags`) et rend True comme un export réussi."""
+    """Faux ExportOrchestrator : retient les arguments reçus par `run()` et
+    rend True comme un export réussi. `run` ne nomme que `doc` afin que le
+    test puisse vérifier que `flags` arrive bien en 2e POSITIONNEL."""
 
     appels = []
 
@@ -1903,19 +1857,15 @@ class OrchestrateurEspion(object):
     def erreur_dependances(self):
         return None
 
-    def plan_exports_for_collections(self, doc, p_export, p_carnet, p_dwg):
-        return []
-
-    def run(self, doc, p_export, p_carnet, p_dwg, **kw):
-        kw['pnames'] = (p_export, p_carnet, p_dwg)
-        OrchestrateurEspion.appels.append(kw)
+    def run(self, doc, *args, **kw):
+        OrchestrateurEspion.appels.append({'args': args, 'kw': kw})
         return True
 
 
-class TestMainViewModelLancerExportJeuxManuel(unittest.TestCase):
-    """`lancer_export()` en mode `jeux_manuel` : les choix mémoire partent
-    en `flags=[(titre, export, carnet, dwg), ...]` ; en mode `auto` `flags`
-    reste None (l'orchestrateur relit les paramètres Revit)."""
+class TestMainViewModelLancerExportParJeu(unittest.TestCase):
+    """`lancer_export()` (mode « par jeu ») : les badges cochés partent en
+    `flags=[(titre, export, carnet, dwg), ...]`, 2e argument POSITIONNEL de
+    `run()`. Seule source de qualification de l'export."""
 
     def setUp(self):
         OrchestrateurEspion.appels = []
@@ -1942,37 +1892,31 @@ class TestMainViewModelLancerExportJeuxManuel(unittest.TestCase):
         self.assertEqual(len(OrchestrateurEspion.appels), 1)
         return OrchestrateurEspion.appels[0]
 
-    def test_mode_jeux_manuel_transmet_les_flags(self):
-        self.vm.set_mode(u'jeux_manuel')
-        kw = self._lancer()
-        self.assertEqual(kw['flags'], [(u'Jeu A', True, True, False),
-                                       (u'Jeu B', False, False, False)])
+    def test_flags_transmis_en_deuxieme_positionnel(self):
+        appel = self._lancer()
+        self.assertEqual(len(appel['args']), 1)
+        self.assertNotIn('flags', appel['kw'])
+        self.assertEqual(appel['args'][0], [(u'Jeu A', True, True, False),
+                                            (u'Jeu B', False, False, False)])
 
-    def test_flags_refletent_les_cases_cochees(self):
-        self.vm.set_mode(u'jeux_manuel')
-        self.vm.CollectionsManuel[0].FlagCarnet = False
-        self.vm.CollectionsManuel[1].FlagExport = True
-        self.vm.CollectionsManuel[1].FlagDwg = True
-        kw = self._lancer()
-        self.assertEqual(kw['flags'], [(u'Jeu A', True, False, False),
-                                       (u'Jeu B', True, False, True)])
+    def test_flags_refletent_les_badges_cliques(self):
+        self.vm.Collections[0].FlagCarnet = False
+        self.vm.Collections[1].FlagExport = True
+        self.vm.Collections[1].FlagDwg = True
+        appel = self._lancer()
+        self.assertEqual(appel['args'][0], [(u'Jeu A', True, False, False),
+                                            (u'Jeu B', True, False, True)])
 
     def test_flags_portent_des_booleens_pas_des_noms_de_parametres(self):
-        self.vm.set_mode(u'jeux_manuel')
-        kw = self._lancer()
-        for titre, export, carnet, dwg in kw['flags']:
+        appel = self._lancer()
+        for titre, export, carnet, dwg in appel['args'][0]:
             self.assertIsInstance(titre, type(u''))
             for valeur in (export, carnet, dwg):
                 self.assertIsInstance(valeur, bool)
-        # Les noms de paramètres restent transmis à part (positionnels) :
-        # c'est `flags` qui prime côté orchestrateur.
-        self.assertEqual(kw['pnames'], (u'Export', u'Carnet', u'Dwg'))
 
-    def test_mode_auto_ne_transmet_aucun_flag(self):
-        self.vm.set_mode(u'auto')
-        kw = self._lancer()
-        self.assertIsNone(kw['flags'])
-        self.assertEqual(kw['pnames'], (u'Export', u'Carnet', u'Dwg'))
+    def test_destination_transmise_a_l_orchestrateur(self):
+        appel = self._lancer()
+        self.assertEqual(appel['kw']['destination'], u'C:/Test')
 
 
 if __name__ == '__main__':

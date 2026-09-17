@@ -1,17 +1,69 @@
 <!--
-  SPIKE (étape 0) : page « par jeu » extraite du MainWindow.xaml.
-  Chargée séparément via XamlReader et insérée dans le ContentControl
-  AutoPageHost du shell. DataContext = AutoPageVM (fixé en code).
+  Page du mode « Par jeu » : liste des jeux (Collections), un par carte.
 
-  Aucune StaticResource ici (la Visibility IsAuto est portée par l'hôte
-  dans le shell) -> pas besoin du BoolToVisibilityConverter. Tout le reste
-  est en DynamicResource, résolu en remontant l'arbre une fois inséré dans
-  la fenêtre (dictionnaires de thème déjà fusionnés par UIResourceLoader).
+  Les 3 badges EXPORT / CARNET / DWG sont des ToggleButton CLIQUABLES,
+  bindés TwoWay sur FlagExport / FlagCarnet / FlagDwg.
+
+  L'état de ces 3 flags vit UNIQUEMENT en mémoire : il n'est jamais écrit
+  dans les paramètres Revit. C'est la raison d'être du mode — quand la
+  maquette est partagée, les paramètres Oui/Non des jeux ne sont pas
+  éditables, on pilote donc l'export depuis ici.
+
+  Chargée séparément via XamlReader et insérée dans le ContentControl
+  JeuxPageHost du shell. DataContext = MainViewModel (fixé en code).
+  Pas de x:Class, pas de code-behind, pas de handler déclaré en XAML.
+
+  Seule StaticResource tolérée : BadgeToggleTemplate, défini juste en
+  dessous dans CETTE page. Tout le thème est en DynamicResource, résolu en
+  remontant l'arbre une fois la page insérée dans la fenêtre.
 -->
 <ScrollViewer xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
               VerticalScrollBarVisibility="Auto"
               HorizontalScrollBarVisibility="Disabled">
+
+  <ScrollViewer.Resources>
+    <!--
+      Gabarit unique des 3 badges cliquables.
+
+      La couleur « allumée » n'est pas codée ici : c'est le Background posé
+      sur chaque ToggleButton (SuccessBrush / AccentBrush / WarningBrush),
+      repris tel quel par le Border via TemplateBinding. Seul l'état DÉCOCHÉ
+      est surchargé par un Trigger — ainsi aucun Binding dans un Setter.
+
+      Note d'imbrication : l'en-tête d'Expander du socle
+      (CollectionExpanderStyle) est lui-même un ToggleButton. Un ToggleButton
+      imbriqué marque MouseLeftButtonDown comme traité (ButtonBase), donc un
+      clic sur un badge NE replie PAS la carte — le comportement voulu.
+    -->
+    <ControlTemplate x:Key="BadgeToggleTemplate" TargetType="ToggleButton">
+      <Border x:Name="BadgeBorder"
+              Background="{TemplateBinding Background}"
+              BorderBrush="{TemplateBinding Background}"
+              BorderThickness="1"
+              CornerRadius="8"
+              Padding="8,3">
+        <TextBlock x:Name="BadgeText"
+                   Text="{TemplateBinding Content}"
+                   FontSize="10.5"
+                   FontWeight="SemiBold"
+                   Foreground="{DynamicResource TextOnAccentBrush}"/>
+      </Border>
+      <ControlTemplate.Triggers>
+        <!-- Décoché : badge éteint (fond neutre, texte grisé). -->
+        <Trigger Property="IsChecked" Value="False">
+          <Setter TargetName="BadgeBorder" Property="Background" Value="{DynamicResource ControlFillBrush}"/>
+          <Setter TargetName="BadgeBorder" Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+          <Setter TargetName="BadgeText" Property="Foreground" Value="{DynamicResource TextDisabledBrush}"/>
+        </Trigger>
+        <!-- Affordance de clic. -->
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter TargetName="BadgeBorder" Property="Opacity" Value="0.75"/>
+        </Trigger>
+      </ControlTemplate.Triggers>
+    </ControlTemplate>
+  </ScrollViewer.Resources>
+
   <ItemsControl ItemsSource="{Binding Collections}">
     <ItemsControl.ItemsPanel>
       <ItemsPanelTemplate>
@@ -45,7 +97,7 @@
                     PDF résolu (motif `set`). Visible uniquement si le carnet
                     est actif ET l'aperçu non vide (CarnetApercuVisible),
                     basculé par un DataTrigger ci-dessous — cette page n'a pas
-                    de BoolToVisibilityConverter (patron identique aux badges).
+                    de BoolToVisibilityConverter.
                   -->
                   <StackPanel x:Name="CarnetApercuLine"
                               Orientation="Horizontal"
@@ -68,47 +120,35 @@
                             Orientation="Horizontal"
                             VerticalAlignment="Center">
 
-                  <Border x:Name="BadgeExport"
-                          Background="{DynamicResource ControlFillBrush}"
-                          BorderBrush="{DynamicResource ControlBorderBrush}"
-                          BorderThickness="1"
-                          CornerRadius="8"
-                          Padding="8,3"
-                          Margin="4,0,0,0">
-                    <TextBlock x:Name="BadgeExportText"
-                               Text="EXPORT"
-                               FontSize="10.5"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextDisabledBrush}"/>
-                  </Border>
+                  <ToggleButton x:Name="BadgeExport"
+                                Content="EXPORT"
+                                ToolTip="Inclure ce jeu dans l'export (mémoire seule)"
+                                Template="{StaticResource BadgeToggleTemplate}"
+                                Background="{DynamicResource SuccessBrush}"
+                                IsChecked="{Binding FlagExport, Mode=TwoWay}"
+                                Cursor="Hand"
+                                Focusable="False"
+                                Margin="4,0,0,0"/>
 
-                  <Border x:Name="BadgeCarnet"
-                          Background="{DynamicResource ControlFillBrush}"
-                          BorderBrush="{DynamicResource ControlBorderBrush}"
-                          BorderThickness="1"
-                          CornerRadius="8"
-                          Padding="8,3"
-                          Margin="4,0,0,0">
-                    <TextBlock x:Name="BadgeCarnetText"
-                               Text="CARNET"
-                               FontSize="10.5"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextDisabledBrush}"/>
-                  </Border>
+                  <ToggleButton x:Name="BadgeCarnet"
+                                Content="CARNET"
+                                ToolTip="Assembler ce jeu en carnet PDF (mémoire seule)"
+                                Template="{StaticResource BadgeToggleTemplate}"
+                                Background="{DynamicResource AccentBrush}"
+                                IsChecked="{Binding FlagCarnet, Mode=TwoWay}"
+                                Cursor="Hand"
+                                Focusable="False"
+                                Margin="4,0,0,0"/>
 
-                  <Border x:Name="BadgeDwg"
-                          Background="{DynamicResource ControlFillBrush}"
-                          BorderBrush="{DynamicResource ControlBorderBrush}"
-                          BorderThickness="1"
-                          CornerRadius="8"
-                          Padding="8,3"
-                          Margin="4,0,0,0">
-                    <TextBlock x:Name="BadgeDwgText"
-                               Text="DWG"
-                               FontSize="10.5"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextDisabledBrush}"/>
-                  </Border>
+                  <ToggleButton x:Name="BadgeDwg"
+                                Content="DWG"
+                                ToolTip="Exporter aussi ce jeu en DWG (mémoire seule)"
+                                Template="{StaticResource BadgeToggleTemplate}"
+                                Background="{DynamicResource WarningBrush}"
+                                IsChecked="{Binding FlagDwg, Mode=TwoWay}"
+                                Cursor="Hand"
+                                Focusable="False"
+                                Margin="4,0,0,0"/>
                 </StackPanel>
               </Grid>
             </Expander.Header>
@@ -152,6 +192,7 @@
         </Border>
 
         <DataTemplate.Triggers>
+          <!-- Suit les clics : FlagExport notifie Qualified. -->
           <DataTrigger Binding="{Binding Qualified}" Value="False">
             <Setter TargetName="CollectionCard" Property="Opacity" Value="0.5"/>
           </DataTrigger>
@@ -162,23 +203,8 @@
             <Setter TargetName="CarnetApercuLine" Property="Visibility" Value="Visible"/>
           </DataTrigger>
 
-          <DataTrigger Binding="{Binding FlagExport}" Value="True">
-            <Setter TargetName="BadgeExport" Property="Background" Value="{DynamicResource SuccessBrush}"/>
-            <Setter TargetName="BadgeExport" Property="BorderBrush" Value="{DynamicResource SuccessBrush}"/>
-            <Setter TargetName="BadgeExportText" Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
-          </DataTrigger>
-
-          <DataTrigger Binding="{Binding FlagCarnet}" Value="True">
-            <Setter TargetName="BadgeCarnet" Property="Background" Value="{DynamicResource AccentBrush}"/>
-            <Setter TargetName="BadgeCarnet" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
-            <Setter TargetName="BadgeCarnetText" Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
-          </DataTrigger>
-
-          <DataTrigger Binding="{Binding FlagDwg}" Value="True">
-            <Setter TargetName="BadgeDwg" Property="Background" Value="{DynamicResource WarningBrush}"/>
-            <Setter TargetName="BadgeDwg" Property="BorderBrush" Value="{DynamicResource WarningBrush}"/>
-            <Setter TargetName="BadgeDwgText" Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
-          </DataTrigger>
+          <!-- Pas de trigger de coloration des badges ici : c'est
+               BadgeToggleTemplate qui porte les deux états. -->
         </DataTemplate.Triggers>
       </DataTemplate>
     </ItemsControl.ItemTemplate>

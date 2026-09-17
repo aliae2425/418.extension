@@ -28,18 +28,15 @@
     - Boutons de légende nommés : MinimizeButton / MaximizeRestoreButton / CloseButton.
 
     Rail de navigation
-    - NavAuto / NavJeuxManuel / NavManual / NavSettings partagent
-      GroupName="nav" (sélection exclusive).
+    - NavAuto / NavManual / NavSettings partagent GroupName="nav"
+      (sélection exclusive). Modes correspondants : u'auto' / u'manual' /
+      u'settings'.
     - Icônes : un Path sur une géométrie Lucide d'Icons.xaml, pas un glyphe.
       NavRailIconStyle porte tout l'habillage, y compris la teinte du trait.
-    - Mode « par jeu — choix manuel » (IsJeuxManuel) : jumeau du mode « par
-      jeu », mais les badges EXPORT/CARNET/DWG y sont cliquables et l'état
-      vit en mémoire (CollectionsManuel) au lieu d'être lu dans les
-      paramètres Revit — cas de la maquette partagée, non éditable.
-      `IsParJeu` = IsAuto OU IsJeuxManuel : porte tout ce qui est commun aux
-      deux modes (en-tête de compte, toggles d'organisation du footer).
-    - Mode manuel (IsManual) : contenu réel hors périmètre, la surface affiche
-      pour l'instant un placeholder lié à SurfaceTitre.
+    - Mode « par jeu » (IsAuto) : page JeuxPage.xaml. `IsAuto` porte tout ce
+      qui appartient à ce mode — page, en-tête de compte, toggles
+      d'organisation du footer.
+    - Mode manuel (IsManual) : recherche + filtre + liste feuille par feuille.
     - Mode Paramètres (IsSettings) : panneau réel (PanneauParametres) qui
       mappe les 3 paramètres Oui/Non de collection (Export/Carnet/DWG).
 
@@ -54,6 +51,10 @@
       `dict` Python qui n'expose pas de propriétés CLR nommées.
     - Bindings donc en syntaxe PROPRIÉTÉ classique (`{Binding Titre}`,
       `{Binding Sheets}`, etc.), pas en syntaxe indexeur.
+    - Les 3 badges EXPORT/CARNET/DWG de chaque carte sont CLIQUABLES : leur
+      état (FlagExport/FlagCarnet/FlagDwg) vit en mémoire et pilote l'export,
+      il n'est JAMAIS réécrit dans les paramètres Revit. C'est le cas de la
+      maquette partagée, dont les paramètres ne sont pas éditables.
   -->
 
   <shell:WindowChrome.WindowChrome>
@@ -149,20 +150,11 @@
                       VerticalAlignment="Top">
             <RadioButton x:Name="NavAuto"
                          Style="{DynamicResource NavRailButtonStyle}"
-                         ToolTip="Par jeu — préprogrammé"
+                         ToolTip="Par jeu"
                          GroupName="nav"
                          IsChecked="True">
               <Path Style="{DynamicResource NavRailIconStyle}"
                     Data="{DynamicResource IconJeux}"/>
-            </RadioButton>
-            <!-- Icône « remplacer » plutôt qu'un second IconJeux : deux
-                 calques identiques côte à côte seraient indistinguables. -->
-            <RadioButton x:Name="NavJeuxManuel"
-                         Style="{DynamicResource NavRailButtonStyle}"
-                         ToolTip="Par jeu — choix manuel"
-                         GroupName="nav">
-              <Path Style="{DynamicResource NavRailIconStyle}"
-                    Data="{DynamicResource IconRemplacer}"/>
             </RadioButton>
             <RadioButton x:Name="NavManual"
                          Style="{DynamicResource NavRailButtonStyle}"
@@ -187,12 +179,12 @@
 
             <!--
               En-tête de surface : titre du mode + badge de compte
-              (jeux qualifiés / feuilles qualifiées). Visible dans les deux
-              modes « par jeu » (IsParJeu = auto OU choix manuel).
+              (jeux qualifiés / feuilles qualifiées). Propre au mode
+              « par jeu » (IsAuto).
             -->
             <Grid Grid.Row="0"
                   Margin="20,16,20,8"
-                  Visibility="{Binding IsParJeu, Converter={StaticResource BoolToVisibilityConverter}}">
+                  Visibility="{Binding IsAuto, Converter={StaticResource BoolToVisibilityConverter}}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
@@ -231,25 +223,18 @@
             </Grid>
 
             <!--
-              Zone de contenu — mode « par jeu » : liste des collections
-              (lecture seule). ItemsSource = MainViewModel.Collections
-              (liste de CollectionItemVM). Chaque item est bindé via la
-              syntaxe PROPRIÉTÉ {Binding Cle} — voir note en tête de
+              Zone de contenu — mode « par jeu » : liste des collections,
+              badges cliquables. Page GUI/Views/pages/JeuxPage.xaml, chargée
+              séparément (XamlReader) et montée ici par MainWindowView ;
+              elle partage le DataContext du shell. ItemsSource =
+              MainViewModel.Collections (liste de CollectionItemVM), bindée
+              via la syntaxe PROPRIÉTÉ {Binding Cle} — voir note en tête de
               fichier sur le pattern CollectionItemVM/SheetItemVM.
             -->
-            <!-- SPIKE etape 0 : page Auto hebergee (chargee separement, DataContext = AutoPageVM) -->
             <ContentControl Grid.Row="1"
-                            x:Name="AutoPageHost"
+                            x:Name="JeuxPageHost"
                             Margin="20,0,20,8"
                             Visibility="{Binding IsAuto, Converter={StaticResource BoolToVisibilityConverter}}"/>
-
-            <!-- Mode « par jeu — choix manuel » : page jumelle d'AutoPage
-                 (GUI/Views/pages/JeuxManuelPage.xaml), badges cliquables,
-                 ItemsSource = CollectionsManuel. -->
-            <ContentControl Grid.Row="1"
-                            x:Name="JeuxManuelPageHost"
-                            Margin="20,0,20,8"
-                            Visibility="{Binding IsJeuxManuel, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
             <!--
               Mode « feuille par feuille » (IsManual) : recherche + filtre +
@@ -611,7 +596,7 @@
               Les 4 cartes de réglages peuvent, une fois plusieurs Expanders
               dépliés, dépasser la hauteur de la surface : on les loge dans un
               ScrollViewer (barre au ras du bord de la surface, marge conservée
-              sur le StackPanel interne) — même patron que AutoPage / liste
+              sur le StackPanel interne) — même patron que JeuxPage / liste
               manuelle. La Visibility IsSettings est portée par le ScrollViewer.
             -->
             <ScrollViewer Grid.Row="1"
@@ -946,10 +931,10 @@
                                FontWeight="SemiBold"
                                Margin="0,0,0,6"/>
 
-                    <!-- Modes « par jeu » (préprogrammé ET choix manuel) :
-                         sous-dossier par jeu + séparation formats -->
+                    <!-- Mode « par jeu » : sous-dossier par jeu +
+                         séparation formats -->
                     <StackPanel Orientation="Horizontal"
-                                Visibility="{Binding IsParJeu, Converter={StaticResource BoolToVisibilityConverter}}">
+                                Visibility="{Binding IsAuto, Converter={StaticResource BoolToVisibilityConverter}}">
                       <CheckBox Content="Sous-dossier par jeu"
                                 Style="{DynamicResource ToggleSwitchStyle}"
                                 IsChecked="{Binding CreerSousDossiers, Mode=TwoWay}"

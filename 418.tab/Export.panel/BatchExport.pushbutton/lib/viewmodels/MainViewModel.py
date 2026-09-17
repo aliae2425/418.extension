@@ -109,12 +109,11 @@ except Exception:
                                       ManualSheetVM, FiltreItemVM)
 
 
-_MODES = (u'auto', u'manual', u'settings', u'jeux_manuel')
+_MODES = (u'auto', u'manual', u'settings')
 _SURFACE_TITRES = {
-    u'auto': u'Jeux qualifiés à l\'export',
+    u'auto': u'Jeux à l\'export',
     u'manual': u'Sélection manuelle',
     u'settings': u'Paramètres',
-    u'jeux_manuel': u'Jeux — choix manuel',
 }
 
 # Clés UserConfig (namespace 'batch_export') pour le mappage des paramètres
@@ -238,15 +237,14 @@ class MainViewModel(BaseViewModel):
             except Exception:
                 self._dwg_service = None
 
-        # Données « par jeu ». `_collections` reflète la VÉRITÉ REVIT (flags
-        # lus dans les paramètres Oui/Non) ; `_collections_manuel` en est un
-        # double éditable en mémoire pour le mode « choix manuel ».
+        # Données « par jeu » : liste unique, éditable (badges cliquables).
+        # Les flags partent des paramètres Oui/Non lus dans Revit (seeding)
+        # puis suivent les clics de l'utilisateur.
         self._collections = []
-        self._collections_manuel = []
-        # Badges cliqués par l'utilisateur en mode « choix manuel », indexés
-        # par titre de jeu : {titre: (export, carnet, dwg)}. Alimenté par
-        # `_on_collection_manuel_change`, relu par `refresh_par_jeu`. Vit en
-        # mémoire le temps de la session, jamais persisté ni écrit dans Revit.
+        # Badges cliqués par l'utilisateur, indexés par titre de jeu :
+        # {titre: (export, carnet, dwg)}. Alimenté par
+        # `_on_collection_change`, relu par `refresh_par_jeu`. Vit en mémoire
+        # le temps de la session, jamais persisté ni écrit dans Revit.
         self._choix_manuels = {}
 
         # Export (Task 3) : retour visuel (progress_cb/log_cb de l'orchestrateur)
@@ -310,12 +308,8 @@ class MainViewModel(BaseViewModel):
         if value not in _MODES:
             return
         self._mode = value
-        # `NbJeuxQualifies`/`NbFeuillesQualifiees` sont calculés sur la liste
-        # ACTIVE (Revit ou mémoire) : ils changent donc avec le mode.
         for name in (u'ActiveMode', u'IsAuto', u'IsNotAuto', u'IsManual',
-                     u'IsSettings', u'IsNotSettings', u'IsJeuxManuel',
-                     u'IsParJeu', u'SurfaceTitre', u'NbJeuxQualifies',
-                     u'NbFeuillesQualifiees'):
+                     u'IsSettings', u'IsNotSettings', u'SurfaceTitre'):
             self.notify_property(name)
 
     def set_mode(self, mode):
@@ -341,17 +335,6 @@ class MainViewModel(BaseViewModel):
     @property
     def IsNotSettings(self):
         return self._mode != u'settings'
-
-    @property
-    def IsJeuxManuel(self):
-        """Mode « par jeu — choix manuel » : mêmes jeux, badges cliquables."""
-        return self._mode == u'jeux_manuel'
-
-    @property
-    def IsParJeu(self):
-        """Vrai pour les deux modes par jeu (auto et choix manuel) : ils
-        partagent l'en-tête de compteurs et la mise en page en cartes."""
-        return self._mode in (u'auto', u'jeux_manuel')
 
     @property
     def SurfaceTitre(self):
@@ -575,7 +558,6 @@ class MainViewModel(BaseViewModel):
         `resolve_for_element(elem, rows)` -> unicode.
         """
         collections_out = []
-        collections_manuel_out = []
 
         _pattern, rows_sheet = self._charger_motif('sheet')
 
@@ -628,49 +610,36 @@ class MainViewModel(BaseViewModel):
             resolved = self._resoudre_nom(coll_elem, _set_pattern or set_rows)
             carnet_apercu = (resolved + u'.pdf') if resolved else u''
 
-            collections_out.append(CollectionItemVM(
-                titre, coll_id, flag_export, flag_carnet, flag_dwg, sheets_out,
-                carnet_apercu=carnet_apercu
-            ))
-
-            # Double éditable pour le mode « choix manuel » : mêmes valeurs,
-            # mais instance DISTINCTE — cocher un badge dans l'onglet manuel
-            # ne doit pas altérer l'affichage « vérité Revit » de l'onglet par
-            # jeu. Aucun appel Revit supplémentaire : on réutilise ce qui vient
-            # d'être calculé, y compris `sheets_out` (les SheetItemVM sont
-            # immuables, les partager est sans risque).
             # Report des badges RÉELLEMENT cliqués (cf. `_choix_manuels`) :
             # `refresh_par_jeu()` est ré-appelé en cours de session (retour de
             # la modale de nommage, changement de mappage) et remettrait sinon
-            # les choix de l'utilisateur à la valeur Revit. « Session
+            # les choix de l'utilisateur à la valeur lue dans Revit. « Session
             # seulement » = perdus à la FERMETURE, pas au premier refresh.
-            m_export, m_carnet, m_dwg = self._choix_manuels.get(
+            flag_export, flag_carnet, flag_dwg = self._choix_manuels.get(
                 titre, (flag_export, flag_carnet, flag_dwg))
-            collections_manuel_out.append(CollectionItemVM(
-                titre, coll_id, m_export, m_carnet, m_dwg, sheets_out,
+
+            collections_out.append(CollectionItemVM(
+                titre, coll_id, flag_export, flag_carnet, flag_dwg, sheets_out,
                 carnet_apercu=carnet_apercu,
-                on_change=self._on_collection_manuel_change,
+                on_change=self._on_collection_change,
             ))
 
         # Tri (stable) : collections QUALIFIÉES (FlagExport=True) d'abord,
         # puis alphabétique du Titre (insensible à la casse) au sein de
         # chaque groupe. `sorted()` est stable en Python -> l'ordre relatif
         # d'items à clé égale (même Qualified, même Titre) est préservé.
-        tri = lambda c: (not c.Qualified, (c.Titre or u'').lower())
-        collections_out = sorted(collections_out, key=tri)
-        collections_manuel_out = sorted(collections_manuel_out, key=tri)
+        collections_out = sorted(
+            collections_out,
+            key=lambda c: (not c.Qualified, (c.Titre or u'').lower()))
 
         self._collections = collections_out
-        self._collections_manuel = collections_manuel_out
 
-        # Chiffres du LOG : calculés sur `collections_out` (vérité Revit) et
-        # non via les propriétés, qui suivent la liste active et donneraient
-        # les choix mémoire si le mode courant est « jeux_manuel ».
+        # Chiffres du LOG : état courant des badges (seeding Revit + clics).
         nb_jeux_qualifies = len([c for c in collections_out if c.Qualified])
         nb_feuilles_qualifiees = sum(
             len(c.Sheets) for c in collections_out if c.Qualified)
 
-        # Log du résultat du refresh (diff config ↔ qualification réelle)
+        # Log du résultat du refresh
         self._log(u'AUTO',
             u'refresh_par_jeu : {} jeux trouvés, {} qualifiés, {} feuilles qualifiées'.format(
                 len(collections_out), nb_jeux_qualifies, nb_feuilles_qualifiees))
@@ -689,17 +658,17 @@ class MainViewModel(BaseViewModel):
                 u'(vérifiez que le projet utilise des Jeux de feuilles Revit)')
         elif nb_jeux_qualifies == 0:
             self._log(u'AVERT',
-                u'  Aucun jeu qualifié — param "{}" absent ou = 0 sur tous les jeux'.format(
+                u'  Aucun jeu coché — param "{}" absent ou = 0 sur tous les jeux, '
+                u'cochez les badges à la main'.format(
                     param_export or u'(non configuré)'))
 
-        for name in (u'Collections', u'CollectionsManuel', u'NbJeuxQualifies',
+        for name in (u'Collections', u'NbJeuxQualifies',
                      u'NbFeuillesQualifiees'):
             self.notify_property(name)
 
-    def _on_collection_manuel_change(self, item):
-        """Callback passé à chaque `CollectionItemVM` du mode « choix
-        manuel » : un clic sur un badge change la qualification, donc les
-        deux compteurs de l'en-tête.
+    def _on_collection_change(self, item):
+        """Callback passé à chaque `CollectionItemVM` : un clic sur un badge
+        change la qualification, donc les deux compteurs de l'en-tête.
 
         Mémorise aussi le choix, par titre de jeu, pour que `refresh_par_jeu()`
         le reporte. On n'enregistre QUE les jeux effectivement cliqués :
@@ -719,22 +688,12 @@ class MainViewModel(BaseViewModel):
         return self._collections
 
     @property
-    def CollectionsManuel(self):
-        return self._collections_manuel
-
-    def _collections_actives(self):
-        """La liste qui pilote l'export et les compteurs : les choix mémoire
-        en mode « jeux_manuel », la vérité Revit partout ailleurs."""
-        return self._collections_manuel if self.IsJeuxManuel else self._collections
-
-    @property
     def NbJeuxQualifies(self):
-        return len([c for c in self._collections_actives() if c.Qualified])
+        return len([c for c in self._collections if c.Qualified])
 
     @property
     def NbFeuillesQualifiees(self):
-        return sum(len(c.Sheets) for c in self._collections_actives()
-                   if c.Qualified)
+        return sum(len(c.Sheets) for c in self._collections if c.Qualified)
 
     # ------------------------------------------------------------------
     # Mode « feuille par feuille » (manuel)
@@ -1370,15 +1329,6 @@ class MainViewModel(BaseViewModel):
         self._progress_value = v
         self.notify_property(u'ProgressValue')
 
-    def _noms_params_mappes(self):
-        """Les trois noms de paramètres Oui/Non attendus par l'orchestrateur.
-
-        Le reste de sa configuration (destination, motifs de nommage, setups
-        PDF/DWG) est lu par l'orchestrateur lui-même depuis la MÊME instance
-        UserConfig, injectée à sa construction.
-        """
-        return (self.ParamExport, self.ParamCarnet, self.ParamDwg)
-
     # ------------------------------------------------------------------
     # Log de session (diagnostic complet : actions UI + export)
     # ------------------------------------------------------------------
@@ -1424,8 +1374,9 @@ class MainViewModel(BaseViewModel):
                 self.CreerSousDossiers, self.SeparerFormats))
             if not self.ParamExport:
                 self._log(u'AVERT',
-                    u'ParamExport non configuré → mode AUTO ne qualifiera AUCUN jeu '
-                    u'(allez dans Réglages pour mapper le paramètre Export)')
+                    u'ParamExport non configuré → les badges « Par jeu » partiront '
+                    u'tous éteints, cochez-les à la main (ou mappez le paramètre '
+                    u'Export dans Réglages pour les pré-remplir)')
         except Exception:
             pass
 
@@ -1490,10 +1441,8 @@ class MainViewModel(BaseViewModel):
         """Dispatch par mode : délègue à `lancer_export_manuel()` en mode
         manuel, ou lance l'export « par jeu » via `ExportOrchestrator.run()`.
 
-        En mode « jeux_manuel », le chemin est le MÊME (destination,
-        callbacks, durée, modale de fin) à une différence près : les plans ne
-        sont plus déduits des paramètres Revit mais des `flags` cochés dans
-        l'UI, passés tels quels à `run()`.
+        Les plans viennent TOUJOURS des badges cochés dans l'UI (`flags`),
+        jamais d'une relecture des paramètres Revit.
 
         Ne lève jamais hors Revit : `StatusText` reflète l'indisponibilité.
         """
@@ -1512,63 +1461,34 @@ class MainViewModel(BaseViewModel):
         self.StatusText = u"Préparation de l'export..."
         self.ProgressValue = 0
 
-        # Choix mémoire de l'onglet « jeux manuel » : (titre, export, carnet,
-        # dwg) par jeu. None en mode auto -> l'orchestrateur relit Revit.
-        flags = None
-        if self.IsJeuxManuel:
-            flags = [(c.Titre, c.FlagExport, c.FlagCarnet, c.FlagDwg)
-                     for c in self._collections_manuel]
+        # Badges cochés dans l'onglet « Par jeu » : (titre, export, carnet,
+        # dwg) par jeu. Seule source de qualification de l'export.
+        flags = [(c.Titre, c.FlagExport, c.FlagCarnet, c.FlagDwg)
+                 for c in self._collections]
 
         # --- Log config complète avant lancement ---
-        self._log(u'EXPORT', u'--- Export {} lancé ---'.format(
-            u'JEUX MANUEL' if flags is not None else u'AUTO'))
-        if flags is not None:
-            self._log(u'EXPORT',
-                u'Choix manuel : les paramètres Oui/Non Revit sont IGNORÉS, '
-                u'seuls les badges cochés dans l\'UI pilotent l\'export '
-                u'(aucune écriture dans la maquette).')
-        else:
-            self._log(u'EXPORT', u'ParamExport="{}" | ParamCarnet="{}" | ParamDwg="{}"'.format(
-                self.ParamExport, self.ParamCarnet, self.ParamDwg))
+        self._log(u'EXPORT', u'--- Export PAR JEU lancé ---')
+        self._log(u'EXPORT',
+            u'Les paramètres Oui/Non Revit ne servent qu\'à pré-remplir les '
+            u'badges ; seuls les badges cochés pilotent l\'export '
+            u'(aucune écriture dans la maquette).')
         self._log(u'EXPORT', u'Destination="{}" | SousDossiers={} | FormatsSepar={}'.format(
             self.DestinationPath, self.CreerSousDossiers, self.SeparerFormats))
         self._log(u'EXPORT', u'SetupPdf="{}" | SetupDwg="{}"'.format(
             self.SetupPdf, self.SetupDwg))
-        if flags is None and not self.ParamExport:
-            self._log(u'AVERT',
-                u'ParamExport vide → aucun jeu ne sera qualifié (mappez dans Réglages)')
 
         # --- Plan prévisionnel : ce que le programme va faire ---
         try:
-            if flags is not None:
-                self._log(u'PLAN', u'{} jeux analysés :'.format(len(flags)))
-                for titre, f_export, f_carnet, f_dwg in flags:
-                    etat = u'EXPORT' if f_export else u'IGNORE'
-                    self._log(u'PLAN',
-                        u'  [{}] "{}" → PDF={} DWG={} par_feuille={}'.format(
-                            etat, titre, bool(f_export), bool(f_dwg),
-                            not bool(f_carnet)))
-                if not any(f[1] for f in flags):
-                    self._log(u'AVERT', u'  → Aucun jeu coché dans l\'onglet manuel'
-                              if flags else u'  → Aucun jeu dans le document')
-            else:
-                p_export, p_carnet, p_dwg = self._noms_params_mappes()
-                plans = orch.plan_exports_for_collections(
-                    self._doc, p_export, p_carnet, p_dwg)
-                self._log(u'PLAN', u'{} jeux analysés :'.format(len(plans)))
-                for p in plans:
-                    etat = u'EXPORT' if p.do_export else u'IGNORE'
-                    self._log(u'PLAN',
-                        u'  [{}] "{}" → PDF={} DWG={} par_feuille={}'.format(
-                            etat, p.collection_name, p.do_pdf, p.do_dwg, p.per_sheet))
-                if not any(p.do_export for p in plans):
-                    if plans:
-                        self._log(u'AVERT',
-                            u'  → Tous les jeux ignorés : '
-                            u'param "{}" absent/faux sur chaque SheetCollection'.format(
-                                self.ParamExport or u'(non configuré)'))
-                    else:
-                        self._log(u'AVERT', u'  → Aucun jeu dans le document')
+            self._log(u'PLAN', u'{} jeux analysés :'.format(len(flags)))
+            for titre, f_export, f_carnet, f_dwg in flags:
+                etat = u'EXPORT' if f_export else u'IGNORE'
+                self._log(u'PLAN',
+                    u'  [{}] "{}" → PDF={} DWG={} par_feuille={}'.format(
+                        etat, titre, bool(f_export), bool(f_dwg),
+                        not bool(f_carnet)))
+            if not any(f[1] for f in flags):
+                self._log(u'AVERT', u'  → Aucun jeu coché dans l\'onglet Par jeu'
+                          if flags else u'  → Aucun jeu dans le document')
         except Exception as _pe:
             self._log(u'PLAN', u'Erreur calcul plan : {}'.format(_pe))
 
@@ -1577,17 +1497,15 @@ class MainViewModel(BaseViewModel):
         _t0 = time.time()
         _export_ok = False
         try:
-            p_export, p_carnet, p_dwg = self._noms_params_mappes()
             # `run()` rend False si l'utilisateur a arrêté l'export sur un
             # fichier existant -> pas de modale de fin, StatusText conserve
             # le message posé par log_cb.
             _export_ok = orch.run(
                 self._doc,
-                p_export, p_carnet, p_dwg,
+                flags,
                 progress_cb=progress_cb,
                 log_cb=log_cb,
                 destination=self.DestinationPath,
-                flags=flags,
             ) is not False
         except Exception as exc:
             try:
@@ -1598,8 +1516,8 @@ class MainViewModel(BaseViewModel):
             self._log(u'ERREUR', msg)
 
         self.DureeExport = _format_duree(time.time() - _t0)
-        self._log(u'EXPORT', u'--- Fin export {} ({}) ---'.format(
-            u'JEUX MANUEL' if flags is not None else u'AUTO', self.DureeExport))
+        self._log(u'EXPORT', u'--- Fin export PAR JEU ({}) ---'.format(
+            self.DureeExport))
         if _export_ok:
             self.StatusText = u''
             if callable(self._on_export_done_cb):

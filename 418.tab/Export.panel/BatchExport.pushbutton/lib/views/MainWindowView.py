@@ -89,8 +89,7 @@ class MainWindowView(BaseWindow):
             self._vm.refresh_manuel()
         except Exception:
             pass
-        self._mount_page('AutoPage.xaml', 'AutoPageHost')
-        self._mount_page('JeuxManuelPage.xaml', 'JeuxManuelPageHost')
+        self._mount_page('JeuxPage.xaml', 'JeuxPageHost')
 
     # ------------------------------------------------------------------
     # Charge une page de GUI/Views/pages/ comme arbre séparé et l'insère dans
@@ -113,10 +112,9 @@ class MainWindowView(BaseWindow):
                 pass
 
     def _mount_page(self, filename, host_name):
-        """La page partage le DataContext du shell (le MainViewModel) : ses
-        `{Binding Collections}` / `{Binding CollectionsManuel}` suivent donc
-        directement notify_property, sans VM intermédiaire ni pont de
-        re-synchronisation."""
+        """La page partage le DataContext du shell (le MainViewModel) : son
+        `{Binding Collections}` suit donc directement notify_property, sans
+        VM intermédiaire ni pont de re-synchronisation."""
         if self._window is None:
             return
         host = self._window.FindName(host_name)
@@ -317,7 +315,6 @@ class MainWindowView(BaseWindow):
         if self._window is None:
             return
         mapping = (('NavAuto', u'auto'),
-                   ('NavJeuxManuel', u'jeux_manuel'),
                    ('NavManual', u'manual'),
                    ('NavSettings', u'settings'))
         for name, mode in mapping:
