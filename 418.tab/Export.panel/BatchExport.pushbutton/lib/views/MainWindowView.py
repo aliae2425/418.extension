@@ -131,7 +131,7 @@ class MainWindowView(BaseWindow):
         if ExportDoneView is None:
             return
         try:
-            view = ExportDoneView(destination)
+            view = ExportDoneView(destination, getattr(self._vm, 'DureeExport', None))
             view._load()
             if view._window is not None and self._window is not None:
                 try:

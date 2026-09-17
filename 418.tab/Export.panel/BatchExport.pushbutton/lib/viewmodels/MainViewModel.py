@@ -1,6 +1,8 @@
 ﻿# -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+import time
+
 # Journal de diagnostic : le logger pyRevit écrit dans la fenêtre de sortie
 # du script (et respecte le niveau de verbosité choisi par l'utilisateur).
 # Hors Revit (tests standalone), `get_logger` est indisponible -> no-op.
@@ -148,6 +150,12 @@ def _champ(source, cle, defaut=None):
     return defaut
 
 
+def _format_duree(secondes):
+    """Secondes -> 'hh:mm:ss'. Au-delà de 24 h, les heures débordent (99:00:00)."""
+    s = int(max(0, secondes))
+    return u'{:02d}:{:02d}:{:02d}'.format(s // 3600, (s // 60) % 60, s % 60)
+
+
 class MainViewModel(BaseViewModel):
     def __init__(self, doc=None, sheet_service=None, naming_service=None,
                  destination_service=None, config=None,
@@ -258,6 +266,9 @@ class MainViewModel(BaseViewModel):
         # les feuilles cochées PDF ou DWG. Survit à refresh_manuel().
         self._masquer_non_selectionnees = False
         self._on_export_done_cb = None
+        # Durée du dernier export réussi, format hh:mm:ss (lue par la modale
+        # de fin via le VM -- garde le callback à un seul argument).
+        self.DureeExport = u'00:00:00'
 
         # Aperçu des conventions de nommage (page Réglages) : motifs bruts
         # (chaînes à jetons ou anciens templates), recalculés par
@@ -1465,6 +1476,7 @@ class MainViewModel(BaseViewModel):
 
         progress_cb, log_cb = self._make_export_callbacks_with_log()
 
+        _t0 = time.time()
         _export_ok = False
         try:
             p_export, p_carnet, p_dwg = self._noms_params_mappes()
@@ -1486,7 +1498,8 @@ class MainViewModel(BaseViewModel):
             self.StatusText = msg
             self._log(u'ERREUR', msg)
 
-        self._log(u'EXPORT', u'--- Fin export AUTO ---')
+        self.DureeExport = _format_duree(time.time() - _t0)
+        self._log(u'EXPORT', u'--- Fin export AUTO ({}) ---'.format(self.DureeExport))
         if _export_ok:
             self.StatusText = u''
             if callable(self._on_export_done_cb):
@@ -1536,6 +1549,7 @@ class MainViewModel(BaseViewModel):
 
         progress_cb, log_cb = self._make_export_callbacks_with_log()
 
+        _t0 = time.time()
         _export_ok = False
         try:
             # Cf. lancer_export() : False = arrêté sur un fichier existant.
@@ -1556,7 +1570,8 @@ class MainViewModel(BaseViewModel):
             self.StatusText = msg
             self._log(u'ERREUR', msg)
 
-        self._log(u'EXPORT', u'--- Fin export MANUEL ---')
+        self.DureeExport = _format_duree(time.time() - _t0)
+        self._log(u'EXPORT', u'--- Fin export MANUEL ({}) ---'.format(self.DureeExport))
         if _export_ok:
             self.StatusText = u''
             if callable(self._on_export_done_cb):

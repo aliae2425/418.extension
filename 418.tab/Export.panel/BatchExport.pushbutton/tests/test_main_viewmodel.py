@@ -16,7 +16,34 @@ if _BUTTON not in sys.path:
 import tempfile as _tf
 os.environ['PY418_CONFIG_DIR'] = _tf.mkdtemp(prefix='418test_')
 
-from lib.viewmodels.MainViewModel import MainViewModel, ManualSheetVM, FiltreItemVM
+from lib.viewmodels.MainViewModel import (MainViewModel, ManualSheetVM, FiltreItemVM,
+                                          _format_duree)
+
+
+class TestFormatDuree(unittest.TestCase):
+    """Durée affichée dans la modale de fin d'export : toujours hh:mm:ss."""
+
+    def test_formats(self):
+        self.assertEqual(_format_duree(0), u'00:00:00')
+        self.assertEqual(_format_duree(59.9), u'00:00:59')
+        self.assertEqual(_format_duree(60), u'00:01:00')
+        self.assertEqual(_format_duree(3661), u'01:01:01')
+        self.assertEqual(_format_duree(86400), u'24:00:00')
+        self.assertEqual(_format_duree(-5), u'00:00:00')
+
+    def test_duree_renseignee_apres_export_manuel(self):
+        vm = MainViewModel(
+            doc=object(),
+            sheet_service=FakeSheetService(),
+            naming_service=FakeNamingService(),
+            destination_service=FakeDestinationService(u'C:/Test'),
+            config=FakeConfig(),
+        )
+        vm._sheets_manuel = [ManualSheetVM(u'01', u'Feuille 1', export_pdf=True)]
+        vm.lancer_export_manuel()
+        h, m, s = vm.DureeExport.split(u':')
+        self.assertTrue(len(h) == len(m) == len(s) == 2)
+        self.assertTrue((h + m + s).isdigit())
 
 
 class TestMainViewModel(unittest.TestCase):
