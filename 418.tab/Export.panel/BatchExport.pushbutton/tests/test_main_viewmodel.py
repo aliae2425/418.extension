@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+import json
 import os
 import sys
 import unittest
@@ -90,11 +91,10 @@ class TestMainViewModel(unittest.TestCase):
 # ----------------------------------------------------------------------
 
 class FakeConfig(object):
-    """Faux UserConfig en mémoire (même contrat get/set, cf. FakeConfig de
-    test_sheet_collection_service.py). Nécessaire car le vrai `UserConfig`
-    est instanciable hors Revit mais son backend pyRevit est absent -> get/set
-    deviennent des no-op silencieux, rendant le mapping ParamExport/Carnet/Dwg
-    non testable sans injection."""
+    """Faux UserConfig en mémoire (même contrat get/set). Nécessaire car le
+    vrai `UserConfig` est instanciable hors Revit mais son backend pyRevit est
+    absent -> get/set deviennent des no-op silencieux, rendant la persistance
+    des badges « Par jeu » non testable sans injection."""
 
     def __init__(self):
         self._store = {}
@@ -105,6 +105,17 @@ class FakeConfig(object):
     def set(self, key, value):
         self._store[key] = value
         return True
+
+
+def config_avec_badges(badges):
+    """`FakeConfig` pré-alimentée avec `{titre: (export, carnet, dwg)}`, au
+    format exact que `MainViewModel._enregistrer_choix()` écrit (JSON sous la
+    clé `jeux_badges`) : les badges sont ainsi relus par le vrai
+    `_charger_choix()`, comme à la réouverture de l'outil."""
+    cfg = FakeConfig()
+    cfg.set('jeux_badges',
+            json.dumps(dict((t, list(v)) for t, v in badges.items())))
+    return cfg
 
 
 class FakeCollectionElem(object):
@@ -128,19 +139,13 @@ class FakeSheetElem(object):
 
 
 class FakeSheetService(object):
-    """Faux SheetCollectionService : 2 collections (une qualifiée, une non)."""
+    """Faux SheetCollectionService : 2 collections ('Jeu A' 2 feuilles,
+    'Jeu B' 1 feuille). Lecture seule du « document » : aucun badge n'en
+    provient, ils viennent tous de la config (cf. `config_avec_badges`)."""
 
     def __init__(self):
         self._elem_a = FakeCollectionElem('A')
         self._elem_b = FakeCollectionElem('B')
-        self._flags = {
-            (self._elem_a, 'Export'): True,
-            (self._elem_a, 'Carnet'): True,
-            (self._elem_a, 'Dwg'): False,
-            (self._elem_b, 'Export'): False,
-            (self._elem_b, 'Carnet'): False,
-            (self._elem_b, 'Dwg'): False,
-        }
         self._sheets = {
             'id-A': [
                 {'Numero': '01', 'Nom': 'RDC', 'CollectionId': 'id-A', 'Elem': FakeSheetElem('01')},
@@ -159,12 +164,6 @@ class FakeSheetService(object):
 
     def list_sheets(self, collection_id=None):
         return self._sheets.get(collection_id, [])
-
-    def read_flag(self, elem, param_name):
-        return self._flags.get((elem, param_name), False)
-
-    def list_boolean_params(self):
-        return ['A', 'B', 'C']
 
     def list_all_sheets(self):
         # Toutes les feuilles, triées par numéro (comme le vrai service).
@@ -231,6 +230,9 @@ class FakeNamingServiceCarnet(object):
 
 
 class TestMainViewModelParJeu(unittest.TestCase):
+    """Document jamais configuré (config vide) : les jeux sont bien listés,
+    mais AUCUN badge n'est allumé — rien n'est lu dans la maquette."""
+
     def setUp(self):
         self.sheet_service = FakeSheetService()
         self.naming_service = FakeNamingService()
@@ -241,34 +243,27 @@ class TestMainViewModelParJeu(unittest.TestCase):
             destination_service=None,
             config=FakeConfig(),
         )
-        # Mapping paramètres attendu par FakeSheetService.read_flag
-        self.vm.ParamExport = 'Export'
-        self.vm.ParamCarnet = 'Carnet'
-        self.vm.ParamDwg = 'Dwg'
 
     def test_refresh_par_jeu_construit_deux_collections(self):
         self.vm.refresh_par_jeu()
         self.assertEqual(len(self.vm.Collections), 2)
 
-    def test_refresh_par_jeu_flags_corrects(self):
+    def test_refresh_par_jeu_tous_badges_eteints_sans_config(self):
         self.vm.refresh_par_jeu()
-        jeu_a = self.vm.Collections[0]
-        jeu_b = self.vm.Collections[1]
-        self.assertTrue(jeu_a.FlagExport)
-        self.assertTrue(jeu_a.FlagCarnet)
-        self.assertFalse(jeu_a.FlagDwg)
-        self.assertTrue(jeu_a.Qualified)
-        self.assertFalse(jeu_b.FlagExport)
-        self.assertFalse(jeu_b.Qualified)
+        for jeu in self.vm.Collections:
+            self.assertFalse(jeu.FlagExport)
+            self.assertFalse(jeu.FlagCarnet)
+            self.assertFalse(jeu.FlagDwg)
+            self.assertFalse(jeu.Qualified)
 
     def test_refresh_par_jeu_nb_jeux_qualifies(self):
         self.vm.refresh_par_jeu()
-        self.assertEqual(self.vm.NbJeuxQualifies, 1)
+        self.assertEqual(self.vm.NbJeuxQualifies, 0)
 
     def test_refresh_par_jeu_nb_feuilles_qualifiees(self):
         self.vm.refresh_par_jeu()
-        # Seul le Jeu A (qualifié) compte ses 2 feuilles.
-        self.assertEqual(self.vm.NbFeuillesQualifiees, 2)
+        # Aucun jeu coché -> aucune feuille qualifiée.
+        self.assertEqual(self.vm.NbFeuillesQualifiees, 0)
 
     def test_refresh_par_jeu_nom_projete_non_vide(self):
         self.vm.refresh_par_jeu()
@@ -292,8 +287,8 @@ class TestMainViewModelParJeu(unittest.TestCase):
         self.vm.refresh_par_jeu()
         jeu_a = self.vm.Collections[0]
         self.assertEqual(jeu_a.Titre, u'Jeu A')
-        self.assertTrue(jeu_a.FlagExport)
-        self.assertTrue(jeu_a.Qualified)
+        self.assertIs(jeu_a.FlagExport, False)
+        self.assertIs(jeu_a.Qualified, False)
         self.assertEqual(jeu_a.Sheets[0].Numero, '01')
 
 
@@ -313,9 +308,6 @@ class TestMainViewModelParJeuPatternJetons(unittest.TestCase):
             destination_service=None,
             config=FakeConfig(),
         )
-        self.vm.ParamExport = 'Export'
-        self.vm.ParamCarnet = 'Carnet'
-        self.vm.ParamDwg = 'Dwg'
 
     def test_nom_projete_pilote_par_le_pattern_jetons(self):
         self.vm.refresh_par_jeu()
@@ -343,11 +335,8 @@ class TestMainViewModelParJeuCarnetApercu(unittest.TestCase):
             sheet_service=self.sheet_service,
             naming_service=self.naming_service,
             destination_service=None,
-            config=FakeConfig(),
+            config=config_avec_badges({u'Jeu A': (True, True, False)}),
         )
-        self.vm.ParamExport = 'Export'
-        self.vm.ParamCarnet = 'Carnet'
-        self.vm.ParamDwg = 'Dwg'
 
     def test_carnet_apercu_resolu_avec_extension_pdf(self):
         self.vm.refresh_par_jeu()
@@ -378,10 +367,8 @@ class TestMainViewModelParJeuCarnetApercu(unittest.TestCase):
             sheet_service=FakeSheetService(),
             naming_service=FakeNamingServiceSetVide(),
             destination_service=None,
-            config=FakeConfig(),
+            config=config_avec_badges({u'Jeu A': (True, True, False)}),
         )
-        vm.ParamExport = 'Export'
-        vm.ParamCarnet = 'Carnet'
         vm.refresh_par_jeu()
         jeu_a = vm.Collections[0]
         self.assertTrue(jeu_a.FlagCarnet)
@@ -389,95 +376,95 @@ class TestMainViewModelParJeuCarnetApercu(unittest.TestCase):
         self.assertFalse(jeu_a.CarnetApercuVisible)
 
 
-class TestMainViewModelMappingParametres(unittest.TestCase):
-    """Mapping paramètres : getters par défaut + setters persistants (fausse config)."""
+class TestMainViewModelBadgesJeuxPersistance(unittest.TestCase):
+    """Persistance des badges « Par jeu » (clé `jeux_badges` d'UserConfig).
 
-    def setUp(self):
-        self.vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
-                                 naming_service=FakeNamingService(),
-                                 config=FakeConfig())
+    C'est LE contrat de la fonctionnalité : un badge cliqué est écrit dans la
+    config, et une nouvelle session (nouveau `MainViewModel` sur la même
+    config) le retrouve coché."""
 
-    def test_param_export_par_defaut_vide(self):
-        vm = MainViewModel(doc=None)
-        self.assertEqual(vm.ParamExport, u'')
-        self.assertEqual(vm.ParamCarnet, u'')
-        self.assertEqual(vm.ParamDwg, u'')
-
-    def test_param_export_setter_relit_la_valeur(self):
-        self.vm.ParamExport = u'MonParamExport'
-        self.assertEqual(self.vm.ParamExport, u'MonParamExport')
-
-    def test_param_carnet_dwg_setters(self):
-        self.vm.ParamCarnet = u'MonCarnet'
-        self.vm.ParamDwg = u'MonDwg'
-        self.assertEqual(self.vm.ParamCarnet, u'MonCarnet')
-        self.assertEqual(self.vm.ParamDwg, u'MonDwg')
-
-
-class TestMainViewModelModeParametres(unittest.TestCase):
-    """Mode Paramètres (Task 4) : ParametresDisponibles + re-qualification
-    déclenchée par les setters ParamExport/ParamCarnet/ParamDwg."""
-
-    def setUp(self):
-        self.sheet_service = FakeSheetService()
-        self.naming_service = FakeNamingService()
-        self.vm = MainViewModel(
+    def _vm(self, cfg):
+        return MainViewModel(
             doc=None,
-            sheet_service=self.sheet_service,
-            naming_service=self.naming_service,
+            sheet_service=FakeSheetService(),
+            naming_service=FakeNamingService(),
             destination_service=None,
-            config=FakeConfig(),
+            config=cfg,
         )
 
-    def test_parametres_disponibles_source_service(self):
-        self.assertEqual(self.vm.ParametresDisponibles, ['A', 'B', 'C'])
+    def test_clic_sur_un_badge_ecrit_dans_la_config(self):
+        cfg = FakeConfig()
+        vm = self._vm(cfg)
+        vm.refresh_par_jeu()
+        vm.Collections[0].FlagExport = True
+        self.assertEqual(json.loads(cfg.get('jeux_badges')),
+                         {u'Jeu A': [True, False, False]})
 
-    def test_parametres_disponibles_vide_sans_service(self):
-        vm = MainViewModel(doc=None)
-        self.assertEqual(vm.ParametresDisponibles, [])
+    def test_une_nouvelle_session_retrouve_les_badges_coches(self):
+        cfg = FakeConfig()
+        vm1 = self._vm(cfg)
+        vm1.refresh_par_jeu()
+        jeu_b = next(c for c in vm1.Collections if c.Titre == u'Jeu B')
+        jeu_b.FlagExport = True
+        jeu_b.FlagDwg = True
 
-    def test_parametres_disponibles_vide_si_service_sans_methode(self):
-        class ServiceSansListBooleanParams(object):
-            def list_collections(self):
-                return []
+        vm2 = self._vm(cfg)  # même magasin de config, VM neuf
+        vm2.refresh_par_jeu()
+        apres = next(c for c in vm2.Collections if c.Titre == u'Jeu B')
+        self.assertTrue(apres.FlagExport)
+        self.assertFalse(apres.FlagCarnet)
+        self.assertTrue(apres.FlagDwg)
+        # Le jeu jamais cliqué reste éteint.
+        self.assertFalse(
+            next(c for c in vm2.Collections if c.Titre == u'Jeu A').FlagExport)
 
-            def list_sheets(self, collection_id=None):
-                return []
+    def test_decocher_un_badge_est_aussi_persiste(self):
+        cfg = config_avec_badges({u'Jeu A': (True, True, True)})
+        vm1 = self._vm(cfg)
+        vm1.refresh_par_jeu()
+        vm1.Collections[0].FlagCarnet = False
 
-        vm = MainViewModel(doc=None, sheet_service=ServiceSansListBooleanParams(),
-                            config=FakeConfig())
-        self.assertEqual(vm.ParametresDisponibles, [])
-
-    def test_setter_param_export_declenche_requalification(self):
-        # FakeSheetService qualifie Jeu A si le paramètre 'Export' est vrai.
-        self.vm.ParamExport = 'Export'
-        jeu_a = self.vm.Collections[0]
+        vm2 = self._vm(cfg)
+        vm2.refresh_par_jeu()
+        jeu_a = next(c for c in vm2.Collections if c.Titre == u'Jeu A')
         self.assertTrue(jeu_a.FlagExport)
-        self.assertTrue(jeu_a.Qualified)
+        self.assertFalse(jeu_a.FlagCarnet)
+        self.assertTrue(jeu_a.FlagDwg)
 
-    def test_setter_param_carnet_declenche_requalification(self):
-        self.vm.ParamCarnet = 'Carnet'
-        jeu_a = self.vm.Collections[0]
-        self.assertTrue(jeu_a.FlagCarnet)
+    def test_config_absente_ne_leve_pas(self):
+        # `config=None` -> le VM tente le vrai UserConfig (no-op hors Revit).
+        vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                           naming_service=FakeNamingService())
+        vm.refresh_par_jeu()
+        vm.Collections[0].FlagExport = True  # ne doit pas lever
+        self.assertTrue(vm.Collections[0].FlagExport)
 
-    def test_setter_param_dwg_declenche_requalification(self):
-        self.vm.ParamExport = 'Export'
-        self.vm.ParamDwg = 'Dwg'
-        jeu_b = self.vm.Collections[1]
-        self.assertFalse(jeu_b.FlagDwg)
 
-    def test_setter_valeur_identique_est_idempotent(self):
-        self.vm.ParamExport = 'Export'
-        appels_avant = len(self.vm.Collections)
-        # Réassigner la même valeur ne doit pas planter ni changer l'état.
-        self.vm.ParamExport = 'Export'
-        self.assertEqual(len(self.vm.Collections), appels_avant)
-        self.assertEqual(self.vm.ParamExport, 'Export')
+class TestMainViewModelChargerChoixRobustesse(unittest.TestCase):
+    """`_charger_choix()` est best-effort : une config illisible ne doit
+    JAMAIS empêcher l'ouverture de l'outil, seulement repartir éteint."""
 
-    def test_setter_ne_leve_pas_sans_service(self):
-        vm = MainViewModel(doc=None, config=FakeConfig())
-        vm.ParamExport = 'X'
-        self.assertEqual(vm.ParamExport, 'X')
+    def _badges(self, valeur_brute):
+        cfg = FakeConfig()
+        if valeur_brute is not None:
+            cfg.set('jeux_badges', valeur_brute)
+        return MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                             naming_service=FakeNamingService(),
+                             config=cfg)._badges_jeux
+
+    def test_cle_absente_donne_dict_vide(self):
+        self.assertEqual(self._badges(None), {})
+
+    def test_json_corrompu_donne_dict_vide(self):
+        self.assertEqual(self._badges(u'{ceci nest pas du json'), {})
+
+    def test_json_qui_nest_pas_un_dict_donne_dict_vide(self):
+        self.assertEqual(self._badges(u'[1, 2, 3]'), {})
+
+    def test_entree_malformee_ignoree_sans_perdre_les_autres(self):
+        brut = json.dumps({u'Jeu A': [True, False],          # longueur != 3
+                           u'Jeu B': [True, True, False]})
+        self.assertEqual(self._badges(brut), {u'Jeu B': (True, True, False)})
 
 
 class TestMainViewModelModeManuel(unittest.TestCase):
@@ -1184,52 +1171,29 @@ class TestFiltreItemVM(unittest.TestCase):
         self.assertTrue(item.IsActif)
 
 
-class FakeCollectionElemQualif(object):
-    """Faux élément de collection portant un booléen 'Export' direct, pour
-    exercer le tri par-jeu avec des cas où alpha et qualifié divergent
-    (cf. FakeSheetServiceTriMixte)."""
-
-    def __init__(self, export):
-        self.export = export
-
-
 class FakeSheetServiceTriMixte(object):
-    """Faux SheetCollectionService dédié au test de tri : 4 collections où
-    l'ordre alphabétique brut NE correspond PAS à l'ordre qualifié-d'abord
-    attendu -- nécessaire pour discriminer un tri par groupe (qualifiées
-    d'abord, alpha dans chaque groupe) d'un simple tri alpha global.
+    """Faux SheetCollectionService dédié au test de tri : 4 collections
+    ('Abc', 'Nord', 'Sud', 'Zeb') listées par ordre alphabétique.
 
-    Jeux (Titre -> qualifié) :
-      'Abc' -> False, 'Nord' -> False, 'Sud' -> True, 'Zeb' -> True
-    Attendu après tri : ['Sud', 'Zeb', 'Abc', 'Nord']
-    (qualifiées d'abord par ordre alpha, puis non-qualifiées par ordre alpha)
+    Le test coche 'Sud' et 'Zeb' pour que l'ordre alphabétique brut NE
+    corresponde PAS à l'ordre qualifié-d'abord attendu -- nécessaire pour
+    discriminer un tri par groupe d'un simple tri alpha global.
     """
 
     def __init__(self):
         self._defs = [
-            ('Abc', 'id-abc', False),
-            ('Nord', 'id-nord', False),
-            ('Sud', 'id-sud', True),
-            ('Zeb', 'id-zeb', True),
+            ('Abc', 'id-abc'),
+            ('Nord', 'id-nord'),
+            ('Sud', 'id-sud'),
+            ('Zeb', 'id-zeb'),
         ]
-        self._elems = {cid: FakeCollectionElemQualif(exp) for (_, cid, exp) in self._defs}
 
     def list_collections(self):
-        return [
-            {'Titre': titre, 'Id': cid, 'Elem': self._elems[cid]}
-            for (titre, cid, _exp) in self._defs
-        ]
+        return [{'Titre': titre, 'Id': cid, 'Elem': FakeCollectionElem(titre)}
+                for (titre, cid) in self._defs]
 
     def list_sheets(self, collection_id=None):
         return []
-
-    def read_flag(self, elem, param_name):
-        if param_name == 'Export':
-            return bool(elem.export)
-        return False
-
-    def list_boolean_params(self):
-        return ['Export']
 
 
 class TestMainViewModelParJeuTri(unittest.TestCase):
@@ -1243,9 +1207,9 @@ class TestMainViewModelParJeuTri(unittest.TestCase):
             sheet_service=FakeSheetServiceTriMixte(),
             naming_service=FakeNamingService(),
             destination_service=None,
-            config=FakeConfig(),
+            config=config_avec_badges({u'Sud': (True, False, False),
+                                       u'Zeb': (True, False, False)}),
         )
-        self.vm.ParamExport = 'Export'
 
     def test_qualifiees_avant_non_qualifiees_puis_alpha(self):
         self.vm.refresh_par_jeu()
@@ -1733,9 +1697,8 @@ class TestCollectionItemVMSetters(unittest.TestCase):
 
 
 class TestMainViewModelCollectionsEditables(unittest.TestCase):
-    """`Collections` : liste UNIQUE et éditable. Les flags partent des
-    paramètres Oui/Non lus dans Revit (seeding), puis suivent les clics de
-    l'utilisateur sur les badges."""
+    """`Collections` : liste UNIQUE et éditable. Les flags viennent des
+    badges mémorisés (config) puis suivent les clics de l'utilisateur."""
 
     def setUp(self):
         self.sheet_service = FakeSheetService()
@@ -1744,33 +1707,30 @@ class TestMainViewModelCollectionsEditables(unittest.TestCase):
             sheet_service=self.sheet_service,
             naming_service=FakeNamingServiceCarnet(),
             destination_service=None,
-            config=FakeConfig(),
+            config=config_avec_badges({u'Jeu A': (True, True, False)}),
         )
-        self.vm.ParamExport = 'Export'
-        self.vm.ParamCarnet = 'Carnet'
-        self.vm.ParamDwg = 'Dwg'
         self.vm.refresh_par_jeu()
 
     def _jeu(self, titre):
         return next(c for c in self.vm.Collections if c.Titre == titre)
 
-    def test_flags_seedes_depuis_les_parametres_revit(self):
+    def test_flags_repris_des_badges_memorises(self):
         jeu_a = self._jeu(u'Jeu A')
         self.assertTrue(jeu_a.FlagExport)
         self.assertTrue(jeu_a.FlagCarnet)
         self.assertFalse(jeu_a.FlagDwg)
+        # Jeu B absent de la config -> tout éteint.
         self.assertFalse(self._jeu(u'Jeu B').FlagExport)
 
     def test_chaque_item_porte_le_callback_du_vm(self):
-        # Badges cliquables : sans `on_change`, ni les compteurs ni le report
-        # des choix (cf. `_choix_manuels`) ne fonctionneraient.
+        # Badges cliquables : sans `on_change`, ni les compteurs ni la
+        # persistance des choix (cf. `_badges_jeux`) ne fonctionneraient.
         for c in self.vm.Collections:
             self.assertTrue(callable(c._on_change))
 
     def test_les_choix_survivent_a_un_refresh_en_cours_de_session(self):
         """`refresh_par_jeu()` est ré-appelé en cours de session (retour de la
-        modale de nommage, changement de mappage) : les badges cliqués doivent
-        être reportés, pas remis à la valeur Revit."""
+        modale de nommage) : les badges cliqués doivent être reportés."""
         jeu_a = self._jeu(u'Jeu A')
         jeu_a.FlagExport = False
         jeu_a.FlagDwg = True
@@ -1780,32 +1740,6 @@ class TestMainViewModelCollectionsEditables(unittest.TestCase):
         apres = self._jeu(u'Jeu A')
         self.assertFalse(apres.FlagExport)
         self.assertTrue(apres.FlagDwg)
-
-    def test_un_jeu_jamais_clique_repart_de_la_valeur_revit(self):
-        """Aucun clic sur ce jeu -> valeur Revit relue à chaque refresh.
-
-        Point important : `refresh_par_jeu()` tourne une fois par setter
-        `Param*` au démarrage, donc sur des flags encore incomplets — figer
-        toute la liste au lieu des seuls jeux cliqués gèlerait les badges à
-        faux dès l'ouverture de la fenêtre."""
-        self.assertFalse(self._jeu(u'Jeu B').FlagExport)
-        # Le paramètre Revit passe à vrai ; Jeu B n'a jamais été cliqué.
-        self.sheet_service._flags[(self.sheet_service._elem_b, 'Export')] = True
-
-        self.vm.refresh_par_jeu()
-
-        self.assertTrue(self._jeu(u'Jeu B').FlagExport)
-
-    def test_un_jeu_clique_ne_suit_plus_la_valeur_revit(self):
-        # Pendant du test précédent : le clic fige ce jeu-là, et lui seul.
-        # Revit dit toujours « non » pour Jeu B, le badge coché doit tenir.
-        self._jeu(u'Jeu B').FlagExport = True
-
-        self.vm.refresh_par_jeu()
-
-        self.assertFalse(
-            self.sheet_service.read_flag(self.sheet_service._elem_b, 'Export'))
-        self.assertTrue(self._jeu(u'Jeu B').FlagExport)
 
 
 class TestMainViewModelCompteurs(unittest.TestCase):
@@ -1818,15 +1752,12 @@ class TestMainViewModelCompteurs(unittest.TestCase):
             sheet_service=FakeSheetService(),
             naming_service=FakeNamingService(),
             destination_service=None,
-            config=FakeConfig(),
+            config=config_avec_badges({u'Jeu A': (True, True, False)}),
         )
-        self.vm.ParamExport = 'Export'
-        self.vm.ParamCarnet = 'Carnet'
-        self.vm.ParamDwg = 'Dwg'
         self.vm.refresh_par_jeu()
 
-    def test_compteurs_seedes_depuis_revit(self):
-        # Jeu A seul qualifié, avec ses 2 feuilles.
+    def test_compteurs_refletent_les_badges_memorises(self):
+        # Jeu A seul coché, avec ses 2 feuilles.
         self.assertEqual(self.vm.NbJeuxQualifies, 1)
         self.assertEqual(self.vm.NbFeuillesQualifiees, 2)
 
@@ -1874,11 +1805,8 @@ class TestMainViewModelLancerExportParJeu(unittest.TestCase):
             sheet_service=FakeSheetService(),
             naming_service=FakeNamingService(),
             destination_service=FakeDestinationService(u'C:/Test'),
-            config=FakeConfig(),
+            config=config_avec_badges({u'Jeu A': (True, True, False)}),
         )
-        self.vm.ParamExport = 'Export'
-        self.vm.ParamCarnet = 'Carnet'
-        self.vm.ParamDwg = 'Dwg'
         self.vm.refresh_par_jeu()
 
     def _lancer(self):

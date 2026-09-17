@@ -1,6 +1,7 @@
 ﻿# -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+import json
 import time
 
 # Journal de diagnostic : le logger pyRevit écrit dans la fenêtre de sortie
@@ -116,20 +117,10 @@ _SURFACE_TITRES = {
     u'settings': u'Paramètres',
 }
 
-# Clés UserConfig (namespace 'batch_export') pour le mappage des paramètres
-# Oui/Non de collection -> rôle (export / carnet / dwg).
-#
-# `sheet_param_carnetcombo` et `sheet_param_dwgcombo` reprennent des clés
-# legacy déjà présentes dans la config. `sheet_param_exportationcombo` est
-# une clé NOUVELLE : le legacy
-# (lib/services/ExportOrchestrator._get_ui_selected_param_names) lisait
-# le nom du paramètre "Export" directement depuis le contrôle UI
-# (ComboBox 'ExportationCombo') sans jamais le persister. On l'ajoute ici en
-# suivant la même convention de nommage (`sheet_param_` + nom du combo en
-# minuscules) pour permettre au VM de fonctionner sans UI.
-_CFG_KEY_PARAM_EXPORT = 'sheet_param_exportationcombo'
-_CFG_KEY_PARAM_CARNET = 'sheet_param_carnetcombo'
-_CFG_KEY_PARAM_DWG = 'sheet_param_dwgcombo'
+# Badges « Par jeu » (export / carnet / dwg) persistés par titre de jeu, en
+# JSON : {titre: [export, carnet, dwg]}. Une seule clé -- cf.
+# `_charger_choix`/`_enregistrer_choix`.
+_CFG_KEY_BADGES_JEUX = 'jeux_badges'
 
 # Mode « feuille par feuille » : export combiné en un seul PDF + titre de ce
 # PDF. Persistés via UserConfig (namespace 'batch_export'). Transmis à
@@ -170,7 +161,7 @@ class MainViewModel(BaseViewModel):
         # backend (`pyrevit.userconfig`) est alors indisponible -> get/set
         # deviennent des no-op silencieux. `config` permet d'injecter un
         # faux magasin en mémoire (même contrat get/set que UserConfig) pour
-        # tester le mapping ParamExport/ParamCarnet/ParamDwg sans Revit.
+        # tester la persistance sans Revit.
         if config is not None:
             self._cfg = config
         else:
@@ -182,15 +173,17 @@ class MainViewModel(BaseViewModel):
         # Services injectables : si absents, instancier les vrais sous
         # try/except -> None (permet l'usage hors Revit / dans les tests).
         # On INJECTE self._cfg (config partagée du VM) : ainsi tous les services
-        # écrivent via la MÊME instance UserConfig que le mapping (qui, lui,
-        # persiste). Sinon chaque service crée sa propre UserConfig via son
-        # propre import (`core.UserConfig` vs `lib.core.UserConfig` = modules
-        # distincts) et la destination ne partageait pas le chemin de config.
+        # écrivent via la MÊME instance UserConfig que le VM. Sinon chaque
+        # service crée sa propre UserConfig via son propre import
+        # (`core.UserConfig` vs `lib.core.UserConfig` = modules distincts) et
+        # la destination ne partageait pas le chemin de config.
+        # `SheetCollectionService` fait exception : purement en lecture du
+        # document, il n'a aucune config à lire ni à écrire.
         if sheet_service is not None:
             self._sheet_service = sheet_service
         else:
             try:
-                self._sheet_service = SheetCollectionService(doc, config=self._cfg) if SheetCollectionService is not None else None
+                self._sheet_service = SheetCollectionService(doc) if SheetCollectionService is not None else None
             except Exception:
                 self._sheet_service = None
 
@@ -238,27 +231,20 @@ class MainViewModel(BaseViewModel):
                 self._dwg_service = None
 
         # Données « par jeu » : liste unique, éditable (badges cliquables).
-        # Les flags partent des paramètres Oui/Non lus dans Revit (seeding)
-        # puis suivent les clics de l'utilisateur.
+        # Les flags viennent UNIQUEMENT des clics de l'utilisateur, jamais du
+        # document Revit.
         self._collections = []
-        # Badges cliqués par l'utilisateur, indexés par titre de jeu :
-        # {titre: (export, carnet, dwg)}. Alimenté par
-        # `_on_collection_change`, relu par `refresh_par_jeu`. Vit en mémoire
-        # le temps de la session, jamais persisté ni écrit dans Revit.
-        self._choix_manuels = {}
+        # Badges cochés, indexés par TITRE de jeu : {titre: (export, carnet,
+        # dwg)}. Alimenté par `_on_collection_change`, relu par
+        # `refresh_par_jeu`, persisté dans UserConfig (clé `jeux_badges`) donc
+        # restauré à la réouverture de l'outil. Rien n'est jamais écrit dans
+        # la maquette. Limite assumée de l'indexation par titre : un jeu
+        # renommé dans Revit n'est plus reconnu et repart éteint.
+        self._badges_jeux = self._charger_choix()
 
         # Export (Task 3) : retour visuel (progress_cb/log_cb de l'orchestrateur)
         self._status_text = u''
         self._progress_value = 0
-
-        # Mode Paramètres (Task 4) : liste des paramètres Oui/Non disponibles
-        # pour le mappage Export/Carnet/DWG. Calculée une fois à la
-        # construction (voir `_refresh_parametres_disponibles`) plutôt qu'à
-        # chaque `refresh_par_jeu()` -- ce dernier est appelé par les setters
-        # ParamExport/ParamCarnet/ParamDwg, et `list_boolean_params()` n'a
-        # aucun rapport avec la (re)qualification des jeux.
-        self._parametres_disponibles = []
-        self._refresh_parametres_disponibles()
 
         # Données « feuille par feuille » (mode manuel). Sélection ÉPHÉMÈRE :
         # reconstruite à chaque refresh_manuel(), jamais persistée.
@@ -341,7 +327,7 @@ class MainViewModel(BaseViewModel):
         return _SURFACE_TITRES.get(self._mode, u'')
 
     # ------------------------------------------------------------------
-    # Mapping paramètres (persistant via UserConfig)
+    # Persistance (UserConfig)
     # ------------------------------------------------------------------
 
     def _cfg_get(self, key, default=u''):
@@ -357,68 +343,39 @@ class MainViewModel(BaseViewModel):
         except Exception:
             pass
 
-    @property
-    def ParamExport(self):
-        return self._cfg_get(_CFG_KEY_PARAM_EXPORT, u'')
+    def _charger_choix(self):
+        """Relit les badges « Par jeu » persistés -> `{titre: (e, c, d)}`.
 
-    @ParamExport.setter
-    def ParamExport(self, value):
-        value = value or u''
-        if value == self.ParamExport:
-            return
-        self._log(u'CONFIG', u'ParamExport : "{}" → "{}"'.format(self.ParamExport, value))
-        self._cfg_set(_CFG_KEY_PARAM_EXPORT, value)
-        self.notify_property(u'ParamExport')
-        self.refresh_par_jeu()
-
-    @property
-    def ParamCarnet(self):
-        return self._cfg_get(_CFG_KEY_PARAM_CARNET, u'')
-
-    @ParamCarnet.setter
-    def ParamCarnet(self, value):
-        value = value or u''
-        if value == self.ParamCarnet:
-            return
-        self._log(u'CONFIG', u'ParamCarnet : "{}" → "{}"'.format(self.ParamCarnet, value))
-        self._cfg_set(_CFG_KEY_PARAM_CARNET, value)
-        self.notify_property(u'ParamCarnet')
-        self.refresh_par_jeu()
-
-    @property
-    def ParamDwg(self):
-        return self._cfg_get(_CFG_KEY_PARAM_DWG, u'')
-
-    @ParamDwg.setter
-    def ParamDwg(self, value):
-        value = value or u''
-        if value == self.ParamDwg:
-            return
-        self._log(u'CONFIG', u'ParamDwg : "{}" → "{}"'.format(self.ParamDwg, value))
-        self._cfg_set(_CFG_KEY_PARAM_DWG, value)
-        self.notify_property(u'ParamDwg')
-        self.refresh_par_jeu()
-
-    def _refresh_parametres_disponibles(self):
-        """(Re)calcule `ParametresDisponibles` depuis `_sheet_service`.
-
-        Best-effort : `list_boolean_params()` peut être absent (faux
-        service dans certains tests) ou lever (hors Revit) -> `[]`.
+        `UserConfig.set` stringifie ce qu'on lui donne : la valeur est donc
+        stockée en JSON explicite. Best-effort absolu -- clé absente, JSON
+        corrompu, config absente ou entrée malformée (non itérable, longueur
+        != 3) sont ignorés silencieusement, jamais d'exception à l'ouverture.
         """
-        noms = []
-        if self._sheet_service is not None:
-            try:
-                lister = getattr(self._sheet_service, 'list_boolean_params', None)
-                if callable(lister):
-                    noms = list(lister() or [])
-            except Exception:
-                noms = []
-        self._parametres_disponibles = noms
-        self.notify_property(u'ParametresDisponibles')
+        try:
+            brut = self._cfg_get(_CFG_KEY_BADGES_JEUX, u'')
+            charge = json.loads(brut) if brut else None
+        except Exception:
+            charge = None
+        if not isinstance(charge, dict):
+            return {}
 
-    @property
-    def ParametresDisponibles(self):
-        return self._parametres_disponibles
+        out = {}
+        for titre, flags in charge.items():
+            try:
+                export, carnet, dwg = flags
+            except Exception:
+                continue
+            out[titre] = (bool(export), bool(carnet), bool(dwg))
+        return out
+
+    def _enregistrer_choix(self):
+        """Persiste `self._badges_jeux` en JSON. Best-effort : ne lève jamais."""
+        try:
+            self._cfg_set(_CFG_KEY_BADGES_JEUX,
+                          json.dumps(dict(
+                              (t, list(v)) for t, v in self._badges_jeux.items())))
+        except Exception:
+            pass
 
     def get_naming_params(self):
         """Liste des noms de paramètres utilisables pour le nommage des
@@ -503,19 +460,6 @@ class MainViewModel(BaseViewModel):
     # Mode « par jeu »
     # ------------------------------------------------------------------
 
-    def _lire_flag(self, elem, param_name):
-        """Paramètre Oui/Non d'une collection. False si absent ou illisible.
-
-        Trois appels identiques (export / carnet / DWG) portaient chacun leur
-        try/except dans `refresh_par_jeu`.
-        """
-        if self._sheet_service is None or elem is None or not param_name:
-            return False
-        try:
-            return bool(self._sheet_service.read_flag(elem, param_name))
-        except Exception:
-            return False
-
     def _charger_motif(self, genre):
         """Motif de nommage `(pattern, rows)` d'un genre, ('', []) si échec."""
         if self._naming_service is None:
@@ -541,7 +485,8 @@ class MainViewModel(BaseViewModel):
         hors Revit) :
           - `list_collections()` -> liste de dicts contenant au moins
             `'Titre'`, `'Id'`, et **`'Elem'`** (élément Revit brut, ou tout
-            objet substitut dans les tests) permettant `read_flag(elem, ...)`.
+            objet substitut dans les tests) permettant de résoudre le motif
+            de nommage du carnet.
             NB: `SheetCollectionService.list_collections()` (Phase 2) ne
             renvoie pas nativement cette clé -> à compléter côté service
             réel (ajout non invasif d'une clé `'Elem': coll` dans la boucle
@@ -552,7 +497,10 @@ class MainViewModel(BaseViewModel):
           - `list_sheets(collection_id)` -> liste de dicts contenant au
             moins `'Numero'`, `'Nom'`, et **`'Elem'`** (élément `ViewSheet`
             brut) pour permettre `naming_service.resolve_for_element`.
-          - `read_flag(elem, param_name)` -> bool.
+
+        Les badges (export / carnet / DWG) ne sont PAS lus dans le document :
+        ils viennent de `self._badges_jeux` (persisté par titre de jeu), et un
+        jeu inconnu part donc tout éteint.
 
         `naming_service` : `load('sheet')` -> `(pattern, rows)` ;
         `resolve_for_element(elem, rows)` -> unicode.
@@ -572,18 +520,10 @@ class MainViewModel(BaseViewModel):
             except Exception:
                 raw_collections = []
 
-        param_export = self.ParamExport
-        param_carnet = self.ParamCarnet
-        param_dwg = self.ParamDwg
-
         for coll in raw_collections:
             titre = _champ(coll, 'Titre', u'')
             coll_id = _champ(coll, 'Id')
             coll_elem = _champ(coll, 'Elem')
-
-            flag_export = self._lire_flag(coll_elem, param_export)
-            flag_carnet = self._lire_flag(coll_elem, param_carnet)
-            flag_dwg = self._lire_flag(coll_elem, param_dwg)
 
             sheets_out = []
             raw_sheets = []
@@ -610,13 +550,12 @@ class MainViewModel(BaseViewModel):
             resolved = self._resoudre_nom(coll_elem, _set_pattern or set_rows)
             carnet_apercu = (resolved + u'.pdf') if resolved else u''
 
-            # Report des badges RÉELLEMENT cliqués (cf. `_choix_manuels`) :
-            # `refresh_par_jeu()` est ré-appelé en cours de session (retour de
-            # la modale de nommage, changement de mappage) et remettrait sinon
-            # les choix de l'utilisateur à la valeur lue dans Revit. « Session
-            # seulement » = perdus à la FERMETURE, pas au premier refresh.
-            flag_export, flag_carnet, flag_dwg = self._choix_manuels.get(
-                titre, (flag_export, flag_carnet, flag_dwg))
+            # Badges : uniquement ce que l'utilisateur a coché (persisté par
+            # titre de jeu, cf. `_badges_jeux`). `refresh_par_jeu()` est
+            # ré-appelé en cours de session (retour de la modale de nommage) et
+            # doit donc reporter ces choix. Jeu inconnu -> tout éteint.
+            flag_export, flag_carnet, flag_dwg = self._badges_jeux.get(
+                titre, (False, False, False))
 
             collections_out.append(CollectionItemVM(
                 titre, coll_id, flag_export, flag_carnet, flag_dwg, sheets_out,
@@ -634,7 +573,7 @@ class MainViewModel(BaseViewModel):
 
         self._collections = collections_out
 
-        # Chiffres du LOG : état courant des badges (seeding Revit + clics).
+        # Chiffres du LOG : état courant des badges.
         nb_jeux_qualifies = len([c for c in collections_out if c.Qualified])
         nb_feuilles_qualifiees = sum(
             len(c.Sheets) for c in collections_out if c.Qualified)
@@ -643,9 +582,6 @@ class MainViewModel(BaseViewModel):
         self._log(u'AUTO',
             u'refresh_par_jeu : {} jeux trouvés, {} qualifiés, {} feuilles qualifiées'.format(
                 len(collections_out), nb_jeux_qualifies, nb_feuilles_qualifiees))
-        self._log(u'AUTO',
-            u'  ParamExport="{}" ParamCarnet="{}" ParamDwg="{}"'.format(
-                param_export, param_carnet, param_dwg))
         for c in collections_out:
             etat = u'QUALIFIE' if c.Qualified else u'ignoré  '
             self._log(u'AUTO',
@@ -658,9 +594,7 @@ class MainViewModel(BaseViewModel):
                 u'(vérifiez que le projet utilise des Jeux de feuilles Revit)')
         elif nb_jeux_qualifies == 0:
             self._log(u'AVERT',
-                u'  Aucun jeu coché — param "{}" absent ou = 0 sur tous les jeux, '
-                u'cochez les badges à la main'.format(
-                    param_export or u'(non configuré)'))
+                u'  Aucun jeu coché — cochez les badges des jeux à exporter')
 
         for name in (u'Collections', u'NbJeuxQualifies',
                      u'NbFeuillesQualifiees'):
@@ -671,15 +605,14 @@ class MainViewModel(BaseViewModel):
         change la qualification, donc les deux compteurs de l'en-tête.
 
         Mémorise aussi le choix, par titre de jeu, pour que `refresh_par_jeu()`
-        le reporte. On n'enregistre QUE les jeux effectivement cliqués :
-        prendre un instantané de toute la liste à chaque refresh figerait aussi
-        les jeux jamais touchés (or `refresh_par_jeu()` tourne une fois par
-        setter Param* au démarrage, donc sur des flags encore incomplets)."""
+        le reporte, et le persiste aussitôt (UserConfig) : les badges cochés
+        reviennent à la réouverture de l'outil."""
         try:
-            self._choix_manuels[item.Titre] = (
+            self._badges_jeux[item.Titre] = (
                 item.FlagExport, item.FlagCarnet, item.FlagDwg)
         except Exception:
             pass
+        self._enregistrer_choix()
         for name in (u'NbJeuxQualifies', u'NbFeuillesQualifiees'):
             self.notify_property(name)
 
@@ -1235,8 +1168,8 @@ class MainViewModel(BaseViewModel):
     def SetupsPdf(self):
         """Liste des setups PDF disponibles (Revit + customs).
 
-        Calculée À LA DEMANDE (pas de cache construit dans `__init__`,
-        contrairement à `ParametresDisponibles`) : `list_all_setups(doc)`
+        Calculée À LA DEMANDE (pas de cache construit dans `__init__`) :
+        `list_all_setups(doc)`
         dépend potentiellement de l'état courant du document Revit, et le
         coût d'un appel API au moment du binding WPF est négligeable (pas
         de sondage répété). Ce choix permet aussi de refléter fidèlement
@@ -1363,8 +1296,8 @@ class MainViewModel(BaseViewModel):
                     doc_title = u'(doc inconnu)'
             self._log(u'INIT', u'Document   : "{}"'.format(doc_title))
             self._log(u'INIT', u'Mode       : {}'.format(self._mode))
-            self._log(u'INIT', u'ParamExport: "{}" | ParamCarnet: "{}" | ParamDwg: "{}"'.format(
-                self.ParamExport, self.ParamCarnet, self.ParamDwg))
+            self._log(u'INIT', u'BadgesJeux : {} jeu(x) mémorisé(s)'.format(
+                len(self._badges_jeux)))
             self._log(u'INIT', u'Destination: "{}"'.format(self.DestinationPath))
             self._log(u'INIT', u'SetupPdf   : "{}" | SetupDwg: "{}"'.format(
                 self.SetupPdf, self.SetupDwg))
@@ -1372,11 +1305,6 @@ class MainViewModel(BaseViewModel):
                 self.CombinerPdf, self.TitrePdfCombine))
             self._log(u'INIT', u'SousDossiers: {} | FormatsSepar: {}'.format(
                 self.CreerSousDossiers, self.SeparerFormats))
-            if not self.ParamExport:
-                self._log(u'AVERT',
-                    u'ParamExport non configuré → les badges « Par jeu » partiront '
-                    u'tous éteints, cochez-les à la main (ou mappez le paramètre '
-                    u'Export dans Réglages pour les pré-remplir)')
         except Exception:
             pass
 
@@ -1469,9 +1397,8 @@ class MainViewModel(BaseViewModel):
         # --- Log config complète avant lancement ---
         self._log(u'EXPORT', u'--- Export PAR JEU lancé ---')
         self._log(u'EXPORT',
-            u'Les paramètres Oui/Non Revit ne servent qu\'à pré-remplir les '
-            u'badges ; seuls les badges cochés pilotent l\'export '
-            u'(aucune écriture dans la maquette).')
+            u'Seuls les badges cochés pilotent l\'export '
+            u'(aucune lecture ni écriture de paramètres dans la maquette).')
         self._log(u'EXPORT', u'Destination="{}" | SousDossiers={} | FormatsSepar={}'.format(
             self.DestinationPath, self.CreerSousDossiers, self.SeparerFormats))
         self._log(u'EXPORT', u'SetupPdf="{}" | SetupDwg="{}"'.format(

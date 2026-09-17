@@ -38,7 +38,8 @@
       d'organisation du footer.
     - Mode manuel (IsManual) : recherche + filtre + liste feuille par feuille.
     - Mode Paramètres (IsSettings) : panneau réel (PanneauParametres) qui
-      mappe les 3 paramètres Oui/Non de collection (Export/Carnet/DWG).
+      regroupe les réglages en 3 cartes repliables — setups d'impression,
+      nommage des fichiers, profils.
 
     Mode « par jeu » (Collections)
     - `MainViewModel.Collections` (property CLR) expose une LISTE de
@@ -579,21 +580,14 @@
               stylés via CollectionExpanderStyle (socle Styles/StylesDark.xaml,
               déjà utilisé pour les cartes de collection en mode « par jeu »).
 
-              - « Mappage des paramètres » : les 3 ComboBox Export/Carnet/DWG
-                (inchangées, cf. ParamExport/ParamCarnet/ParamDwg).
-              - « Setups d'impression » : les 2 ComboBox SetupPdf/SetupDwg
-                (inchangées).
+              - « Setups d'impression » : les 2 ComboBox SetupPdf/SetupDwg.
               - « Nommage des fichiers » : 2 boutons ouvrant la modale
                 NamingEditorView (câblage Python, cf. wire_naming_editors
                 dans MainWindowView).
-
-              Sélection persistée par les setters ParamExport/ParamCarnet/
-              ParamDwg (MainViewModel) qui déclenchent aussi refresh_par_jeu()
-              -> les badges/qualification du mode « par jeu » se mettent à
-              jour immédiatement au changement.
+              - « Profils » : placeholder, pas encore de VM dédié.
             -->
             <!--
-              Les 4 cartes de réglages peuvent, une fois plusieurs Expanders
+              Les 3 cartes de réglages peuvent, une fois plusieurs Expanders
               dépliés, dépasser la hauteur de la surface : on les loge dans un
               ScrollViewer (barre au ras du bord de la surface, marge conservée
               sur le StackPanel interne) — même patron que JeuxPage / liste
@@ -608,85 +602,6 @@
                         Margin="20,16,20,8">
 
               <!--
-                Groupe 1 : Mappage des paramètres.
-                Structure alignée sur la carte de collection (cf. CollectionCard
-                ci-dessus) : Border CardStyle en conteneur EXTERIEUR, Expander
-                CollectionExpanderStyle logé dedans. Le CardStyle porte déjà
-                Margin="0,0,0,12" et Padding="16" — ne pas les redéfinir ici.
-              -->
-              <Border Style="{DynamicResource CardStyle}">
-                <Expander Style="{DynamicResource CollectionExpanderStyle}"
-                          IsExpanded="False">
-                  <Expander.Header>
-                    <TextBlock Text="Mappage des paramètres"
-                               Foreground="{DynamicResource TextPrimaryBrush}"
-                               FontWeight="SemiBold"
-                               FontSize="14"/>
-                  </Expander.Header>
-
-                  <StackPanel Orientation="Vertical" Margin="0,10,0,0">
-                    <TextBlock Text="Choisissez, pour chaque rôle, le paramètre Oui/Non de collection qui qualifie les jeux."
-                               Foreground="{DynamicResource TextSecondaryBrush}"
-                               FontSize="12.5"
-                               TextWrapping="Wrap"
-                               Margin="0,0,0,12"/>
-
-                    <StackPanel Orientation="Vertical">
-
-                      <!-- Ligne Export -->
-                      <Grid Margin="0,0,0,12">
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="140"/>
-                          <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0"
-                                   Text="Export"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <ComboBox Grid.Column="1"
-                                  x:Name="ParamExportCombo"
-                                  ItemsSource="{Binding ParametresDisponibles}"
-                                  SelectedItem="{Binding ParamExport, Mode=TwoWay}"/>
-                      </Grid>
-
-                      <!-- Ligne Carnet -->
-                      <Grid Margin="0,0,0,12">
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="140"/>
-                          <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0"
-                                   Text="Carnet"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <ComboBox Grid.Column="1"
-                                  x:Name="ParamCarnetCombo"
-                                  ItemsSource="{Binding ParametresDisponibles}"
-                                  SelectedItem="{Binding ParamCarnet, Mode=TwoWay}"/>
-                      </Grid>
-
-                      <!-- Ligne DWG -->
-                      <Grid Margin="0,0,0,0">
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="140"/>
-                          <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0"
-                                   Text="DWG"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <ComboBox Grid.Column="1"
-                                  x:Name="ParamDwgCombo"
-                                  ItemsSource="{Binding ParametresDisponibles}"
-                                  SelectedItem="{Binding ParamDwg, Mode=TwoWay}"/>
-                      </Grid>
-
-                    </StackPanel>
-                  </StackPanel>
-                </Expander>
-              </Border>
-
-              <!--
                 Les 2 toggles d'organisation (sous-dossier par jeu / séparer
                 PDF-DWG) ont été déplacés sous le champ destination, dans le
                 footer (voir section « Sous-dossier et format » ci-dessous) :
@@ -695,9 +610,11 @@
               -->
 
               <!--
-                Groupe 2 : Setups d'impression.
-                Même structure « carte de collection » que le Groupe 1 :
-                Border CardStyle en conteneur extérieur, Expander dedans.
+                Groupe 1 : Setups d'impression.
+                Structure alignée sur la carte de collection (cf. CollectionCard
+                ci-dessus) : Border CardStyle en conteneur EXTERIEUR, Expander
+                CollectionExpanderStyle logé dedans. Le CardStyle porte déjà
+                Margin="0,0,0,12" et Padding="16" — ne pas les redéfinir ici.
               -->
               <Border Style="{DynamicResource CardStyle}">
                 <Expander Style="{DynamicResource CollectionExpanderStyle}"
@@ -756,12 +673,12 @@
               </Border>
 
               <!--
-                Groupe 3 : Nommage des fichiers. Ouvre la modale
+                Groupe 2 : Nommage des fichiers. Ouvre la modale
                 NamingEditorView (NamingEditorViewModel côté Python) pour
                 éditer la convention de nommage des feuilles / des carnets.
                 Câblage : MainWindowView.wire_naming_editors().
 
-                Même structure « carte de collection » que les Groupes 1 et 2.
+                Même structure « carte de collection » que le Groupe 1.
                 Le CardStyle porte déjà Margin="0,0,0,12" ; comme pour les
                 cartes de collection (dernier item de la liste inclus), on ne
                 supprime pas cette marge basse pour rester cohérent.
@@ -853,7 +770,7 @@
               </Border>
 
               <!--
-                Groupe 4 : Profils (placeholder). Même structure « carte de
+                Groupe 3 : Profils (placeholder). Même structure « carte de
                 collection » que les groupes précédents. Pas encore de VM
                 dédié : simple TextBlock d'attente.
               -->
