@@ -28,9 +28,16 @@
     - Boutons de légende nommés : MinimizeButton / MaximizeRestoreButton / CloseButton.
 
     Rail de navigation
-    - NavAuto / NavManual / NavSettings partagent GroupName="nav" (sélection exclusive).
+    - NavAuto / NavJeuxManuel / NavManual / NavSettings partagent
+      GroupName="nav" (sélection exclusive).
     - Icônes : un Path sur une géométrie Lucide d'Icons.xaml, pas un glyphe.
       NavRailIconStyle porte tout l'habillage, y compris la teinte du trait.
+    - Mode « par jeu — choix manuel » (IsJeuxManuel) : jumeau du mode « par
+      jeu », mais les badges EXPORT/CARNET/DWG y sont cliquables et l'état
+      vit en mémoire (CollectionsManuel) au lieu d'être lu dans les
+      paramètres Revit — cas de la maquette partagée, non éditable.
+      `IsParJeu` = IsAuto OU IsJeuxManuel : porte tout ce qui est commun aux
+      deux modes (en-tête de compte, toggles d'organisation du footer).
     - Mode manuel (IsManual) : contenu réel hors périmètre, la surface affiche
       pour l'instant un placeholder lié à SurfaceTitre.
     - Mode Paramètres (IsSettings) : panneau réel (PanneauParametres) qui
@@ -148,6 +155,15 @@
               <Path Style="{DynamicResource NavRailIconStyle}"
                     Data="{DynamicResource IconJeux}"/>
             </RadioButton>
+            <!-- Icône « remplacer » plutôt qu'un second IconJeux : deux
+                 calques identiques côte à côte seraient indistinguables. -->
+            <RadioButton x:Name="NavJeuxManuel"
+                         Style="{DynamicResource NavRailButtonStyle}"
+                         ToolTip="Par jeu — choix manuel"
+                         GroupName="nav">
+              <Path Style="{DynamicResource NavRailIconStyle}"
+                    Data="{DynamicResource IconRemplacer}"/>
+            </RadioButton>
             <RadioButton x:Name="NavManual"
                          Style="{DynamicResource NavRailButtonStyle}"
                          ToolTip="Feuille par feuille — manuel"
@@ -171,12 +187,12 @@
 
             <!--
               En-tête de surface : titre du mode + badge de compte
-              (jeux qualifiés / feuilles qualifiées). Visible uniquement
-              en mode « par jeu » (IsAuto).
+              (jeux qualifiés / feuilles qualifiées). Visible dans les deux
+              modes « par jeu » (IsParJeu = auto OU choix manuel).
             -->
             <Grid Grid.Row="0"
                   Margin="20,16,20,8"
-                  Visibility="{Binding IsAuto, Converter={StaticResource BoolToVisibilityConverter}}">
+                  Visibility="{Binding IsParJeu, Converter={StaticResource BoolToVisibilityConverter}}">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
@@ -226,6 +242,14 @@
                             x:Name="AutoPageHost"
                             Margin="20,0,20,8"
                             Visibility="{Binding IsAuto, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+            <!-- Mode « par jeu — choix manuel » : page jumelle d'AutoPage
+                 (GUI/Views/pages/JeuxManuelPage.xaml), badges cliquables,
+                 ItemsSource = CollectionsManuel. -->
+            <ContentControl Grid.Row="1"
+                            x:Name="JeuxManuelPageHost"
+                            Margin="20,0,20,8"
+                            Visibility="{Binding IsJeuxManuel, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
             <!--
               Mode « feuille par feuille » (IsManual) : recherche + filtre +
@@ -922,9 +946,10 @@
                                FontWeight="SemiBold"
                                Margin="0,0,0,6"/>
 
-                    <!-- Mode « par jeu » : sous-dossier par jeu + séparation formats -->
+                    <!-- Modes « par jeu » (préprogrammé ET choix manuel) :
+                         sous-dossier par jeu + séparation formats -->
                     <StackPanel Orientation="Horizontal"
-                                Visibility="{Binding IsAuto, Converter={StaticResource BoolToVisibilityConverter}}">
+                                Visibility="{Binding IsParJeu, Converter={StaticResource BoolToVisibilityConverter}}">
                       <CheckBox Content="Sous-dossier par jeu"
                                 Style="{DynamicResource ToggleSwitchStyle}"
                                 IsChecked="{Binding CreerSousDossiers, Mode=TwoWay}"

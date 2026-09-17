@@ -296,12 +296,21 @@ class ExportOrchestrator(object):
 
     # ------------------- Exécution ------------------- #
     def run(self, doc, pname_export, pname_per_sheet, pname_dwg,
-            progress_cb=None, log_cb=None, destination=None):
+            progress_cb=None, log_cb=None, destination=None, flags=None):
+        """Export « par jeu ».
+
+        `flags` : choix mémoire de l'onglet « jeux manuel », liste de tuples
+        `(nom_du_jeu, export, carnet, dwg)`. S'il est fourni, les trois
+        `pname_*` sont IGNORÉS : les jeux sont qualifiés par ces flags, sans
+        lire ni écrire le moindre paramètre Revit (cas du travail
+        collaboratif, où les paramètres Oui/Non ne sont pas éditables).
+        """
         self._destination_override = destination or None
         self._politique_collision = None
         try:
             return self._run_impl(doc, pname_export, pname_per_sheet, pname_dwg,
-                                  progress_cb=progress_cb, log_cb=log_cb)
+                                  progress_cb=progress_cb, log_cb=log_cb,
+                                  flags=flags)
         except ExportAnnule:
             return self._annuler(progress_cb, log_cb)
         finally:
@@ -324,7 +333,7 @@ class ExportOrchestrator(object):
         return False
 
     def _run_impl(self, doc, pname_export, pname_per_sheet, pname_dwg,
-                  progress_cb=None, log_cb=None):
+                  progress_cb=None, log_cb=None, flags=None):
         self._log_cb = log_cb
         # Initialiser le NamingService (jetons) avec le document.
         if self._NamingService_cls is not None and self._naming is None:
@@ -333,8 +342,16 @@ class ExportOrchestrator(object):
             except Exception:
                 self._naming = None
 
-        plans = self.plan_exports_for_collections(
-            doc, pname_export, pname_per_sheet, pname_dwg)
+        if flags is not None:
+            # Plans bâtis sur les choix de l'UI. MÊME inversion carnet ->
+            # per_sheet que `plan_exports_for_collections` : carnet coché =
+            # PDF combiné = per_sheet False.
+            plans = [ExportPlan(nom, bool(export), not bool(carnet),
+                                bool(dwg), bool(export))
+                     for nom, export, carnet, dwg in flags]
+        else:
+            plans = self.plan_exports_for_collections(
+                doc, pname_export, pname_per_sheet, pname_dwg)
 
         # Diagnostic immédiat si aucun plan ne qualifie
         qualifying = [p for p in plans if p.do_export]

@@ -250,6 +250,126 @@ class TestRunManualSousDossierParJeu(unittest.TestCase):
         self.assertEqual(os.listdir(dossier), [])
 
 
+class FakeDefinition(object):
+    def __init__(self, nom):
+        self.Name = nom
+
+
+class FakeParam(object):
+    """Faux paramètre Oui/Non de SheetCollection (Definition.Name + AsInteger)."""
+
+    def __init__(self, nom, valeur):
+        self.Definition = FakeDefinition(nom)
+        self._valeur = 1 if valeur else 0
+
+    def AsInteger(self):
+        return self._valeur
+
+
+class FakeCollParams(FakeColl):
+    """Collection avec des paramètres Oui/Non lisibles par
+    `_read_flag_from_param` — la « vérité Revit » du mode auto."""
+
+    def __init__(self, nom, params):
+        FakeColl.__init__(self, nom)
+        self.Parameters = [FakeParam(k, v) for k, v in params.items()]
+
+
+class TestRunAvecFlags(unittest.TestCase):
+    """`run(..., flags=[...])` : les plans viennent des badges cochés dans
+    l'UI (onglet « jeux manuel »), les trois `pname_*` sont IGNORÉS et aucun
+    paramètre Revit n'est lu. `flags=None` conserve le comportement
+    historique (qualification par les paramètres)."""
+
+    def setUp(self):
+        self.dossier = _tf.mkdtemp(prefix='418flags_')
+        self.appels = []
+        # Paramètres Revit TOUS À FAUX : si le chemin `pname_*` était emprunté
+        # malgré `flags`, aucun export ne serait lancé.
+        self.coll = FakeCollParams(u'Jeu A', {u'Export': False,
+                                              u'Carnet': False,
+                                              u'DWG': False})
+        self.orch = self._orchestrateur()
+
+    def _orchestrateur(self):
+        orch = ExportOrchestrator()
+        orch._naming = FakeNaming({'sheet': u'{numero}', 'set': u'{titre}'})
+        orch._collect_collections = lambda doc: [(self.coll, u'Jeu A')]
+        orch._find_collection_by_name = lambda doc, nom: self.coll
+        orch._get_collection_sheets = lambda doc, coll: [FakeSheet(u'A101', u'RDC')]
+
+        def _espion(etiquette):
+            def _cb(*a, **kw):
+                self.appels.append(etiquette)
+                return True, u''
+            return _cb
+
+        orch._export_pdf_sheet = _espion(u'pdf_feuille')
+        orch._export_pdf_collection = _espion(u'pdf_combine')
+        orch._export_dwg_sheet = _espion(u'dwg_feuille')
+        return orch
+
+    def _run(self, flags):
+        return self.orch.run(None, u'BIDON1', u'BIDON2', u'BIDON3',
+                             destination=self.dossier, flags=flags)
+
+    def test_carnet_coche_donne_un_pdf_combine(self):
+        # carnet=True -> per_sheet=False : un seul PDF pour tout le jeu.
+        self.assertTrue(self._run([(u'Jeu A', True, True, False)]))
+        self.assertEqual(self.appels, [u'pdf_combine'])
+
+    def test_carnet_decoche_donne_un_pdf_par_feuille(self):
+        # carnet=False -> per_sheet=True : un PDF par feuille.
+        self.assertTrue(self._run([(u'Jeu A', True, False, False)]))
+        self.assertEqual(self.appels, [u'pdf_feuille'])
+
+    def test_dwg_coche_exporte_aussi_le_dwg(self):
+        self.assertTrue(self._run([(u'Jeu A', True, False, True)]))
+        self.assertEqual(self.appels, [u'pdf_feuille', u'dwg_feuille'])
+
+    def test_pnames_ignores_quand_flags_fournis(self):
+        # Les paramètres Revit disent « ne pas exporter » et ne sont même
+        # jamais lus : seuls les flags comptent (maquette partagée).
+        lectures = []
+        self.orch._read_flag_from_param = lambda elem, nom, default=False: (
+            lectures.append(nom), False)[1]
+        self.assertTrue(self._run([(u'Jeu A', True, True, False)]))
+        self.assertEqual(self.appels, [u'pdf_combine'])
+        self.assertEqual(lectures, [])
+
+    def test_jeu_decoche_n_est_pas_exporte(self):
+        # export=False : le jeu ne qualifie pas, même carnet/dwg cochés.
+        self.assertTrue(self._run([(u'Jeu A', False, True, True)]))
+        self.assertEqual(self.appels, [])
+
+    def test_flags_vide_ne_leve_pas_et_sort_proprement(self):
+        messages = []
+        res = self.orch.run(None, u'BIDON1', u'BIDON2', u'BIDON3',
+                            log_cb=messages.append, destination=self.dossier,
+                            flags=[])
+        self.assertTrue(res)
+        self.assertEqual(self.appels, [])
+        self.assertTrue(any(u'Aucun jeu' in m for m in messages), messages)
+
+    def test_flags_none_relit_les_parametres_revit(self):
+        # Comportement historique : Export/Carnet vrais dans la maquette ->
+        # PDF combiné, sans le moindre flag fourni par l'UI.
+        self.coll = FakeCollParams(u'Jeu A', {u'Export': True,
+                                              u'Carnet': True,
+                                              u'DWG': False})
+        self.orch = self._orchestrateur()
+        res = self.orch.run(None, u'Export', u'Carnet', u'DWG',
+                            destination=self.dossier, flags=None)
+        self.assertTrue(res)
+        self.assertEqual(self.appels, [u'pdf_combine'])
+
+    def test_flags_none_avec_parametres_faux_n_exporte_rien(self):
+        res = self.orch.run(None, u'Export', u'Carnet', u'DWG',
+                            destination=self.dossier, flags=None)
+        self.assertTrue(res)
+        self.assertEqual(self.appels, [])
+
+
 class FakeConfigStore(object):
     def __init__(self):
         self._s = {}

@@ -89,12 +89,13 @@ class MainWindowView(BaseWindow):
             self._vm.refresh_manuel()
         except Exception:
             pass
-        self._mount_auto_page()
+        self._mount_page('AutoPage.xaml', 'AutoPageHost')
+        self._mount_page('JeuxManuelPage.xaml', 'JeuxManuelPageHost')
 
     # ------------------------------------------------------------------
-    # Charge GUI/Views/pages/AutoPage.xaml comme arbre séparé et l'insère dans
-    # le ContentControl AutoPageHost du shell. Best-effort (silencieux) comme
-    # le reste du câblage : hors Revit / si l'hôte manque, ne lève pas.
+    # Charge une page de GUI/Views/pages/ comme arbre séparé et l'insère dans
+    # son ContentControl hôte du shell. Best-effort (silencieux) comme le
+    # reste du câblage : hors Revit / si l'hôte manque, ne lève pas.
     # ------------------------------------------------------------------
     def _load_page(self, filename):
         from System.Windows.Markup import XamlReader
@@ -111,17 +112,18 @@ class MainWindowView(BaseWindow):
             except Exception:
                 pass
 
-    def _mount_auto_page(self):
-        """La page partage le DataContext du shell (le MainViewModel) : son
-        `{Binding Collections}` suit donc directement notify_property, sans
-        VM intermédiaire ni pont de re-synchronisation."""
+    def _mount_page(self, filename, host_name):
+        """La page partage le DataContext du shell (le MainViewModel) : ses
+        `{Binding Collections}` / `{Binding CollectionsManuel}` suivent donc
+        directement notify_property, sans VM intermédiaire ni pont de
+        re-synchronisation."""
         if self._window is None:
             return
-        host = self._window.FindName('AutoPageHost')
+        host = self._window.FindName(host_name)
         if host is None:
             return
         try:
-            page = self._load_page('AutoPage.xaml')
+            page = self._load_page(filename)
             page.DataContext = self._vm
             host.Content = page
         except Exception:
@@ -315,6 +317,7 @@ class MainWindowView(BaseWindow):
         if self._window is None:
             return
         mapping = (('NavAuto', u'auto'),
+                   ('NavJeuxManuel', u'jeux_manuel'),
                    ('NavManual', u'manual'),
                    ('NavSettings', u'settings'))
         for name, mode in mapping:

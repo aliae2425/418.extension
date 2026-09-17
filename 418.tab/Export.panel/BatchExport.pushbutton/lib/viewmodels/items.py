@@ -42,10 +42,23 @@ class SheetItemVM(BaseViewModel):
 
 
 class CollectionItemVM(BaseViewModel):
-    """Item bindable pour une collection (jeu) au sein du mode « par jeu »."""
+    """Item bindable pour une collection (jeu) au sein du mode « par jeu ».
+
+    Les trois flags (`FlagExport`/`FlagCarnet`/`FlagDwg`) sont SETTABLES pour
+    le mode « par jeu — choix manuel », où les badges deviennent cliquables et
+    pilotent l'export DEPUIS LA MÉMOIRE (aucune écriture de paramètre Revit :
+    en travail collaboratif, la SheetCollection appartient souvent à un autre
+    utilisateur). Chaque toggle notifie ses propriétés puis appelle
+    `on_change(self)` (callback du VM parent), même patron que `ManualSheetVM`
+    — l'item se passe lui-même pour que le parent sache QUEL jeu a été
+    touché, et ne reporte que ceux-là lors d'un `refresh_par_jeu()`.
+
+    Dans le mode « par jeu » automatique, la page est de fait en lecture seule
+    (badges affichés via DataTrigger) : les setters n'y sont jamais sollicités.
+    """
 
     def __init__(self, titre, cid, flag_export, flag_carnet, flag_dwg, sheets,
-                 carnet_apercu=u''):
+                 carnet_apercu=u'', on_change=None):
         super(CollectionItemVM, self).__init__()
         self._titre = titre
         self._id = cid
@@ -56,6 +69,7 @@ class CollectionItemVM(BaseViewModel):
         # Aperçu du nom de fichier de carnet (motif `set` résolu + `.pdf`),
         # ou '' si aucun motif carnet n'est configuré. Cf. refresh_par_jeu.
         self._carnet_apercu = carnet_apercu or u''
+        self._on_change = on_change
 
     @property
     def Titre(self):
@@ -69,13 +83,49 @@ class CollectionItemVM(BaseViewModel):
     def FlagExport(self):
         return self._flag_export
 
+    @FlagExport.setter
+    def FlagExport(self, value):
+        value = bool(value)
+        if value == self._flag_export:
+            return
+        self._flag_export = value
+        # `Qualified` n'est qu'une vue de ce flag : la notifier aussi, sinon
+        # le compteur de jeux qualifiés ne suit pas le clic.
+        self.notify_property(u'FlagExport')
+        self.notify_property(u'Qualified')
+        if callable(self._on_change):
+            self._on_change(self)
+
     @property
     def FlagCarnet(self):
         return self._flag_carnet
 
+    @FlagCarnet.setter
+    def FlagCarnet(self, value):
+        value = bool(value)
+        if value == self._flag_carnet:
+            return
+        self._flag_carnet = value
+        # `CarnetApercuVisible` dépend du flag : la ligne d'aperçu doit
+        # apparaître/disparaître avec le badge.
+        self.notify_property(u'FlagCarnet')
+        self.notify_property(u'CarnetApercuVisible')
+        if callable(self._on_change):
+            self._on_change(self)
+
     @property
     def FlagDwg(self):
         return self._flag_dwg
+
+    @FlagDwg.setter
+    def FlagDwg(self, value):
+        value = bool(value)
+        if value == self._flag_dwg:
+            return
+        self._flag_dwg = value
+        self.notify_property(u'FlagDwg')
+        if callable(self._on_change):
+            self._on_change(self)
 
     @property
     def Qualified(self):
