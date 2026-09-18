@@ -102,5 +102,31 @@ class TestGetSelectedSheets(unittest.TestCase):
         self.assertEqual(selection.get_selected_sheets(uidoc), [])
 
 
+class TestCleNaturelle(unittest.TestCase):
+
+    def _trie(self, valeurs):
+        return sorted(valeurs, key=selection.cle_naturelle)
+
+    def test_numeros_de_feuille_en_ordre_numerique(self):
+        """A9 avant A10 : un tri de chaînes donnerait A10, A2, A9."""
+        self.assertEqual(
+            self._trie([u'A10', u'A2', u'A9', u'A1']),
+            [u'A1', u'A2', u'A9', u'A10'])
+
+    def test_prefixes_alphabetiques_respectes(self):
+        self.assertEqual(
+            self._trie([u'B01', u'A10', u'A02']),
+            [u'A02', u'A10', u'B01'])
+
+    def test_noms_de_vue_insensibles_a_la_casse(self):
+        self.assertEqual(
+            self._trie([u'niveau 2', u'Niveau 10', u'Niveau 1']),
+            [u'Niveau 1', u'niveau 2', u'Niveau 10'])
+
+    def test_valeurs_vides_ne_levent_pas(self):
+        """None et '' partagent la même clé (tri stable) et passent devant."""
+        self.assertEqual(self._trie([u'A1', u'', None])[-1], u'A1')
+
+
 if __name__ == '__main__':
     unittest.main()
