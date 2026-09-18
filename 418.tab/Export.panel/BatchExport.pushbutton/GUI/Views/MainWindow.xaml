@@ -28,13 +28,18 @@
     - Boutons de légende nommés : MinimizeButton / MaximizeRestoreButton / CloseButton.
 
     Rail de navigation
-    - NavAuto / NavManual / NavSettings partagent GroupName="nav" (sélection exclusive).
+    - NavAuto / NavManual / NavSettings partagent GroupName="nav"
+      (sélection exclusive). Modes correspondants : u'auto' / u'manual' /
+      u'settings'.
     - Icônes : un Path sur une géométrie Lucide d'Icons.xaml, pas un glyphe.
       NavRailIconStyle porte tout l'habillage, y compris la teinte du trait.
-    - Mode manuel (IsManual) : contenu réel hors périmètre, la surface affiche
-      pour l'instant un placeholder lié à SurfaceTitre.
+    - Mode « par jeu » (IsAuto) : page JeuxPage.xaml. `IsAuto` porte tout ce
+      qui appartient à ce mode — page, en-tête de compte, toggles
+      d'organisation du footer.
+    - Mode manuel (IsManual) : recherche + filtre + liste feuille par feuille.
     - Mode Paramètres (IsSettings) : panneau réel (PanneauParametres) qui
-      mappe les 3 paramètres Oui/Non de collection (Export/Carnet/DWG).
+      regroupe les réglages en 3 cartes repliables — setups d'impression,
+      nommage des fichiers, profils.
 
     Mode « par jeu » (Collections)
     - `MainViewModel.Collections` (property CLR) expose une LISTE de
@@ -47,6 +52,10 @@
       `dict` Python qui n'expose pas de propriétés CLR nommées.
     - Bindings donc en syntaxe PROPRIÉTÉ classique (`{Binding Titre}`,
       `{Binding Sheets}`, etc.), pas en syntaxe indexeur.
+    - Les 3 badges EXPORT/CARNET/DWG de chaque carte sont CLIQUABLES : leur
+      état (FlagExport/FlagCarnet/FlagDwg) vit en mémoire et pilote l'export,
+      il n'est JAMAIS réécrit dans les paramètres Revit. C'est le cas de la
+      maquette partagée, dont les paramètres ne sont pas éditables.
   -->
 
   <shell:WindowChrome.WindowChrome>
@@ -142,7 +151,7 @@
                       VerticalAlignment="Top">
             <RadioButton x:Name="NavAuto"
                          Style="{DynamicResource NavRailButtonStyle}"
-                         ToolTip="Par jeu — préprogrammé"
+                         ToolTip="Par jeu"
                          GroupName="nav"
                          IsChecked="True">
               <Path Style="{DynamicResource NavRailIconStyle}"
@@ -171,8 +180,8 @@
 
             <!--
               En-tête de surface : titre du mode + badge de compte
-              (jeux qualifiés / feuilles qualifiées). Visible uniquement
-              en mode « par jeu » (IsAuto).
+              (jeux qualifiés / feuilles qualifiées). Propre au mode
+              « par jeu » (IsAuto).
             -->
             <Grid Grid.Row="0"
                   Margin="20,16,20,8"
@@ -215,15 +224,16 @@
             </Grid>
 
             <!--
-              Zone de contenu — mode « par jeu » : liste des collections
-              (lecture seule). ItemsSource = MainViewModel.Collections
-              (liste de CollectionItemVM). Chaque item est bindé via la
-              syntaxe PROPRIÉTÉ {Binding Cle} — voir note en tête de
+              Zone de contenu — mode « par jeu » : liste des collections,
+              badges cliquables. Page GUI/Views/pages/JeuxPage.xaml, chargée
+              séparément (XamlReader) et montée ici par MainWindowView ;
+              elle partage le DataContext du shell. ItemsSource =
+              MainViewModel.Collections (liste de CollectionItemVM), bindée
+              via la syntaxe PROPRIÉTÉ {Binding Cle} — voir note en tête de
               fichier sur le pattern CollectionItemVM/SheetItemVM.
             -->
-            <!-- SPIKE etape 0 : page Auto hebergee (chargee separement, DataContext = AutoPageVM) -->
             <ContentControl Grid.Row="1"
-                            x:Name="AutoPageHost"
+                            x:Name="JeuxPageHost"
                             Margin="20,0,20,8"
                             Visibility="{Binding IsAuto, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
@@ -570,24 +580,17 @@
               stylés via CollectionExpanderStyle (socle Styles/StylesDark.xaml,
               déjà utilisé pour les cartes de collection en mode « par jeu »).
 
-              - « Mappage des paramètres » : les 3 ComboBox Export/Carnet/DWG
-                (inchangées, cf. ParamExport/ParamCarnet/ParamDwg).
-              - « Setups d'impression » : les 2 ComboBox SetupPdf/SetupDwg
-                (inchangées).
+              - « Setups d'impression » : les 2 ComboBox SetupPdf/SetupDwg.
               - « Nommage des fichiers » : 2 boutons ouvrant la modale
                 NamingEditorView (câblage Python, cf. wire_naming_editors
                 dans MainWindowView).
-
-              Sélection persistée par les setters ParamExport/ParamCarnet/
-              ParamDwg (MainViewModel) qui déclenchent aussi refresh_par_jeu()
-              -> les badges/qualification du mode « par jeu » se mettent à
-              jour immédiatement au changement.
+              - « Profils » : placeholder, pas encore de VM dédié.
             -->
             <!--
-              Les 4 cartes de réglages peuvent, une fois plusieurs Expanders
+              Les 3 cartes de réglages peuvent, une fois plusieurs Expanders
               dépliés, dépasser la hauteur de la surface : on les loge dans un
               ScrollViewer (barre au ras du bord de la surface, marge conservée
-              sur le StackPanel interne) — même patron que AutoPage / liste
+              sur le StackPanel interne) — même patron que JeuxPage / liste
               manuelle. La Visibility IsSettings est portée par le ScrollViewer.
             -->
             <ScrollViewer Grid.Row="1"
@@ -599,85 +602,6 @@
                         Margin="20,16,20,8">
 
               <!--
-                Groupe 1 : Mappage des paramètres.
-                Structure alignée sur la carte de collection (cf. CollectionCard
-                ci-dessus) : Border CardStyle en conteneur EXTERIEUR, Expander
-                CollectionExpanderStyle logé dedans. Le CardStyle porte déjà
-                Margin="0,0,0,12" et Padding="16" — ne pas les redéfinir ici.
-              -->
-              <Border Style="{DynamicResource CardStyle}">
-                <Expander Style="{DynamicResource CollectionExpanderStyle}"
-                          IsExpanded="False">
-                  <Expander.Header>
-                    <TextBlock Text="Mappage des paramètres"
-                               Foreground="{DynamicResource TextPrimaryBrush}"
-                               FontWeight="SemiBold"
-                               FontSize="14"/>
-                  </Expander.Header>
-
-                  <StackPanel Orientation="Vertical" Margin="0,10,0,0">
-                    <TextBlock Text="Choisissez, pour chaque rôle, le paramètre Oui/Non de collection qui qualifie les jeux."
-                               Foreground="{DynamicResource TextSecondaryBrush}"
-                               FontSize="12.5"
-                               TextWrapping="Wrap"
-                               Margin="0,0,0,12"/>
-
-                    <StackPanel Orientation="Vertical">
-
-                      <!-- Ligne Export -->
-                      <Grid Margin="0,0,0,12">
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="140"/>
-                          <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0"
-                                   Text="Export"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <ComboBox Grid.Column="1"
-                                  x:Name="ParamExportCombo"
-                                  ItemsSource="{Binding ParametresDisponibles}"
-                                  SelectedItem="{Binding ParamExport, Mode=TwoWay}"/>
-                      </Grid>
-
-                      <!-- Ligne Carnet -->
-                      <Grid Margin="0,0,0,12">
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="140"/>
-                          <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0"
-                                   Text="Carnet"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <ComboBox Grid.Column="1"
-                                  x:Name="ParamCarnetCombo"
-                                  ItemsSource="{Binding ParametresDisponibles}"
-                                  SelectedItem="{Binding ParamCarnet, Mode=TwoWay}"/>
-                      </Grid>
-
-                      <!-- Ligne DWG -->
-                      <Grid Margin="0,0,0,0">
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="140"/>
-                          <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0"
-                                   Text="DWG"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <ComboBox Grid.Column="1"
-                                  x:Name="ParamDwgCombo"
-                                  ItemsSource="{Binding ParametresDisponibles}"
-                                  SelectedItem="{Binding ParamDwg, Mode=TwoWay}"/>
-                      </Grid>
-
-                    </StackPanel>
-                  </StackPanel>
-                </Expander>
-              </Border>
-
-              <!--
                 Les 2 toggles d'organisation (sous-dossier par jeu / séparer
                 PDF-DWG) ont été déplacés sous le champ destination, dans le
                 footer (voir section « Sous-dossier et format » ci-dessous) :
@@ -686,9 +610,11 @@
               -->
 
               <!--
-                Groupe 2 : Setups d'impression.
-                Même structure « carte de collection » que le Groupe 1 :
-                Border CardStyle en conteneur extérieur, Expander dedans.
+                Groupe 1 : Setups d'impression.
+                Structure alignée sur la carte de collection (cf. CollectionCard
+                ci-dessus) : Border CardStyle en conteneur EXTERIEUR, Expander
+                CollectionExpanderStyle logé dedans. Le CardStyle porte déjà
+                Margin="0,0,0,12" et Padding="16" — ne pas les redéfinir ici.
               -->
               <Border Style="{DynamicResource CardStyle}">
                 <Expander Style="{DynamicResource CollectionExpanderStyle}"
@@ -747,12 +673,12 @@
               </Border>
 
               <!--
-                Groupe 3 : Nommage des fichiers. Ouvre la modale
+                Groupe 2 : Nommage des fichiers. Ouvre la modale
                 NamingEditorView (NamingEditorViewModel côté Python) pour
                 éditer la convention de nommage des feuilles / des carnets.
                 Câblage : MainWindowView.wire_naming_editors().
 
-                Même structure « carte de collection » que les Groupes 1 et 2.
+                Même structure « carte de collection » que le Groupe 1.
                 Le CardStyle porte déjà Margin="0,0,0,12" ; comme pour les
                 cartes de collection (dernier item de la liste inclus), on ne
                 supprime pas cette marge basse pour rester cohérent.
@@ -844,9 +770,14 @@
               </Border>
 
               <!--
-                Groupe 4 : Profils (placeholder). Même structure « carte de
-                collection » que les groupes précédents. Pas encore de VM
-                dédié : simple TextBlock d'attente.
+                Groupe 3 : Profils. Même structure « carte de collection »
+                que les groupes précédents.
+
+                La ComboBox est entièrement bindée (Profils / ProfilActif en
+                TwoWay) : choisir un profil l'applique côté VM, aucun câblage
+                Python n'est nécessaire pour elle. Seuls les 4 boutons sont
+                câblés (MainWindowView.wire_profils) — ils ont besoin d'un
+                sélecteur de fichier ou d'une saisie de nom.
               -->
               <Border Style="{DynamicResource CardStyle}">
                 <Expander Style="{DynamicResource CollectionExpanderStyle}"
@@ -859,10 +790,51 @@
                   </Expander.Header>
 
                   <StackPanel Orientation="Vertical" Margin="0,10,0,0">
-                    <TextBlock Text="Gestion des profils d'export — à venir."
+                    <TextBlock Text="Un profil regroupe les conventions de nommage, les setups d'impression et les options d'organisation. Le dossier de destination n'en fait pas partie."
                                Foreground="{DynamicResource TextSecondaryBrush}"
                                FontSize="12.5"
-                               TextWrapping="Wrap"/>
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,12"/>
+
+                    <!-- Ligne Profil actif : choisir un profil l'applique -->
+                    <Grid Margin="0,0,0,12">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="*"/>
+                      </Grid.ColumnDefinitions>
+                      <TextBlock Grid.Column="0"
+                                 Text="Profil actif"
+                                 VerticalAlignment="Center"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
+                      <ComboBox Grid.Column="1"
+                                x:Name="ProfilCombo"
+                                ItemsSource="{Binding Profils}"
+                                SelectedItem="{Binding ProfilActif, Mode=TwoWay}"/>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Right">
+                      <Button x:Name="EnregistrerProfilButton"
+                              Content="Enregistrer…"
+                              ToolTip="Enregistrer les réglages courants comme profil"
+                              Height="32" Padding="12,0" Margin="0,0,8,0"
+                              Style="{DynamicResource SecondaryActionButtonStyle}"/>
+                      <Button x:Name="ImporterProfilButton"
+                              Content="Importer…"
+                              ToolTip="Ajouter un fichier de profil reçu d'un autre poste"
+                              Height="32" Padding="12,0" Margin="0,0,8,0"
+                              Style="{DynamicResource SecondaryActionButtonStyle}"/>
+                      <Button x:Name="ExporterProfilButton"
+                              Content="Exporter…"
+                              ToolTip="Écrire les réglages courants dans un fichier partageable"
+                              Height="32" Padding="12,0" Margin="0,0,8,0"
+                              Style="{DynamicResource SecondaryActionButtonStyle}"/>
+                      <Button x:Name="SupprimerProfilButton"
+                              Content="Supprimer"
+                              ToolTip="Supprimer le profil actif (les réglages en cours sont conservés)"
+                              Height="32" Padding="12,0"
+                              Style="{DynamicResource SecondaryActionButtonStyle}"/>
+                    </StackPanel>
                   </StackPanel>
                 </Expander>
               </Border>
@@ -922,7 +894,8 @@
                                FontWeight="SemiBold"
                                Margin="0,0,0,6"/>
 
-                    <!-- Mode « par jeu » : sous-dossier par jeu + séparation formats -->
+                    <!-- Mode « par jeu » : sous-dossier par jeu +
+                         séparation formats -->
                     <StackPanel Orientation="Horizontal"
                                 Visibility="{Binding IsAuto, Converter={StaticResource BoolToVisibilityConverter}}">
                       <CheckBox Content="Sous-dossier par jeu"

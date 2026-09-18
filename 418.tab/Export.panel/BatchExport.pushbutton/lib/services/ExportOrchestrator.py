@@ -154,44 +154,7 @@ class ExportOrchestrator(object):
             pass
         return res
 
-    def _read_flag_from_param(self, elem, param_name, default=False):
-        try:
-            for p in elem.Parameters:
-                try:
-                    if p.Definition and p.Definition.Name == param_name:
-                        v = 0
-                        try:
-                            v = p.AsInteger()
-                        except Exception:
-                            pass
-                        return bool(v)
-                except Exception:
-                    continue
-        except Exception:
-            pass
-        return default
-
-    def plan_exports_for_collections(self, doc, pname_export, pname_per_sheet, pname_dwg):
-        """Qualifie chaque SheetCollection du document à partir des NOMS des
-        trois paramètres Oui/Non mappés côté UI (Export / Carnet / DWG)."""
-        plans = []
-        for coll, cname in self._collect_collections(doc):
-            do_export = self._read_flag_from_param(coll, pname_export, default=False) if pname_export else False
-            # Inverser la logique : si le param Carnet est True = compiler (per_sheet=False), si False = par feuille (per_sheet=True)
-            carnet_flag = self._read_flag_from_param(coll, pname_per_sheet, default=False) if pname_per_sheet else False
-            per_sheet = not carnet_flag  # Inversion : True dans le paramètre = carnet = per_sheet False
-            do_dwg = self._read_flag_from_param(coll, pname_dwg, default=False) if pname_dwg else False
-            do_pdf = bool(do_export)
-            plans.append(ExportPlan(cname, do_export, per_sheet, do_dwg, do_pdf))
-        return plans
-
     # ------------------- Préférences / Destinations ------------------- #
-    def _get_flag(self, key, default='0'):
-        try:
-            return (self._cfg.get(key, default) if self._cfg is not None else default) or default
-        except Exception:
-            return default
-
     def _get_destination_base(self, fmt_subfolder=None, collection_name=None):
         base = None
         try:
@@ -295,12 +258,18 @@ class ExportOrchestrator(object):
         return 'renommer_tous'
 
     # ------------------- Exécution ------------------- #
-    def run(self, doc, pname_export, pname_per_sheet, pname_dwg,
-            progress_cb=None, log_cb=None, destination=None):
+    def run(self, doc, flags, progress_cb=None, log_cb=None, destination=None):
+        """Export « par jeu ».
+
+        `flags` : badges cochés dans l'onglet « Par jeu », liste de tuples
+        `(nom_du_jeu, export, carnet, dwg)`. Seule source de qualification :
+        aucun paramètre Revit n'est lu ni écrit (cas du travail collaboratif,
+        où les paramètres Oui/Non ne sont pas éditables).
+        """
         self._destination_override = destination or None
         self._politique_collision = None
         try:
-            return self._run_impl(doc, pname_export, pname_per_sheet, pname_dwg,
+            return self._run_impl(doc, flags,
                                   progress_cb=progress_cb, log_cb=log_cb)
         except ExportAnnule:
             return self._annuler(progress_cb, log_cb)
@@ -323,8 +292,7 @@ class ExportOrchestrator(object):
                 pass
         return False
 
-    def _run_impl(self, doc, pname_export, pname_per_sheet, pname_dwg,
-                  progress_cb=None, log_cb=None):
+    def _run_impl(self, doc, flags, progress_cb=None, log_cb=None):
         self._log_cb = log_cb
         # Initialiser le NamingService (jetons) avec le document.
         if self._NamingService_cls is not None and self._naming is None:
@@ -333,8 +301,11 @@ class ExportOrchestrator(object):
             except Exception:
                 self._naming = None
 
-        plans = self.plan_exports_for_collections(
-            doc, pname_export, pname_per_sheet, pname_dwg)
+        # Plans bâtis sur les badges cochés dans l'UI. Inversion carnet ->
+        # per_sheet : carnet coché = PDF combiné = per_sheet False.
+        plans = [ExportPlan(nom, bool(export), not bool(carnet),
+                            bool(dwg), bool(export))
+                 for nom, export, carnet, dwg in (flags or [])]
 
         # Diagnostic immédiat si aucun plan ne qualifie
         qualifying = [p for p in plans if p.do_export]
@@ -345,9 +316,9 @@ class ExportOrchestrator(object):
                         log_cb(u"Aucun jeu de feuilles trouvé dans ce document.")
                     else:
                         log_cb(
-                            u"Aucun jeu qualifié pour l'export ({} jeu(x) trouvé(s), "
-                            u"tous exclus par le mappage des paramètres). "
-                            u"Vérifiez les paramètres Export/Carnet/DWG dans Réglages.".format(len(plans))
+                            u"Aucun jeu coché pour l'export ({} jeu(x) trouvé(s)). "
+                            u"Cochez au moins un badge Export dans l'onglet "
+                            u"« Par jeu ».".format(len(plans))
                         )
                 except Exception:
                     pass
