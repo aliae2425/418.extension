@@ -337,11 +337,23 @@ class MainViewModel(BaseViewModel):
             return default
 
     def _cfg_set(self, key, value):
+        """Écrit une clé de config. Un échec est LOGGÉ, jamais avalé : une
+        perte de réglage silencieuse est indiscernable d'un bug d'UI côté
+        utilisateur (cf. « les badges ne persistent pas »). Ne lève toujours
+        pas -- un réglage non sauvé ne doit pas casser l'outil."""
         try:
-            if self._cfg is not None:
-                self._cfg.set(key, value or u'')
-        except Exception:
-            pass
+            if self._cfg is None:
+                self._log(u'AVERT',
+                    u'Config indisponible : "{}" non persisté'.format(key))
+                return
+            # `UserConfig.set` rend False quand l'écriture du fichier échoue
+            # (les faux magasins des tests rendent None -> pas d'alerte).
+            if self._cfg.set(key, value or u'') is False:
+                self._log(u'AVERT',
+                    u'Échec d\'écriture de la config : "{}"'.format(key))
+        except Exception as exc:
+            self._log(u'AVERT',
+                u'Config "{}" non persistée : {}'.format(key, exc))
 
     def _charger_choix(self):
         """Relit les badges « Par jeu » persistés -> `{titre: (e, c, d)}`.
@@ -369,13 +381,24 @@ class MainViewModel(BaseViewModel):
         return out
 
     def _enregistrer_choix(self):
-        """Persiste `self._badges_jeux` en JSON. Best-effort : ne lève jamais."""
+        """Persiste `self._badges_jeux` en JSON. Ne lève jamais, mais logge.
+
+        `ensure_ascii=False` est OBLIGATOIRE, pas cosmétique : sous IronPython
+        2.7 (le moteur pyRevit), `str is unicode`, donc l'encodeur ASCII de
+        `json` prend systématiquement la branche « octets » et tente un
+        `.decode('utf-8')` sur la chaîne -- qui lève sur le moindre accent
+        (« 0xE9 ... from specified code page »). Tout jeu au titre accentué
+        (« 1.06_Détails ») faisait donc échouer la sauvegarde des badges.
+        `UserConfig` écrit déjà le fichier en UTF-8 avec `ensure_ascii=False` :
+        les accents y sont stockés littéralement, c'est la même convention.
+        """
         try:
             self._cfg_set(_CFG_KEY_BADGES_JEUX,
                           json.dumps(dict(
-                              (t, list(v)) for t, v in self._badges_jeux.items())))
-        except Exception:
-            pass
+                              (t, list(v)) for t, v in self._badges_jeux.items()),
+                              ensure_ascii=False))
+        except Exception as exc:
+            self._log(u'AVERT', u'Badges non persistés : {}'.format(exc))
 
     def get_naming_params(self):
         """Liste des noms de paramètres utilisables pour le nommage des
@@ -597,6 +620,20 @@ class MainViewModel(BaseViewModel):
                 u'  Aucune SheetCollection dans ce document '
                 u'(vérifiez que le projet utilise des Jeux de feuilles Revit)')
 
+        # Les badges sont mémorisés par TITRE de jeu, dans une config commune à
+        # tous les documents. Des badges mémorisés dont aucun titre n'existe ici
+        # = autre projet, ou jeu renommé : le dire, sinon l'utilisateur ne voit
+        # qu'un « ça ne persiste pas » sans cause.
+        titres_doc = [c.Titre for c in collections_out]
+        if collections_out and self._badges_jeux and not any(
+                t in self._badges_jeux for t in titres_doc):
+            self._log(u'AVERT',
+                u'  Badges mémorisés pour {} : aucun jeu de ce document ne '
+                u'correspond (jeux ici : {}). Renommage de jeu ou autre projet '
+                u'-> les badges repartent éteints.'.format(
+                    u', '.join(sorted(self._badges_jeux)),
+                    u', '.join(titres_doc)))
+
         for name in (u'Collections', u'NbJeuxQualifies',
                      u'NbFeuillesQualifiees'):
             self.notify_property(name)
@@ -611,8 +648,10 @@ class MainViewModel(BaseViewModel):
         try:
             self._badges_jeux[item.Titre] = (
                 item.FlagExport, item.FlagCarnet, item.FlagDwg)
-        except Exception:
-            pass
+            self._log(u'CONFIG', u'Badge "{}" -> Export={} Carnet={} DWG={}'.format(
+                item.Titre, item.FlagExport, item.FlagCarnet, item.FlagDwg))
+        except Exception as exc:
+            self._log(u'AVERT', u'Badge non mémorisé : {}'.format(exc))
         self._enregistrer_choix()
         for name in (u'NbJeuxQualifies', u'NbFeuillesQualifiees'):
             self.notify_property(name)
@@ -1239,6 +1278,11 @@ class MainViewModel(BaseViewModel):
                 _LOGGER.error(ligne)
             elif category == u'AVERT':
                 _LOGGER.warning(ligne)
+            elif category in (u'INIT', u'CONFIG'):
+                # Contexte d'ouverture et changements de réglage : les seuls
+                # diagnostics utiles sans mode verbeux (p.ex. « les badges ne
+                # reviennent pas ») -> info, visible dans la sortie pyRevit.
+                _LOGGER.info(ligne)
             else:
                 _LOGGER.debug(ligne)
         except Exception:
@@ -1255,8 +1299,9 @@ class MainViewModel(BaseViewModel):
                     doc_title = u'(doc inconnu)'
             self._log(u'INIT', u'Document   : "{}"'.format(doc_title))
             self._log(u'INIT', u'Mode       : {}'.format(self._mode))
-            self._log(u'INIT', u'BadgesJeux : {} jeu(x) mémorisé(s)'.format(
-                len(self._badges_jeux)))
+            self._log(u'INIT', u'BadgesJeux : {} jeu(x) mémorisé(s) -> {}'.format(
+                len(self._badges_jeux),
+                u', '.join(sorted(self._badges_jeux)) or u'(aucun)'))
             self._log(u'INIT', u'Destination: "{}"'.format(self.DestinationPath))
             self._log(u'INIT', u'SetupPdf   : "{}" | SetupDwg: "{}"'.format(
                 self.SetupPdf, self.SetupDwg))

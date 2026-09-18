@@ -329,7 +329,9 @@ class NamingService(object):
         except Exception:
             pass
         try:
-            self._cfg.set(krows, json.dumps(rows or []))
+            # ensure_ascii=False : sous IronPython 2.7 l'encodeur ASCII de
+            # `json` lève sur tout accent (cf. MainViewModel._enregistrer_choix).
+            self._cfg.set(krows, json.dumps(rows or [], ensure_ascii=False))
         except Exception:
             pass
         return True

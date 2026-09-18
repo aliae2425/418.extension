@@ -431,6 +431,50 @@ class TestMainViewModelBadgesJeuxPersistance(unittest.TestCase):
         self.assertFalse(jeu_a.FlagCarnet)
         self.assertTrue(jeu_a.FlagDwg)
 
+    def test_titre_accentue_ecrit_sans_echappement(self):
+        """Régression : un jeu au titre accentué doit être persisté.
+
+        Sous IronPython 2.7 (moteur pyRevit), `str is unicode` : l'encodeur
+        ASCII de `json` prend toujours la branche « octets » et lève sur tout
+        accent. Le seul remède est `ensure_ascii=False` -- vérifiable ici par
+        l'ABSENCE d'échappement `\\uXXXX` dans ce qui est écrit en config.
+        C'est le bug qui empêchait les badges de persister : seuls les jeux au
+        titre purement ASCII survivaient."""
+        cfg = FakeConfig()
+        vm = self._vm(cfg)
+        vm.refresh_par_jeu()
+        jeu = vm.Collections[0]
+        jeu._titre = u'1.06_D\xe9tails'  # titre accentué, comme dans Revit
+        jeu.FlagExport = True
+
+        brut = cfg.get('jeux_badges')
+        self.assertIn(u'1.06_D\xe9tails', brut)
+        self.assertNotIn(u'\\u', brut)
+        self.assertEqual(json.loads(brut),
+                         {u'1.06_D\xe9tails': [True, False, False]})
+
+    def test_echec_decriture_est_signale_pas_avale(self):
+        """Une config qui refuse d'écrire (set -> False) ou qui lève DOIT
+        produire un AVERT. Sans ça, l'utilisateur voit « ça ne persiste pas »
+        sans aucune trace de la cause -- c'est exactement le symptôme qui a
+        motivé ce garde-fou."""
+        class CfgKo(FakeConfig):
+            def set(self, key, value):
+                return False
+
+        class CfgQuiLeve(FakeConfig):
+            def set(self, key, value):
+                raise IOError(u'disque plein')
+
+        for cfg in (CfgKo(), CfgQuiLeve()):
+            vm = self._vm(cfg)
+            alertes = []
+            vm._log = lambda cat, msg: alertes.append((cat, msg))
+            vm.refresh_par_jeu()
+            vm.Collections[0].FlagExport = True  # ne doit pas lever
+            self.assertTrue([a for a in alertes if a[0] == u'AVERT'],
+                            u'aucun AVERT pour {}'.format(type(cfg).__name__))
+
     def test_config_absente_ne_leve_pas(self):
         # `config=None` -> le VM tente le vrai UserConfig (no-op hors Revit).
         vm = MainViewModel(doc=None, sheet_service=FakeSheetService(),

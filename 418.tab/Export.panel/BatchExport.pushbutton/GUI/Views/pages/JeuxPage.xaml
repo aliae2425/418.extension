@@ -122,7 +122,7 @@
 
                   <ToggleButton x:Name="BadgeExport"
                                 Content="EXPORT"
-                                ToolTip="Inclure ce jeu dans l'export (mémoire seule)"
+                                ToolTip="Inclure ce jeu dans l'export (mémorisé, jamais écrit dans la maquette)"
                                 Template="{StaticResource BadgeToggleTemplate}"
                                 Background="{DynamicResource SuccessBrush}"
                                 IsChecked="{Binding FlagExport, Mode=TwoWay}"
@@ -132,7 +132,7 @@
 
                   <ToggleButton x:Name="BadgeCarnet"
                                 Content="CARNET"
-                                ToolTip="Assembler ce jeu en carnet PDF (mémoire seule)"
+                                ToolTip="Assembler ce jeu en carnet PDF (mémorisé, jamais écrit dans la maquette)"
                                 Template="{StaticResource BadgeToggleTemplate}"
                                 Background="{DynamicResource AccentBrush}"
                                 IsChecked="{Binding FlagCarnet, Mode=TwoWay}"
@@ -142,7 +142,7 @@
 
                   <ToggleButton x:Name="BadgeDwg"
                                 Content="DWG"
-                                ToolTip="Exporter aussi ce jeu en DWG (mémoire seule)"
+                                ToolTip="Exporter aussi ce jeu en DWG (mémorisé, jamais écrit dans la maquette)"
                                 Template="{StaticResource BadgeToggleTemplate}"
                                 Background="{DynamicResource WarningBrush}"
                                 IsChecked="{Binding FlagDwg, Mode=TwoWay}"
