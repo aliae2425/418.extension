@@ -34,6 +34,18 @@ class TestMainViewModel(unittest.TestCase):
         self.assertEqual(MainViewModel.decide_initial_mode(True), u'options')
         self.assertEqual(MainViewModel.decide_initial_mode(False), u'selection')
 
+    def test_selection_revit_desordonnee_est_remise_dans_l_ordre(self):
+        """La sélection Revit arrive en vrac : l'aperçu ET l'ordre de
+        duplication doivent suivre le nom de vue croissant."""
+        descr = [(1, u'Niveau 1', u'FloorPlan'),
+                 (2, u'Niveau 2', u'FloorPlan'),
+                 (3, u'Niveau 10', u'FloorPlan')]
+        vm = MainViewModel()
+        vm.charger(descr, [3, 1, 2])
+        self.assertEqual(vm.SelectedViewIds, [1, 2, 3])
+        self.assertEqual([g.NomOriginal for g in vm.OptionsVM.PreviewGroups],
+                         [u'Niveau 1', u'Niveau 2', u'Niveau 10'])
+
     def test_charger_avec_selection_ouvre_options(self):
         vm = MainViewModel()
         vm.charger(self.DESCR, [1])

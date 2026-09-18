@@ -5,7 +5,8 @@
     Page Nommage - DataContext = OptionsPageVM.
     XamlReader.Load, pas de x:Class. Tout brush/style en DynamicResource.
 
-    Grille nommage : lignes = type (Vue / N&#176; feuille / Nom feuille),
+    Aper&#231;u en haut, grille de nommage en bas :
+    lignes = type (Vue / N&#176; feuille / Nom feuille),
     colonnes = champs (Pr&#233;fixe | Rechercher | Remplacer | Suffixe).
   -->
 
@@ -13,6 +14,91 @@
                 HorizontalScrollBarVisibility="Disabled"
                 Padding="14">
     <StackPanel Orientation="Vertical">
+
+      <!-- Aper&#231;u des feuilles cr&#233;&#233;es -->
+      <Border Style="{DynamicResource CardStyle}" Padding="12,10">
+        <StackPanel Orientation="Vertical">
+          <TextBlock Text="Aper&#231;u des feuilles cr&#233;&#233;es"
+                     Style="{DynamicResource SubHeaderTextBlockStyle}"
+                     Margin="0,0,0,8"/>
+
+          <!-- &#201;tat vide -->
+          <Border Background="{DynamicResource ControlFillBrush}"
+                  BorderBrush="{DynamicResource ControlBorderBrush}"
+                  BorderThickness="1" CornerRadius="6" Padding="12" MinHeight="44">
+            <Border.Style>
+              <Style TargetType="Border">
+                <Setter Property="Visibility" Value="Collapsed"/>
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding HasPreview}" Value="False">
+                    <Setter Property="Visibility" Value="Visible"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </Border.Style>
+            <TextBlock Text="S&#233;lectionnez des feuilles pour voir l&#8217;aper&#231;u."
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontStyle="Italic" FontSize="12"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+
+          <!-- Liste group&#233;e par feuille source -->
+          <ItemsControl ItemsSource="{Binding PreviewGroups}">
+            <ItemsControl.Style>
+              <Style TargetType="ItemsControl">
+                <Setter Property="Visibility" Value="Visible"/>
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding HasPreview}" Value="False">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </ItemsControl.Style>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border BorderBrush="{DynamicResource ControlBorderBrush}"
+                        BorderThickness="0,0,0,1" Padding="2,6">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="2*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="{Binding OriginalLabel}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="11" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Grid.Column="1"
+                               Text="&#8594;"
+                               Foreground="{DynamicResource AccentBrush}"
+                               FontSize="13" VerticalAlignment="Center"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Grid.Column="2"
+                               Text="{Binding NumeroGenere}"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               FontWeight="SemiBold" FontSize="13"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="3"
+                               Text="&#183;"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="13" VerticalAlignment="Center"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Grid.Column="4"
+                               Text="{Binding NomGenere}"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               FontWeight="SemiBold" FontSize="13"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
 
       <!-- Nommage : 3 lignes x 4 champs sur une seule ligne -->
       <Border Style="{DynamicResource CardStyle}" Padding="12,10">
@@ -65,6 +151,7 @@
                       <TextBlock Text="{}{annee} &#8212;  ann&#233;e sur 4 chiffres" Margin="0,1"/>
                       <TextBlock Text="{}{mois}  &#8212;  mois sur 2 chiffres" Margin="0,1"/>
                       <TextBlock Text="{}{jour}  &#8212;  jour sur 2 chiffres" Margin="0,1"/>
+                      <TextBlock Text="{}{n}     &#8212;  num&#233;ro de la copie (1, 2, 3&#8230;)" Margin="0,1"/>
                       <TextBlock Text="Utilisables dans Pr&#233;fixe, Remplacer et Suffixe."
                                  FontStyle="Italic" Margin="0,6,0,0"/>
                     </StackPanel>
@@ -160,91 +247,6 @@
                      Text="{Binding NameSuffix, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      Margin="4,0,0,0" VerticalAlignment="Top"/>
           </Grid>
-        </StackPanel>
-      </Border>
-
-      <!-- Aper&#231;u des feuilles cr&#233;&#233;es -->
-      <Border Style="{DynamicResource CardStyle}" Padding="12,10">
-        <StackPanel Orientation="Vertical">
-          <TextBlock Text="Aper&#231;u des feuilles cr&#233;&#233;es"
-                     Style="{DynamicResource SubHeaderTextBlockStyle}"
-                     Margin="0,0,0,8"/>
-
-          <!-- &#201;tat vide -->
-          <Border Background="{DynamicResource ControlFillBrush}"
-                  BorderBrush="{DynamicResource ControlBorderBrush}"
-                  BorderThickness="1" CornerRadius="6" Padding="12" MinHeight="44">
-            <Border.Style>
-              <Style TargetType="Border">
-                <Setter Property="Visibility" Value="Collapsed"/>
-                <Style.Triggers>
-                  <DataTrigger Binding="{Binding HasPreview}" Value="False">
-                    <Setter Property="Visibility" Value="Visible"/>
-                  </DataTrigger>
-                </Style.Triggers>
-              </Style>
-            </Border.Style>
-            <TextBlock Text="S&#233;lectionnez des feuilles pour voir l&#8217;aper&#231;u."
-                       Foreground="{DynamicResource TextSecondaryBrush}"
-                       FontStyle="Italic" FontSize="12"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-          </Border>
-
-          <!-- Liste group&#233;e par feuille source -->
-          <ItemsControl ItemsSource="{Binding PreviewGroups}">
-            <ItemsControl.Style>
-              <Style TargetType="ItemsControl">
-                <Setter Property="Visibility" Value="Visible"/>
-                <Style.Triggers>
-                  <DataTrigger Binding="{Binding HasPreview}" Value="False">
-                    <Setter Property="Visibility" Value="Collapsed"/>
-                  </DataTrigger>
-                </Style.Triggers>
-              </Style>
-            </ItemsControl.Style>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Border BorderBrush="{DynamicResource ControlBorderBrush}"
-                        BorderThickness="0,0,0,1" Padding="2,6">
-                  <Grid>
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="*"/>
-                      <ColumnDefinition Width="8"/>
-                      <ColumnDefinition Width="Auto"/>
-                      <ColumnDefinition Width="8"/>
-                      <ColumnDefinition Width="2*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"
-                               Text="{Binding OriginalLabel}"
-                               Foreground="{DynamicResource TextSecondaryBrush}"
-                               FontSize="11" VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="1"
-                               Text="&#8594;"
-                               Foreground="{DynamicResource AccentBrush}"
-                               FontSize="13" VerticalAlignment="Center"
-                               HorizontalAlignment="Center"/>
-                    <TextBlock Grid.Column="2"
-                               Text="{Binding NumeroGenere}"
-                               Foreground="{DynamicResource TextPrimaryBrush}"
-                               FontWeight="SemiBold" FontSize="13"
-                               VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="3"
-                               Text="&#183;"
-                               Foreground="{DynamicResource TextSecondaryBrush}"
-                               FontSize="13" VerticalAlignment="Center"
-                               HorizontalAlignment="Center"/>
-                    <TextBlock Grid.Column="4"
-                               Text="{Binding NomGenere}"
-                               Foreground="{DynamicResource TextPrimaryBrush}"
-                               FontWeight="SemiBold" FontSize="13"
-                               VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis"/>
-                  </Grid>
-                </Border>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
         </StackPanel>
       </Border>
 

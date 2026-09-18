@@ -103,95 +103,7 @@
         </Grid>
       </Border>
 
-      <!-- Carte 2 : nommage (pr&#233;fixe / rechercher / remplacer / suffixe) -->
-      <Border Style="{DynamicResource CardStyle}">
-        <StackPanel Orientation="Vertical">
-          <TextBlock Text="Nommage"
-                     Style="{DynamicResource SubHeaderTextBlockStyle}"
-                     Margin="0,0,0,10"/>
-          <Grid>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-
-            <StackPanel Grid.Column="0" Orientation="Vertical" Margin="0,0,8,0">
-              <TextBlock Text="Pr&#233;fixe"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         FontSize="11" Margin="0,0,0,4"/>
-              <TextBox Text="{Binding Prefixe, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-            </StackPanel>
-
-            <StackPanel Grid.Column="1" Orientation="Vertical" Margin="0,0,8,0">
-              <TextBlock Text="Rechercher (regex)"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         FontSize="11" Margin="0,0,0,4"/>
-              <TextBox Text="{Binding Rechercher, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-              <!-- Indicateur d'erreur regex -->
-              <TextBlock Text="{Binding RegexError}"
-                         Foreground="#E05252"
-                         FontSize="10"
-                         TextWrapping="Wrap"
-                         Margin="0,3,0,0">
-                <TextBlock.Style>
-                  <Style TargetType="TextBlock">
-                    <Setter Property="Visibility" Value="Collapsed"/>
-                    <Style.Triggers>
-                      <DataTrigger Binding="{Binding HasRegexError}" Value="True">
-                        <Setter Property="Visibility" Value="Visible"/>
-                      </DataTrigger>
-                    </Style.Triggers>
-                  </Style>
-                </TextBlock.Style>
-              </TextBlock>
-            </StackPanel>
-
-            <StackPanel Grid.Column="2" Orientation="Vertical" Margin="0,0,8,0">
-              <!-- En-t&#234;te Remplacer + ic&#244;ne d'aide sur les tokens -->
-              <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                <TextBlock Text="Remplacer"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontSize="11" VerticalAlignment="Center"/>
-                <TextBlock Text="&#9432;"
-                           Foreground="{DynamicResource AccentBrush}"
-                           FontSize="12" FontWeight="Bold"
-                           Margin="4,0,0,0" VerticalAlignment="Center"
-                           Cursor="Hand"
-                           ToolTipService.InitialShowDelay="150"
-                           ToolTipService.ShowDuration="30000">
-                  <TextBlock.ToolTip>
-                    <ToolTip MaxWidth="340">
-                      <StackPanel Margin="2">
-                        <TextBlock Text="Tokens disponibles" FontWeight="Bold" Margin="0,0,0,6"/>
-                        <TextBlock Text="{}{date}  &#8212;  date du jour (AAAA-MM-JJ)" Margin="0,1"/>
-                        <TextBlock Text="{}{annee} &#8212;  ann&#233;e sur 4 chiffres" Margin="0,1"/>
-                        <TextBlock Text="{}{mois}  &#8212;  mois sur 2 chiffres" Margin="0,1"/>
-                        <TextBlock Text="{}{jour}  &#8212;  jour sur 2 chiffres" Margin="0,1"/>
-                        <TextBlock Text="{}{n}     &#8212;  num&#233;ro de la copie (1, 2, 3&#8230;)" Margin="0,1"/>
-                        <TextBlock Text="{}{type}  &#8212;  type de la vue" Margin="0,1"/>
-                        <TextBlock Text="Utilisables dans Pr&#233;fixe, Remplacer et Suffixe."
-                                   FontStyle="Italic" Margin="0,6,0,0"/>
-                      </StackPanel>
-                    </ToolTip>
-                  </TextBlock.ToolTip>
-                </TextBlock>
-              </StackPanel>
-              <TextBox Text="{Binding Remplacer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-            </StackPanel>
-
-            <StackPanel Grid.Column="3" Orientation="Vertical">
-              <TextBlock Text="Suffixe"
-                         Foreground="{DynamicResource TextSecondaryBrush}"
-                         FontSize="11" Margin="0,0,0,4"/>
-              <TextBox Text="{Binding Suffixe, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-            </StackPanel>
-          </Grid>
-        </StackPanel>
-      </Border>
-
-      <!-- Carte 3 : aper&#231;u des noms cr&#233;&#233;s, group&#233;s par vue d'origine -->
+      <!-- Carte 2 : aper&#231;u des noms cr&#233;&#233;s, group&#233;s par vue d'origine -->
       <Border Style="{DynamicResource CardStyle}">
         <StackPanel Orientation="Vertical">
           <TextBlock Text="Aper&#231;u des noms cr&#233;&#233;s"
@@ -285,6 +197,94 @@
             </ItemsControl.ItemTemplate>
           </ItemsControl>
 
+        </StackPanel>
+      </Border>
+
+      <!-- Carte 3 : nommage (pr&#233;fixe / rechercher / remplacer / suffixe) -->
+      <Border Style="{DynamicResource CardStyle}">
+        <StackPanel Orientation="Vertical">
+          <TextBlock Text="Nommage"
+                     Style="{DynamicResource SubHeaderTextBlockStyle}"
+                     Margin="0,0,0,10"/>
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Orientation="Vertical" Margin="0,0,8,0">
+              <TextBlock Text="Pr&#233;fixe"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         FontSize="11" Margin="0,0,0,4"/>
+              <TextBox Text="{Binding Prefixe, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Vertical" Margin="0,0,8,0">
+              <TextBlock Text="Rechercher (regex)"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         FontSize="11" Margin="0,0,0,4"/>
+              <TextBox Text="{Binding Rechercher, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+              <!-- Indicateur d'erreur regex -->
+              <TextBlock Text="{Binding RegexError}"
+                         Foreground="#E05252"
+                         FontSize="10"
+                         TextWrapping="Wrap"
+                         Margin="0,3,0,0">
+                <TextBlock.Style>
+                  <Style TargetType="TextBlock">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding HasRegexError}" Value="True">
+                        <Setter Property="Visibility" Value="Visible"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </TextBlock.Style>
+              </TextBlock>
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Vertical" Margin="0,0,8,0">
+              <!-- En-t&#234;te Remplacer + ic&#244;ne d'aide sur les tokens -->
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                <TextBlock Text="Remplacer"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="11" VerticalAlignment="Center"/>
+                <TextBlock Text="&#9432;"
+                           Foreground="{DynamicResource AccentBrush}"
+                           FontSize="12" FontWeight="Bold"
+                           Margin="4,0,0,0" VerticalAlignment="Center"
+                           Cursor="Hand"
+                           ToolTipService.InitialShowDelay="150"
+                           ToolTipService.ShowDuration="30000">
+                  <TextBlock.ToolTip>
+                    <ToolTip MaxWidth="340">
+                      <StackPanel Margin="2">
+                        <TextBlock Text="Tokens disponibles" FontWeight="Bold" Margin="0,0,0,6"/>
+                        <TextBlock Text="{}{date}  &#8212;  date du jour (AAAA-MM-JJ)" Margin="0,1"/>
+                        <TextBlock Text="{}{annee} &#8212;  ann&#233;e sur 4 chiffres" Margin="0,1"/>
+                        <TextBlock Text="{}{mois}  &#8212;  mois sur 2 chiffres" Margin="0,1"/>
+                        <TextBlock Text="{}{jour}  &#8212;  jour sur 2 chiffres" Margin="0,1"/>
+                        <TextBlock Text="{}{n}     &#8212;  num&#233;ro de la copie (1, 2, 3&#8230;)" Margin="0,1"/>
+                        <TextBlock Text="{}{type}  &#8212;  type de la vue" Margin="0,1"/>
+                        <TextBlock Text="Utilisables dans Pr&#233;fixe, Remplacer et Suffixe."
+                                   FontStyle="Italic" Margin="0,6,0,0"/>
+                      </StackPanel>
+                    </ToolTip>
+                  </TextBlock.ToolTip>
+                </TextBlock>
+              </StackPanel>
+              <TextBox Text="{Binding Remplacer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="3" Orientation="Vertical">
+              <TextBlock Text="Suffixe"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         FontSize="11" Margin="0,0,0,4"/>
+              <TextBox Text="{Binding Suffixe, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+            </StackPanel>
+          </Grid>
         </StackPanel>
       </Border>
 

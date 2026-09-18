@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+import contextlib
 import os
 import sys
 import unittest
@@ -12,8 +13,15 @@ _BUTTON = os.path.abspath(os.path.join(_HERE, '..'))
 if _BUTTON not in sys.path:
     sys.path.insert(0, _BUTTON)
 
+from lib.services import DuplicationSheetsService as _mod
 from lib.services.DuplicationSheetsService import DuplicationSheetsService
 from lib.services.DuplicationOptions import DuplicationOptions
+
+
+@contextlib.contextmanager
+def _null_tx(*args, **kwargs):
+    """Remplace revit_transaction (None hors Revit) le temps d'un test."""
+    yield
 
 
 class FakeDoc(object):
@@ -216,6 +224,45 @@ class TestUpdateViewName(unittest.TestCase):
         svc = DuplicationSheetsService(doc)
         svc.update_view_name(source, new_view, opts)
         self.assertEqual(new_view.Name, u'V_Niveau #')
+
+
+class TestNombreDeCopies(unittest.TestCase):
+
+    def test_count_normalise(self):
+        """count vide / non numerique / < 1 retombe sur 1."""
+        self.assertEqual(DuplicationOptions().count, 1)
+        self.assertEqual(DuplicationOptions(count=u'3').count, 3)
+        self.assertEqual(DuplicationOptions(count=u'abc').count, 1)
+        self.assertEqual(DuplicationOptions(count=0).count, 1)
+
+    def test_duplicate_boucle_count_fois_avec_index_croissant(self):
+        """duplicate() cree count copies par feuille, index 1..count."""
+        doc = FakeDoc()
+        sheets = [FakeSheet(doc, 1, u'A', u'A101'),
+                  FakeSheet(doc, 2, u'B', u'A102')]
+        svc = DuplicationSheetsService(doc)
+        appels = []
+        svc._duplicate_one = (
+            lambda sheet, options, index: appels.append((sheet.Id, index)))
+        ancien = _mod.revit_transaction
+        _mod.revit_transaction = _null_tx
+        try:
+            cree = svc.duplicate(sheets, DuplicationOptions(count=3))
+        finally:
+            _mod.revit_transaction = ancien
+        self.assertEqual(cree, 6)
+        self.assertEqual(appels,
+                         [(1, 1), (1, 2), (1, 3), (2, 1), (2, 2), (2, 3)])
+
+    def test_token_n_suit_l_index_de_copie(self):
+        """Le suffixe '_{n}' vaut '_2' sur la 2e copie."""
+        doc = FakeDoc()
+        source = FakeSheet(doc, 1, u'Nom source', u'A101')
+        new_sheet = FakeSheet(doc, 2, u'Nouveau', u'ZZZ999')
+        opts = DuplicationOptions(number_suffix=u'_{n}')
+        svc = DuplicationSheetsService(doc)
+        svc.update_sheet_number(source, new_sheet, opts, 2)
+        self.assertEqual(new_sheet.SheetNumber, u'A101_2')
 
 
 if __name__ == '__main__':
