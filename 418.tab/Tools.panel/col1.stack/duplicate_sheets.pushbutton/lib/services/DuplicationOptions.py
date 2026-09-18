@@ -15,7 +15,7 @@ class DuplicationOptions(object):
                  include_clouds=False, include_dwgs=False, include_symbols=False,
                  include_dimensions=False, include_additional_revisions=False,
                  use_existing_legends=True, use_existing_schedules=True,
-                 view_duplicate_option=u'duplicate'):
+                 view_duplicate_option=u'duplicate', count=1):
         self.view_find = view_find
         self.view_replace = view_replace
         self.view_prefix = view_prefix
@@ -42,3 +42,8 @@ class DuplicationOptions(object):
         self.use_existing_legends = use_existing_legends
         self.use_existing_schedules = use_existing_schedules
         self.view_duplicate_option = view_duplicate_option
+        try:
+            c = int(count)
+        except (ValueError, TypeError):
+            c = 1
+        self.count = c if c >= 1 else 1

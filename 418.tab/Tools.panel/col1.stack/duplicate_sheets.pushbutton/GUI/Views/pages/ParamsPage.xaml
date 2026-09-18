@@ -57,23 +57,41 @@
                 Padding="14">
     <StackPanel Orientation="Vertical">
 
-      <!-- Option de duplication de vue : radio pills inline -->
+      <!-- Option de duplication de vue + nombre de copies sur la m&#234;me ligne -->
       <Border Style="{DynamicResource CardStyle}" Padding="12,8">
-        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-          <RadioButton x:Name="RadioDuplicate"
-                       GroupName="dupopt" Tag="duplicate"
-                       Content="Dupliquer"
-                       Style="{StaticResource RadioChipStyle}"
-                       IsChecked="True"/>
-          <RadioButton x:Name="RadioDetailing"
-                       GroupName="dupopt" Tag="with_detailing"
-                       Content="Avec d&#233;tails"
-                       Style="{StaticResource RadioChipStyle}"/>
-          <RadioButton x:Name="RadioDependent"
-                       GroupName="dupopt" Tag="as_dependent"
-                       Content="D&#233;pendante"
-                       Style="{StaticResource RadioChipStyle}"/>
-        </StackPanel>
+        <Grid VerticalAlignment="Center">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+
+          <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+            <RadioButton x:Name="RadioDuplicate"
+                         GroupName="dupopt" Tag="duplicate"
+                         Content="Dupliquer"
+                         Style="{StaticResource RadioChipStyle}"
+                         IsChecked="True"/>
+            <RadioButton x:Name="RadioDetailing"
+                         GroupName="dupopt" Tag="with_detailing"
+                         Content="Avec d&#233;tails"
+                         Style="{StaticResource RadioChipStyle}"/>
+            <RadioButton x:Name="RadioDependent"
+                         GroupName="dupopt" Tag="as_dependent"
+                         Content="D&#233;pendante"
+                         Style="{StaticResource RadioChipStyle}"/>
+          </StackPanel>
+
+          <!-- Nombre de copies par feuille -->
+          <StackPanel Grid.Column="1" Orientation="Horizontal"
+                      VerticalAlignment="Center" Margin="16,0,0,0">
+            <TextBlock Text="Copies :"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="13" VerticalAlignment="Center"
+                       Margin="0,0,8,0"/>
+            <TextBox Text="{Binding Count, Mode=TwoWay}"
+                     Width="52" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Grid>
       </Border>
 
       <!-- &#201;l&#233;ments inclus (collapsible) -->

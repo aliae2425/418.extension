@@ -59,7 +59,12 @@ class MainViewModel(BaseViewModel):
             self.notify_property('IsNommage')
 
     def charger(self, descripteurs, ids_courants):
-        ids_courants = list(ids_courants or [])
+        # La sélection Revit arrive dans un ordre quelconque. On la réordonne
+        # sur `descripteurs`, déjà trié par nom de vue (core.selection.
+        # all_views), pour que l'aperçu ET l'ordre de renommage suivent le
+        # nom croissant, comme la liste de sélection.
+        selset = set(ids_courants or [])
+        ids_courants = [d[0] for d in descripteurs if d[0] in selset]
         self._id_to_item = {vid: (nom, type_label) for (vid, nom, type_label) in descripteurs}
         self.SelectedViewIds = list(ids_courants)
         self.SelectionVM = SelectionPageVM.depuis_descripteurs(
