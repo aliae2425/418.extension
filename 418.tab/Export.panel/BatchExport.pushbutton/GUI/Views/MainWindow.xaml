@@ -770,9 +770,14 @@
               </Border>
 
               <!--
-                Groupe 3 : Profils (placeholder). Même structure « carte de
-                collection » que les groupes précédents. Pas encore de VM
-                dédié : simple TextBlock d'attente.
+                Groupe 3 : Profils. Même structure « carte de collection »
+                que les groupes précédents.
+
+                La ComboBox est entièrement bindée (Profils / ProfilActif en
+                TwoWay) : choisir un profil l'applique côté VM, aucun câblage
+                Python n'est nécessaire pour elle. Seuls les 4 boutons sont
+                câblés (MainWindowView.wire_profils) — ils ont besoin d'un
+                sélecteur de fichier ou d'une saisie de nom.
               -->
               <Border Style="{DynamicResource CardStyle}">
                 <Expander Style="{DynamicResource CollectionExpanderStyle}"
@@ -785,10 +790,51 @@
                   </Expander.Header>
 
                   <StackPanel Orientation="Vertical" Margin="0,10,0,0">
-                    <TextBlock Text="Gestion des profils d'export — à venir."
+                    <TextBlock Text="Un profil regroupe les conventions de nommage, les setups d'impression et les options d'organisation. Le dossier de destination n'en fait pas partie."
                                Foreground="{DynamicResource TextSecondaryBrush}"
                                FontSize="12.5"
-                               TextWrapping="Wrap"/>
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,12"/>
+
+                    <!-- Ligne Profil actif : choisir un profil l'applique -->
+                    <Grid Margin="0,0,0,12">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="*"/>
+                      </Grid.ColumnDefinitions>
+                      <TextBlock Grid.Column="0"
+                                 Text="Profil actif"
+                                 VerticalAlignment="Center"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"/>
+                      <ComboBox Grid.Column="1"
+                                x:Name="ProfilCombo"
+                                ItemsSource="{Binding Profils}"
+                                SelectedItem="{Binding ProfilActif, Mode=TwoWay}"/>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Right">
+                      <Button x:Name="EnregistrerProfilButton"
+                              Content="Enregistrer…"
+                              ToolTip="Enregistrer les réglages courants comme profil"
+                              Height="32" Padding="12,0" Margin="0,0,8,0"
+                              Style="{DynamicResource SecondaryActionButtonStyle}"/>
+                      <Button x:Name="ImporterProfilButton"
+                              Content="Importer…"
+                              ToolTip="Ajouter un fichier de profil reçu d'un autre poste"
+                              Height="32" Padding="12,0" Margin="0,0,8,0"
+                              Style="{DynamicResource SecondaryActionButtonStyle}"/>
+                      <Button x:Name="ExporterProfilButton"
+                              Content="Exporter…"
+                              ToolTip="Écrire les réglages courants dans un fichier partageable"
+                              Height="32" Padding="12,0" Margin="0,0,8,0"
+                              Style="{DynamicResource SecondaryActionButtonStyle}"/>
+                      <Button x:Name="SupprimerProfilButton"
+                              Content="Supprimer"
+                              ToolTip="Supprimer le profil actif (les réglages en cours sont conservés)"
+                              Height="32" Padding="12,0"
+                              Style="{DynamicResource SecondaryActionButtonStyle}"/>
+                    </StackPanel>
                   </StackPanel>
                 </Expander>
               </Border>

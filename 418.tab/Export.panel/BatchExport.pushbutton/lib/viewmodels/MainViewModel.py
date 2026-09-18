@@ -49,6 +49,14 @@ except Exception:
         DestinationService = None  # type: ignore
 
 try:
+    from services.ProfileService import ProfileService
+except Exception:
+    try:
+        from lib.services.ProfileService import ProfileService
+    except Exception:
+        ProfileService = None  # type: ignore
+
+try:
     from core.UserConfig import UserConfig
 except Exception:
     try:
@@ -150,7 +158,7 @@ def _format_duree(secondes):
 class MainViewModel(BaseViewModel):
     def __init__(self, doc=None, sheet_service=None, naming_service=None,
                  destination_service=None, config=None,
-                 pdf_service=None, dwg_service=None):
+                 pdf_service=None, dwg_service=None, profile_service=None):
         super(MainViewModel, self).__init__()
         self._doc = doc
         self._titre = u'Exportation'
@@ -229,6 +237,19 @@ class MainViewModel(BaseViewModel):
                 self._dwg_service = DwgExporterService(config=self._cfg) if DwgExporterService is not None else None
             except Exception:
                 self._dwg_service = None
+
+        # Profils d'export (page Paramètres) : même config injectée que les
+        # autres services. `_profil_actif` est le nom affiché dans la
+        # ComboBox -- il n'est PAS persisté : un profil est un ensemble de
+        # réglages copiés dans la config, pas un état permanent.
+        if profile_service is not None:
+            self._profile_service = profile_service
+        else:
+            try:
+                self._profile_service = ProfileService(config=self._cfg) if ProfileService is not None else None
+            except Exception:
+                self._profile_service = None
+        self._profil_actif = u''
 
         # Données « par jeu » : liste unique, éditable (badges cliquables).
         # Les flags viennent UNIQUEMENT des clics de l'utilisateur, jamais du
@@ -1232,6 +1253,148 @@ class MainViewModel(BaseViewModel):
         except Exception:
             pass
         self.notify_property(u'SetupDwg')
+
+    # ------------------------------------------------------------------
+    # Page Paramètres : profils d'export (nommage + setups + organisation)
+    # ------------------------------------------------------------------
+
+    @property
+    def Profils(self):
+        """Noms des profils disponibles. Relu à chaque binding (comme
+        `SetupsPdf`) : le dossier peut changer en cours de session (import,
+        suppression)."""
+        try:
+            if self._profile_service is not None:
+                return list(self._profile_service.list() or [])
+        except Exception:
+            pass
+        return []
+
+    @property
+    def ProfilActif(self):
+        return self._profil_actif
+
+    @ProfilActif.setter
+    def ProfilActif(self, value):
+        """Choisir un profil dans la ComboBox l'APPLIQUE aussitôt : il n'y a
+        pas d'état « sélectionné mais pas chargé » à expliquer à
+        l'utilisateur."""
+        value = value or u''
+        if value == self._profil_actif:
+            return
+        self._profil_actif = value
+        self.notify_property(u'ProfilActif')
+        if value:
+            self.appliquer_profil(value)
+
+    def _notifier_reglages(self):
+        """Re-notifie tout ce qu'un profil a pu changer, et recalcule les
+        aperçus de nommage (les motifs ont changé -> les noms projetés
+        aussi). Best-effort : hors Revit, les refresh ne font rien."""
+        for name in (u'SetupPdf', u'SetupDwg', u'CreerSousDossiers',
+                     u'SeparerFormats', u'CombinerPdf', u'TitrePdfCombine'):
+            self.notify_property(name)
+        for refresh in (u'refresh_par_jeu', u'refresh_manuel'):
+            try:
+                getattr(self, refresh)()
+            except Exception:
+                pass
+        self.refresh_patterns_apercu()
+
+    def _echec_profil(self, message, exc):
+        """Signale un échec de profil dans StatusText + le log. Les profils
+        sont des fichiers manipulés à la main : un échec doit se voir."""
+        try:
+            self.StatusText = u'{} : {}'.format(message, exc)
+        except Exception:
+            self.StatusText = message
+        self._log(u'ERREUR', self.StatusText)
+
+    def appliquer_profil(self, nom):
+        """Recopie les réglages du profil `nom` dans la config courante."""
+        if self._profile_service is None or not nom:
+            return
+        try:
+            n = self._profile_service.apply(nom)
+        except Exception as exc:
+            self._echec_profil(u'Profil "{}" non appliqué'.format(nom), exc)
+            return
+        self._log(u'CONFIG', u'Profil "{}" appliqué ({} réglages).'.format(nom, n))
+        self.StatusText = u'Profil « {} » appliqué.'.format(nom)
+        self._notifier_reglages()
+
+    def enregistrer_profil(self, nom):
+        """Enregistre les réglages COURANTS sous le nom `nom`."""
+        nom = (nom or u'').strip()
+        if self._profile_service is None or not nom:
+            return
+        try:
+            self._profile_service.save(nom)
+        except Exception as exc:
+            self._echec_profil(u'Profil "{}" non enregistré'.format(nom), exc)
+            return
+        # Affectation DIRECTE (pas via le setter) : le profil vient d'être
+        # écrit depuis la config courante, le réappliquer serait un no-op.
+        self._profil_actif = nom
+        self._log(u'CONFIG', u'Profil "{}" enregistré.'.format(nom))
+        self.StatusText = u'Profil « {} » enregistré.'.format(nom)
+        for name in (u'Profils', u'ProfilActif'):
+            self.notify_property(name)
+
+    def supprimer_profil(self):
+        """Supprime le profil actif, puis bascule sur un autre profil.
+
+        La liste n'est jamais vide (« Défaut » y est toujours), donc il y a
+        toujours un profil à charger derrière : la ComboBox ne retombe pas
+        sur du vide. Le profil « Défaut » lui-même est indélébile --
+        `ProfileService.delete` lève, l'échec est affiché."""
+        nom = self._profil_actif
+        if self._profile_service is None or not nom:
+            return
+        try:
+            self._profile_service.delete(nom)
+        except Exception as exc:
+            self._echec_profil(u'Profil "{}" non supprimé'.format(nom), exc)
+            return
+        self._profil_actif = u''
+        self._log(u'CONFIG', u'Profil "{}" supprimé.'.format(nom))
+        self.StatusText = u'Profil « {} » supprimé.'.format(nom)
+        for name in (u'Profils', u'ProfilActif'):
+            self.notify_property(name)
+
+        restants = self.Profils
+        if restants:
+            # Passe par le setter : il applique le profil et re-notifie.
+            self.ProfilActif = restants[0]
+
+    def exporter_profil(self, chemin):
+        """Écrit les réglages COURANTS dans `chemin` (fichier partageable)."""
+        if self._profile_service is None or not chemin:
+            return
+        try:
+            self._profile_service.ecrire(chemin)
+        except Exception as exc:
+            self._echec_profil(u'Profil non exporté', exc)
+            return
+        self._log(u'CONFIG', u'Profil exporté : "{}"'.format(chemin))
+        self.StatusText = u'Profil exporté : {}'.format(chemin)
+
+    def importer_profil(self, chemin):
+        """Ajoute un fichier de profil externe à la liste et l'applique."""
+        if self._profile_service is None or not chemin:
+            return
+        try:
+            nom = self._profile_service.importer(chemin)
+        except Exception as exc:
+            self._echec_profil(u'Profil non importé', exc)
+            return
+        self._log(u'CONFIG', u'Profil "{}" importé depuis "{}".'.format(nom, chemin))
+        # Affectation directe puis application explicite : le setter sortirait
+        # sans rien faire si on réimporte le profil déjà sélectionné.
+        self._profil_actif = nom
+        for name in (u'Profils', u'ProfilActif'):
+            self.notify_property(name)
+        self.appliquer_profil(nom)
 
     # ------------------------------------------------------------------
     # Export (Task 3) : coordination VM -> ExportOrchestrator

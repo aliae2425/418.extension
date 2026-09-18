@@ -34,6 +34,22 @@ except Exception:
     except Exception:
         ExportDoneView = None  # type: ignore
 
+try:
+    from views.ProfilNameView import ProfilNameView
+except Exception:
+    try:
+        from lib.views.ProfilNameView import ProfilNameView
+    except Exception:
+        ProfilNameView = None  # type: ignore
+
+try:
+    from services.ProfileService import NOM_DEFAUT
+except Exception:
+    try:
+        from lib.services.ProfileService import NOM_DEFAUT
+    except Exception:
+        NOM_DEFAUT = u'Défaut'
+
 
 def _xaml_path():
     here = os.path.dirname(os.path.abspath(__file__))
@@ -68,6 +84,36 @@ def _pick_folder():
     return None
 
 
+def _pick_file(save=False, defaut=u''):
+    """Sélecteur de fichier `.json` (ouverture ou enregistrement).
+
+    Même ordre de repli que `_pick_folder` : `pyrevit.forms` d'abord, puis
+    WinForms brut. Retourne le chemin, ou `None` (annulation / hors Revit).
+    """
+    try:
+        from pyrevit import forms
+        chemin = (forms.save_file(file_ext='json', default_name=defaut)
+                  if save else forms.pick_file(file_ext='json'))
+        if chemin:
+            return chemin
+    except Exception:
+        pass
+
+    try:
+        from System.Windows.Forms import (SaveFileDialog, OpenFileDialog,
+                                          DialogResult)
+        dlg = SaveFileDialog() if save else OpenFileDialog()
+        dlg.Filter = 'Profil (*.json)|*.json'
+        if save and defaut:
+            dlg.FileName = defaut
+        if dlg.ShowDialog() == DialogResult.OK:
+            return dlg.FileName
+    except Exception:
+        pass
+
+    return None
+
+
 class MainWindowView(BaseWindow):
     def __init__(self, view_model):
         super(MainWindowView, self).__init__(_xaml_path(), view_model)
@@ -79,6 +125,7 @@ class MainWindowView(BaseWindow):
         self.wire_export()
         self.wire_destination()
         self.wire_naming_editors()
+        self.wire_profils()
         self.wire_bulk_selection()
         self._vm._on_export_done_cb = self._show_export_done
         try:
@@ -260,6 +307,62 @@ class MainWindowView(BaseWindow):
                 self._vm.refresh_par_jeu()
         except Exception:
             pass
+
+    def wire_profils(self):
+        """Câble les 4 boutons de la carte « Profils » (page Paramètres).
+
+        La ComboBox n'est PAS câblée ici : elle est bindée (`Profils` /
+        `ProfilActif` TwoWay) et le setter du VM applique le profil choisi.
+        Seuls les boutons ont besoin de code — ils ouvrent un sélecteur de
+        fichier ou demandent un nom.
+        """
+        if self._window is None:
+            return
+        vm = self._vm
+
+        actions = (
+            (u'EnregistrerProfilButton', self._enregistrer_profil),
+            (u'ImporterProfilButton', self._importer_profil),
+            (u'ExporterProfilButton', self._exporter_profil),
+            (u'SupprimerProfilButton', lambda: vm.supprimer_profil()),
+        )
+        for btn_name, action in actions:
+            btn = self._window.FindName(btn_name)
+            if btn is None:
+                continue
+            self._bind_bulk_button(btn, action)
+
+    def _enregistrer_profil(self):
+        """Ouvre la modale de nommage (DA de l'outil) puis enregistre.
+
+        Le nom proposé est le profil actif, sauf « Défaut » : il est
+        réservé, le proposer serait proposer un nom que la modale refuse.
+        """
+        if ProfilNameView is None:
+            return
+        actif = getattr(self._vm, 'ProfilActif', u'') or u''
+        view = ProfilNameView(defaut=(u'' if actif == NOM_DEFAUT else actif),
+                              reserves=(NOM_DEFAUT,))
+        try:
+            view._load()
+            if view._window is not None and self._window is not None:
+                view._window.Owner = self._window
+        except Exception:
+            pass
+        view.show()
+        if view.Nom:
+            self._vm.enregistrer_profil(view.Nom)
+
+    def _importer_profil(self):
+        chemin = _pick_file()
+        if chemin:
+            self._vm.importer_profil(chemin)
+
+    def _exporter_profil(self):
+        nom = getattr(self._vm, 'ProfilActif', u'') or u'profil'
+        chemin = _pick_file(save=True, defaut=nom + u'.json')
+        if chemin:
+            self._vm.exporter_profil(chemin)
 
     def wire_bulk_selection(self):
         """Câble les boutons de colonne PDF/DWG et la sélection de lignes.
