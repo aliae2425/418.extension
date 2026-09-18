@@ -90,7 +90,6 @@ class NamingService(object):
 
     _PATTERN_KEY = {'sheet': 'pattern_sheet', 'set': 'pattern_set'}
     _ROWS_KEY = {'sheet': 'pattern_sheet_rows', 'set': 'pattern_set_rows'}
-    _PRESETS_KEY = 'naming_presets'
 
     def __init__(self, doc=None, config=None, namespace='batch_export'):
         self._doc = doc
@@ -363,74 +362,6 @@ class NamingService(object):
         except Exception:
             rows = []
         return (pattern, rows)
-
-    def has_saved(self, kind):
-        """Un pattern est considéré comme enregistré dès qu'il est non vide.
-
-        NB : ne dépend plus de la présence de `rows` -- un pattern à jetons
-        enregistré sans rows (nouveau système) doit être reconnu comme
-        "enregistré" au même titre qu'un ancien pattern avec rows."""
-        pattern, _rows = self.load(kind)
-        return bool(pattern)
-
-    # ------------------------------------------------------------------
-    # Presets nommés (persistés en JSON sous une clé unique)
-    # ------------------------------------------------------------------
-
-    def list_presets(self):
-        """Retourne `[{'name': unicode, 'pattern': unicode}, ...]`."""
-        if self._cfg is None:
-            return []
-        try:
-            raw = self._cfg.get(self._PRESETS_KEY, '')
-            if not raw:
-                return []
-            parsed = json.loads(raw)
-            if not isinstance(parsed, list):
-                return []
-            out = []
-            for item in parsed:
-                if isinstance(item, dict) and item.get('name'):
-                    out.append({
-                        'name': item.get('name', ''),
-                        'pattern': item.get('pattern', ''),
-                    })
-            return out
-        except Exception:
-            return []
-
-    def save_preset(self, name, pattern):
-        """Ajoute/remplace un preset nommé. Best-effort, ne lève jamais."""
-        if self._cfg is None:
-            return False
-        name = (name or '').strip()
-        if not name:
-            return False
-        try:
-            presets = self.list_presets()
-            presets = [p for p in presets if p.get('name') != name]
-            presets.append({'name': name, 'pattern': pattern or ''})
-            self._cfg.set(self._PRESETS_KEY, json.dumps(presets))
-            return True
-        except Exception:
-            return False
-
-    def delete_preset(self, name):
-        """Supprime un preset nommé. Best-effort, ne lève jamais."""
-        if self._cfg is None:
-            return False
-        name = (name or '').strip()
-        if not name:
-            return False
-        try:
-            presets = self.list_presets()
-            remaining = [p for p in presets if p.get('name') != name]
-            if len(remaining) == len(presets):
-                return False
-            self._cfg.set(self._PRESETS_KEY, json.dumps(remaining))
-            return True
-        except Exception:
-            return False
 
     # ------------------------------------------------------------------
     # Jetons disponibles (pour badges insérables côté UI)

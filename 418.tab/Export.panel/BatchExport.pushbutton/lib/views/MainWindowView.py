@@ -262,11 +262,9 @@ class MainWindowView(BaseWindow):
             pass
 
     def wire_bulk_selection(self):
-        """Câble la toolbar multi-sélection et les boutons de colonne PDF/DWG.
+        """Câble les boutons de colonne PDF/DWG et la sélection de lignes.
 
-        - Toolbar existante (BulkSelectAll/Deselect, BulkPdf/DwgOn/Off) →
-          méthodes correspondantes du VM.
-        - Nouveaux boutons ToggleAllPdf/Dwg (en-tête colonnes) →
+        - ToggleAllPdfButton / ToggleAllDwgButton (barre d'état) →
           vm.toggle_all_pdf() / toggle_all_dwg().
         - SheetListControl.PreviewMouseLeftButtonDown →
           sélection shift/ctrl via vm.handle_row_click().

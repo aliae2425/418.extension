@@ -290,14 +290,6 @@ class TestNamingServicePersistence(unittest.TestCase):
         self.assertEqual(loaded_pattern, pattern)
         self.assertEqual(loaded_rows, rows)
 
-    def test_has_saved_false_par_defaut(self):
-        self.assertFalse(self.service.has_saved('sheet'))
-
-    def test_has_saved_true_apres_save(self):
-        rows = [{'Name': 'X', 'Prefix': '', 'Suffix': ''}]
-        self.service.save('sheet', self.service.build_pattern(rows), rows)
-        self.assertTrue(self.service.has_saved('sheet'))
-
     def test_kind_inconnu_ne_leve_pas(self):
         self.assertFalse(self.service.save('bogus', 'p', []))
         pattern, rows = self.service.load('bogus')
@@ -313,39 +305,18 @@ class TestNamingServicePersistence(unittest.TestCase):
             rows = [{'Name': 'X', 'Prefix': '', 'Suffix': ''}]
             service.save('sheet', service.build_pattern(rows), rows)
             service.load('sheet')
-            service.has_saved('sheet')
         except Exception as e:
             self.fail('NamingService(config=None) a leve: {!r}'.format(e))
 
     def test_round_trip_save_load_motif_chaine_sans_rows(self):
-        """Nouveau système : `save(kind, pattern)` sans rows -- `load` doit
-        retourner le même pattern, et `has_saved` doit le reconnaître même
-        si `rows` reste vide (pas de dépendance à `rows` pour ce diagnostic)."""
+        """Motif à jetons enregistré sans rows : `load` rend le même pattern
+        et une liste de rows vide."""
         pattern = '{numero}_{nom}_{param:Phase}'
         self.service.save('sheet', pattern)
 
         loaded_pattern, loaded_rows = self.service.load('sheet')
         self.assertEqual(loaded_pattern, pattern)
         self.assertEqual(loaded_rows, [])
-        self.assertTrue(self.service.has_saved('sheet'))
-
-    def test_round_trip_preset(self):
-        self.assertTrue(self.service.save_preset('Standard PDF', '{numero}_{nom}'))
-        presets = self.service.list_presets()
-        self.assertEqual(len(presets), 1)
-        self.assertEqual(presets[0]['name'], 'Standard PDF')
-        self.assertEqual(presets[0]['pattern'], '{numero}_{nom}')
-
-        self.assertTrue(self.service.save_preset('Autre', '{titre}'))
-        self.assertEqual(len(self.service.list_presets()), 2)
-
-        self.assertTrue(self.service.delete_preset('Standard PDF'))
-        presets = self.service.list_presets()
-        self.assertEqual(len(presets), 1)
-        self.assertEqual(presets[0]['name'], 'Autre')
-
-    def test_delete_preset_absent_retourne_false(self):
-        self.assertFalse(self.service.delete_preset('Inexistant'))
 
 
 if __name__ == '__main__':

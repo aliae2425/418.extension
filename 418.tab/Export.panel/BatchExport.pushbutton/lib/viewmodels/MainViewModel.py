@@ -588,13 +588,14 @@ class MainViewModel(BaseViewModel):
                 u'  [{}] "{}" → Export={} Carnet={} DWG={} ({} feuilles)'.format(
                     etat, c.Titre, c.FlagExport, c.FlagCarnet, c.FlagDwg,
                     len(c.Sheets)))
+        # Seul le document SANS aucun jeu de feuilles est une anomalie. « 0 jeu
+        # coché » est l'état normal d'une première ouverture (les badges sont
+        # persistés, pas déduits du document) : le signaler en AVERT affichait
+        # un rouge dans la sortie pyRevit à chaque lancement.
         if not collections_out:
             self._log(u'AVERT',
                 u'  Aucune SheetCollection dans ce document '
                 u'(vérifiez que le projet utilise des Jeux de feuilles Revit)')
-        elif nb_jeux_qualifies == 0:
-            self._log(u'AVERT',
-                u'  Aucun jeu coché — cochez les badges des jeux à exporter')
 
         for name in (u'Collections', u'NbJeuxQualifies',
                      u'NbFeuillesQualifiees'):
@@ -950,50 +951,8 @@ class MainViewModel(BaseViewModel):
         return [s for s in self.SheetsManuelFiltrees if s.ExportPdf or s.ExportDwg]
 
     # ------------------------------------------------------------------
-    # Édition en masse (multi-sélection de lignes)
+    # Édition en masse (boutons « Tout PDF » / « Tout DWG »)
     # ------------------------------------------------------------------
-
-    def select_all_manuel(self):
-        """Sélectionne toutes les feuilles affichées (SheetsManuelFiltrees)."""
-        if bulk_edit is None:
-            return
-        bulk_edit.select_all(self.SheetsManuelFiltrees)
-        self.notify_property(u'NbSelected')
-
-    def deselect_all_manuel(self):
-        """Désélectionne toutes les feuilles affichées."""
-        if bulk_edit is None:
-            return
-        bulk_edit.deselect_all(self.SheetsManuelFiltrees)
-        self.notify_property(u'NbSelected')
-
-    def bulk_set_pdf(self, value):
-        """Active ou désactive ExportPdf sur les feuilles sélectionnées."""
-        if bulk_edit is None:
-            return
-        selected = bulk_edit.get_selected(self.SheetsManuelFiltrees)
-        bulk_edit.apply(selected, u'ExportPdf', bool(value))
-
-    def bulk_set_dwg(self, value):
-        """Active ou désactive ExportDwg sur les feuilles sélectionnées."""
-        if bulk_edit is None:
-            return
-        selected = bulk_edit.get_selected(self.SheetsManuelFiltrees)
-        bulk_edit.apply(selected, u'ExportDwg', bool(value))
-
-    def bulk_toggle_pdf(self):
-        """Bascule ExportPdf sur les feuilles sélectionnées (tout ON → OFF, sinon → ON)."""
-        if bulk_edit is None:
-            return
-        selected = bulk_edit.get_selected(self.SheetsManuelFiltrees)
-        bulk_edit.toggle(selected, u'ExportPdf')
-
-    def bulk_toggle_dwg(self):
-        """Bascule ExportDwg sur les feuilles sélectionnées (tout ON → OFF, sinon → ON)."""
-        if bulk_edit is None:
-            return
-        selected = bulk_edit.get_selected(self.SheetsManuelFiltrees)
-        bulk_edit.toggle(selected, u'ExportDwg')
 
     def toggle_all_pdf(self):
         """Bascule ExportPdf sur TOUTES les feuilles filtrées (tout ON → OFF, sinon → ON)."""

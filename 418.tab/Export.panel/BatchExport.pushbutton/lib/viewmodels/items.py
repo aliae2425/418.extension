@@ -158,9 +158,9 @@ class ManualSheetVM(BaseViewModel):
     `refresh_manuel()` (mapping CollectionId->Titre et résolution du
     pattern de nommage FEUILLE), jamais recalculés à la volée par ce VM.
 
-    `Selected` (case de sélection de ligne) est TWO-WAY et pilotée par
-    `core.bulk_edit` via `MainViewModel.select_all_manuel()` /
-    `deselect_all_manuel()`. Elle ne conditionne PAS `selection_manuelle()`
+    `Selected` (sélection de ligne) est pilotée par les clics shift/ctrl via
+    `MainViewModel.handle_row_click()`, et sert à propager un toggle PDF/DWG
+    à toute la sélection. Elle ne conditionne PAS `selection_manuelle()`
     (qui se base UNIQUEMENT sur ExportPdf/ExportDwg).
     """
 

@@ -155,12 +155,6 @@ class ExportOrchestrator(object):
         return res
 
     # ------------------- Préférences / Destinations ------------------- #
-    def _get_flag(self, key, default='0'):
-        try:
-            return (self._cfg.get(key, default) if self._cfg is not None else default) or default
-        except Exception:
-            return default
-
     def _get_destination_base(self, fmt_subfolder=None, collection_name=None):
         base = None
         try:
