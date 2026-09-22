@@ -16,6 +16,26 @@
          dictionnaire de thème fusionné avant le parse. -->
     <Grid.Resources>
       <BooleanToVisibilityConverter x:Key="BoolVersVisibilite"/>
+
+      <!--
+        Le texte des bulles doit pouvoir se sélectionner et se copier : un
+        TextBlock ne le permet pas sous WPF, d'où un TextBox en lecture seule.
+        Style nommé, donc le style implicite de TextBox (bordure, fond,
+        Height=35 du champ de saisie) ne s'applique pas ici.
+      -->
+      <Style x:Key="BulleTexte" TargetType="TextBox">
+        <Setter Property="IsReadOnly" Value="True"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Cursor" Value="IBeam"/>
+        <!-- Hors du parcours de tabulation : Tab appartient à la saisie. -->
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
+      </Style>
     </Grid.Resources>
 
     <Grid.RowDefinitions>
@@ -42,9 +62,8 @@
                       Background="{DynamicResource CardBackgroundBrush}"
                       BorderBrush="{DynamicResource ControlBorderBrush}"
                       BorderThickness="1">
-                <TextBlock Text="{Binding Texte}" TextWrapping="Wrap"
-                           LineHeight="18" FontSize="12"
-                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBox Text="{Binding Texte, Mode=OneWay}"
+                         Style="{StaticResource BulleTexte}"/>
               </Border>
             </StackPanel>
           </DataTemplate>
