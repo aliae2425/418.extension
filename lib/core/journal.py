@@ -54,20 +54,22 @@ def lire(lignes=40):
 
 
 def vider():
-    # Le handler tient le fichier ouvert : sous Windows, le supprimer sans le
-    # fermer échoue en silence. FileHandler rouvre de lui-même au prochain
-    # enregistrement, il n'y a rien à réinstaller.
+    fichier = chemin()
+    if not fichier:
+        return
+    # On tronque au lieu de supprimer : le FileHandler tient le fichier
+    # ouvert et, sous Windows, la suppression échoue alors en silence. Il
+    # écrit en mode ajout, donc il repart bien de zéro après troncature.
     for handler in list(logging.getLogger(_RACINE).handlers):
         try:
-            handler.close()
+            handler.flush()
         except Exception:
             pass
-    fichier = chemin()
-    if fichier and os.path.exists(fichier):
-        try:
-            os.remove(fichier)
-        except Exception:
+    try:
+        with open(fichier, 'wb'):
             pass
+    except Exception:
+        pass
 
 
 def flux():
