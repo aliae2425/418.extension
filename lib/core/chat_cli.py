@@ -173,6 +173,33 @@ def connecter():
             'relancer /connect.')
 
 
+def deconnecter():
+    """``codex logout`` : efface les identifiants gardés par le CLI.
+
+    Contrairement à la connexion, c'est immédiat et sans navigateur : on
+    l'attend.
+    """
+    executable = chemin()
+    if not executable:
+        return None
+    try:
+        processus = subprocess.Popen(
+            [executable, 'logout'],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, **_options())
+        sortie, erreur = processus.communicate()
+    except Exception as e:
+        _log.exception('codex logout a échoué')
+        raise ErreurCLI('déconnexion impossible — {0}'.format(e))
+    finally:
+        oublier_statut()
+    dit = _fin(erreur) or _fin(sortie)
+    _log.info('codex logout rc=%s | %s', processus.returncode, dit)
+    if processus.returncode != 0:
+        raise ErreurCLI(dit or 'codex logout a échoué (code {0})'.format(
+            processus.returncode))
+    return 'Session codex fermée. /connect pour rouvrir le navigateur.'
+
+
 def modeles():
     """Non listable : le harnais choisit son modèle, et n'expose pas de liste."""
     return ()

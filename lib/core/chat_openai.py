@@ -54,6 +54,16 @@ def connecter():
     return None
 
 
+def deconnecter():
+    """Rien à fermer : la clé vit dans l'environnement, pas dans une session.
+
+    On vide tout de même le cache des modèles, qui appartient à la clé.
+    """
+    del _MODELES[:]
+    return ('Rien à fermer : la clé vit dans {0}. Retirer la variable pour '
+            'vous déconnecter.'.format(CLE_ENV))
+
+
 def modeles():
     """Modèles de conversation du compte, ``()`` si on ne peut pas demander."""
     if _MODELES:

@@ -66,6 +66,7 @@ trois membres, rien de plus :
 | `pret()` | le client est utilisable ici et maintenant |
 | `raison()` | ce qu'il manque quand `pret()` est faux, dit à l'utilisateur |
 | `connecter()` | ouvre le flux navigateur, `None` s'il n'en a pas |
+| `deconnecter()` | ferme la session, `None` s'il n'y en a pas |
 | `modeles()` | noms disponibles, `()` si le client n'en expose pas |
 | `repondre(messages, modele=None)` | `messages` = couples `(role, texte)` → texte |
 
@@ -116,8 +117,14 @@ les deux :
 - le modèle ne peut appeler aucun des outils de `418.tab` (pas de boucle
   d'outils) ;
 - pas de surcouche `routes.API('418')` : seules les routes vendorisées
-  existent ;
-- l'appel au modèle est bloquant, Revit se fige pendant la réponse.
+  existent.
+
+**Fil d'exécution.** L'appel au modèle part sur un `Thread` de fond et revient
+par `Dispatcher.Invoke` — Revit reste rendu à la main, `EnAttente` pilote
+l'animation d'attente. Hors .NET (tests), `_en_arriere_plan` exécute sur
+place : le VM reste synchrone et se teste sans rien simuler. **Une commande
+`/x` ne part JAMAIS en fond** : elle touche les listes et les réglages, donc
+elle doit rester sur le fil d'interface.
 
 ## Arborescence
 
