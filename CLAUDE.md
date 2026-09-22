@@ -93,6 +93,14 @@ Une entrée de la liste s'exécute au clic — elle ne remplit pas le champ de
 saisie. Le jour où une commande prendra des arguments, il faudra rétablir le
 remplissage pour celle-là.
 
+**Journal.** `lib/core/journal.py` écrit dans `data/418.log`. Un volet ancré
+n'a aucune fenêtre de sortie pyRevit : un `print` s'y perd, et Revit avale les
+exceptions de construction d'un volet. Tout ce qui doit se relire après coup
+passe par `journal('<nom>')`. `/journal` en affiche la fin dans une bulle —
+sélectionnable, donc collable dans un rapport de bug — et `/journal vider` le
+remet à zéro. Un sous-processus lancé sans être attendu branche ses flux sur
+`journal.flux()`, sinon son échec est muet.
+
 **Surfaces.** Deux façons d'atteindre la maquette, à garder ouvertes toutes
 les deux :
 

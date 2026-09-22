@@ -6,8 +6,12 @@ from pyrevit import forms
 
 try:
     from core.AppPaths import AppPaths
+    from core.journal import journal
 except Exception:
     from lib.core.AppPaths import AppPaths
+    from lib.core.journal import journal
+
+_log = journal('panneau')
 
 try:
     from ui.helpers.UIResourceLoader import UIResourceLoader
@@ -33,9 +37,15 @@ class OpenArchiPanel(forms.WPFPanel):
     def __init__(self):
         # Le thème 418 est fusionné AVANT le parse du XAML : les
         # DynamicResource du panneau se résolvent sur Page.Resources.
-        UIResourceLoader(self, dark=is_dark()).merge_theme()
-        forms.WPFPanel.__init__(self)
-        vm = OpenArchiChatVM()
+        try:
+            UIResourceLoader(self, dark=is_dark()).merge_theme()
+            forms.WPFPanel.__init__(self)
+            vm = OpenArchiChatVM()
+        except Exception:
+            # Revit avale les exceptions de construction d'un volet ancré :
+            # sans cette trace, le panneau reste vide sans un mot.
+            _log.exception('construction du panneau impossible')
+            raise
         self.DataContext = vm
         self._suivre_dernier_message(vm)
 

@@ -17,6 +17,13 @@ try:
 except ImportError:                    # Python 2 / IronPython
     which = None
 
+try:
+    from core.journal import journal, flux
+except Exception:
+    from lib.core.journal import journal, flux
+
+_log = journal('cli')
+
 EXECUTABLE = 'codex'
 
 # --ephemeral : aucune session laissée sur le disque.
@@ -66,10 +73,13 @@ def connecte():
             [executable, 'login', 'status'],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, **_options())
         sortie, erreur = processus.communicate()
-    except Exception:
+    except Exception as e:
+        _log.warning('login status a échoué : %s', e)
         return False
     # codex écrit ce statut sur stderr, pas sur stdout : lire les deux.
     dit = (_texte(sortie) + _texte(erreur)).lower()
+    _log.debug('login status rc=%s | %s', processus.returncode,
+               dit.strip()[:200])
     return processus.returncode == 0 and 'logged in' in dit
 
 
@@ -89,11 +99,29 @@ def connecter():
     """
     executable = chemin()
     if not executable:
+        _log.warning('connecter() sans exécutable')
         return None
+    # `codex login` écrit son URL et sa progression, puis attend le retour du
+    # navigateur : on ne l'attend pas (Revit resterait figé), mais on branche
+    # ses deux flux sur le journal — sinon un échec est totalement muet.
+    sortie = flux()
     try:
-        subprocess.Popen([executable, 'login'], **_options())
+        subprocess.Popen(
+            [executable, 'login'],
+            stdout=sortie or subprocess.PIPE,
+            stderr=subprocess.STDOUT if sortie else subprocess.PIPE,
+            **_options())
     except Exception as e:
+        _log.exception('codex login n\'a pas démarré')
         raise ErreurCLI('ouverture impossible — {0}'.format(e))
+    finally:
+        # Le processus fils garde son propre descripteur : refermer le nôtre.
+        if sortie is not None:
+            try:
+                sortie.close()
+            except Exception:
+                pass
+    _log.info('codex login lancé (%s)', executable)
     return ('Connexion ouverte dans le navigateur. Une fois terminée, '
             'relancer /connect.')
 
@@ -137,7 +165,9 @@ def repondre(messages, modele=None, timeout=180, **_kwargs):
             processus.kill()
             raise ErreurCLI('pas de réponse après {0} s'.format(timeout))
 
+        _log.debug('exec rc=%s modele=%s', processus.returncode, modele)
         if processus.returncode != 0:
+            _log.error('exec a échoué : %s', _texte(erreur)[-600:])
             raise ErreurCLI(_fin(erreur) or
                             'codex a échoué (code {0})'.format(
                                 processus.returncode))

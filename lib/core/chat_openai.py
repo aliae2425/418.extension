@@ -16,6 +16,13 @@ try:                                   # CPython 3
 except ImportError:                    # IronPython 2.7
     from urllib2 import Request, urlopen, HTTPError, URLError
 
+try:
+    from core.journal import journal
+except Exception:
+    from lib.core.journal import journal
+
+_log = journal('openai')
+
 URL = 'https://api.openai.com/v1/chat/completions'
 URL_MODELES = 'https://api.openai.com/v1/models'
 CLE_ENV = 'OPENAI_API_KEY'
@@ -99,8 +106,11 @@ def repondre(messages, cle=None, modele=None, timeout=60):
     try:
         brut = urlopen(requete, timeout=timeout).read().decode('utf-8')
     except HTTPError as e:
-        raise ErreurOpenAI('HTTP {0} — {1}'.format(e.code, _detail(e)))
+        detail = _detail(e)
+        _log.error('HTTP %s — %s', e.code, detail)
+        raise ErreurOpenAI('HTTP {0} — {1}'.format(e.code, detail))
     except URLError as e:
+        _log.error('réseau injoignable — %s', getattr(e, 'reason', e))
         raise ErreurOpenAI('réseau injoignable — {0}'.format(
             getattr(e, 'reason', e)))
     return extraire(brut)

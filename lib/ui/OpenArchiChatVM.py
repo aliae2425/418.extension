@@ -23,6 +23,13 @@ except Exception:
     from lib.core.chat_syntaxe import analyser
 
 try:
+    from core import journal as _journal
+except Exception:
+    from lib.core import journal as _journal
+
+_log = _journal.journal('chat')
+
+try:
     from ui.OpenArchiConfig import (OpenArchiConfig, CATALOGUE, ACTIFS,
                                     connexions_de, MODELE_DEFAUT)
 except Exception:
@@ -100,6 +107,8 @@ class OpenArchiChatVM(BaseViewModel):
                         self._commande_connect),
             'model': ('changer de modèle sur la connexion en cours',
                       self._commande_model),
+            'journal': ('afficher les dernières lignes du journal',
+                        self._commande_journal),
             'aide': ('lister les commandes disponibles', self._commande_aide),
         }
         self.Suggestions = self._nouvelle_liste()
@@ -253,14 +262,18 @@ class OpenArchiChatVM(BaseViewModel):
         self._config.appliquer_connexion(connexion)
         self.notify_property('Statut')
         client = self._client
-        if client.pret():
+        pret = client.pret()
+        _log.info('connexion %s | pret=%s', connexion, pret)
+        if pret:
             return self._ouvrir('modeles')
         # Pas prêt : soit le client sait ouvrir le navigateur — c'est le
         # moment de le faire — soit il ne reste qu'à dire ce qui manque.
         self._fermer_liste()
         try:
             ouverture = client.connecter()
+            _log.info('connecter() -> %s', ouverture)
         except Exception as e:
+            _log.exception('connecter() a levé')
             ouverture = '{0}'.format(e)
         self._dire(ouverture or client.raison())
 
@@ -321,6 +334,7 @@ class OpenArchiChatVM(BaseViewModel):
             return client.repondre(self._historique(analyse.texte),
                                    modele=self._config.modele)
         except Exception as e:
+            _log.exception('repondre() a échoué')
             return '{0} : {1}'.format(self._config.provider, e)
 
     def _historique(self, texte):
@@ -347,6 +361,20 @@ class OpenArchiChatVM(BaseViewModel):
         # comme le /connect d'opencode dans son terminal.
         self._ouvrir('fournisseurs')
         return 'Choisir un fournisseur. Actuel : {0}'.format(self.Statut)
+
+    def _commande_journal(self, arguments):
+        """`/journal` affiche la fin du fichier, `/journal vider` le remet à zéro.
+
+        Le texte des bulles est sélectionnable : ce qui s'affiche ici se colle
+        tel quel dans un rapport de bug.
+        """
+        if arguments.strip().lower() in ('vider', 'clear'):
+            _journal.vider()
+            return 'Journal vidé.'
+        fin = _journal.lire()
+        return '{0}\n\n{1}'.format(
+            _journal.chemin() or 'journal indisponible',
+            fin or '(vide — rejouer l\'action à déboguer)')
 
     def _commande_model(self, _arguments):
         client = self._client
