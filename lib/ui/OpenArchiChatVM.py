@@ -102,6 +102,7 @@ class MessageVM(BaseViewModel):
 class OpenArchiChatVM(BaseViewModel):
     ACCUEIL = ("Panneau OpenArchi prêt. /connect pour choisir le fournisseur. "
                "#{Nom} pour citer un élément.")
+    ATTENTE_DEFAUT = 'réflexion…'
 
     def __init__(self, config=None, client=None):
         try:
@@ -114,6 +115,7 @@ class OpenArchiChatVM(BaseViewModel):
         self._client_injecte = client
         self._saisie = ''
         self._en_attente = False
+        self._texte_attente = self.ATTENTE_DEFAUT
         # Capturé ici : le VM est construit sur le fil d'interface, et c'est
         # le seul par lequel Messages et les notifications peuvent passer.
         self._dispatcher = (Dispatcher.CurrentDispatcher
@@ -163,6 +165,15 @@ class OpenArchiChatVM(BaseViewModel):
         self._saisie = valeur or ''
         self.notify_property('Saisie')
         self._rafraichir_suggestions()
+
+    @property
+    def TexteAttente(self):
+        return self._texte_attente
+
+    @TexteAttente.setter
+    def TexteAttente(self, valeur):
+        self._texte_attente = valeur or self.ATTENTE_DEFAUT
+        self.notify_property('TexteAttente')
 
     @property
     def EnAttente(self):
@@ -312,8 +323,26 @@ class OpenArchiChatVM(BaseViewModel):
             _log.info('connecter() -> %s', ouverture)
         except Exception as e:
             _log.exception('connecter() a levé')
-            ouverture = '{0}'.format(e)
-        self._dire(ouverture or client.raison())
+            return self._dire('{0}'.format(e))
+        if not ouverture:
+            return self._dire(client.raison())
+        self._dire(ouverture)
+        # Le navigateur est ouvert : on guette la fin de la connexion pour
+        # enchaîner tout seul, plutôt que d'exiger un second /connect.
+        attente = getattr(client, 'attendre_connexion', None)
+        if attente is None:
+            return
+        self.TexteAttente = 'connexion…'
+        self.EnAttente = True
+        self._en_arriere_plan(attente, self._sur_connexion)
+
+    def _sur_connexion(self, ouverte):
+        self.EnAttente = False
+        self.notify_property('Statut')
+        if not ouverte:
+            return self._dire('Connexion non aboutie. /connect pour réessayer.')
+        self._dire('Connecté. Choisir un modèle.')
+        self._ouvrir('modeles')
 
     def _choisir_modele(self, modele):
         self._config.appliquer_modele(
@@ -350,6 +379,7 @@ class OpenArchiChatVM(BaseViewModel):
         # réglages) : elle doit rester sur le fil d'interface.
         if analyser(texte).est_commande:
             return self._dire(self.repondre(texte))
+        self.TexteAttente = self.ATTENTE_DEFAUT
         self.EnAttente = True
         self._en_arriere_plan(lambda: self.repondre(texte), self._sur_reponse)
 
@@ -459,10 +489,22 @@ class OpenArchiChatVM(BaseViewModel):
             _journal.chemin() or 'journal indisponible',
             fin or '(vide — rejouer l\'action à déboguer)')
 
-    def _commande_model(self, _arguments):
+    def _commande_model(self, arguments):
         client = self._client
         if client is None or not client.pret():
             return 'Aucune connexion active. /connect d\'abord.'
+        # `/model <nom>` impose un modèle sans passer par la liste : le CLI
+        # n'expose aucun catalogue, c'est la seule façon d'en viser un autre
+        # que son défaut.
+        nom = arguments.strip()
+        if nom:
+            self._config.appliquer_modele(nom)
+            self.notify_property('Statut')
+            return 'Modèle : {0}'.format(nom)
         self._ouvrir('modeles')
-        return 'Choisir un modèle. Actuel : {0}'.format(
+        message = 'Choisir un modèle. Actuel : {0}'.format(
             self._config.modele or MODELE_DEFAUT)
+        if not client.modeles():
+            message += ('\nCette connexion n\'expose pas de catalogue : '
+                        '/model <nom> pour en imposer un.')
+        return message

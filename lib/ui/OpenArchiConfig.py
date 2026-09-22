@@ -15,8 +15,11 @@ try:
 except Exception:
     from lib.core import chat_openai, chat_cli
 
-HARNAIS = 'Harnais (navigateur)'
+NAVIGATEUR = 'Navigateur'
 CLE_API = 'Clé API'
+
+# Ancien nom, gardé le temps que les réglages déjà persistés se rejouent.
+HARNAIS = NAVIGATEUR
 
 # Arbre à trois niveaux : fournisseur → connexion → modèle. Une connexion sans
 # module client est listée mais grisée ; un fournisseur dont aucune connexion
@@ -28,11 +31,12 @@ CLE_API = 'Clé API'
 # remplacer cette liste par un appel réseau mis en cache.
 CATALOGUE = [
     ('OpenAI', [
-        (HARNAIS, 'abonnement ChatGPT, via le CLI codex', chat_cli),
+        (NAVIGATEUR, 'abonnement ChatGPT, connexion dans le navigateur',
+         chat_cli),
         (CLE_API, 'facturé à l\'usage, OPENAI_API_KEY', chat_openai),
     ]),
     ('Anthropic', [
-        (HARNAIS, 'abonnement Claude, via le CLI claude', None),
+        (NAVIGATEUR, 'abonnement Claude', None),
         (CLE_API, 'ANTHROPIC_API_KEY', None),
     ]),
     ('Ollama (local)', [

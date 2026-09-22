@@ -42,6 +42,11 @@ _SANS_FENETRE = 0x08000000
 DELAI_STATUT = 10.0
 _statut = {}
 
+# Le `codex login` en cours, pour savoir quand l'utilisateur a fini dans son
+# navigateur — sans lui il faudrait relancer /connect à la main.
+_login = []
+DELAI_LOGIN = 300.0
+
 SYSTEME = ("Tu assistes un architecte dans Autodesk Revit. Réponds en "
            "français, brièvement. Les #références citent des éléments de la "
            "maquette ; tu n'y as pas encore accès, demande-les si besoin.")
@@ -153,11 +158,13 @@ def connecter():
     # ses deux flux sur le journal — sinon un échec est totalement muet.
     sortie = flux()
     try:
-        subprocess.Popen(
+        processus = subprocess.Popen(
             [executable, 'login'],
             stdout=sortie or subprocess.PIPE,
             stderr=subprocess.STDOUT if sortie else subprocess.PIPE,
             **_options())
+        del _login[:]
+        _login.append(processus)
     except Exception as e:
         _log.exception('codex login n\'a pas démarré')
         raise ErreurCLI('ouverture impossible — {0}'.format(e))
@@ -169,8 +176,28 @@ def connecter():
             except Exception:
                 pass
     _log.info('codex login lancé (%s)', executable)
-    return ('Connexion ouverte dans le navigateur. Une fois terminée, '
-            'relancer /connect.')
+    return 'Connexion ouverte dans le navigateur…'
+
+
+def attendre_connexion(timeout=None, pas=0.5):
+    """Bloque jusqu'à la fin de ``codex login``, puis dit si c'est bon.
+
+    À appeler hors du fil d'interface. On surveille le processus plutôt que
+    d'interroger le statut en boucle : `codex login` se termine de lui-même
+    quand le navigateur a rendu la main, ou quand l'utilisateur abandonne.
+    """
+    timeout = DELAI_LOGIN if timeout is None else timeout
+    processus = _login[0] if _login else None
+    limite = time.time() + timeout
+    while processus is not None and processus.poll() is None:
+        if time.time() >= limite:
+            _log.warning('codex login toujours en cours après %s s', timeout)
+            break
+        time.sleep(pas)
+    oublier_statut()
+    ouverte = connecte()
+    _log.info('fin de codex login | connecte=%s', ouverte)
+    return ouverte
 
 
 def deconnecter():
