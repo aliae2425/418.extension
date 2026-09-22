@@ -64,8 +64,10 @@ trois membres, rien de plus :
 | membre | rôle |
 |---|---|
 | `pret()` | le client est utilisable ici et maintenant |
-| `RAISON` | ce qu'il manque quand `pret()` est faux, dit à l'utilisateur |
-| `repondre(messages)` | `messages` = liste de couples `(role, texte)` → texte |
+| `raison()` | ce qu'il manque quand `pret()` est faux, dit à l'utilisateur |
+| `connecter()` | ouvre le flux navigateur, `None` s'il n'en a pas |
+| `modeles()` | noms disponibles, `()` si le client n'en expose pas |
+| `repondre(messages, modele=None)` | `messages` = couples `(role, texte)` → texte |
 
 Deux voies d'authentification, volontairement :
 
@@ -75,10 +77,21 @@ Deux voies d'authentification, volontairement :
 - `chat_openai.py` — clé API en variable d'environnement (`OPENAI_API_KEY`),
   `urllib` nu. Jamais de secret dans `data/`, qui finit poussé.
 
-`lib/ui/OpenArchiConfig.py` est le catalogue : un tuple
-`(nom, description, module_client)` par entrée. **Un client à `None` suffit à
-griser l'entrée dans `/connect`** — c'est le même champ qui décide de
-l'affichage et de l'aiguillage, pas deux.
+`lib/ui/OpenArchiConfig.py` est le catalogue, en arbre **fournisseur →
+connexion → modèle**. **Un client à `None` suffit à griser l'entrée dans
+`/connect`** — c'est le même champ qui décide de l'affichage et de
+l'aiguillage, pas deux ; un fournisseur est grisé quand aucune de ses
+connexions n'a de client. `/connect` déroule les trois étapes dans la liste en
+place (Échap remonte d'un cran), `/model` ouvre directement la troisième.
+Persisté en trois clés : `provider`, `connexion`, `modele`.
+
+**`UserConfig` est un magasin de chaînes** : il sérialise `None` en `"None"`,
+qui repasserait ensuite pour un nom de modèle valide. Écrire `''` pour « pas
+de choix », jamais `None`.
+
+Une entrée de la liste s'exécute au clic — elle ne remplit pas le champ de
+saisie. Le jour où une commande prendra des arguments, il faudra rétablir le
+remplissage pour celle-là.
 
 **Surfaces.** Deux façons d'atteindre la maquette, à garder ouvertes toutes
 les deux :

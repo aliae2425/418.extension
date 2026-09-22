@@ -17,6 +17,7 @@ except ImportError:                    # IronPython 2.7
     from urllib2 import Request, urlopen, HTTPError, URLError
 
 URL = 'https://api.openai.com/v1/chat/completions'
+URL_MODELES = 'https://api.openai.com/v1/models'
 CLE_ENV = 'OPENAI_API_KEY'
 MODELE_ENV = 'OPENAI_MODEL'
 MODELE_DEFAUT = 'gpt-4o-mini'
@@ -26,7 +27,7 @@ SYSTEME = ("Tu assistes un architecte dans Autodesk Revit. Réponds en "
            "maquette ; tu n'y as pas encore accès, demande-les si besoin.")
 
 
-RAISON = 'clé absente — définir la variable d\'environnement ' + CLE_ENV
+_MODELES = []                          # cache mémoire de /v1/models
 
 
 class ErreurOpenAI(Exception):
@@ -35,6 +36,41 @@ class ErreurOpenAI(Exception):
 
 def pret():
     return bool(os.environ.get(CLE_ENV))
+
+
+def raison():
+    return 'clé absente — définir la variable d\'environnement ' + CLE_ENV
+
+
+def connecter():
+    """Pas de connexion par navigateur ici : la clé se pose à la main."""
+    return None
+
+
+def modeles():
+    """Modèles de conversation du compte, ``()`` si on ne peut pas demander."""
+    if _MODELES:
+        return tuple(_MODELES)
+    cle = os.environ.get(CLE_ENV)
+    if not cle:
+        return ()
+    requete = Request(URL_MODELES)
+    requete.add_header('Authorization', 'Bearer ' + cle)
+    try:
+        brut = urlopen(requete, timeout=15).read().decode('utf-8')
+        catalogue = json.loads(brut)['data']
+    except Exception:
+        return ()
+    # Le compte expose aussi les modèles d'image, d'audio et d'embedding :
+    # seuls les modèles de conversation ont leur place dans /model.
+    noms = sorted(set(
+        entree['id'] for entree in catalogue
+        if entree.get('id', '').startswith(('gpt-', 'o1', 'o3', 'o4'))
+        and not any(exclu in entree['id']
+                    for exclu in ('audio', 'image', 'realtime', 'tts',
+                                  'transcribe', 'embedding'))))
+    _MODELES.extend(noms)
+    return tuple(noms)
 
 
 def charge(messages, modele=None):
@@ -51,7 +87,7 @@ def repondre(messages, cle=None, modele=None, timeout=60):
     """Renvoie le texte de la réponse, ou lève ``ErreurOpenAI``."""
     cle = cle or os.environ.get(CLE_ENV)
     if not cle:
-        raise ErreurOpenAI(RAISON)
+        raise ErreurOpenAI(raison())
 
     # ensure_ascii=False : sous IronPython, laisser json échapper lui-même
     # les accents lève. On encode explicitement derrière.

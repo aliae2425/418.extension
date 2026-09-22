@@ -10,7 +10,11 @@ if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
 
 from ui.OpenArchiChatVM import OpenArchiChatVM
-from ui.OpenArchiConfig import OpenArchiConfig, PROVIDERS, ACTIFS, client_de
+from ui.OpenArchiConfig import (OpenArchiConfig, PROVIDERS, ACTIFS,
+                                CATALOGUE, connexions_de, client_de,
+                                HARNAIS, CLE_API, MODELE_DEFAUT)
+
+_GRISES = [nom for nom in PROVIDERS if nom not in ACTIFS]
 
 
 class _StoreMemoire(object):
@@ -26,21 +30,43 @@ class _StoreMemoire(object):
         self._d[cle] = valeur
 
 
+class _StoreChaines(_StoreMemoire):
+    """Double fidèle de UserConfig, qui sérialise TOUTE valeur en chaîne."""
+
+    def set(self, cle, valeur):
+        self._d[cle] = '{0}'.format(valeur)
+
+
 class _ClientFactice(object):
-    """Double de core.chat_openai : aucun appel réseau pendant les tests."""
+    """Double d'un module de chat : ni réseau, ni sous-processus."""
 
-    RAISON = 'raison de factice'
-
-    def __init__(self, reponse='réponse du modèle', erreur=None):
+    def __init__(self, reponse='réponse du modèle', erreur=None,
+                 pret=True, modeles=(), ouverture=None):
         self.reponse = reponse
         self.erreur = erreur
+        self._pret = pret
+        self._modeles = tuple(modeles)
+        self._ouverture = ouverture
         self.recus = None
+        self.modele_recu = None
+        self.connexions_ouvertes = 0
 
     def pret(self):
-        return True
+        return self._pret
 
-    def repondre(self, messages, **_kwargs):
+    def raison(self):
+        return 'raison de factice'
+
+    def connecter(self):
+        self.connexions_ouvertes += 1
+        return self._ouverture
+
+    def modeles(self):
+        return self._modeles
+
+    def repondre(self, messages, modele=None, **_kwargs):
         self.recus = messages
+        self.modele_recu = modele
         if self.erreur is not None:
             raise self.erreur
         return self.reponse
@@ -89,6 +115,11 @@ class TestChat(unittest.TestCase):
         self.assertNotIn(self.vm.ACCUEIL,
                          [texte for _, texte in self.client.recus])
 
+    def test_modele_retenu_transmis_au_client(self):
+        self.config.appliquer_modele('gpt-test')
+        self.vm.repondre('bonjour')
+        self.assertEqual(self.client.modele_recu, 'gpt-test')
+
     def test_echec_du_fournisseur_affiche_en_bulle(self):
         self.vm._client_injecte = _ClientFactice(
             erreur=RuntimeError('clé absente'))
@@ -96,25 +127,15 @@ class TestChat(unittest.TestCase):
         self.assertIn('clé absente', reponse)
         self.assertIn(self.config.provider, reponse)
 
-    def test_statut_signale_un_client_non_pret(self):
-        muet = _ClientFactice()
-        muet.pret = lambda: False
-        self.vm._client_injecte = muet
-        self.assertIn(_ClientFactice.RAISON, self.vm.Statut)
+    def test_statut_est_un_fil_dariane(self):
         self.assertIn(self.config.provider, self.vm.Statut)
+        self.assertIn(self.config.connexion, self.vm.Statut)
+        self.assertIn(MODELE_DEFAUT, self.vm.Statut)
 
-    def test_commande_aide_liste_les_commandes(self):
-        reponse = self.vm.repondre('/aide')
-        self.assertIn('/connect', reponse)
-        self.assertIn('/aide', reponse)
-
-    def test_commande_inconnue_renvoie_laide(self):
-        reponse = self.vm.repondre('/nimportequoi')
-        self.assertIn('inconnue', reponse)
-        self.assertIn('/connect', reponse)
-
-    def test_statut_est_le_fournisseur(self):
-        self.assertEqual(self.vm.Statut, self.config.provider)
+    def test_statut_signale_un_client_non_pret(self):
+        self.vm._client_injecte = _ClientFactice(pret=False)
+        self.assertIn('raison de factice', self.vm.Statut)
+        self.assertIn(self.config.provider, self.vm.Statut)
 
 
 class TestAutocomplete(unittest.TestCase):
@@ -132,7 +153,7 @@ class TestAutocomplete(unittest.TestCase):
     def test_barre_oblique_seule_propose_tout(self):
         self.vm.Saisie = '/'
         self.assertTrue(self.vm.SuggestionsVisibles)
-        self.assertEqual(self._libelles(), ['/aide', '/connect'])
+        self.assertEqual(self._libelles(), ['/aide', '/connect', '/model'])
 
     def test_filtre_sur_le_prefixe(self):
         self.vm.Saisie = '/co'
@@ -150,16 +171,19 @@ class TestAutocomplete(unittest.TestCase):
         self.vm.Saisie = '/connect '
         self.assertFalse(self.vm.SuggestionsVisibles)
 
-    def test_choisir_remplit_la_saisie_et_ferme(self):
-        self.vm.Saisie = '/co'
+    def test_cliquer_execute_au_lieu_de_remplir(self):
+        self.vm.Saisie = '/ai'
         self.vm._choisir(self.vm.Suggestions[0])
-        self.assertEqual(self.vm.Saisie, '/connect ')
-        self.assertFalse(self.vm.SuggestionsVisibles)
+        self.assertEqual(self.vm.Saisie, '')
+        # La commande a bien tourné : bulle utilisateur + réponse.
+        self.assertEqual(self.vm.Messages[-2].Texte, '/aide')
+        self.assertTrue(self.vm.Messages[-2].DeUtilisateur)
+        self.assertIn('/connect', self.vm.Messages[-1].Texte)
 
-    def test_completer_prend_la_premiere(self):
+    def test_tab_execute_la_premiere(self):
         self.vm.Saisie = '/'
         self.vm._completer()
-        self.assertEqual(self.vm.Saisie, '/aide ')
+        self.assertEqual(self.vm.Messages[-2].Texte, '/aide')
 
     def test_completer_sans_proposition_ne_fait_rien(self):
         self.vm.Saisie = 'bonjour'
@@ -172,89 +196,174 @@ class TestAutocomplete(unittest.TestCase):
         self.assertFalse(self.vm.SuggestionsVisibles)
 
 
-class TestConnect(unittest.TestCase):
+class TestAssistantConnexion(unittest.TestCase):
+    """Les trois étapes de /connect : fournisseur → connexion → modèle."""
+
     def setUp(self):
         self.store = _StoreMemoire()
         self.config = OpenArchiConfig(self.store)
-        self.vm = OpenArchiChatVM(config=self.config, client=_ClientFactice())
+        self.client = _ClientFactice(modeles=('modele-a', 'modele-b'))
+        self.vm = OpenArchiChatVM(config=self.config, client=self.client)
 
-    def _ouvrir_la_liste(self):
-        """Envoie /connect : la liste des fournisseurs remplace les commandes."""
-        self.vm.Saisie = '/connect'
-        self.vm._envoyer()
-
-    def test_connect_ouvre_la_liste_des_fournisseurs(self):
-        self._ouvrir_la_liste()
-        self.assertEqual([s.Nom for s in self.vm.Suggestions], list(PROVIDERS))
-
-    def test_libelles_des_fournisseurs_sans_barre_oblique(self):
-        self._ouvrir_la_liste()
-        self.assertEqual([s.Libelle for s in self.vm.Suggestions],
-                         list(PROVIDERS))
-
-    def test_la_frappe_ne_referme_pas_la_liste(self):
-        self._ouvrir_la_liste()
-        self.vm.Saisie = 'Anth'
-        self.assertTrue(self.vm.SuggestionsVisibles)
+    def _noms(self):
+        return [s.Nom for s in self.vm.Suggestions]
 
     def _suggestion(self, nom):
         return [s for s in self.vm.Suggestions if s.Nom == nom][0]
 
-    def test_choix_persiste_et_met_le_statut_a_jour(self):
-        self._ouvrir_la_liste()
-        # Le dernier actif, pour ne pas confondre avec le repli par défaut.
-        cible = ACTIFS[-1]
-        self.vm._choisir(self._suggestion(cible))
-        self.assertEqual(self.config.provider, cible)
-        self.assertIn(cible, self.vm.Statut)
-        # Écrit dans le store, pas seulement le repli du getter.
-        self.assertEqual(self.store.get('provider'), cible)
+    def _connect(self):
+        self.vm.Saisie = '/connect'
+        self.vm._envoyer()
 
-    def test_chaque_fournisseur_actif_a_un_client(self):
-        for nom in ACTIFS:
-            client = client_de(nom)
-            self.assertIsNotNone(client, nom)
-            for membre in ('pret', 'repondre', 'RAISON'):
-                self.assertTrue(hasattr(client, membre),
-                                '{0} sans {1}'.format(nom, membre))
+    # --- étape 1 : fournisseurs ------------------------------------------
+
+    def test_premiere_etape_ne_montre_que_les_fournisseurs(self):
+        self._connect()
+        self.assertEqual(self._noms(), list(PROVIDERS))
 
     def test_fournisseurs_non_branches_grises(self):
-        self._ouvrir_la_liste()
-        grises = [s.Nom for s in self.vm.Suggestions if not s.Actif]
-        self.assertEqual(grises, [n for n in PROVIDERS if n not in ACTIFS])
-        self.assertTrue(grises, 'le catalogue doit rester un choix à venir')
+        self._connect()
+        self.assertEqual([s.Nom for s in self.vm.Suggestions if not s.Actif],
+                         _GRISES)
+        self.assertTrue(_GRISES, 'le catalogue doit garder un choix à venir')
 
-    def test_choix_dun_fournisseur_grise_refuse(self):
-        self._ouvrir_la_liste()
-        grise = [s for s in self.vm.Suggestions if not s.Actif][0]
-        avant = len(self.vm.Messages)
-        self.vm._choisir(grise)
+    def test_fournisseur_grise_refuse_le_choix(self):
+        self._connect()
+        self.vm._choisir(self._suggestion(_GRISES[0]))
         self.assertEqual(self.config.provider, ACTIFS[0])
-        self.assertEqual(len(self.vm.Messages), avant)
-        # La liste reste ouverte : le clic n'est pas un choix.
+        self.assertEqual(self._noms(), list(PROVIDERS))  # on n'a pas avancé
+
+    def test_la_frappe_ne_referme_pas_la_liste(self):
+        self._connect()
+        self.vm.Saisie = 'Anth'
         self.assertTrue(self.vm.SuggestionsVisibles)
 
-    def test_choix_referme_la_liste_et_rend_les_commandes(self):
-        self._ouvrir_la_liste()
-        avant = len(self.vm.Messages)
-        self.vm._choisir(self.vm.Suggestions[0])
+    # --- étape 2 : connexions --------------------------------------------
+
+    def test_choisir_un_fournisseur_montre_ses_connexions(self):
+        self._connect()
+        self.vm._choisir(self._suggestion('OpenAI'))
+        self.assertEqual(self.config.provider, 'OpenAI')
+        self.assertEqual(self._noms(), [HARNAIS, CLE_API])
+
+    def test_connexion_prete_mene_aux_modeles(self):
+        self._connect()
+        self.vm._choisir(self._suggestion('OpenAI'))
+        self.vm._choisir(self._suggestion(CLE_API))
+        self.assertEqual(self.store.get('connexion'), CLE_API)
+        self.assertEqual(self._noms(), ['modele-a', 'modele-b'])
+
+    def test_connexion_non_prete_ouvre_le_navigateur(self):
+        self.vm._client_injecte = _ClientFactice(
+            pret=False, ouverture='Connexion ouverte dans le navigateur.')
+        self._connect()
+        self.vm._choisir(self._suggestion('OpenAI'))
+        self.vm._choisir(self._suggestion(HARNAIS))
+        self.assertEqual(self.vm._client_injecte.connexions_ouvertes, 1)
+        self.assertIn('navigateur', self.vm.Messages[-1].Texte)
         self.assertFalse(self.vm.SuggestionsVisibles)
-        self.assertEqual(len(self.vm.Messages), avant + 1)
-        self.vm.Saisie = '/'
-        self.assertEqual([s.Libelle for s in self.vm.Suggestions],
-                         ['/aide', '/connect'])
 
-    def test_tab_choisit_le_premier_fournisseur_actif(self):
-        self._ouvrir_la_liste()
-        self.vm._completer()
-        self.assertEqual(self.config.provider, ACTIFS[0])
+    def test_connexion_sans_navigateur_dit_ce_qui_manque(self):
+        self.vm._client_injecte = _ClientFactice(pret=False, ouverture=None)
+        self._connect()
+        self.vm._choisir(self._suggestion('OpenAI'))
+        self.vm._choisir(self._suggestion(CLE_API))
+        self.assertIn('raison de factice', self.vm.Messages[-1].Texte)
 
-    def test_fournisseur_inconnu_ou_debranche_retombe_sur_un_actif(self):
-        for valeur in ('Fournisseur Fantome',
-                       [n for n in PROVIDERS if n not in ACTIFS][0]):
-            store = _StoreMemoire()
-            store.set('provider', valeur)
-            self.assertEqual(OpenArchiConfig(store).provider, ACTIFS[0])
+    # --- étape 3 : modèles ------------------------------------------------
+
+    def test_choix_du_modele_persiste_et_ferme(self):
+        self._connect()
+        self.vm._choisir(self._suggestion('OpenAI'))
+        self.vm._choisir(self._suggestion(CLE_API))
+        self.vm._choisir(self._suggestion('modele-b'))
+        self.assertEqual(self.config.modele, 'modele-b')
+        self.assertEqual(self.store.get('modele'), 'modele-b')
+        self.assertFalse(self.vm.SuggestionsVisibles)
+        self.assertIn('modele-b', self.vm.Statut)
+
+    def test_client_sans_liste_de_modeles_propose_le_defaut(self):
+        self.vm._client_injecte = _ClientFactice(modeles=())
+        self._connect()
+        self.vm._choisir(self._suggestion('OpenAI'))
+        self.vm._choisir(self._suggestion(HARNAIS))
+        self.assertEqual(self._noms(), [MODELE_DEFAUT])
+        self.vm._choisir(self._suggestion(MODELE_DEFAUT))
+        # « Défaut » ne se persiste pas comme un nom de modèle.
+        self.assertIsNone(self.config.modele)
+
+    # --- navigation -------------------------------------------------------
+
+    def test_echap_remonte_dune_etape_puis_ferme(self):
+        self._connect()
+        self.vm._choisir(self._suggestion('OpenAI'))
+        self.assertEqual(self._noms(), [HARNAIS, CLE_API])
+        self.vm._retour()
+        self.assertEqual(self._noms(), list(PROVIDERS))
+        self.vm._retour()
+        self.assertFalse(self.vm.SuggestionsVisibles)
+
+    def test_changer_de_fournisseur_oublie_connexion_et_modele(self):
+        self.config.appliquer_connexion(CLE_API)
+        self.config.appliquer_modele('modele-b')
+        self.config.appliquer('OpenAI')
+        self.assertIsNone(self.config.modele)
+        self.assertFalse(self.store.get('connexion'))
+
+    def test_aucun_none_ecrit_dans_un_magasin_de_chaines(self):
+        # UserConfig sérialise tout en chaîne : y écrire None y laisse le
+        # texte « None », qui repasserait pour un nom de modèle valide.
+        config = OpenArchiConfig(_StoreChaines())
+        config.appliquer_modele(None)
+        self.assertIsNone(config.modele)
+        self.assertNotEqual(config._lire('modele', ''), 'None')
+
+
+class TestCommandeModel(unittest.TestCase):
+    def setUp(self):
+        self.config = OpenArchiConfig(_StoreMemoire())
+        self.vm = OpenArchiChatVM(
+            config=self.config,
+            client=_ClientFactice(modeles=('modele-a', 'modele-b')))
+
+    def test_model_ouvre_directement_la_liste_des_modeles(self):
+        self.vm.Saisie = '/model'
+        self.vm._envoyer()
+        self.assertEqual([s.Nom for s in self.vm.Suggestions],
+                         ['modele-a', 'modele-b'])
+
+    def test_model_sans_connexion_renvoie_vers_connect(self):
+        self.vm._client_injecte = _ClientFactice(pret=False)
+        reponse = self.vm.repondre('/model')
+        self.assertIn('/connect', reponse)
+        self.assertFalse(self.vm.SuggestionsVisibles)
+
+
+class TestCatalogue(unittest.TestCase):
+    def test_chaque_connexion_branchee_honore_le_contrat(self):
+        for provider, connexions in CATALOGUE:
+            for nom, _description, client in connexions:
+                if client is None:
+                    continue
+                for membre in ('pret', 'raison', 'connecter', 'modeles',
+                               'repondre'):
+                    self.assertTrue(
+                        hasattr(client, membre),
+                        '{0}/{1} sans {2}'.format(provider, nom, membre))
+
+    def test_un_fournisseur_actif_a_au_moins_une_connexion_branchee(self):
+        for nom in ACTIFS:
+            branchees = [c for _n, _d, c in connexions_de(nom)
+                         if c is not None]
+            self.assertTrue(branchees, nom)
+
+    def test_plus_aucune_ligne_mcp(self):
+        for _provider, connexions in CATALOGUE:
+            self.assertNotIn('MCP', [nom for nom, _d, _c in connexions])
+
+    def test_client_de_inconnu_vaut_none(self):
+        self.assertIsNone(client_de('OpenAI', 'Pigeon voyageur'))
+        self.assertIsNone(client_de('Fournisseur Fantome', CLE_API))
 
 
 if __name__ == '__main__':
