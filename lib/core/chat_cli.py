@@ -11,11 +11,7 @@ from __future__ import unicode_literals
 import os
 import subprocess
 import tempfile
-
-try:
-    from shutil import which
-except ImportError:                    # Python 2 / IronPython
-    which = None
+import time
 
 try:
     from core.journal import journal, flux
@@ -40,6 +36,12 @@ DECONNECTE = 'CLI codex non connecté — choisir de nouveau pour ouvrir le navi
 # à chaque message.
 _SANS_FENETRE = 0x08000000
 
+# Statut de connexion mis en cache : assez court pour qu'un « codex login »
+# terminé dans le navigateur soit vu, assez long pour ne pas lancer un
+# processus à chaque rafraîchissement du panneau.
+DELAI_STATUT = 10.0
+_statut = {}
+
 SYSTEME = ("Tu assistes un architecte dans Autodesk Revit. Réponds en "
            "français, brièvement. Les #références citent des éléments de la "
            "maquette ; tu n'y as pas encore accès, demande-les si besoin.")
@@ -56,17 +58,60 @@ class _JamaisLevee(Exception):
 _EXPIRATION = getattr(subprocess, 'TimeoutExpired', _JamaisLevee)
 
 
-def chemin():
-    """Chemin de l'exécutable, ``None`` s'il est introuvable."""
-    if which is not None:
-        return which(EXECUTABLE)
-    return EXECUTABLE
+def chemin(nom=None):
+    """Chemin complet de l'exécutable, ``None`` s'il est introuvable.
+
+    Réimplémenté plutôt que ``shutil.which`` : celui-ci n'existe pas sous
+    IronPython 2.7, qui est le moteur du panneau ancré. Et le nom nu ne suffit
+    pas — ``CreateProcess`` ne résout pas PATHEXT, donc « codex » reste
+    introuvable alors que « codex.CMD » est bien dans le PATH.
+    """
+    nom = nom or EXECUTABLE
+    if os.path.dirname(nom):
+        return nom if os.path.isfile(nom) else None
+    extensions = ['']
+    if os.name == 'nt':
+        pathext = [e for e in os.environ.get('PATHEXT', '').split(os.pathsep)
+                   if e]
+        # npm pose DEUX fichiers côte à côte : « codex » (script shell, que
+        # CreateProcess ne sait pas lancer — c'est le [Errno 2]) et
+        # « codex.CMD ». Ne chercher que les extensions exécutables, sauf si
+        # le nom en porte déjà une.
+        if not any(nom.lower().endswith(e.lower()) for e in pathext):
+            extensions = pathext
+    for dossier in os.environ.get('PATH', '').split(os.pathsep):
+        if not dossier:
+            continue
+        for extension in extensions:
+            candidat = os.path.join(dossier, nom + extension)
+            if os.path.isfile(candidat):
+                return candidat
+    return None
+
+
+def oublier_statut():
+    _statut.clear()
 
 
 def connecte():
-    """``codex login status`` : le CLI porte-t-il une session utilisable ?"""
+    """``codex login status`` : le CLI porte-t-il une session utilisable ?
+
+    Mis en cache : ``pret()`` est lu par une propriété liée au XAML, donc
+    plusieurs fois par interaction, et chaque lecture coûte un processus.
+    """
+    maintenant = time.time()
+    if _statut and maintenant - _statut['quand'] < DELAI_STATUT:
+        return _statut['valeur']
+    valeur = _demander_statut()
+    _statut['quand'] = maintenant
+    _statut['valeur'] = valeur
+    return valeur
+
+
+def _demander_statut():
     executable = chemin()
     if not executable:
+        _log.warning('%s introuvable dans le PATH', EXECUTABLE)
         return False
     try:
         processus = subprocess.Popen(
@@ -99,8 +144,10 @@ def connecter():
     """
     executable = chemin()
     if not executable:
-        _log.warning('connecter() sans exécutable')
+        _log.warning('connecter() : %s introuvable', EXECUTABLE)
         return None
+    # La session va changer : le statut en cache n'a plus rien à dire.
+    oublier_statut()
     # `codex login` écrit son URL et sa progression, puis attend le retour du
     # navigateur : on ne l'attend pas (Revit resterait figé), mais on branche
     # ses deux flux sur le journal — sinon un échec est totalement muet.
