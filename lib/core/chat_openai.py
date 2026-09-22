@@ -26,11 +26,14 @@ SYSTEME = ("Tu assistes un architecte dans Autodesk Revit. Réponds en "
            "maquette ; tu n'y as pas encore accès, demande-les si besoin.")
 
 
+RAISON = 'clé absente — définir la variable d\'environnement ' + CLE_ENV
+
+
 class ErreurOpenAI(Exception):
     """Échec d'appel : clé absente, réseau, ou réponse illisible."""
 
 
-def cle_presente():
+def pret():
     return bool(os.environ.get(CLE_ENV))
 
 
@@ -48,9 +51,7 @@ def repondre(messages, cle=None, modele=None, timeout=60):
     """Renvoie le texte de la réponse, ou lève ``ErreurOpenAI``."""
     cle = cle or os.environ.get(CLE_ENV)
     if not cle:
-        raise ErreurOpenAI(
-            "clé absente, définir la variable d'environnement "
-            "{0}".format(CLE_ENV))
+        raise ErreurOpenAI(RAISON)
 
     # ensure_ascii=False : sous IronPython, laisser json échapper lui-même
     # les accents lève. On encode explicitement derrière.

@@ -10,7 +10,7 @@ if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
 
 from ui.OpenArchiChatVM import OpenArchiChatVM
-from ui.OpenArchiConfig import OpenArchiConfig, PROVIDERS, ACTIFS
+from ui.OpenArchiConfig import OpenArchiConfig, PROVIDERS, ACTIFS, client_de
 
 
 class _StoreMemoire(object):
@@ -29,12 +29,14 @@ class _StoreMemoire(object):
 class _ClientFactice(object):
     """Double de core.chat_openai : aucun appel réseau pendant les tests."""
 
+    RAISON = 'raison de factice'
+
     def __init__(self, reponse='réponse du modèle', erreur=None):
         self.reponse = reponse
         self.erreur = erreur
         self.recus = None
 
-    def cle_presente(self):
+    def pret(self):
         return True
 
     def repondre(self, messages, **_kwargs):
@@ -88,10 +90,18 @@ class TestChat(unittest.TestCase):
                          [texte for _, texte in self.client.recus])
 
     def test_echec_du_fournisseur_affiche_en_bulle(self):
-        self.vm._client = _ClientFactice(erreur=RuntimeError('clé absente'))
+        self.vm._client_injecte = _ClientFactice(
+            erreur=RuntimeError('clé absente'))
         reponse = self.vm.repondre('bonjour')
         self.assertIn('clé absente', reponse)
         self.assertIn(self.config.provider, reponse)
+
+    def test_statut_signale_un_client_non_pret(self):
+        muet = _ClientFactice()
+        muet.pret = lambda: False
+        self.vm._client_injecte = muet
+        self.assertIn(_ClientFactice.RAISON, self.vm.Statut)
+        self.assertIn(self.config.provider, self.vm.Statut)
 
     def test_commande_aide_liste_les_commandes(self):
         reponse = self.vm.repondre('/aide')
@@ -192,12 +202,21 @@ class TestConnect(unittest.TestCase):
 
     def test_choix_persiste_et_met_le_statut_a_jour(self):
         self._ouvrir_la_liste()
-        cible = ACTIFS[0]
+        # Le dernier actif, pour ne pas confondre avec le repli par défaut.
+        cible = ACTIFS[-1]
         self.vm._choisir(self._suggestion(cible))
         self.assertEqual(self.config.provider, cible)
-        self.assertEqual(self.vm.Statut, cible)
+        self.assertIn(cible, self.vm.Statut)
         # Écrit dans le store, pas seulement le repli du getter.
         self.assertEqual(self.store.get('provider'), cible)
+
+    def test_chaque_fournisseur_actif_a_un_client(self):
+        for nom in ACTIFS:
+            client = client_de(nom)
+            self.assertIsNotNone(client, nom)
+            for membre in ('pret', 'repondre', 'RAISON'):
+                self.assertTrue(hasattr(client, membre),
+                                '{0} sans {1}'.format(nom, membre))
 
     def test_fournisseurs_non_branches_grises(self):
         self._ouvrir_la_liste()
