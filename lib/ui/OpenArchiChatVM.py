@@ -23,9 +23,11 @@ except Exception:
     from lib.core.chat_syntaxe import analyser
 
 try:
-    from ui.OpenArchiConfig import OpenArchiConfig, CATALOGUE, client_de
+    from ui.OpenArchiConfig import (OpenArchiConfig, CATALOGUE, ACTIFS,
+                                    connexions_de, MODELE_DEFAUT)
 except Exception:
-    from lib.ui.OpenArchiConfig import (OpenArchiConfig, CATALOGUE, client_de)
+    from lib.ui.OpenArchiConfig import (OpenArchiConfig, CATALOGUE, ACTIFS,
+                                        connexions_de, MODELE_DEFAUT)
 
 # Hors Revit (tests unitaires en CPython), .NET est absent : on retombe sur
 # une liste Python. Le VM reste testable, seule la notification WPF disparaît.
@@ -94,20 +96,25 @@ class OpenArchiChatVM(BaseViewModel):
         # Déclarées AVANT toute écriture de Saisie : son setter rafraîchit
         # l'autocomplétion, qui lit COMMANDES et Suggestions.
         self.COMMANDES = {
-            'connect': ('choisir le fournisseur de modèle',
+            'connect': ('choisir fournisseur, connexion et modèle',
                         self._commande_connect),
+            'model': ('changer de modèle sur la connexion en cours',
+                      self._commande_model),
             'aide': ('lister les commandes disponibles', self._commande_aide),
         }
         self.Suggestions = self._nouvelle_liste()
         # La liste en place sert deux usages : l'autocomplétion pendant la
-        # frappe, et le choix du fournisseur après /connect.
-        self._mode_liste = 'commandes'
+        # frappe, et l'assistant de /connect. Ses étapes s'enchaînent dans
+        # l'ordre ci-dessous ; Échap remonte d'un cran.
+        self._etape = None
         self.EnvoyerCommand = (RelayCommand(self._envoyer, self._peut_envoyer)
                                if RelayCommand else None)
         self.ChoisirSuggestionCommand = (RelayCommand(self._choisir)
                                          if RelayCommand else None)
         self.CompleterCommand = (RelayCommand(self._completer)
                                  if RelayCommand else None)
+        self.RetourCommand = (RelayCommand(self._retour)
+                              if RelayCommand else None)
         self.Messages.Add(MessageVM('OpenArchi', self.ACCUEIL, False))
 
     @staticmethod
@@ -131,33 +138,37 @@ class OpenArchiChatVM(BaseViewModel):
     def _client(self):
         if self._client_injecte is not None:
             return self._client_injecte
-        return client_de(self._config.provider)
+        return self._config.client
 
     @property
     def Statut(self):
+        """Fil d'Ariane : fournisseur · connexion · modèle."""
         provider = self._config.provider
         client = self._client
         if client is None:
             return '{0} — pas encore branché'.format(provider)
         if not client.pret():
-            return '{0} — {1}'.format(provider, client.RAISON)
-        return provider
+            return '{0} · {1} — {2}'.format(
+                provider, self._config.connexion, client.raison())
+        return '{0} · {1} · {2}'.format(
+            provider, self._config.connexion,
+            self._config.modele or MODELE_DEFAUT)
 
-    # --- liste en place : commandes ou fournisseurs -----------------------
+    # --- liste en place : autocomplétion, ou assistant de connexion --------
 
     @property
     def SuggestionsVisibles(self):
         return len(self.Suggestions) > 0
 
     def _fermer_liste(self):
-        self._mode_liste = 'commandes'
+        self._etape = None
         self.Suggestions.Clear()
         self.notify_property('SuggestionsVisibles')
 
     def _rafraichir_suggestions(self):
-        # La liste des fournisseurs attend un choix : la frappe ne la balaie
+        # Une étape de l'assistant attend un choix : la frappe ne la balaie
         # pas, contrairement à l'autocomplétion.
-        if self._mode_liste == 'providers':
+        if self._etape is not None:
             return
         self.Suggestions.Clear()
         debut = self._saisie
@@ -171,25 +182,101 @@ class OpenArchiChatVM(BaseViewModel):
                         SuggestionVM(nom, self.COMMANDES[nom][0]))
         self.notify_property('SuggestionsVisibles')
 
+    # --- assistant de connexion : fournisseur → connexion → modèle --------
+
+    ETAPES = ('fournisseurs', 'connexions', 'modeles')
+
+    def _ouvrir(self, etape):
+        """Remplace la liste en place par les entrées de l'étape."""
+        self._etape = etape
+        self.Suggestions.Clear()
+        for suggestion in self._entrees(etape):
+            self.Suggestions.Add(suggestion)
+        self.notify_property('SuggestionsVisibles')
+
+    def _entrees(self, etape):
+        if etape == 'fournisseurs':
+            return [SuggestionVM(nom, self._resume(nom), libelle=nom,
+                                 actif=nom in ACTIFS)
+                    for nom, _connexions in CATALOGUE]
+        if etape == 'connexions':
+            return [SuggestionVM(nom, description, libelle=nom,
+                                 actif=client is not None)
+                    for nom, description, client
+                    in connexions_de(self._config.provider)]
+        # Un client qui n'expose pas ses modèles n'en laisse qu'un : le sien.
+        modeles = self._client.modeles() if self._client else ()
+        if not modeles:
+            return [SuggestionVM(MODELE_DEFAUT, 'le fournisseur choisit',
+                                 libelle=MODELE_DEFAUT)]
+        return [SuggestionVM(nom, '', libelle=nom) for nom in modeles]
+
+    @staticmethod
+    def _resume(provider):
+        """Ce qui est branché chez un fournisseur, vu depuis la liste."""
+        branchees = [nom for nom, _d, client in connexions_de(provider)
+                     if client is not None]
+        return ' · '.join(branchees) if branchees else 'pas encore branché'
+
+    def _retour(self, _=None):
+        """Échap : remonte d'une étape, ou referme la liste."""
+        if self._etape is None:
+            return
+        rang = self.ETAPES.index(self._etape)
+        if rang == 0:
+            self._fermer_liste()
+        else:
+            self._ouvrir(self.ETAPES[rang - 1])
+
     def _choisir(self, suggestion=None):
         if suggestion is None:
             return
-        if self._mode_liste == 'providers':
-            # Le XAML désactive déjà le bouton ; Tab passe par ici sans lui.
-            if not suggestion.Actif:
-                return
-            self._fermer_liste()
-            self._config.appliquer(suggestion.Nom)
-            self.notify_property('Statut')
-            self.Messages.Add(MessageVM(
-                'OpenArchi',
-                'Fournisseur : {0}'.format(suggestion.Nom), False))
+        # Le XAML désactive déjà le bouton ; Tab passe par ici sans lui.
+        if not suggestion.Actif:
             return
-        self.Saisie = '/{0} '.format(suggestion.Nom)
+        if self._etape == 'fournisseurs':
+            return self._choisir_provider(suggestion.Nom)
+        if self._etape == 'connexions':
+            return self._choisir_connexion(suggestion.Nom)
+        if self._etape == 'modeles':
+            return self._choisir_modele(suggestion.Nom)
+        # Liste des commandes : cliquer exécute, sans passer par le champ.
+        self.Saisie = '/{0}'.format(suggestion.Nom)
+        self._envoyer()
+
+    def _choisir_provider(self, provider):
+        self._config.appliquer(provider)
+        self.notify_property('Statut')
+        self._ouvrir('connexions')
+
+    def _choisir_connexion(self, connexion):
+        self._config.appliquer_connexion(connexion)
+        self.notify_property('Statut')
+        client = self._client
+        if client.pret():
+            return self._ouvrir('modeles')
+        # Pas prêt : soit le client sait ouvrir le navigateur — c'est le
+        # moment de le faire — soit il ne reste qu'à dire ce qui manque.
+        self._fermer_liste()
+        try:
+            ouverture = client.connecter()
+        except Exception as e:
+            ouverture = '{0}'.format(e)
+        self._dire(ouverture or client.raison())
+
+    def _choisir_modele(self, modele):
+        self._config.appliquer_modele(
+            None if modele == MODELE_DEFAUT else modele)
+        self._fermer_liste()
+        self.notify_property('Statut')
+        self._dire('Connecté — {0}'.format(self.Statut))
+
+    def _dire(self, texte):
+        self.Messages.Add(MessageVM('OpenArchi', texte, False))
 
     def _completer(self, _=None):
         # Tab : complète sur la première proposition retenable, comme un shell
-        # — les fournisseurs grisés sont sautés.
+        # — les entrées grisées sont sautées.
         for suggestion in self.Suggestions:
             if suggestion.Actif:
                 self._choisir(suggestion)
@@ -231,7 +318,8 @@ class OpenArchiChatVM(BaseViewModel):
             return ('{0} : pas encore branché. /connect pour en choisir un '
                     'autre.'.format(self._config.provider))
         try:
-            return client.repondre(self._historique(analyse.texte))
+            return client.repondre(self._historique(analyse.texte),
+                                   modele=self._config.modele)
         except Exception as e:
             return '{0} : {1}'.format(self._config.provider, e)
 
@@ -257,10 +345,13 @@ class OpenArchiChatVM(BaseViewModel):
     def _commande_connect(self, _arguments):
         # Pas de fenêtre : on réutilise la liste en place au-dessus du champ,
         # comme le /connect d'opencode dans son terminal.
-        self._mode_liste = 'providers'
-        self.Suggestions.Clear()
-        for nom, description, actif in CATALOGUE:
-            self.Suggestions.Add(
-                SuggestionVM(nom, description, libelle=nom, actif=actif))
-        self.notify_property('SuggestionsVisibles')
-        return "Choisir un fournisseur. Actuel : {0}".format(self.Statut)
+        self._ouvrir('fournisseurs')
+        return 'Choisir un fournisseur. Actuel : {0}'.format(self.Statut)
+
+    def _commande_model(self, _arguments):
+        client = self._client
+        if client is None or not client.pret():
+            return 'Aucune connexion active. /connect d\'abord.'
+        self._ouvrir('modeles')
+        return 'Choisir un modèle. Actuel : {0}'.format(
+            self._config.modele or MODELE_DEFAUT)

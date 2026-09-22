@@ -120,6 +120,8 @@
           <KeyBinding Key="Return" Command="{Binding EnvoyerCommand}"/>
           <!-- Tab complète sur la première proposition, comme un shell. -->
           <KeyBinding Key="Tab" Command="{Binding CompleterCommand}"/>
+          <!-- Échap remonte d'une étape de /connect, sinon ferme la liste. -->
+          <KeyBinding Key="Escape" Command="{Binding RetourCommand}"/>
         </TextBox.InputBindings>
       </TextBox>
 

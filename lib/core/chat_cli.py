@@ -26,7 +26,8 @@ EXECUTABLE = 'codex'
 ARGUMENTS = ['exec', '--skip-git-repo-check', '--ephemeral',
              '--ignore-user-config', '-s', 'read-only', '--color', 'never']
 
-RAISON = 'CLI codex introuvable — l\'installer puis « codex login »'
+ABSENT = 'CLI codex introuvable — l\'installer (npm i -g @openai/codex)'
+DECONNECTE = 'CLI codex non connecté — choisir de nouveau pour ouvrir le navigateur'
 
 # CREATE_NO_WINDOW : sans lui, une console noire clignote par-dessus Revit
 # à chaque message.
@@ -55,8 +56,51 @@ def chemin():
     return EXECUTABLE
 
 
+def connecte():
+    """``codex login status`` : le CLI porte-t-il une session utilisable ?"""
+    executable = chemin()
+    if not executable:
+        return False
+    try:
+        processus = subprocess.Popen(
+            [executable, 'login', 'status'],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, **_options())
+        sortie, erreur = processus.communicate()
+    except Exception:
+        return False
+    # codex écrit ce statut sur stderr, pas sur stdout : lire les deux.
+    dit = (_texte(sortie) + _texte(erreur)).lower()
+    return processus.returncode == 0 and 'logged in' in dit
+
+
 def pret():
-    return bool(chemin())
+    return connecte()
+
+
+def raison():
+    return ABSENT if not chemin() else DECONNECTE
+
+
+def connecter():
+    """Lance ``codex login`` : c'est LE flux navigateur, tenu par le CLI.
+
+    On ne l'attend pas — l'utilisateur va s'authentifier dans son navigateur
+    pendant que Revit reste rendu à la main.
+    """
+    executable = chemin()
+    if not executable:
+        return None
+    try:
+        subprocess.Popen([executable, 'login'], **_options())
+    except Exception as e:
+        raise ErreurCLI('ouverture impossible — {0}'.format(e))
+    return ('Connexion ouverte dans le navigateur. Une fois terminée, '
+            'relancer /connect.')
+
+
+def modeles():
+    """Non listable : le harnais choisit son modèle, et n'expose pas de liste."""
+    return ()
 
 
 def invite(messages):
@@ -68,11 +112,12 @@ def invite(messages):
     return '\n'.join(lignes)
 
 
-def repondre(messages, timeout=180, **_kwargs):
+def repondre(messages, modele=None, timeout=180, **_kwargs):
     """Renvoie le texte de la réponse, ou lève ``ErreurCLI``."""
     executable = chemin()
     if not executable:
-        raise ErreurCLI(RAISON)
+        raise ErreurCLI(ABSENT)
+    arguments = list(ARGUMENTS) + (['-m', modele] if modele else [])
 
     # -o : le CLI écrit la réponse finale seule, ce qui évite d'avoir à
     # démêler sa trace de progression sur stdout.
@@ -80,7 +125,7 @@ def repondre(messages, timeout=180, **_kwargs):
     os.close(descripteur)
     try:
         processus = subprocess.Popen(
-            [executable] + ARGUMENTS + ['-o', sortie, '-'],
+            [executable] + arguments + ['-o', sortie, '-'],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, **_options())
         entree = invite(messages).encode('utf-8')
@@ -113,11 +158,16 @@ def _options():
     return {'creationflags': _SANS_FENETRE} if os.name == 'nt' else {}
 
 
+def _texte(brut):
+    if not brut:
+        return ''
+    if isinstance(brut, type('')):
+        return brut
+    return brut.decode('utf-8', 'replace')
+
+
 def _fin(erreur):
     """Dernière ligne utile de stderr : le reste n'est que de la bannière."""
-    if not erreur:
-        return ''
-    if not isinstance(erreur, type('')):
-        erreur = erreur.decode('utf-8', 'replace')
-    lignes = [ligne.strip() for ligne in erreur.splitlines() if ligne.strip()]
+    lignes = [ligne.strip() for ligne in _texte(erreur).splitlines()
+              if ligne.strip()]
     return lignes[-1] if lignes else ''
