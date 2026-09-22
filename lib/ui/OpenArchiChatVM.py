@@ -23,9 +23,14 @@ except Exception:
     from lib.core.chat_syntaxe import analyser
 
 try:
-    from ui.OpenArchiConfig import OpenArchiConfig, PROVIDERS
+    from ui.OpenArchiConfig import OpenArchiConfig, CATALOGUE
 except Exception:
-    from lib.ui.OpenArchiConfig import OpenArchiConfig, PROVIDERS
+    from lib.ui.OpenArchiConfig import OpenArchiConfig, CATALOGUE
+
+try:
+    from core import chat_openai
+except Exception:
+    from lib.core import chat_openai
 
 # Hors Revit (tests unitaires en CPython), .NET est absent : on retombe sur
 # une liste Python. Le VM reste testable, seule la notification WPF disparaît.
@@ -47,10 +52,11 @@ class SuggestionVM(BaseViewModel):
     """Une entrée de la liste en place : commande ou fournisseur.
 
     ``libelle`` n'est fourni que pour les fournisseurs, qui s'affichent sans
-    la barre oblique des commandes.
+    la barre oblique des commandes. ``actif`` à faux grise l'entrée : elle
+    reste visible pour annoncer ce qui arrive, mais refuse le clic.
     """
 
-    def __init__(self, nom, description='', libelle=None):
+    def __init__(self, nom, description='', libelle=None, actif=True):
         try:
             BaseViewModel.__init__(self)
         except Exception:
@@ -58,6 +64,7 @@ class SuggestionVM(BaseViewModel):
         self.Nom = nom
         self.Libelle = libelle if libelle is not None else '/' + nom
         self.Description = description
+        self.Actif = bool(actif)
 
 
 class MessageVM(BaseViewModel):
@@ -78,12 +85,14 @@ class OpenArchiChatVM(BaseViewModel):
     ACCUEIL = ("Panneau OpenArchi prêt. /connect pour choisir le fournisseur. "
                "#{Nom} pour citer un élément.")
 
-    def __init__(self, config=None):
+    def __init__(self, config=None, client=None):
         try:
             BaseViewModel.__init__(self)
         except Exception:
             pass
         self._config = config if config is not None else OpenArchiConfig()
+        # Injecté pour que les tests ne touchent pas le réseau.
+        self._client = client if client is not None else chat_openai
         self._saisie = ''
         self.Messages = self._nouvelle_liste()
         # Déclarées AVANT toute écriture de Saisie : son setter rafraîchit
@@ -124,7 +133,11 @@ class OpenArchiChatVM(BaseViewModel):
 
     @property
     def Statut(self):
-        return self._config.provider
+        provider = self._config.provider
+        if not self._client.cle_presente():
+            return '{0} — clé absente ({1})'.format(
+                provider, chat_openai.CLE_ENV)
+        return provider
 
     # --- liste en place : commandes ou fournisseurs -----------------------
 
@@ -158,6 +171,9 @@ class OpenArchiChatVM(BaseViewModel):
         if suggestion is None:
             return
         if self._mode_liste == 'providers':
+            # Le XAML désactive déjà le bouton ; Tab passe par ici sans lui.
+            if not suggestion.Actif:
+                return
             self._fermer_liste()
             self._config.appliquer(suggestion.Nom)
             self.notify_property('Statut')
@@ -168,9 +184,12 @@ class OpenArchiChatVM(BaseViewModel):
         self.Saisie = '/{0} '.format(suggestion.Nom)
 
     def _completer(self, _=None):
-        # Tab : complète sur la première proposition, comme un shell.
-        if len(self.Suggestions) > 0:
-            self._choisir(self.Suggestions[0])
+        # Tab : complète sur la première proposition retenable, comme un shell
+        # — les fournisseurs grisés sont sautés.
+        for suggestion in self.Suggestions:
+            if suggestion.Actif:
+                self._choisir(suggestion)
+                return
 
     # --- envoi -----------------------------------------------------------
 
@@ -199,13 +218,25 @@ class OpenArchiChatVM(BaseViewModel):
             return execution(analyse.arguments)
         return self._conversation(analyse)
 
-    # ponytail: pas d'appel au fournisseur, on se contente d'accuser réception
-    # et de lister les références. Brancher ici le client de chat réel.
+    # ponytail: appel bloquant, Revit se fige le temps de la réponse. Passer
+    # en thread + Dispatcher.Invoke si l'attente devient gênante.
+    # Un seul fournisseur branché : pas d'aiguillage tant que c'est le cas.
     def _conversation(self, analyse):
-        if analyse.references:
-            return ("Non branché. Éléments cités : {0}".format(
-                ', '.join(analyse.references)))
-        return "Non branché — reçu : {0}".format(analyse.texte)
+        try:
+            return self._client.repondre(self._historique(analyse.texte))
+        except Exception as e:
+            return '{0} : {1}'.format(self._config.provider, e)
+
+    def _historique(self, texte):
+        """Conversation à plat pour l'API, message d'accueil exclu."""
+        couples = [('user' if message.DeUtilisateur else 'assistant',
+                    message.Texte)
+                   for message in list(self.Messages)[1:]]
+        # repondre() peut être appelé sans passer par _envoyer : on ne compte
+        # le message courant qu'une fois.
+        if couples[-1:] != [('user', texte)]:
+            couples.append(('user', texte))
+        return couples
 
     # --- commandes -------------------------------------------------------
 
@@ -220,7 +251,8 @@ class OpenArchiChatVM(BaseViewModel):
         # comme le /connect d'opencode dans son terminal.
         self._mode_liste = 'providers'
         self.Suggestions.Clear()
-        for nom in PROVIDERS:
-            self.Suggestions.Add(SuggestionVM(nom, libelle=nom))
+        for nom, description, actif in CATALOGUE:
+            self.Suggestions.Add(
+                SuggestionVM(nom, description, libelle=nom, actif=actif))
         self.notify_property('SuggestionsVisibles')
         return "Choisir un fournisseur. Actuel : {0}".format(self.Statut)
