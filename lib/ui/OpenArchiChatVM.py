@@ -43,6 +43,20 @@ try:
 except Exception:
     ObservableCollection = None
 
+# Même repli : hors Revit, le VM répond sur place et reste synchrone, donc
+# testable sans rien simuler.
+try:
+    from System import Action
+    from System.Threading import Thread, ThreadStart
+    from System.Windows.Threading import Dispatcher
+except Exception:
+    Action = Thread = ThreadStart = Dispatcher = None
+
+try:
+    from System.Windows.Input import CommandManager
+except Exception:
+    CommandManager = None
+
 
 class _ListeSimple(list):
     """Liste Python exposant l'API d'ObservableCollection (tests hors .NET)."""
@@ -99,6 +113,11 @@ class OpenArchiChatVM(BaseViewModel):
         # sinon le client suit le fournisseur choisi par /connect.
         self._client_injecte = client
         self._saisie = ''
+        self._en_attente = False
+        # Capturé ici : le VM est construit sur le fil d'interface, et c'est
+        # le seul par lequel Messages et les notifications peuvent passer.
+        self._dispatcher = (Dispatcher.CurrentDispatcher
+                            if Dispatcher is not None else None)
         self.Messages = self._nouvelle_liste()
         # Déclarées AVANT toute écriture de Saisie : son setter rafraîchit
         # l'autocomplétion, qui lit COMMANDES et Suggestions.
@@ -107,6 +126,8 @@ class OpenArchiChatVM(BaseViewModel):
                         self._commande_connect),
             'model': ('changer de modèle sur la connexion en cours',
                       self._commande_model),
+            'logout': ('fermer la session du fournisseur en cours',
+                       self._commande_logout),
             'journal': ('afficher les dernières lignes du journal',
                         self._commande_journal),
             'aide': ('lister les commandes disponibles', self._commande_aide),
@@ -142,6 +163,23 @@ class OpenArchiChatVM(BaseViewModel):
         self._saisie = valeur or ''
         self.notify_property('Saisie')
         self._rafraichir_suggestions()
+
+    @property
+    def EnAttente(self):
+        """Vrai pendant que le fournisseur réfléchit : pilote l'animation."""
+        return self._en_attente
+
+    @EnAttente.setter
+    def EnAttente(self, valeur):
+        self._en_attente = bool(valeur)
+        self.notify_property('EnAttente')
+        # Le bouton Envoyer suit CanExecute : sans ce coup de semonce, il ne
+        # se réactive qu'au prochain mouvement de souris.
+        if CommandManager is not None:
+            try:
+                CommandManager.InvalidateRequerySuggested()
+            except Exception:
+                pass
 
     @property
     def _client(self):
@@ -298,17 +336,51 @@ class OpenArchiChatVM(BaseViewModel):
     # --- envoi -----------------------------------------------------------
 
     def _peut_envoyer(self, _=None):
-        return bool(self._saisie.strip())
+        return bool(self._saisie.strip()) and not self._en_attente
 
     def _envoyer(self, _=None):
         texte = self._saisie.strip()
-        if not texte:
+        if not texte or self._en_attente:
             return
         # Envoyer abandonne un choix de fournisseur en cours.
         self._fermer_liste()
         self.Messages.Add(MessageVM('Moi', texte, True))
         self.Saisie = ''
-        self.Messages.Add(MessageVM('OpenArchi', self.repondre(texte), False))
+        # Une commande répond sur place et touche l'interface (listes,
+        # réglages) : elle doit rester sur le fil d'interface.
+        if analyser(texte).est_commande:
+            return self._dire(self.repondre(texte))
+        self.EnAttente = True
+        self._en_arriere_plan(lambda: self.repondre(texte), self._sur_reponse)
+
+    def _sur_reponse(self, reponse):
+        self.EnAttente = False
+        self._dire(reponse)
+
+    def _en_arriere_plan(self, travail, suite):
+        """``travail`` hors du fil d'interface, ``suite`` de retour dessus.
+
+        Sans .NET (tests hors Revit), tout s'exécute sur place : le VM reste
+        synchrone et se teste sans rien simuler.
+        """
+        if Thread is None or self._dispatcher is None:
+            return suite(travail())
+
+        def _courir():
+            try:
+                resultat = travail()
+            except Exception as e:                # ceinture : _conversation
+                _log.exception('travail de fond')  # attrape déjà tout
+                resultat = '{0}'.format(e)
+            try:
+                self._dispatcher.Invoke(Action(lambda: suite(resultat)))
+            except Exception:
+                _log.exception('retour sur le fil d\'interface')
+
+        fil = Thread(ThreadStart(_courir))
+        # Sans cela, un appel en cours retiendrait la fermeture de Revit.
+        fil.IsBackground = True
+        fil.Start()
 
     def repondre(self, texte):
         analyse = analyser(texte)
@@ -322,9 +394,8 @@ class OpenArchiChatVM(BaseViewModel):
             return execution(analyse.arguments)
         return self._conversation(analyse)
 
-    # ponytail: appel bloquant, Revit se fige le temps de la réponse. Passer
-    # en thread + Dispatcher.Invoke si l'attente devient gênante — le CLI est
-    # sensiblement plus lent que l'API, c'est là que ça se verra d'abord.
+    # Appelé depuis un fil de fond (cf. _en_arriere_plan) : ne toucher ni
+    # Messages ni une propriété liée d'ici.
     def _conversation(self, analyse):
         client = self._client
         if client is None:
@@ -361,6 +432,18 @@ class OpenArchiChatVM(BaseViewModel):
         # comme le /connect d'opencode dans son terminal.
         self._ouvrir('fournisseurs')
         return 'Choisir un fournisseur. Actuel : {0}'.format(self.Statut)
+
+    def _commande_logout(self, _arguments):
+        client = self._client
+        if client is None:
+            return 'Aucune connexion active.'
+        try:
+            message = client.deconnecter()
+        except Exception as e:
+            _log.exception('deconnecter() a levé')
+            return '{0} : {1}'.format(self._config.provider, e)
+        self.notify_property('Statut')
+        return message or 'Rien à fermer pour cette connexion.'
 
     def _commande_journal(self, arguments):
         """`/journal` affiche la fin du fichier, `/journal vider` le remet à zéro.

@@ -41,15 +41,17 @@ class _ClientFactice(object):
     """Double d'un module de chat : ni réseau, ni sous-processus."""
 
     def __init__(self, reponse='réponse du modèle', erreur=None,
-                 pret=True, modeles=(), ouverture=None):
+                 pret=True, modeles=(), ouverture=None, fermeture=None):
         self.reponse = reponse
         self.erreur = erreur
         self._pret = pret
         self._modeles = tuple(modeles)
         self._ouverture = ouverture
+        self._fermeture = fermeture
         self.recus = None
         self.modele_recu = None
         self.connexions_ouvertes = 0
+        self.fermetures = 0
 
     def pret(self):
         return self._pret
@@ -60,6 +62,12 @@ class _ClientFactice(object):
     def connecter(self):
         self.connexions_ouvertes += 1
         return self._ouverture
+
+    def deconnecter(self):
+        self.fermetures += 1
+        if isinstance(self._fermeture, Exception):
+            raise self._fermeture
+        return self._fermeture
 
     def modeles(self):
         return self._modeles
@@ -154,7 +162,8 @@ class TestAutocomplete(unittest.TestCase):
         self.vm.Saisie = '/'
         self.assertTrue(self.vm.SuggestionsVisibles)
         self.assertEqual(self._libelles(),
-                         ['/aide', '/connect', '/journal', '/model'])
+                         ['/aide', '/connect', '/journal', '/logout',
+                          '/model'])
 
     def test_filtre_sur_le_prefixe(self):
         self.vm.Saisie = '/co'
@@ -340,14 +349,81 @@ class TestCommandeModel(unittest.TestCase):
         self.assertFalse(self.vm.SuggestionsVisibles)
 
 
+class TestAttente(unittest.TestCase):
+    """L'appel au modèle part sur un fil ; l'animation suit EnAttente."""
+
+    def setUp(self):
+        self.client = _ClientFactice()
+        self.vm = OpenArchiChatVM(config=OpenArchiConfig(_StoreMemoire()),
+                                  client=self.client)
+
+    def test_au_repos_rien_ne_sanime(self):
+        self.assertFalse(self.vm.EnAttente)
+
+    def test_lattente_retombe_apres_la_reponse(self):
+        self.vm.Saisie = 'bonjour'
+        self.vm._envoyer()
+        self.assertFalse(self.vm.EnAttente)
+        self.assertEqual(self.vm.Messages[-1].Texte, self.client.reponse)
+
+    def test_une_commande_ne_declenche_pas_lattente(self):
+        vus = []
+        original = OpenArchiChatVM._en_arriere_plan
+        OpenArchiChatVM._en_arriere_plan = (
+            lambda soi, travail, suite: vus.append(1) or suite(travail()))
+        try:
+            self.vm.Saisie = '/aide'
+            self.vm._envoyer()
+        finally:
+            OpenArchiChatVM._en_arriere_plan = original
+        self.assertEqual(vus, [], 'les commandes restent sur le fil d\'interface')
+
+    def test_pas_de_second_envoi_pendant_lattente(self):
+        self.vm.EnAttente = True
+        self.vm.Saisie = 'bonjour'
+        self.assertFalse(self.vm._peut_envoyer())
+        self.vm._envoyer()
+        self.assertEqual(len(self.vm.Messages), 1)
+
+    def test_lattente_retombe_meme_si_le_client_leve(self):
+        self.vm._client_injecte = _ClientFactice(erreur=RuntimeError('boum'))
+        self.vm.Saisie = 'bonjour'
+        self.vm._envoyer()
+        self.assertFalse(self.vm.EnAttente)
+        self.assertIn('boum', self.vm.Messages[-1].Texte)
+
+
+class TestLogout(unittest.TestCase):
+    def setUp(self):
+        self.config = OpenArchiConfig(_StoreMemoire())
+        self.client = _ClientFactice(fermeture='Session fermée.')
+        self.vm = OpenArchiChatVM(config=self.config, client=self.client)
+
+    def test_logout_ferme_la_session(self):
+        reponse = self.vm.repondre('/logout')
+        self.assertEqual(self.client.fermetures, 1)
+        self.assertIn('fermée', reponse)
+
+    def test_logout_sans_rien_a_fermer(self):
+        self.vm._client_injecte = _ClientFactice(fermeture=None)
+        self.assertIn('Rien à fermer', self.vm.repondre('/logout'))
+
+    def test_echec_du_logout_reste_dans_la_bulle(self):
+        self.vm._client_injecte = _ClientFactice(
+            fermeture=RuntimeError('codex absent'))
+        reponse = self.vm.repondre('/logout')
+        self.assertIn('codex absent', reponse)
+        self.assertIn(self.config.provider, reponse)
+
+
 class TestCatalogue(unittest.TestCase):
     def test_chaque_connexion_branchee_honore_le_contrat(self):
         for provider, connexions in CATALOGUE:
             for nom, _description, client in connexions:
                 if client is None:
                     continue
-                for membre in ('pret', 'raison', 'connecter', 'modeles',
-                               'repondre'):
+                for membre in ('pret', 'raison', 'connecter', 'deconnecter',
+                               'modeles', 'repondre'):
                     self.assertTrue(
                         hasattr(client, membre),
                         '{0}/{1} sans {2}'.format(provider, nom, membre))
