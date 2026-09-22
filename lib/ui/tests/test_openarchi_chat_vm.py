@@ -10,7 +10,7 @@ if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
 
 from ui.OpenArchiChatVM import OpenArchiChatVM
-from ui.OpenArchiConfig import OpenArchiConfig, PROVIDERS
+from ui.OpenArchiConfig import OpenArchiConfig, PROVIDERS, ACTIFS
 
 
 class _StoreMemoire(object):
@@ -26,10 +26,29 @@ class _StoreMemoire(object):
         self._d[cle] = valeur
 
 
+class _ClientFactice(object):
+    """Double de core.chat_openai : aucun appel réseau pendant les tests."""
+
+    def __init__(self, reponse='réponse du modèle', erreur=None):
+        self.reponse = reponse
+        self.erreur = erreur
+        self.recus = None
+
+    def cle_presente(self):
+        return True
+
+    def repondre(self, messages, **_kwargs):
+        self.recus = messages
+        if self.erreur is not None:
+            raise self.erreur
+        return self.reponse
+
+
 class TestChat(unittest.TestCase):
     def setUp(self):
         self.config = OpenArchiConfig(_StoreMemoire())
-        self.vm = OpenArchiChatVM(config=self.config)
+        self.client = _ClientFactice()
+        self.vm = OpenArchiChatVM(config=self.config, client=self.client)
 
     def test_message_accueil(self):
         self.assertEqual(len(self.vm.Messages), 1)
@@ -52,10 +71,27 @@ class TestChat(unittest.TestCase):
         self.assertEqual(self.vm.Messages[2].Alignement, 'Left')
         self.assertEqual(self.vm.Saisie, '')
 
-    def test_references_reprises_dans_la_reponse(self):
+    def test_message_libre_part_au_fournisseur(self):
         reponse = self.vm.repondre('compare #{Mur type A} et #Porte01')
-        self.assertIn('Mur type A', reponse)
-        self.assertIn('Porte01', reponse)
+        self.assertEqual(reponse, self.client.reponse)
+        self.assertEqual(self.client.recus[-1],
+                         ('user', 'compare #{Mur type A} et #Porte01'))
+
+    def test_historique_alterne_et_exclut_laccueil(self):
+        self.vm.Saisie = 'bonjour'
+        self.vm._envoyer()
+        self.vm.Saisie = 'et ensuite ?'
+        self.vm._envoyer()
+        self.assertEqual([role for role, _ in self.client.recus],
+                         ['user', 'assistant', 'user'])
+        self.assertNotIn(self.vm.ACCUEIL,
+                         [texte for _, texte in self.client.recus])
+
+    def test_echec_du_fournisseur_affiche_en_bulle(self):
+        self.vm._client = _ClientFactice(erreur=RuntimeError('clé absente'))
+        reponse = self.vm.repondre('bonjour')
+        self.assertIn('clé absente', reponse)
+        self.assertIn(self.config.provider, reponse)
 
     def test_commande_aide_liste_les_commandes(self):
         reponse = self.vm.repondre('/aide')
@@ -73,7 +109,8 @@ class TestChat(unittest.TestCase):
 
 class TestAutocomplete(unittest.TestCase):
     def setUp(self):
-        self.vm = OpenArchiChatVM(config=OpenArchiConfig(_StoreMemoire()))
+        self.vm = OpenArchiChatVM(config=OpenArchiConfig(_StoreMemoire()),
+                                  client=_ClientFactice())
 
     def _libelles(self):
         return [s.Libelle for s in self.vm.Suggestions]
@@ -129,7 +166,7 @@ class TestConnect(unittest.TestCase):
     def setUp(self):
         self.store = _StoreMemoire()
         self.config = OpenArchiConfig(self.store)
-        self.vm = OpenArchiChatVM(config=self.config)
+        self.vm = OpenArchiChatVM(config=self.config, client=_ClientFactice())
 
     def _ouvrir_la_liste(self):
         """Envoie /connect : la liste des fournisseurs remplace les commandes."""
@@ -150,15 +187,33 @@ class TestConnect(unittest.TestCase):
         self.vm.Saisie = 'Anth'
         self.assertTrue(self.vm.SuggestionsVisibles)
 
+    def _suggestion(self, nom):
+        return [s for s in self.vm.Suggestions if s.Nom == nom][0]
+
     def test_choix_persiste_et_met_le_statut_a_jour(self):
         self._ouvrir_la_liste()
-        cible = PROVIDERS[1]
-        self.vm._choisir([s for s in self.vm.Suggestions
-                          if s.Nom == cible][0])
+        cible = ACTIFS[0]
+        self.vm._choisir(self._suggestion(cible))
         self.assertEqual(self.config.provider, cible)
         self.assertEqual(self.vm.Statut, cible)
-        # Relu depuis le même store : la valeur a bien été persistée.
-        self.assertEqual(OpenArchiConfig(self.store).provider, cible)
+        # Écrit dans le store, pas seulement le repli du getter.
+        self.assertEqual(self.store.get('provider'), cible)
+
+    def test_fournisseurs_non_branches_grises(self):
+        self._ouvrir_la_liste()
+        grises = [s.Nom for s in self.vm.Suggestions if not s.Actif]
+        self.assertEqual(grises, [n for n in PROVIDERS if n not in ACTIFS])
+        self.assertTrue(grises, 'le catalogue doit rester un choix à venir')
+
+    def test_choix_dun_fournisseur_grise_refuse(self):
+        self._ouvrir_la_liste()
+        grise = [s for s in self.vm.Suggestions if not s.Actif][0]
+        avant = len(self.vm.Messages)
+        self.vm._choisir(grise)
+        self.assertEqual(self.config.provider, ACTIFS[0])
+        self.assertEqual(len(self.vm.Messages), avant)
+        # La liste reste ouverte : le clic n'est pas un choix.
+        self.assertTrue(self.vm.SuggestionsVisibles)
 
     def test_choix_referme_la_liste_et_rend_les_commandes(self):
         self._ouvrir_la_liste()
@@ -170,15 +225,17 @@ class TestConnect(unittest.TestCase):
         self.assertEqual([s.Libelle for s in self.vm.Suggestions],
                          ['/aide', '/connect'])
 
-    def test_tab_choisit_le_premier_fournisseur(self):
+    def test_tab_choisit_le_premier_fournisseur_actif(self):
         self._ouvrir_la_liste()
         self.vm._completer()
-        self.assertEqual(self.config.provider, PROVIDERS[0])
+        self.assertEqual(self.config.provider, ACTIFS[0])
 
-    def test_fournisseur_inconnu_retombe_sur_le_premier(self):
-        store = _StoreMemoire()
-        store.set('provider', 'Fournisseur Fantome')
-        self.assertEqual(OpenArchiConfig(store).provider, PROVIDERS[0])
+    def test_fournisseur_inconnu_ou_debranche_retombe_sur_un_actif(self):
+        for valeur in ('Fournisseur Fantome',
+                       [n for n in PROVIDERS if n not in ACTIFS][0]):
+            store = _StoreMemoire()
+            store.set('provider', valeur)
+            self.assertEqual(OpenArchiConfig(store).provider, ACTIFS[0])
 
 
 if __name__ == '__main__':

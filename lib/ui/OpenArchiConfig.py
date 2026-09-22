@@ -10,9 +10,24 @@ except Exception:
     except Exception:
         UserConfig = None
 
+# Deux façons d'attacher un modèle : l'API du fournisseur en direct, ou un
+# serveur MCP. Seul OpenAI en direct est branché ; les autres restent listés
+# mais inactifs, et /connect les grise.
 # ponytail: catalogue en dur. Le jour où l'on interroge les fournisseurs,
 # remplacer cette liste par un appel réseau mis en cache.
-PROVIDERS = ['Anthropic', 'OpenAI', 'Ollama (local)']
+CATALOGUE = [
+    ('OpenAI', 'API directe, clé OPENAI_API_KEY', True),
+    ('Anthropic', 'pas encore branché', False),
+    ('Ollama (local)', 'pas encore branché', False),
+    ('MCP', 'pas encore branché', False),
+]
+
+PROVIDERS = [nom for nom, _description, _actif in CATALOGUE]
+ACTIFS = [nom for nom, _description, actif in CATALOGUE if actif]
+
+
+def est_actif(provider):
+    return provider in ACTIFS
 
 
 class OpenArchiConfig(object):
@@ -22,17 +37,17 @@ class OpenArchiConfig(object):
         if store is None and UserConfig is not None:
             store = UserConfig('openarchi')
         self._store = store
-        self._memoire = PROVIDERS[0]
+        self._memoire = ACTIFS[0]
 
     @property
     def provider(self):
-        # Repli sur le premier du catalogue : un réglage persisté peut
-        # référencer un fournisseur retiré depuis.
+        # Repli sur le premier fournisseur actif : un réglage persisté peut
+        # référencer un fournisseur retiré, ou débranché depuis.
         if self._store is None:
             valeur = self._memoire
         else:
-            valeur = self._store.get('provider', PROVIDERS[0])
-        return valeur if valeur in PROVIDERS else PROVIDERS[0]
+            valeur = self._store.get('provider', ACTIFS[0])
+        return valeur if valeur in ACTIFS else ACTIFS[0]
 
     def appliquer(self, provider):
         if self._store is None:

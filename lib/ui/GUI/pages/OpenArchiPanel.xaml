@@ -66,8 +66,10 @@
       <ItemsControl ItemsSource="{Binding Suggestions}">
         <ItemsControl.ItemTemplate>
           <DataTemplate>
+            <!-- Actif=False : fournisseur listé mais pas encore branché. -->
             <Button HorizontalContentAlignment="Stretch"
                     Padding="8,6" Cursor="Hand"
+                    IsEnabled="{Binding Actif}"
                     BorderThickness="0"
                     Background="{DynamicResource TransparentBrush}"
                     Command="{Binding DataContext.ChoisirSuggestionCommand,
@@ -83,6 +85,9 @@
                     <Trigger Property="IsMouseOver" Value="True">
                       <Setter TargetName="fond" Property="Background"
                               Value="{DynamicResource ControlFillHoverBrush}"/>
+                    </Trigger>
+                    <Trigger Property="IsEnabled" Value="False">
+                      <Setter TargetName="fond" Property="Opacity" Value="0.35"/>
                     </Trigger>
                   </ControlTemplate.Triggers>
                 </ControlTemplate>
