@@ -43,7 +43,6 @@
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
-      <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
 
     <!-- Conversation -->
@@ -51,6 +50,7 @@
                   VerticalScrollBarVisibility="Auto"
                   HorizontalScrollBarVisibility="Disabled"
                   Padding="0,0,4,0">
+      <StackPanel>
       <ItemsControl ItemsSource="{Binding Messages}">
         <ItemsControl.ItemTemplate>
           <DataTemplate>
@@ -70,38 +70,49 @@
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
-    </ScrollViewer>
 
-    <!--
-      Attente : la bulle de chat bat doucement pendant la réflexion. Le
-      Storyboard démarre au chargement et tourne en continu — la ligne est
-      simplement masquée le reste du temps, ce qui évite de piloter une
-      animation depuis le ViewModel.
-    -->
-    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="4,10,0,0"
-                Visibility="{Binding EnAttente, Converter={StaticResource BoolVersVisibilite}}">
-      <Path Data="{DynamicResource IconChat}"
-            Width="14" Height="14" Stretch="Uniform"
-            StrokeThickness="2"
-            StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-            StrokeLineJoin="Round"
-            Stroke="{DynamicResource AccentBrush}">
-        <Path.Triggers>
-          <EventTrigger RoutedEvent="Loaded">
-            <BeginStoryboard>
-              <Storyboard>
-                <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                 From="0.25" To="1" Duration="0:0:0.7"
-                                 AutoReverse="True" RepeatBehavior="Forever"/>
-              </Storyboard>
-            </BeginStoryboard>
-          </EventTrigger>
-        </Path.Triggers>
-      </Path>
-      <TextBlock Text="réflexion…" FontSize="11" Margin="8,0,0,0"
-                 VerticalAlignment="Center"
-                 Foreground="{DynamicResource TextSecondaryBrush}"/>
-    </StackPanel>
+      <!--
+        Attente : à la suite des messages, exactement là où la réponse va
+        s'afficher. Le Storyboard bat en continu depuis le chargement et
+        c'est la bulle qui se montre ou se cache — rien à piloter depuis le
+        ViewModel, donc rien à arrêter.
+      -->
+      <StackPanel Margin="0,0,0,10" HorizontalAlignment="Left"
+                  Visibility="{Binding EnAttente, Converter={StaticResource BoolVersVisibilite}}">
+        <TextBlock Text="OpenArchi" FontSize="10" Margin="4,0,4,3"
+                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <Border Padding="10,8" CornerRadius="10"
+                Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource ControlBorderBrush}"
+                BorderThickness="1">
+          <StackPanel Orientation="Horizontal">
+            <Path Data="{DynamicResource IconChat}"
+                  Width="14" Height="14" Stretch="Uniform"
+                  StrokeThickness="2"
+                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                  StrokeLineJoin="Round"
+                  Stroke="{DynamicResource AccentBrush}">
+              <Path.Triggers>
+                <EventTrigger RoutedEvent="Loaded">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                       From="0.25" To="1" Duration="0:0:0.7"
+                                       AutoReverse="True"
+                                       RepeatBehavior="Forever"/>
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+              </Path.Triggers>
+            </Path>
+            <TextBlock Text="{Binding TexteAttente}" FontSize="12"
+                       Margin="8,0,0,0" VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
 
     <!--
       Liste en place au-dessus du champ plutôt qu'un Popup — pas de vol de
@@ -109,7 +120,7 @@
       réduit d'autant. Elle sert l'autocomplétion des commandes ET le choix du
       fournisseur après /connect : aucune fenêtre modale dans cet outil.
     -->
-    <Border Grid.Row="2" Margin="0,10,0,0" Padding="4" CornerRadius="8"
+    <Border Grid.Row="1" Margin="0,10,0,0" Padding="4" CornerRadius="8"
             Background="{DynamicResource CardBackgroundBrush}"
             BorderBrush="{DynamicResource ControlBorderBrush}"
             BorderThickness="1"
@@ -158,7 +169,7 @@
     </Border>
 
     <!-- Saisie : champ + bouton icône -->
-    <Grid Grid.Row="3" Margin="0,10,0,0">
+    <Grid Grid.Row="2" Margin="0,10,0,0">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*"/>
         <ColumnDefinition Width="Auto"/>
@@ -191,7 +202,7 @@
     </Grid>
 
     <!-- Pied : fournisseur · modèle · projet. Réservé aux infos d'état. -->
-    <TextBlock Grid.Row="4" Text="{Binding Statut}"
+    <TextBlock Grid.Row="3" Text="{Binding Statut}"
                Margin="4,8,4,2" FontSize="10"
                TextTrimming="CharacterEllipsis"
                ToolTip="{Binding Statut}"

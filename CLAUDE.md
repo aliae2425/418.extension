@@ -68,6 +68,7 @@ trois membres, rien de plus :
 | `connecter()` | ouvre le flux navigateur, `None` s'il n'en a pas |
 | `deconnecter()` | ferme la session, `None` s'il n'y en a pas |
 | `modeles()` | noms disponibles, `()` si le client n'en expose pas |
+| `attendre_connexion()` | *facultatif* — bloque jusqu'à la fin du flux navigateur |
 | `repondre(messages, modele=None)` | `messages` = couples `(role, texte)` → texte |
 
 Deux voies d'authentification, volontairement :
@@ -93,6 +94,11 @@ de choix », jamais `None`.
 Une entrée de la liste s'exécute au clic — elle ne remplit pas le champ de
 saisie. Le jour où une commande prendra des arguments, il faudra rétablir le
 remplissage pour celle-là.
+
+**Le CLI codex n'expose aucun catalogue de modèles** — ni commande, ni config,
+ni cache ; seul son `app-server` JSON-RPC expérimental le ferait. `modeles()`
+y renvoie donc `()`, et `/model <nom>` permet d'en imposer un à la main. Ne pas
+coder de liste en dur : elle vieillirait sans que rien ne le signale.
 
 **Journal.** `lib/core/journal.py` écrit dans `data/418.log`. Un volet ancré
 n'a aucune fenêtre de sortie pyRevit : un `print` s'y perd, et Revit avale les

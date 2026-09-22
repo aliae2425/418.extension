@@ -12,7 +12,7 @@ if _SHARED_LIB not in sys.path:
 from ui.OpenArchiChatVM import OpenArchiChatVM
 from ui.OpenArchiConfig import (OpenArchiConfig, PROVIDERS, ACTIFS,
                                 CATALOGUE, connexions_de, client_de,
-                                HARNAIS, CLE_API, MODELE_DEFAUT)
+                                NAVIGATEUR, CLE_API, MODELE_DEFAUT)
 
 _GRISES = [nom for nom in PROVIDERS if nom not in ACTIFS]
 
@@ -41,7 +41,12 @@ class _ClientFactice(object):
     """Double d'un module de chat : ni réseau, ni sous-processus."""
 
     def __init__(self, reponse='réponse du modèle', erreur=None,
-                 pret=True, modeles=(), ouverture=None, fermeture=None):
+                 pret=True, modeles=(), ouverture=None, fermeture=None,
+                 aboutit=None):
+        # attendre_connexion est facultatif dans le contrat : on ne le pose
+        # que si le test en veut un, pour couvrir aussi son absence.
+        if aboutit is not None:
+            self.attendre_connexion = lambda: aboutit
         self.reponse = reponse
         self.erreur = erreur
         self._pret = pret
@@ -254,7 +259,7 @@ class TestAssistantConnexion(unittest.TestCase):
         self._connect()
         self.vm._choisir(self._suggestion('OpenAI'))
         self.assertEqual(self.config.provider, 'OpenAI')
-        self.assertEqual(self._noms(), [HARNAIS, CLE_API])
+        self.assertEqual(self._noms(), [NAVIGATEUR, CLE_API])
 
     def test_connexion_prete_mene_aux_modeles(self):
         self._connect()
@@ -268,10 +273,41 @@ class TestAssistantConnexion(unittest.TestCase):
             pret=False, ouverture='Connexion ouverte dans le navigateur.')
         self._connect()
         self.vm._choisir(self._suggestion('OpenAI'))
-        self.vm._choisir(self._suggestion(HARNAIS))
+        self.vm._choisir(self._suggestion(NAVIGATEUR))
         self.assertEqual(self.vm._client_injecte.connexions_ouvertes, 1)
         self.assertIn('navigateur', self.vm.Messages[-1].Texte)
         self.assertFalse(self.vm.SuggestionsVisibles)
+
+    def test_connexion_aboutie_enchaine_sur_les_modeles(self):
+        # Le second /connect manuel ne doit plus être nécessaire.
+        self.vm._client_injecte = _ClientFactice(
+            pret=False, ouverture='Connexion ouverte…',
+            aboutit=True, modeles=('modele-a',))
+        self._connect()
+        self.vm._choisir(self._suggestion('OpenAI'))
+        self.vm._choisir(self._suggestion(NAVIGATEUR))
+        self.assertFalse(self.vm.EnAttente)
+        self.assertIn('Connecté', self.vm.Messages[-1].Texte)
+        self.assertEqual(self._noms(), ['modele-a'])
+
+    def test_connexion_abandonnee_le_dit_et_sarrete(self):
+        self.vm._client_injecte = _ClientFactice(
+            pret=False, ouverture='Connexion ouverte…', aboutit=False)
+        self._connect()
+        self.vm._choisir(self._suggestion('OpenAI'))
+        self.vm._choisir(self._suggestion(NAVIGATEUR))
+        self.assertFalse(self.vm.EnAttente)
+        self.assertIn('non aboutie', self.vm.Messages[-1].Texte)
+        self.assertFalse(self.vm.SuggestionsVisibles)
+
+    def test_client_sans_attente_sarrete_au_message(self):
+        self.vm._client_injecte = _ClientFactice(
+            pret=False, ouverture='Connexion ouverte…')
+        self._connect()
+        self.vm._choisir(self._suggestion('OpenAI'))
+        self.vm._choisir(self._suggestion(NAVIGATEUR))
+        self.assertIn('Connexion ouverte', self.vm.Messages[-1].Texte)
+        self.assertFalse(self.vm.EnAttente)
 
     def test_connexion_sans_navigateur_dit_ce_qui_manque(self):
         self.vm._client_injecte = _ClientFactice(pret=False, ouverture=None)
@@ -296,7 +332,7 @@ class TestAssistantConnexion(unittest.TestCase):
         self.vm._client_injecte = _ClientFactice(modeles=())
         self._connect()
         self.vm._choisir(self._suggestion('OpenAI'))
-        self.vm._choisir(self._suggestion(HARNAIS))
+        self.vm._choisir(self._suggestion(NAVIGATEUR))
         self.assertEqual(self._noms(), [MODELE_DEFAUT])
         self.vm._choisir(self._suggestion(MODELE_DEFAUT))
         # « Défaut » ne se persiste pas comme un nom de modèle.
@@ -307,7 +343,7 @@ class TestAssistantConnexion(unittest.TestCase):
     def test_echap_remonte_dune_etape_puis_ferme(self):
         self._connect()
         self.vm._choisir(self._suggestion('OpenAI'))
-        self.assertEqual(self._noms(), [HARNAIS, CLE_API])
+        self.assertEqual(self._noms(), [NAVIGATEUR, CLE_API])
         self.vm._retour()
         self.assertEqual(self._noms(), list(PROVIDERS))
         self.vm._retour()
@@ -341,6 +377,17 @@ class TestCommandeModel(unittest.TestCase):
         self.vm._envoyer()
         self.assertEqual([s.Nom for s in self.vm.Suggestions],
                          ['modele-a', 'modele-b'])
+
+    def test_model_avec_un_nom_limpose_sans_liste(self):
+        reponse = self.vm.repondre('/model gpt-5.1-codex')
+        self.assertEqual(self.config.modele, 'gpt-5.1-codex')
+        self.assertIn('gpt-5.1-codex', reponse)
+        self.assertFalse(self.vm.SuggestionsVisibles)
+
+    def test_connexion_sans_catalogue_propose_la_saisie_libre(self):
+        self.vm._client_injecte = _ClientFactice(modeles=())
+        reponse = self.vm.repondre('/model')
+        self.assertIn('/model <nom>', reponse)
 
     def test_model_sans_connexion_renvoie_vers_connect(self):
         self.vm._client_injecte = _ClientFactice(pret=False)
