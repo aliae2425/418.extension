@@ -64,6 +64,17 @@ lib/
 
 **Put shared logic here, not in a pushbutton.** Anything duplicated across two tools belongs in the socle.
 
+## Serveur MCP (`vendor/mcp-server-for-revit`)
+
+Miroir git subtree de [mcp-servers-for-revit/mcp-server-for-revit-python](https://github.com/mcp-servers-for-revit/mcp-server-for-revit-python) (MIT).
+Moitié « dans Revit » : routes pyRevit sur `http://127.0.0.1:48884/revit_mcp`, démarrées
+par le `startup.py` racine. Moitié « hors Revit » : `vendor/.../main.py` (FastMCP, `uv run`).
+
+- **Ne JAMAIS éditer sous `vendor/`.** Toute la surcouche 418 vit ailleurs et
+  s'enregistre sur son propre `routes.API('418')` — sinon le prochain
+  `git subtree pull` part en conflit.
+- Mise à jour : `git subtree pull --prefix=vendor/mcp-server-for-revit <url> master --squash`
+
 ## Important patterns
 
 **MVVM**: `script.py` → `MainViewModel` → `MainWindowView` (hérite de `BaseWindow`). Les services sont instanciés par le VM et **injectés** aux couches basses — elles n'en créent jamais.
