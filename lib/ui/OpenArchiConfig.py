@@ -10,24 +10,37 @@ except Exception:
     except Exception:
         UserConfig = None
 
-# Deux façons d'attacher un modèle : l'API du fournisseur en direct, ou un
-# serveur MCP. Seul OpenAI en direct est branché ; les autres restent listés
-# mais inactifs, et /connect les grise.
+try:
+    from core import chat_openai, chat_cli
+except Exception:
+    from lib.core import chat_openai, chat_cli
+
+# Trois façons d'attacher un modèle : la clé API du fournisseur, un CLI déjà
+# connecté dans le navigateur (l'abonnement paie, pas de clé à gérer), ou un
+# serveur MCP. Une entrée sans client est listée mais grisée par /connect.
 # ponytail: catalogue en dur. Le jour où l'on interroge les fournisseurs,
 # remplacer cette liste par un appel réseau mis en cache.
 CATALOGUE = [
-    ('OpenAI', 'API directe, clé OPENAI_API_KEY', True),
-    ('Anthropic', 'pas encore branché', False),
-    ('Ollama (local)', 'pas encore branché', False),
-    ('MCP', 'pas encore branché', False),
+    ('ChatGPT (navigateur)', 'abonnement ChatGPT, via le CLI codex', chat_cli),
+    ('OpenAI (clé API)', 'facturé à l\'usage, clé OPENAI_API_KEY', chat_openai),
+    ('Anthropic', 'pas encore branché', None),
+    ('Ollama (local)', 'pas encore branché', None),
+    ('MCP', 'pas encore branché', None),
 ]
 
-PROVIDERS = [nom for nom, _description, _actif in CATALOGUE]
-ACTIFS = [nom for nom, _description, actif in CATALOGUE if actif]
+PROVIDERS = [nom for nom, _description, _client in CATALOGUE]
+ACTIFS = [nom for nom, _description, client in CATALOGUE if client is not None]
+_CLIENTS = dict((nom, client) for nom, _description, client in CATALOGUE)
 
 
 def est_actif(provider):
     return provider in ACTIFS
+
+
+def client_de(provider):
+    """Module de chat du fournisseur retenu. Contrat : ``pret()``, ``RAISON``,
+    ``repondre(messages)`` où ``messages`` est une liste de (role, texte)."""
+    return _CLIENTS.get(provider)
 
 
 class OpenArchiConfig(object):

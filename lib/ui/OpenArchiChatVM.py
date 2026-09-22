@@ -23,14 +23,9 @@ except Exception:
     from lib.core.chat_syntaxe import analyser
 
 try:
-    from ui.OpenArchiConfig import OpenArchiConfig, CATALOGUE
+    from ui.OpenArchiConfig import OpenArchiConfig, CATALOGUE, client_de
 except Exception:
-    from lib.ui.OpenArchiConfig import OpenArchiConfig, CATALOGUE
-
-try:
-    from core import chat_openai
-except Exception:
-    from lib.core import chat_openai
+    from lib.ui.OpenArchiConfig import (OpenArchiConfig, CATALOGUE, client_de)
 
 # Hors Revit (tests unitaires en CPython), .NET est absent : on retombe sur
 # une liste Python. Le VM reste testable, seule la notification WPF disparaît.
@@ -91,8 +86,9 @@ class OpenArchiChatVM(BaseViewModel):
         except Exception:
             pass
         self._config = config if config is not None else OpenArchiConfig()
-        # Injecté pour que les tests ne touchent pas le réseau.
-        self._client = client if client is not None else chat_openai
+        # Injecté pour que les tests ne touchent ni le réseau ni un CLI ;
+        # sinon le client suit le fournisseur choisi par /connect.
+        self._client_injecte = client
         self._saisie = ''
         self.Messages = self._nouvelle_liste()
         # Déclarées AVANT toute écriture de Saisie : son setter rafraîchit
@@ -132,11 +128,19 @@ class OpenArchiChatVM(BaseViewModel):
         self._rafraichir_suggestions()
 
     @property
+    def _client(self):
+        if self._client_injecte is not None:
+            return self._client_injecte
+        return client_de(self._config.provider)
+
+    @property
     def Statut(self):
         provider = self._config.provider
-        if not self._client.cle_presente():
-            return '{0} — clé absente ({1})'.format(
-                provider, chat_openai.CLE_ENV)
+        client = self._client
+        if client is None:
+            return '{0} — pas encore branché'.format(provider)
+        if not client.pret():
+            return '{0} — {1}'.format(provider, client.RAISON)
         return provider
 
     # --- liste en place : commandes ou fournisseurs -----------------------
@@ -219,11 +223,15 @@ class OpenArchiChatVM(BaseViewModel):
         return self._conversation(analyse)
 
     # ponytail: appel bloquant, Revit se fige le temps de la réponse. Passer
-    # en thread + Dispatcher.Invoke si l'attente devient gênante.
-    # Un seul fournisseur branché : pas d'aiguillage tant que c'est le cas.
+    # en thread + Dispatcher.Invoke si l'attente devient gênante — le CLI est
+    # sensiblement plus lent que l'API, c'est là que ça se verra d'abord.
     def _conversation(self, analyse):
+        client = self._client
+        if client is None:
+            return ('{0} : pas encore branché. /connect pour en choisir un '
+                    'autre.'.format(self._config.provider))
         try:
-            return self._client.repondre(self._historique(analyse.texte))
+            return client.repondre(self._historique(analyse.texte))
         except Exception as e:
             return '{0} : {1}'.format(self._config.provider, e)
 

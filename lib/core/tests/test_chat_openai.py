@@ -53,7 +53,7 @@ class TestCle(unittest.TestCase):
             os.environ[chat_openai.CLE_ENV] = self._sauvegarde
 
     def test_sans_cle_pas_dappel_reseau(self):
-        self.assertFalse(chat_openai.cle_presente())
+        self.assertFalse(chat_openai.pret())
         self.assertRaises(chat_openai.ErreurOpenAI,
                           chat_openai.repondre, [('user', 'x')])
 
