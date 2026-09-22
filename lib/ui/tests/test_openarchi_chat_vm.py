@@ -153,7 +153,8 @@ class TestAutocomplete(unittest.TestCase):
     def test_barre_oblique_seule_propose_tout(self):
         self.vm.Saisie = '/'
         self.assertTrue(self.vm.SuggestionsVisibles)
-        self.assertEqual(self._libelles(), ['/aide', '/connect', '/model'])
+        self.assertEqual(self._libelles(),
+                         ['/aide', '/connect', '/journal', '/model'])
 
     def test_filtre_sur_le_prefixe(self):
         self.vm.Saisie = '/co'
