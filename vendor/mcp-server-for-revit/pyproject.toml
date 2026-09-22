@@ -1,0 +1,25 @@
+[project]
+name = "mcp-server-for-revit"
+version = "0.1.0"
+description = "MCP server for Revit"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp[cli]>=1.9.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["tools*", "revit_mcp*"]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=9.0.3",
+    "pytest-asyncio>=0.24",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "integration: tests that require a running Revit instance (slow)",
+]
