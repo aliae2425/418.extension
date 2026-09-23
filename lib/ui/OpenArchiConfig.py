@@ -11,15 +11,13 @@ except Exception:
         UserConfig = None
 
 try:
-    from core import chat_openai, chat_cli
+    from core import chat_openai, chat_cli, chat_oauth
 except Exception:
-    from lib.core import chat_openai, chat_cli
+    from lib.core import chat_openai, chat_cli, chat_oauth
 
 NAVIGATEUR = 'Navigateur'
+NAVIGATEUR_CLI = 'Navigateur (codex)'
 CLE_API = 'Clé API'
-
-# Ancien nom, gardé le temps que les réglages déjà persistés se rejouent.
-HARNAIS = NAVIGATEUR
 
 # Arbre à trois niveaux : fournisseur → connexion → modèle. Une connexion sans
 # module client est listée mais grisée ; un fournisseur dont aucune connexion
@@ -31,8 +29,9 @@ HARNAIS = NAVIGATEUR
 # remplacer cette liste par un appel réseau mis en cache.
 CATALOGUE = [
     ('OpenAI', [
-        (NAVIGATEUR, 'abonnement ChatGPT, connexion dans le navigateur',
-         chat_cli),
+        # En tête : c'est le défaut, et il ne demande rien à installer.
+        (NAVIGATEUR, 'abonnement ChatGPT, sans rien installer', chat_oauth),
+        (NAVIGATEUR_CLI, 'abonnement ChatGPT, via le CLI codex', chat_cli),
         (CLE_API, 'facturé à l\'usage, OPENAI_API_KEY', chat_openai),
     ]),
     ('Anthropic', [
@@ -70,10 +69,6 @@ def client_de(provider, connexion):
         if nom == connexion:
             return client
     return None
-
-
-def est_actif(provider):
-    return provider in ACTIFS
 
 
 class OpenArchiConfig(object):
