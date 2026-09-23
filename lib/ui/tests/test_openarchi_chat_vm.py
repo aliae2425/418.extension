@@ -12,7 +12,8 @@ if _SHARED_LIB not in sys.path:
 from ui.OpenArchiChatVM import OpenArchiChatVM
 from ui.OpenArchiConfig import (OpenArchiConfig, PROVIDERS, ACTIFS,
                                 CATALOGUE, connexions_de, client_de,
-                                NAVIGATEUR, CLE_API, MODELE_DEFAUT)
+                                NAVIGATEUR, NAVIGATEUR_CLI, CLE_API,
+                                MODELE_DEFAUT)
 
 _GRISES = [nom for nom in PROVIDERS if nom not in ACTIFS]
 
@@ -259,7 +260,8 @@ class TestAssistantConnexion(unittest.TestCase):
         self._connect()
         self.vm._choisir(self._suggestion('OpenAI'))
         self.assertEqual(self.config.provider, 'OpenAI')
-        self.assertEqual(self._noms(), [NAVIGATEUR, CLE_API])
+        self.assertEqual(self._noms(),
+                         [NAVIGATEUR, NAVIGATEUR_CLI, CLE_API])
 
     def test_connexion_prete_mene_aux_modeles(self):
         self._connect()
@@ -343,7 +345,8 @@ class TestAssistantConnexion(unittest.TestCase):
     def test_echap_remonte_dune_etape_puis_ferme(self):
         self._connect()
         self.vm._choisir(self._suggestion('OpenAI'))
-        self.assertEqual(self._noms(), [NAVIGATEUR, CLE_API])
+        self.assertEqual(self._noms(),
+                         [NAVIGATEUR, NAVIGATEUR_CLI, CLE_API])
         self.vm._retour()
         self.assertEqual(self._noms(), list(PROVIDERS))
         self.vm._retour()

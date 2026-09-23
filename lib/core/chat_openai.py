@@ -18,20 +18,17 @@ except ImportError:                    # IronPython 2.7
 
 try:
     from core.journal import journal
+    from core.chat_syntaxe import SYSTEME, detail_http
 except Exception:
     from lib.core.journal import journal
+    from lib.core.chat_syntaxe import SYSTEME, detail_http
 
 _log = journal('openai')
 
 URL = 'https://api.openai.com/v1/chat/completions'
 URL_MODELES = 'https://api.openai.com/v1/models'
 CLE_ENV = 'OPENAI_API_KEY'
-MODELE_ENV = 'OPENAI_MODEL'
 MODELE_DEFAUT = 'gpt-4o-mini'
-
-SYSTEME = ("Tu assistes un architecte dans Autodesk Revit. Réponds en "
-           "français, brièvement. Les #références citent des éléments de la "
-           "maquette ; tu n'y as pas encore accès, demande-les si besoin.")
 
 
 _MODELES = []                          # cache mémoire de /v1/models
@@ -93,7 +90,7 @@ def modeles():
 def charge(messages, modele=None):
     """Corps de la requête. ``messages`` : liste de couples (role, texte)."""
     return {
-        'model': modele or os.environ.get(MODELE_ENV) or MODELE_DEFAUT,
+        'model': modele or MODELE_DEFAUT,
         'messages': ([{'role': 'system', 'content': SYSTEME}] +
                      [{'role': role, 'content': texte}
                       for role, texte in messages]),
@@ -116,9 +113,9 @@ def repondre(messages, cle=None, modele=None, timeout=60):
     try:
         brut = urlopen(requete, timeout=timeout).read().decode('utf-8')
     except HTTPError as e:
-        detail = _detail(e)
-        _log.error('HTTP %s — %s', e.code, detail)
-        raise ErreurOpenAI('HTTP {0} — {1}'.format(e.code, detail))
+        message = detail_http(e)
+        _log.error('%s', message)
+        raise ErreurOpenAI(message)
     except URLError as e:
         _log.error('réseau injoignable — %s', getattr(e, 'reason', e))
         raise ErreurOpenAI('réseau injoignable — {0}'.format(
@@ -132,11 +129,3 @@ def extraire(brut):
         return json.loads(brut)['choices'][0]['message']['content'].strip()
     except (ValueError, KeyError, IndexError, TypeError, AttributeError):
         raise ErreurOpenAI('réponse illisible — {0}'.format(brut[:200]))
-
-
-def _detail(erreur):
-    """Message d'erreur de l'API plutôt que le corps brut, s'il s'y trouve."""
-    try:
-        return json.loads(erreur.read().decode('utf-8'))['error']['message']
-    except Exception:
-        return getattr(erreur, 'reason', '') or ''

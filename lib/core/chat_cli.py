@@ -15,8 +15,10 @@ import time
 
 try:
     from core.journal import journal, flux
+    from core.chat_syntaxe import SYSTEME
 except Exception:
     from lib.core.journal import journal, flux
+    from lib.core.chat_syntaxe import SYSTEME
 
 _log = journal('cli')
 
@@ -46,10 +48,6 @@ _statut = {}
 # navigateur — sans lui il faudrait relancer /connect à la main.
 _login = []
 DELAI_LOGIN = 300.0
-
-SYSTEME = ("Tu assistes un architecte dans Autodesk Revit. Réponds en "
-           "français, brièvement. Les #références citent des éléments de la "
-           "maquette ; tu n'y as pas encore accès, demande-les si besoin.")
 
 
 class ErreurCLI(Exception):

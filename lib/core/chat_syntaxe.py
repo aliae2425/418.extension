@@ -1,10 +1,23 @@
 # -*- coding: utf-8 -*-
-"""Syntaxe des messages du chat : commandes /x et références #y.
+"""Socle commun aux clients de chat.
+
+Trois choses que ``chat_cli``, ``chat_oauth`` et ``chat_openai`` partagent :
+la syntaxe des messages (commandes ``/x``, références ``#y``), l'invite
+système, et la lecture des erreurs HTTP. Elles vivaient en trois copies —
+l'invite au caractère près — ce qui garantissait qu'elles finissent par
+diverger sans que rien ne le signale.
 
 Logique pure (aucun import Revit ni WPF) pour rester testable hors Revit.
 """
 from __future__ import unicode_literals
+import json
 import re
+
+# Une seule invite pour tous les clients : trois copies, c'était trois
+# comportements qui s'éloignent au premier ajustement.
+SYSTEME = ("Tu assistes un architecte dans Autodesk Revit. Réponds en "
+           "français, brièvement. Les #références citent des éléments de la "
+           "maquette ; tu n'y as pas encore accès, demande-les si besoin.")
 
 # Une commande n'est reconnue qu'EN TÊTE de message : une barre oblique au
 # milieu d'une phrase (« 1/2 », un chemin, une URL) n'en est pas une.
@@ -26,6 +39,32 @@ class Analyse(object):
     @property
     def est_commande(self):
         return self.commande is not None
+
+
+def detail_http(erreur):
+    """``HTTPError`` → « HTTP 400 — <message de l'API> ».
+
+    Les fournisseurs logent leur message à trois endroits différents selon
+    l'endpoint (``error.message``, ``error_description``, ``detail``) ; sans
+    ce tri, l'utilisateur reçoit le corps JSON brut ou juste un code nu.
+    """
+    code = getattr(erreur, 'code', '?')
+    try:
+        corps = json.loads(erreur.read().decode('utf-8'))
+    except Exception:
+        return 'HTTP {0} — {1}'.format(code, getattr(erreur, 'reason', '') or '')
+    if not isinstance(corps, dict):
+        corps = {}
+    erreur_ = corps.get('error')
+    message = (corps.get('error_description') or
+               (erreur_ if _est_texte(erreur_)
+                else (erreur_ or {}).get('message')) or
+               (corps.get('detail') if _est_texte(corps.get('detail')) else ''))
+    return 'HTTP {0} — {1}'.format(code, message or 'sans détail')
+
+
+def _est_texte(valeur):
+    return isinstance(valeur, type(''))
 
 
 def analyser(texte):
