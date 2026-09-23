@@ -33,10 +33,18 @@ except ImportError:                    # IronPython 2.7
 
 try:
     from core.journal import journal
-    from core.chat_syntaxe import SYSTEME, detail_http
+    from core.chat_syntaxe import SYSTEME, OUTILLE, detail_http
 except Exception:
     from lib.core.journal import journal
-    from lib.core.chat_syntaxe import SYSTEME, detail_http
+    from lib.core.chat_syntaxe import SYSTEME, OUTILLE, detail_http
+
+try:
+    from core import revit_outils
+except Exception:
+    try:
+        from lib.core import revit_outils
+    except Exception:
+        revit_outils = None            # sans lui, le chat reste sans outils
 
 _log = journal('oauth')
 
@@ -300,24 +308,83 @@ def deconnecter():
     return 'Session fermée. /connect pour rouvrir le navigateur.'
 
 
-def repondre(messages, modele=None, timeout=180, **_kwargs):
-    """Renvoie le texte de la réponse, ou lève ``ErreurOAuth``."""
-    jetons = _lire()
-    if not jetons.get('access_token'):
+def repondre(messages, modele=None, timeout=180, outils=None, **_kwargs):
+    """Renvoie le texte de la réponse, ou lève ``ErreurOAuth``.
+
+    Boucle d'outils : tant que le modèle demande un outil, on l'exécute sur la
+    maquette et on lui rend la main. ``outils`` à ``None`` laisse le catalogue
+    se décider seul ; une liste vide désactive les outils (ce que font les
+    tests, qui n'ont pas de Revit sous la main).
+    """
+    if not _lire().get('access_token'):
         raise ErreurOAuth(ABSENT)
+    catalogue = _catalogue() if outils is None else list(outils)
+    entree = items(messages)
+
+    tours = revit_outils.TOURS_MAX if revit_outils is not None else 5
+    for _tour in range(tours):
+        brut = _echange(corps(entree, modele, catalogue), timeout)
+        demandes = appels(brut)
+        if not demandes:
+            return _texte_final(brut)
+        for appel in demandes:
+            # L'item d'origine PUIS son résultat : le backend ne garde rien
+            # d'un appel à l'autre (store=false), il faut lui rendre les deux.
+            entree.append(appel)
+            entree.append(_resultat(appel))
+
+    # Plafond atteint : on redemande sans outils plutôt que de lever. Le
+    # modèle a déjà tout lu, il lui reste à le dire — une erreur ici laisserait
+    # l'architecte avec une bulle vide après dix secondes d'attente.
+    _log.warning('plafond de %s tours d\'outils atteint', tours)
+    return _texte_final(_echange(corps(entree, modele, None), timeout))
+
+
+def _catalogue():
+    """Les outils disponibles, ou rien si la maquette n'est pas joignable.
+
+    Ne rien envoyer vaut mieux qu'annoncer des outils inexécutables : un
+    modèle à qui l'on promet des yeux répond « je regarde » et ne regarde rien.
+    """
+    if revit_outils is None:
+        return []
+    utilisable, _raison = revit_outils.disponible()
+    return revit_outils.outils() if utilisable else []
+
+
+def _resultat(appel):
+    """Item de retour d'un appel d'outil, prêt à repartir dans ``input``."""
+    nom = appel.get('name') or ''
+    try:
+        arguments = json.loads(appel.get('arguments') or '{}')
+    except ValueError:
+        arguments = {}
+    if revit_outils is None:
+        sortie = json.dumps({'erreur': 'outils indisponibles'},
+                            ensure_ascii=False)
+    else:
+        sortie = revit_outils.executer(nom, arguments)
+    _log.info('outil %s(%s) -> %s octets', nom, arguments, len(sortie))
+    return {'type': 'function_call_output',
+            'call_id': appel.get('call_id'),
+            'output': sortie}
+
+
+def _echange(charge_utile, timeout):
+    """Un aller-retour avec le backend, jeton rafraîchi et réessayé si besoin."""
+    jetons = _lire()
     if _doit_rafraichir(jetons):
         jetons = _rafraichir()
-
-    corps = json.dumps(charge(messages, modele), ensure_ascii=False)
+    brut_corps = json.dumps(charge_utile, ensure_ascii=False)
     try:
-        brut = _poster(corps, jetons, timeout)
+        return _poster(brut_corps, jetons, timeout)
     except HTTPError as e:
         if e.code != 401 or not jetons.get('refresh_token'):
             raise ErreurOAuth(indice(detail_http(e)))
         # Jeton refusé alors qu'on le croyait valide : un seul réessai.
         _log.info('401 — rafraîchissement puis réessai')
         try:
-            brut = _poster(corps, _rafraichir(), timeout)
+            return _poster(brut_corps, _rafraichir(), timeout)
         except HTTPError as e2:
             raise ErreurOAuth(indice(detail_http(e2)))
         except URLError as e2:
@@ -328,6 +395,8 @@ def repondre(messages, modele=None, timeout=180, **_kwargs):
         raise ErreurOAuth('réseau injoignable — {0}'.format(
             getattr(e, 'reason', e)))
 
+
+def _texte_final(brut):
     reponse = extraire(brut)
     if reponse:
         return reponse
@@ -464,22 +533,64 @@ def compte(id_token):
 
 # --- appel au modèle -----------------------------------------------------
 
-def charge(messages, modele=None):
+def items(messages):
+    """Couples (role, texte) → items d'entrée du backend."""
+    # L'assistant parle en `output_text`, l'utilisateur en `input_text` :
+    # inverser les deux fait répondre un 400 au corps entier.
+    return [{'role': role,
+             'content': [{'type': ('output_text' if role == 'assistant'
+                                   else 'input_text'),
+                          'text': texte}]}
+            for role, texte in messages]
+
+
+def charge(messages, modele=None, outils=None):
     """Corps Responses. ``messages`` : liste de couples (role, texte)."""
-    return {
+    return corps(items(messages), modele, outils)
+
+
+def corps(entree, modele=None, outils=None):
+    """Corps Responses à partir d'items déjà construits (boucle d'outils)."""
+    charge_utile = {
         'model': modele or MODELE_DEFAUT,
         'instructions': SYSTEME,
-        # L'assistant parle en `output_text`, l'utilisateur en `input_text` :
-        # inverser les deux fait répondre un 400 au corps entier.
-        'input': [{'role': role,
-                   'content': [{'type': ('output_text' if role == 'assistant'
-                                         else 'input_text'),
-                                'text': texte}]}
-                  for role, texte in messages],
+        'input': entree,
         # store=false est exigé par le backend, ce n'est pas une préférence.
         'store': False,
         'stream': True,
     }
+    if outils:
+        charge_utile['instructions'] = SYSTEME + OUTILLE
+        # Forme à plat, vérifiée contre le backend : pas de niveau
+        # « function » intermédiaire, contrairement à /v1/chat/completions.
+        charge_utile['tools'] = [
+            {'type': 'function', 'name': outil['nom'],
+             'description': outil['description'], 'strict': False,
+             'parameters': outil['parametres']}
+            for outil in outils]
+        charge_utile['tool_choice'] = 'auto'
+    return charge_utile
+
+
+def appels(brut):
+    """Items ``function_call`` terminés du flux, dans l'ordre.
+
+    Même prudence que ``extraire`` : l'instantané final porte les mêmes items
+    que les évènements un à un, on ne lit le second que si le premier n'a rien
+    donné — les cumuler exécuterait chaque outil deux fois.
+    """
+    un_a_un, final = [], []
+    for evenement in evenements(brut):
+        type_ = evenement.get('type') or ''
+        if type_ == 'response.output_item.done':
+            item = evenement.get('item') or {}
+            if item.get('type') == 'function_call':
+                un_a_un.append(item)
+        elif type_ in ('response.completed', 'response.done'):
+            sortie = (evenement.get('response') or {}).get('output') or []
+            final = [item for item in sortie
+                     if item.get('type') == 'function_call']
+    return un_a_un or final
 
 
 def _poster(corps, jetons, timeout):

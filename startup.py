@@ -45,3 +45,9 @@ try:
         exec(_f.read(), {'__name__': 'revit_mcp_startup'})
 except Exception as e:
     print('418: serveur MCP non démarré: {}'.format(e))
+
+# --- Serveur de routes 418 -------------------------------------------------
+# PAS démarré ici. Ouvrir une socket et lancer un fil de service pendant
+# OnStartup met Revit par terre — et rien ne l'exige : `routes418.assurer()`
+# le démarre au premier appel du chat, quand Revit est bâti et au repos.
+# C'est aussi ce que fait pyRevit pour le sien, tout à la fin de sa session.

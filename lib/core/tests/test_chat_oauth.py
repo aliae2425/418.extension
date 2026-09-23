@@ -431,5 +431,151 @@ class TestContrat(unittest.TestCase):
         self.assertFalse(chat_oauth.attendre_connexion(timeout=0))
 
 
+def _sse(evenements):
+    return '\n'.join('data: {0}'.format(json.dumps(e, ensure_ascii=False))
+                     for e in evenements) + '\ndata: [DONE]\n'
+
+
+def _appel(nom='revit_status', arguments='{}', identifiant='call_1'):
+    return {'type': 'function_call', 'name': nom, 'arguments': arguments,
+            'call_id': identifiant}
+
+
+def _flux_appel(**kwargs):
+    return _sse([{'type': 'response.output_item.done', 'item': _appel(**kwargs)}])
+
+
+def _flux_texte(texte):
+    return _sse([{'type': 'response.output_item.done',
+                  'item': {'type': 'message',
+                           'content': [{'type': 'output_text', 'text': texte}]}}])
+
+
+class TestLectureDesAppels(unittest.TestCase):
+    def test_appel_lu_dans_les_items_un_a_un(self):
+        lus = chat_oauth.appels(_flux_appel())
+        self.assertEqual([a['name'] for a in lus], ['revit_status'])
+
+    def test_repli_sur_l_instantane_final(self):
+        brut = _sse([{'type': 'response.completed',
+                      'response': {'output': [_appel()]}}])
+        self.assertEqual(len(chat_oauth.appels(brut)), 1)
+
+    def test_les_deux_sources_ne_se_cumulent_pas(self):
+        # Les cumuler exécuterait chaque outil deux fois.
+        brut = _sse([{'type': 'response.output_item.done', 'item': _appel()},
+                     {'type': 'response.completed',
+                      'response': {'output': [_appel()]}}])
+        self.assertEqual(len(chat_oauth.appels(brut)), 1)
+
+    def test_un_flux_de_texte_ne_declare_aucun_appel(self):
+        self.assertEqual(chat_oauth.appels(_flux_texte('bonjour')), [])
+
+
+class TestCorpsAvecOutils(unittest.TestCase):
+    OUTIL = {'nom': 'revit_status', 'description': 'état',
+             'parametres': {'type': 'object', 'properties': {}}}
+
+    def test_forme_a_plat_sans_niveau_function(self):
+        corps = chat_oauth.corps([], None, [self.OUTIL])
+        outil = corps['tools'][0]
+        self.assertEqual(outil['type'], 'function')
+        # /v1/chat/completions imbrique sous « function » ; pas ce backend.
+        self.assertNotIn('function', outil)
+        self.assertEqual(outil['name'], 'revit_status')
+        self.assertEqual(corps['tool_choice'], 'auto')
+
+    def test_la_consigne_outils_suit_les_outils(self):
+        avec = chat_oauth.corps([], None, [self.OUTIL])
+        sans = chat_oauth.corps([], None, None)
+        self.assertIn(chat_oauth.OUTILLE, avec['instructions'])
+        # Sans outils, ne rien promettre : il n'y a pas de boucle derrière.
+        self.assertEqual(sans['instructions'], chat_oauth.SYSTEME)
+        self.assertNotIn('tools', sans)
+
+
+class TestBoucleOutils(unittest.TestCase):
+    """La boucle complète, sans réseau ni Revit."""
+
+    def setUp(self):
+        self.envois = []
+        self.executes = []
+        self._vrais = (chat_oauth._lire, chat_oauth._doit_rafraichir,
+                       chat_oauth._poster, chat_oauth.revit_outils)
+        chat_oauth._lire = lambda: {'access_token': 'jeton'}
+        chat_oauth._doit_rafraichir = lambda _j: False
+        chat_oauth._poster = self._poster
+        chat_oauth.revit_outils = self
+
+    def tearDown(self):
+        (chat_oauth._lire, chat_oauth._doit_rafraichir,
+         chat_oauth._poster, chat_oauth.revit_outils) = self._vrais
+
+    # --- double de revit_outils ---
+    TOURS_MAX = 3
+
+    def disponible(self):
+        return True, ''
+
+    def outils(self):
+        return [{'nom': 'revit_status', 'description': 'état',
+                 'parametres': {'type': 'object', 'properties': {}}}]
+
+    def executer(self, nom, arguments=None):
+        self.executes.append((nom, arguments))
+        return json.dumps({'document_title': 'SGP-M7'})
+
+    # --- double du réseau ---
+    def _poster(self, corps, _jetons, _timeout):
+        self.envois.append(json.loads(corps))
+        return self.reponses.pop(0)
+
+    def test_un_appel_puis_la_reponse(self):
+        self.reponses = [_flux_appel(), _flux_texte('Le document est SGP-M7.')]
+        reponse = chat_oauth.repondre([('user', 'quel document ?')])
+
+        self.assertEqual(reponse, 'Le document est SGP-M7.')
+        self.assertEqual(self.executes, [('revit_status', {})])
+        # Le backend ne garde rien (store=false) : il faut lui rendre l'appel
+        # d'origine ET son résultat.
+        entree = self.envois[1]['input']
+        self.assertEqual(entree[1]['type'], 'function_call')
+        self.assertEqual(entree[2]['type'], 'function_call_output')
+        self.assertEqual(entree[2]['call_id'], 'call_1')
+        self.assertIn('SGP-M7', entree[2]['output'])
+
+    def test_sans_appel_aucun_outil_n_est_lance(self):
+        self.reponses = [_flux_texte('bonjour')]
+        self.assertEqual(chat_oauth.repondre([('user', 'salut')]), 'bonjour')
+        self.assertEqual(self.executes, [])
+
+    def test_arguments_illisibles_ne_font_pas_echouer_le_tour(self):
+        self.reponses = [_flux_appel(arguments='{pas du json'),
+                         _flux_texte('bon')]
+        self.assertEqual(chat_oauth.repondre([('user', 'x')]), 'bon')
+        self.assertEqual(self.executes, [('revit_status', {})])
+
+    def test_plafond_de_tours_puis_reponse_forcee_sans_outils(self):
+        # Un modèle qui boucle brûlerait l'abonnement en silence.
+        self.reponses = ([_flux_appel()] * self.TOURS_MAX +
+                         [_flux_texte('assez lu')])
+        self.assertEqual(chat_oauth.repondre([('user', 'x')]), 'assez lu')
+        self.assertEqual(len(self.executes), self.TOURS_MAX)
+        self.assertEqual(len(self.envois), self.TOURS_MAX + 1)
+        # Le dernier envoi retire les outils : sinon le modèle rappellerait.
+        self.assertNotIn('tools', self.envois[-1])
+
+    def test_maquette_injoignable_supprime_les_outils(self):
+        self.disponible = lambda: (False, 'Maquette injoignable')
+        self.reponses = [_flux_texte('sans les yeux')]
+        self.assertEqual(chat_oauth.repondre([('user', 'x')]), 'sans les yeux')
+        self.assertNotIn('tools', self.envois[0])
+
+    def test_outils_vides_imposes_par_l_appelant(self):
+        self.reponses = [_flux_texte('ok')]
+        chat_oauth.repondre([('user', 'x')], outils=[])
+        self.assertNotIn('tools', self.envois[0])
+
+
 if __name__ == '__main__':
     unittest.main()

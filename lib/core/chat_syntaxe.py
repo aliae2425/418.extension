@@ -19,6 +19,14 @@ SYSTEME = ("Tu assistes un architecte dans Autodesk Revit. Réponds en "
            "français, brièvement. Les #références citent des éléments de la "
            "maquette ; tu n'y as pas encore accès, demande-les si besoin.")
 
+# Ajouté à SYSTEME par le client UNIQUEMENT quand des outils sont réellement
+# fournis. L'écrire dans SYSTEME ferait promettre au modèle, chez les clients
+# qui n'ont pas de boucle d'outils, des yeux qu'il n'a pas.
+OUTILLE = ("\n\nTu disposes d'outils de lecture sur la maquette ouverte "
+           "(préfixe revit_). Appelle-les plutôt que de supposer ou de "
+           "demander à l'architecte ce que tu peux lire toi-même. Tu ne peux "
+           "rien modifier : ces outils regardent, ils n'écrivent pas.")
+
 # Une commande n'est reconnue qu'EN TÊTE de message : une barre oblique au
 # milieu d'une phrase (« 1/2 », un chemin, une URL) n'en est pas une.
 _RE_COMMANDE = re.compile(r'^/([A-Za-z][\w-]*)\s*(.*)$', re.DOTALL)

@@ -493,5 +493,34 @@ class TestCatalogue(unittest.TestCase):
         self.assertIsNone(client_de('Fournisseur Fantome', CLE_API))
 
 
+class TestAlerteMaquette(unittest.TestCase):
+    """Le bandeau en tête du chat : ce qui empêche les outils de marcher."""
+
+    def setUp(self):
+        self.vm = OpenArchiChatVM(OpenArchiConfig(_StoreMemoire()),
+                                  client=_ClientFactice())
+
+    def test_pas_de_bandeau_au_repos(self):
+        self.assertEqual(self.vm.Alerte, '')
+        self.assertFalse(self.vm.AlerteVisible)
+
+    def test_une_raison_affiche_le_bandeau(self):
+        self.vm._sur_maquette('Maquette injoignable : rechargez pyRevit.')
+        self.assertTrue(self.vm.AlerteVisible)
+        self.assertIn('injoignable', self.vm.Alerte)
+
+    def test_le_bandeau_se_referme_quand_ca_remarche(self):
+        self.vm._sur_maquette('cassé')
+        self.vm._sur_maquette('')
+        self.assertFalse(self.vm.AlerteVisible)
+
+    def test_hors_revit_aucune_socket_n_est_ouverte(self):
+        # Sans dispatcher, `_en_arriere_plan` exécute sur place : la
+        # vérification doit s'abstenir, sinon chaque test du VM tape le réseau.
+        self.assertIsNone(self.vm._dispatcher)
+        self.vm._verifier_maquette()
+        self.assertEqual(self.vm.Alerte, '')
+
+
 if __name__ == '__main__':
     unittest.main()

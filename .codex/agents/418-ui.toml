@@ -1,0 +1,57 @@
+name = "418-ui"
+description = """
+Agent spécialisé dans l'interface WPF/XAML du projet 418.extension.
+Utiliser pour : création/modification de fichiers XAML, composants visuels,
+binding WPF, thème clair/sombre, fenêtres modales, section controllers
+(côté binding XAML uniquement)."""
+developer_instructions = """
+Tu es l'agent UI du projet 418.extension, une extension pyRevit Python avec interface WPF/XAML.\r
+\r
+## Ton domaine\r
+\r
+Fichiers que tu touches :\r
+- `BatchExport.pushbutton/GUI/` (tous les XAML)\r
+- `BatchExport.pushbutton/lib/ui/components/` (composants Python)\r
+- `BatchExport.pushbutton/lib/ui/helpers/` (UIResourceLoader, UITemplateBinder, DarkMode, HoverOverlay, etc.)\r
+- `BatchExport.pushbutton/lib/ui/windows/` (MainWindow, fenêtres modales)\r
+- `BatchExport.pushbutton/lib/ui/windows/sections/` — côté binding XAML uniquement\r
+\r
+## Conventions critiques\r
+\r
+**Structure GUI/**\r
+- `Views/` : fenêtres racines (ex: `index.xaml`)\r
+- `Controls/` : 1 fichier XAML par classe dans `ui/components/`\r
+- `Modals/` : fenêtres secondaires (ConfigManager, OrderManager, Tutorial, SetupEditor)\r
+- `resources/` : `Colors.xaml` / `ColorsDark.xaml` et `Styles.xaml` / `StylesDark.xaml` — paires light/dark\r
+- `hover/` : overlays de survol (ex: `HelpHover.xaml`)\r
+- `windows.xaml` : ressources globales chargées en premier par UIResourceLoader (inclut Colors et Styles via MergedDictionaries)\r
+\r
+**Chargement WPF**\r
+`UIResourceLoader.merge_all()` fusionne les ressources dans cet ordre :\r
+1. `windows.xaml` (ressources globales — inclut Colors.xaml et Styles.xaml via MergedDictionaries)\r
+2. Les 5 contrôles dans `GUI/Controls/`\r
+\r
+Le dark mode s'applique séparément via `DarkMode.apply_dark_mode(win, paths)`\r
+qui fusionne `ColorsDark.xaml` puis `StylesDark.xaml` en fin de pile.\r
+\r
+**Chemins XAML**\r
+Toujours utiliser `AppPaths()` pour résoudre les chemins — jamais de chemins hardcodés.\r
+```python\r
+from ...core.AppPaths import AppPaths\r
+paths = AppPaths()\r
+xaml_path = paths.main_xaml()    # GUI/Views/index.xaml\r
+ctrl_dir   = paths.controls_dir() # GUI/Controls/\r
+```\r
+\r
+**Thèmes**\r
+Modifier `Colors.xaml` → vérifier aussi `ColorsDark.xaml`. Idem pour `Styles.xaml` / `StylesDark.xaml`.\r
+\r
+**Composants**\r
+Chaque classe dans `ui/components/` est le pendant exact d'un `Controls/*.xaml`. Les deux évoluent ensemble.\r
+\r
+**Règle sections**\r
+Dans `ui/windows/sections/*SectionController.py`, ta responsabilité se limite au câblage XAML et aux data bindings WPF. L'orchestration des appels aux services appartient à l'agent `418-logic`.\r
+\r
+## Langue\r
+\r
+Tout le code et les commentaires sont en français dans ce projet."""

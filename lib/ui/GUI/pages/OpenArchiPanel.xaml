@@ -39,14 +39,34 @@
     </Grid.Resources>
 
     <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
 
+    <!--
+      Alerte : le lien avec la maquette est rompu. En tête, au-dessus de la
+      conversation — c'est ce qui explique que le modèle réponde sans jamais
+      regarder le projet. Texte sélectionnable, donc collable dans un rapport.
+    -->
+    <Border Grid.Row="0" Margin="0,0,0,8" Padding="9,7" CornerRadius="8"
+            Background="{DynamicResource CardBackgroundBrush}"
+            BorderBrush="{DynamicResource WarningBrush}"
+            BorderThickness="1"
+            Visibility="{Binding AlerteVisible, Converter={StaticResource BoolVersVisibilite}}">
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Text="!" FontSize="13" FontWeight="Bold"
+                   Margin="2,0,9,0" VerticalAlignment="Top"
+                   Foreground="{DynamicResource WarningBrush}"/>
+        <TextBox Text="{Binding Alerte, Mode=OneWay}" MaxWidth="310"
+                 Style="{StaticResource BulleTexte}"/>
+      </StackPanel>
+    </Border>
+
     <!-- Conversation -->
-    <ScrollViewer x:Name="Conversation" Grid.Row="0"
+    <ScrollViewer x:Name="Conversation" Grid.Row="1"
                   VerticalScrollBarVisibility="Auto"
                   HorizontalScrollBarVisibility="Disabled"
                   Padding="0,0,4,0">
@@ -120,7 +140,7 @@
       réduit d'autant. Elle sert l'autocomplétion des commandes ET le choix du
       fournisseur après /connect : aucune fenêtre modale dans cet outil.
     -->
-    <Border Grid.Row="1" Margin="0,10,0,0" Padding="4" CornerRadius="8"
+    <Border Grid.Row="2" Margin="0,10,0,0" Padding="4" CornerRadius="8"
             Background="{DynamicResource CardBackgroundBrush}"
             BorderBrush="{DynamicResource ControlBorderBrush}"
             BorderThickness="1"
@@ -169,7 +189,7 @@
     </Border>
 
     <!-- Saisie : champ + bouton icône -->
-    <Grid Grid.Row="2" Margin="0,10,0,0">
+    <Grid Grid.Row="3" Margin="0,10,0,0">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*"/>
         <ColumnDefinition Width="Auto"/>
@@ -202,7 +222,7 @@
     </Grid>
 
     <!-- Pied : fournisseur · modèle · projet. Réservé aux infos d'état. -->
-    <TextBlock Grid.Row="3" Text="{Binding Statut}"
+    <TextBlock Grid.Row="4" Text="{Binding Statut}"
                Margin="4,8,4,2" FontSize="10"
                TextTrimming="CharacterEllipsis"
                ToolTip="{Binding Statut}"
