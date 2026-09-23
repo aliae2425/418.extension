@@ -27,6 +27,14 @@ try:
 except Exception:
     from lib.core import journal as _journal
 
+try:
+    from core import revit_outils
+except Exception:
+    try:
+        from lib.core import revit_outils
+    except Exception:
+        revit_outils = None            # hors Revit : pas de bandeau d'alerte
+
 _log = _journal.journal('chat')
 
 try:
@@ -116,6 +124,7 @@ class OpenArchiChatVM(BaseViewModel):
         self._saisie = ''
         self._en_attente = False
         self._texte_attente = self.ATTENTE_DEFAUT
+        self._alerte = ''
         # Capturé ici : le VM est construit sur le fil d'interface, et c'est
         # le seul par lequel Messages et les notifications peuvent passer.
         self._dispatcher = (Dispatcher.CurrentDispatcher
@@ -148,6 +157,12 @@ class OpenArchiChatVM(BaseViewModel):
         self.RetourCommand = (RelayCommand(self._retour)
                               if RelayCommand else None)
         self.Messages.Add(MessageVM('OpenArchi', self.ACCUEIL, False))
+        # PAS de vérification de la maquette ici. Le VM est construit pendant
+        # que Revit bâtit le volet ancré, au démarrage : y lancer un fil de
+        # fond qui revient notifier une propriété liée a fait lever WPF hors
+        # du fil principal (InvalidOperationException, PresentationCore) et
+        # tomber Revit au lancement. Le bandeau se remplit après le premier
+        # échange, quand l'interface est bâtie et le dispatcher éprouvé.
 
     @staticmethod
     def _nouvelle_liste():
@@ -191,6 +206,42 @@ class OpenArchiChatVM(BaseViewModel):
                 CommandManager.InvalidateRequerySuggested()
             except Exception:
                 pass
+
+    # --- bandeau d'alerte : le lien avec la maquette ----------------------
+
+    @property
+    def Alerte(self):
+        """Ce qui empêche les outils de marcher, '' quand tout va bien."""
+        return self._alerte
+
+    @Alerte.setter
+    def Alerte(self, valeur):
+        self._alerte = valeur or ''
+        self.notify_property('Alerte')
+        self.notify_property('AlerteVisible')
+
+    @property
+    def AlerteVisible(self):
+        return bool(self._alerte)
+
+    def _verifier_maquette(self):
+        """Teste le lien avec la maquette, hors du fil d'interface.
+
+        C'est un GET sur la boucle locale, mais servi par le serveur de routes
+        du MÊME process Revit : lancé depuis le fil d'interface il se bloque.
+        Et Revit avale les exceptions d'un volet en construction — l'échec
+        serait muet.
+        """
+        # Pas de dispatcher = pas de .NET = pas de Revit (tests) : il n'y a
+        # rien à joindre, et `_en_arriere_plan` exécuterait sur place, ce qui
+        # ferait ouvrir une socket à chaque test du VM.
+        if revit_outils is None or self._dispatcher is None:
+            return
+        self._en_arriere_plan(lambda: revit_outils.disponible()[1],
+                              self._sur_maquette)
+
+    def _sur_maquette(self, raison):
+        self.Alerte = raison
 
     @property
     def _client(self):
@@ -386,6 +437,9 @@ class OpenArchiChatVM(BaseViewModel):
     def _sur_reponse(self, reponse):
         self.EnAttente = False
         self._dire(reponse)
+        # Le document a pu être fermé entre deux messages : le bandeau ne doit
+        # pas rester périmé, dans un sens comme dans l'autre.
+        self._verifier_maquette()
 
     def _en_arriere_plan(self, travail, suite):
         """``travail`` hors du fil d'interface, ``suite`` de retour dessus.
