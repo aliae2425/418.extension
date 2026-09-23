@@ -5,8 +5,13 @@ Ni un parseur complet, ni une dépendance à installer — gras, italique, code,
 listes et titres. Le reste passe en texte tel quel : mieux vaut afficher un
 ``[lien](url)`` littéral que de rater une réponse.
 
-Analyse PURE (aucun WPF, aucun Revit) : elle se teste hors Revit, et c'est
-``ui.helpers.FlowMarkdown`` qui en fait un document affichable.
+Analyse PURE (aucun WPF, aucun Revit), donc testable hors Revit.
+
+Aujourd'hui seul ``texte_nu()`` est branché : les bulles sont des ``TextBox``,
+qui n'affichent que du texte. ``blocs()`` et ``morceaux()`` existent pour la
+mise en forme réelle, qui attend d'être éprouvée hors Revit — un
+``RichTextBox`` lié à un ``Document`` valant ``None`` a déjà fait tomber Revit
+une fois (sa propriété Document refuse null).
 """
 from __future__ import unicode_literals
 import re

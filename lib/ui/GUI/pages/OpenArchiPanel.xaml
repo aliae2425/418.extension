@@ -38,30 +38,13 @@
       </Style>
 
       <!--
-        Bulles de la conversation : le modèle répond en Markdown, un TextBox
-        afficherait « **gras** » avec ses astérisques. Un TextBlock saurait
-        mettre en forme mais ne se sélectionne pas sous WPF — d'où le
-        RichTextBox en lecture seule, qui garde le copier-coller ET la mise
-        en forme. Le document est bâti par ui/helpers/FlowMarkdown.py.
+        Pas de RichTextBox ici, et ce n'est pas un oubli : sa propriété
+        Document REFUSE null (SetValueInvocationException). Une liaison vers
+        une propriété qui peut valoir None fait donc lever pendant l'inflation
+        du DataTemplate, l'exception remonte en XamlParseException et Revit
+        tombe. C'est arrivé. Les bulles affichent TexteAffiche, du texte nu
+        dont les marques Markdown ont été retirées par core.markdown_simple.
       -->
-      <Style x:Key="BulleRiche" TargetType="RichTextBox">
-        <Setter Property="IsReadOnly" Value="True"/>
-        <Setter Property="IsDocumentEnabled" Value="False"/>
-        <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Padding" Value="0"/>
-        <Setter Property="FontSize" Value="12"/>
-        <!-- Le RichTextBox impose sinon une largeur minimale de 100px, qui
-             fait flotter les bulles courtes bien au-delà de leur texte. -->
-        <Setter Property="MinWidth" Value="0"/>
-        <Setter Property="IsTabStop" Value="False"/>
-        <!-- Le document se plie à la bulle : jamais de barre de défilement
-             à l'intérieur d'un message. -->
-        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
-        <Setter Property="VerticalScrollBarVisibility" Value="Disabled"/>
-        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-        <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
-      </Style>
     </Grid.Resources>
 
     <Grid.RowDefinitions>
@@ -109,8 +92,8 @@
                       Background="{DynamicResource CardBackgroundBrush}"
                       BorderBrush="{DynamicResource ControlBorderBrush}"
                       BorderThickness="1">
-                <RichTextBox Document="{Binding Document, Mode=OneWay}"
-                             Style="{StaticResource BulleRiche}"/>
+                <TextBox Text="{Binding TexteAffiche, Mode=OneWay}"
+                         Style="{StaticResource BulleTexte}"/>
               </Border>
             </StackPanel>
           </DataTemplate>
