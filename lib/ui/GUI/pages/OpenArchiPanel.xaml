@@ -36,6 +36,32 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
       </Style>
+
+      <!--
+        Bulles de la conversation : le modèle répond en Markdown, un TextBox
+        afficherait « **gras** » avec ses astérisques. Un TextBlock saurait
+        mettre en forme mais ne se sélectionne pas sous WPF — d'où le
+        RichTextBox en lecture seule, qui garde le copier-coller ET la mise
+        en forme. Le document est bâti par ui/helpers/FlowMarkdown.py.
+      -->
+      <Style x:Key="BulleRiche" TargetType="RichTextBox">
+        <Setter Property="IsReadOnly" Value="True"/>
+        <Setter Property="IsDocumentEnabled" Value="False"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="FontSize" Value="12"/>
+        <!-- Le RichTextBox impose sinon une largeur minimale de 100px, qui
+             fait flotter les bulles courtes bien au-delà de leur texte. -->
+        <Setter Property="MinWidth" Value="0"/>
+        <Setter Property="IsTabStop" Value="False"/>
+        <!-- Le document se plie à la bulle : jamais de barre de défilement
+             à l'intérieur d'un message. -->
+        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+        <Setter Property="VerticalScrollBarVisibility" Value="Disabled"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
+      </Style>
     </Grid.Resources>
 
     <Grid.RowDefinitions>
@@ -83,8 +109,8 @@
                       Background="{DynamicResource CardBackgroundBrush}"
                       BorderBrush="{DynamicResource ControlBorderBrush}"
                       BorderThickness="1">
-                <TextBox Text="{Binding Texte, Mode=OneWay}"
-                         Style="{StaticResource BulleTexte}"/>
+                <RichTextBox Document="{Binding Document, Mode=OneWay}"
+                             Style="{StaticResource BulleRiche}"/>
               </Border>
             </StackPanel>
           </DataTemplate>

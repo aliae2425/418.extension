@@ -13,20 +13,36 @@ if _SHARED_LIB not in sys.path:
 
 from core import revit_outils
 
-# Tout ce qui touche à la maquette. Aucune de ces routes ne doit apparaître
-# dans le catalogue : le modèle regarde, il n'écrit pas.
-ECRITURE = ('execute_code', 'place_family', 'color_splash', 'clear_colors',
-            'open_document', 'close_document', 'save_document',
-            'sync_with_central')
+# Aucune transaction derrière ces routes : rien à annuler après coup, et
+# sync_with_central pousse en plus sur le central. execute_code exécute de
+# l'IronPython arbitraire et peut se sortir lui-même de toute transaction.
+# Les rouvrir demande une décision explicite, pas un ajout de ligne distrait.
+INTERDITES = ('execute_code', 'open_document', 'close_document',
+              'save_document', 'sync_with_central')
+
+# Écriture autorisée : chacune pose une transaction nommée, Ctrl+Z la défait.
+ECRITURE_ADMISE = ('place_family', 'color_splash', 'clear_colors')
 
 
 class TestCatalogue(unittest.TestCase):
-    def test_aucune_route_d_ecriture(self):
+    def test_aucune_route_irreversible(self):
         routes = [entree[1] for entree in revit_outils.CATALOGUE]
-        for interdite in ECRITURE:
+        for interdite in INTERDITES:
             for route in routes:
                 self.assertNotIn(interdite, route,
-                                 'route d\'écriture exposée : ' + route)
+                                 'route irréversible exposée : ' + route)
+
+    def test_les_trois_routes_annulables_sont_la(self):
+        routes = ' '.join(entree[1] for entree in revit_outils.CATALOGUE)
+        for admise in ECRITURE_ADMISE:
+            self.assertIn(admise, routes, admise)
+
+    def test_une_route_qui_ecrit_le_dit_dans_sa_description(self):
+        # Le modèle ne lit que la description : si elle ne distingue pas
+        # regarder de modifier, il colorera la maquette pour « voir ».
+        for nom, route, _m, description, _s in revit_outils.CATALOGUE:
+            if any(admise in route for admise in ECRITURE_ADMISE):
+                self.assertIn('MODIFIE', description, nom)
 
     def test_noms_uniques_et_prefixes(self):
         noms = [entree[0] for entree in revit_outils.CATALOGUE]
@@ -102,6 +118,19 @@ class TestTroncature(unittest.TestCase):
         self.assertIn('tronqué', coupe)
         # Le renvoi doit rester borné : c'est tout l'intérêt.
         self.assertLess(len(coupe), revit_outils.LIMITE_SORTIE + 300)
+
+    def test_un_outil_sans_filtre_ne_se_fait_pas_conseiller_d_en_mettre(self):
+        # revit_list_views a bouclé deux fois en vrai sur ce conseil absurde.
+        long = 'x' * (revit_outils.LIMITE_SORTIE + 500)
+        self.assertIn('aucun filtre', revit_outils._tronquer(long, False))
+        self.assertIn('restreindre', revit_outils._tronquer(long, True))
+
+    def test_le_conseil_suit_le_schema_de_l_outil(self):
+        for nom, _r, _m, _d, schema in revit_outils.CATALOGUE:
+            filtrable = bool(schema.get('properties'))
+            attendu = 'restreindre' if filtrable else 'aucun filtre'
+            self.assertIn(attendu, revit_outils._tronquer('y' * 99999,
+                                                          filtrable), nom)
 
 
 class TestDisponible(unittest.TestCase):

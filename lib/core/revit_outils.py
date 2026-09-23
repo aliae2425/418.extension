@@ -11,9 +11,12 @@ Catalogue écrit à la main contre les vraies signatures des gestionnaires de
 devinent pas (``list_families`` filtre sur ``contains``, pas sur une
 catégorie). Toute entrée ajoutée ici doit être relue là-bas.
 
-Aucune route d'écriture : ni ``execute_code``, ni ``place_family``, ni
-``color_splash``, ni ``open/close/save_document``, ni ``sync_with_central``.
-Le modèle regarde la maquette, il n'y touche pas.
+Écriture : uniquement les routes qui posent une transaction nommée, donc
+défaisables au ``Ctrl+Z`` — ``place_family``, ``color_splash``,
+``clear_colors``. Restent dehors ``save_document``, ``sync_with_central``,
+``open_document``, ``close_document`` (aucune transaction, rien à annuler, et
+la synchro pousse sur le central) et ``execute_code`` (IronPython arbitraire,
+que le modèle peut lui-même sortir de toute transaction).
 
 Logique pure (aucun import Revit ni WPF) pour rester testable hors Revit.
 """
@@ -90,6 +93,56 @@ CATALOGUE = (
           'include_levels': {'type': 'boolean'},
           'include_location': {'type': 'boolean'}},
       'additionalProperties': False}),
+
+    # --- écriture ---------------------------------------------------------
+    # Uniquement les routes qui posent une transaction nommée : le garde-fou
+    # est la pile d'annulation de Revit, Ctrl+Z les défait une par une. Restent
+    # dehors, et doivent y rester sans décision explicite :
+    #   save_document · sync_with_central · open_document · close_document
+    #     — aucune transaction, donc rien à annuler ; sync pousse en plus sur
+    #       le central, donc chez les autres.
+    #   execute_code
+    #     — IronPython arbitraire, et le modèle peut demander lui-même
+    #       use_transaction=false. Ce n'est pas un outil, c'est une porte.
+    ('revit_place_family', '/place_family/', 'POST',
+     'Place une instance de famille. MODIFIE la maquette, dans une '
+     'transaction annulable. Coordonnées en PIEDS (unités internes Revit).',
+     {'type': 'object',
+      'properties': {
+          'family_name': {'type': 'string'},
+          'type_name': {'type': 'string',
+                        'description': 'type voulu ; le premier si omis'},
+          'location': {'type': 'object',
+                       'description': 'position en pieds',
+                       'properties': {'x': {'type': 'number'},
+                                      'y': {'type': 'number'},
+                                      'z': {'type': 'number'}},
+                       'required': ['x', 'y', 'z']},
+          'rotation': {'type': 'number', 'description': 'radians, 0 par défaut'},
+          'level_name': {'type': 'string'},
+          'properties': {'type': 'object',
+                         'description': 'paramètres à poser, p. ex. {"Mark": "A1"}'}},
+      'required': ['family_name', 'location'],
+      'additionalProperties': False}),
+    ('revit_color_splash', '/color_splash/', 'POST',
+     'Colore les éléments d\'une catégorie selon les valeurs d\'un paramètre. '
+     'MODIFIE l\'affichage de la vue active, dans une transaction annulable.',
+     {'type': 'object',
+      'properties': {
+          'category_name': {'type': 'string'},
+          'parameter_name': {'type': 'string'},
+          'use_gradient': {'type': 'boolean'},
+          'custom_colors': {'type': 'array', 'items': {'type': 'string'},
+                            'description': 'couleurs hexa, p. ex. ["#FF0000"]'}},
+      'required': ['category_name', 'parameter_name'],
+      'additionalProperties': False}),
+    ('revit_clear_colors', '/clear_colors/', 'POST',
+     'Retire les remplacements de couleur d\'une catégorie. MODIFIE '
+     'l\'affichage de la vue active, dans une transaction annulable.',
+     {'type': 'object',
+      'properties': {'category_name': {'type': 'string'}},
+      'required': ['category_name'],
+      'additionalProperties': False}),
 )
 
 _PAR_NOM = dict((entree[0], entree) for entree in CATALOGUE)
@@ -130,7 +183,7 @@ def executer(nom, arguments=None):
     entree = _PAR_NOM.get(nom)
     if entree is None:
         return _erreur('outil inconnu : {0}'.format(nom))
-    _nom, route, methode, _description, _schema = entree
+    _nom, route, methode, _description, schema = entree
     corps = arguments if isinstance(arguments, dict) else None
     try:
         brut = _appeler(route, methode, corps)
@@ -146,7 +199,7 @@ def executer(nom, arguments=None):
         _log.exception('%s a échoué', nom)
         return _erreur('{0}'.format(e))
     _log.debug('%s -> %s octets', nom, len(brut))
-    return _tronquer(brut)
+    return _tronquer(brut, bool(schema.get('properties')))
 
 
 def _appeler(route, methode, corps, timeout=DELAI):
@@ -166,13 +219,21 @@ def _appeler(route, methode, corps, timeout=DELAI):
     return urlopen(requete, timeout=timeout).read().decode('utf-8', 'replace')
 
 
-def _tronquer(texte):
+def _tronquer(texte, filtrable=True):
+    """Coupe, et dit au modèle quoi faire — ce qui dépend de l'outil.
+
+    Conseiller « affine les filtres » à un outil qui n'en a aucun l'envoie
+    rappeler le même outil pour le même résultat : c'est arrivé en vrai avec
+    revit_list_views, deux fois d'affilée.
+    """
     if len(texte) <= LIMITE_SORTIE:
         return texte
-    return (texte[:LIMITE_SORTIE] +
-            '\n…tronqué à {0} caractères — affiner les filtres de l\'outil '
-            '(contains, limit) pour en voir moins à la fois.'.format(
-                LIMITE_SORTIE))
+    conseil = ('restreindre les arguments de l\'outil pour en voir moins '
+               'à la fois' if filtrable else
+               'cet outil ne prend aucun filtre : la liste restera '
+               'incomplète, inutile de le rappeler à l\'identique')
+    return '{0}\n…tronqué à {1} caractères — {2}.'.format(
+        texte[:LIMITE_SORTIE], LIMITE_SORTIE, conseil)
 
 
 def _erreur(message):

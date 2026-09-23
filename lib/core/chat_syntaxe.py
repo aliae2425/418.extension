@@ -22,10 +22,15 @@ SYSTEME = ("Tu assistes un architecte dans Autodesk Revit. Réponds en "
 # Ajouté à SYSTEME par le client UNIQUEMENT quand des outils sont réellement
 # fournis. L'écrire dans SYSTEME ferait promettre au modèle, chez les clients
 # qui n'ont pas de boucle d'outils, des yeux qu'il n'a pas.
-OUTILLE = ("\n\nTu disposes d'outils de lecture sur la maquette ouverte "
-           "(préfixe revit_). Appelle-les plutôt que de supposer ou de "
-           "demander à l'architecte ce que tu peux lire toi-même. Tu ne peux "
-           "rien modifier : ces outils regardent, ils n'écrivent pas.")
+OUTILLE = ("\n\nTu disposes d'outils sur la maquette ouverte (préfixe "
+           "revit_). Appelle-les plutôt que de supposer ou de demander à "
+           "l'architecte ce que tu peux lire toi-même. Les longueurs et les "
+           "coordonnées sont en PIEDS, l'unité interne de Revit.\n"
+           "Trois de ces outils MODIFIENT le modèle : revit_place_family, "
+           "revit_color_splash, revit_clear_colors. Chacun pose une "
+           "transaction que l'architecte peut annuler au Ctrl+Z, mais "
+           "annonce ce que tu vas faire avant de les appeler, et ne les "
+           "appelle jamais pour explorer — seulement sur une demande claire.")
 
 # Une commande n'est reconnue qu'EN TÊTE de message : une barre oblique au
 # milieu d'une phrase (« 1/2 », un chemin, une URL) n'en est pas une.
