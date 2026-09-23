@@ -35,6 +35,14 @@ except Exception:
     except Exception:
         revit_outils = None            # hors Revit : pas de bandeau d'alerte
 
+try:
+    from ui.helpers import FlowMarkdown as _flow
+except Exception:
+    try:
+        from lib.ui.helpers import FlowMarkdown as _flow
+    except Exception:
+        _flow = None                   # hors WPF : les bulles restent en texte
+
 _log = _journal.journal('chat')
 
 try:
@@ -54,11 +62,20 @@ except Exception:
 # Même repli : hors Revit, le VM répond sur place et reste synchrone, donc
 # testable sans rien simuler.
 try:
-    from System import Action
+    from System import Action, TimeSpan
     from System.Threading import Thread, ThreadStart
-    from System.Windows.Threading import Dispatcher
+    from System.Windows.Threading import Dispatcher, DispatcherTimer
 except Exception:
     Action = Thread = ThreadStart = Dispatcher = None
+    TimeSpan = DispatcherTimer = None
+
+try:
+    from core import attente as _attente
+except Exception:
+    try:
+        from lib.core import attente as _attente
+    except Exception:
+        _attente = None                # repli : libellé figé, sans chronomètre
 
 try:
     from System.Windows.Input import CommandManager
@@ -105,6 +122,20 @@ class MessageVM(BaseViewModel):
         self.Texte = texte
         self.DeUtilisateur = bool(de_utilisateur)
         self.Alignement = 'Right' if de_utilisateur else 'Left'
+        self._document = None
+
+    @property
+    def Document(self):
+        """Le texte mis en forme, pour le RichTextBox de la bulle.
+
+        Construit à la lecture, pas dans ``__init__`` : la liaison l'appelle
+        sur le fil d'interface au moment où la bulle apparaît. Le message
+        d'accueil, lui, est créé pendant que Revit bâtit le volet — on n'y
+        fabrique aucun objet WPF.
+        """
+        if self._document is None and _flow is not None:
+            self._document = _flow.document(self.Texte)
+        return self._document
 
 
 class OpenArchiChatVM(BaseViewModel):
@@ -123,7 +154,12 @@ class OpenArchiChatVM(BaseViewModel):
         self._client_injecte = client
         self._saisie = ''
         self._en_attente = False
-        self._texte_attente = self.ATTENTE_DEFAUT
+        self._phrase = self.ATTENTE_DEFAUT
+        # Un libellé imposé (« connexion… ») ne tourne pas : il dit ce qui se
+        # passe, une blague le remplacerait par du bruit.
+        self._fixe = False
+        self._secondes = 0
+        self._horloge = None
         self._alerte = ''
         # Capturé ici : le VM est construit sur le fil d'interface, et c'est
         # le seul par lequel Messages et les notifications peuvent passer.
@@ -183,12 +219,22 @@ class OpenArchiChatVM(BaseViewModel):
 
     @property
     def TexteAttente(self):
-        return self._texte_attente
+        """Phrase d'attente et chronomètre, recomposés à chaque seconde."""
+        if _attente is None:
+            return self._phrase
+        return _attente.libelle(self._phrase, self._secondes)
 
     @TexteAttente.setter
     def TexteAttente(self, valeur):
-        self._texte_attente = valeur or self.ATTENTE_DEFAUT
+        """``None`` = laisser tourner les phrases ; une chaîne = la figer."""
+        self._phrase = valeur or self._phrase_neuve()
+        self._fixe = bool(valeur)
         self.notify_property('TexteAttente')
+
+    def _phrase_neuve(self):
+        if _attente is None:
+            return self.ATTENTE_DEFAUT
+        return _attente.autre(self._phrase)
 
     @property
     def EnAttente(self):
@@ -198,7 +244,15 @@ class OpenArchiChatVM(BaseViewModel):
     @EnAttente.setter
     def EnAttente(self, valeur):
         self._en_attente = bool(valeur)
+        # Le chronomètre repart de zéro à chaque attente : c'est le temps de
+        # CETTE réponse qui intéresse, pas le cumul de la session.
+        self._secondes = 0
+        if self._en_attente:
+            self._demarrer_horloge()
+        else:
+            self._arreter_horloge()
         self.notify_property('EnAttente')
+        self.notify_property('TexteAttente')
         # Le bouton Envoyer suit CanExecute : sans ce coup de semonce, il ne
         # se réactive qu'au prochain mouvement de souris.
         if CommandManager is not None:
@@ -206,6 +260,32 @@ class OpenArchiChatVM(BaseViewModel):
                 CommandManager.InvalidateRequerySuggested()
             except Exception:
                 pass
+
+    # --- chronomètre de l'attente ----------------------------------------
+
+    def _tic(self, *_args):
+        """Une seconde de plus. Appelé par le DispatcherTimer, donc sur le
+        fil d'interface : rien d'autre ne doit toucher ces compteurs."""
+        self._secondes += 1
+        if not self._fixe and _attente is not None:
+            if self._secondes % _attente.TOURNE == 0:
+                self._phrase = _attente.autre(self._phrase)
+        self.notify_property('TexteAttente')
+
+    def _demarrer_horloge(self):
+        # Créée à la première attente, pas à la construction du VM : rien de
+        # WPF ne se fabrique pendant que Revit bâtit le volet.
+        if DispatcherTimer is None or TimeSpan is None:
+            return                     # hors .NET : pas de chronomètre
+        if self._horloge is None:
+            self._horloge = DispatcherTimer()
+            self._horloge.Interval = TimeSpan.FromSeconds(1)
+            self._horloge.Tick += self._tic
+        self._horloge.Start()
+
+    def _arreter_horloge(self):
+        if self._horloge is not None:
+            self._horloge.Stop()
 
     # --- bandeau d'alerte : le lien avec la maquette ----------------------
 
@@ -430,7 +510,8 @@ class OpenArchiChatVM(BaseViewModel):
         # réglages) : elle doit rester sur le fil d'interface.
         if analyser(texte).est_commande:
             return self._dire(self.repondre(texte))
-        self.TexteAttente = self.ATTENTE_DEFAUT
+        # None : on laisse les phrases tourner. Une valeur les figerait.
+        self.TexteAttente = None
         self.EnAttente = True
         self._en_arriere_plan(lambda: self.repondre(texte), self._sur_reponse)
 

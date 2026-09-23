@@ -493,6 +493,59 @@ class TestCatalogue(unittest.TestCase):
         self.assertIsNone(client_de('Fournisseur Fantome', CLE_API))
 
 
+class TestAttente(unittest.TestCase):
+    """Phrases qui tournent et chronomètre. Le DispatcherTimer est absent
+    hors .NET : on appelle ``_tic()`` à sa place, une seconde par appel."""
+
+    def setUp(self):
+        self.vm = OpenArchiChatVM(OpenArchiConfig(_StoreMemoire()),
+                                  client=_ClientFactice())
+
+    def test_pas_de_chrono_avant_la_premiere_seconde(self):
+        self.vm.TexteAttente = None
+        self.vm.EnAttente = True
+        self.assertNotIn('·', self.vm.TexteAttente)
+
+    def test_le_chrono_avance(self):
+        self.vm.EnAttente = True
+        self.vm._tic()
+        self.assertIn('1 s', self.vm.TexteAttente)
+        self.vm._tic()
+        self.assertIn('2 s', self.vm.TexteAttente)
+
+    def test_un_libelle_impose_ne_tourne_pas(self):
+        # « connexion… » dit ce qui se passe ; une blague serait du bruit.
+        self.vm.TexteAttente = 'connexion…'
+        self.vm.EnAttente = True
+        for _ in range(20):
+            self.vm._tic()
+        self.assertTrue(self.vm.TexteAttente.startswith('connexion…'))
+
+    def test_la_phrase_change_en_cours_d_attente(self):
+        from core import attente
+        self.vm.TexteAttente = None
+        self.vm.EnAttente = True
+        depart = self.vm._phrase
+        for _ in range(attente.TOURNE):
+            self.vm._tic()
+        self.assertNotEqual(self.vm._phrase, depart)
+
+    def test_chaque_attente_repart_de_zero(self):
+        # C'est le temps de CETTE réponse qui intéresse, pas le cumul.
+        self.vm.EnAttente = True
+        for _ in range(5):
+            self.vm._tic()
+        self.vm.EnAttente = False
+        self.vm.EnAttente = True
+        self.assertNotIn('·', self.vm.TexteAttente)
+
+    def test_une_reponse_arrete_le_chrono(self):
+        self.vm.Saisie = 'bonjour'
+        self.vm._envoyer()
+        self.assertFalse(self.vm.EnAttente)
+        self.assertEqual(self.vm._secondes, 0)
+
+
 class TestAlerteMaquette(unittest.TestCase):
     """Le bandeau en tête du chat : ce qui empêche les outils de marcher."""
 
