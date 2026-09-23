@@ -11,12 +11,22 @@ Catalogue écrit à la main contre les vraies signatures des gestionnaires de
 devinent pas (``list_families`` filtre sur ``contains``, pas sur une
 catégorie). Toute entrée ajoutée ici doit être relue là-bas.
 
-Écriture : uniquement les routes qui posent une transaction nommée, donc
-défaisables au ``Ctrl+Z`` — ``place_family``, ``color_splash``,
-``clear_colors``. Restent dehors ``save_document``, ``sync_with_central``,
-``open_document``, ``close_document`` (aucune transaction, rien à annuler, et
-la synchro pousse sur le central) et ``execute_code`` (IronPython arbitraire,
-que le modèle peut lui-même sortir de toute transaction).
+**Toutes** les routes du serveur sont ouvertes, sur décision explicite de
+l'architecte. Trois familles, et la différence n'est pas cosmétique :
+
+- lecture — ne touche à rien ;
+- écriture en transaction (``place_family``, ``color_splash``,
+  ``clear_colors``) — ``Ctrl+Z`` les défait une par une ;
+- **irréversible** (``execute_code``, ``save_document``,
+  ``sync_with_central``, ``open_document``, ``close_document``) — aucune
+  transaction, donc aucun retour arrière. ``sync_with_central`` pousse en
+  plus sur le central, donc chez toute l'équipe.
+
+Les seuls garde-fous sur la troisième famille sont la description lue par le
+modèle et la consigne système (``chat_syntaxe.OUTILLE``). Les affaiblir,
+c'est retirer le dernier filet — chaque appel est en outre journalisé en
+WARNING avec ses arguments, pour qu'on puisse savoir après coup ce qui s'est
+passé.
 
 Logique pure (aucun import Revit ni WPF) pour rester testable hors Revit.
 """
@@ -94,16 +104,9 @@ CATALOGUE = (
           'include_location': {'type': 'boolean'}},
       'additionalProperties': False}),
 
-    # --- écriture ---------------------------------------------------------
-    # Uniquement les routes qui posent une transaction nommée : le garde-fou
-    # est la pile d'annulation de Revit, Ctrl+Z les défait une par une. Restent
-    # dehors, et doivent y rester sans décision explicite :
-    #   save_document · sync_with_central · open_document · close_document
-    #     — aucune transaction, donc rien à annuler ; sync pousse en plus sur
-    #       le central, donc chez les autres.
-    #   execute_code
-    #     — IronPython arbitraire, et le modèle peut demander lui-même
-    #       use_transaction=false. Ce n'est pas un outil, c'est une porte.
+    # --- écriture, dans une transaction nommée ----------------------------
+    # Ctrl+Z les défait une par une : le garde-fou est la pile d'annulation
+    # de Revit.
     ('revit_place_family', '/place_family/', 'POST',
      'Place une instance de famille. MODIFIE la maquette, dans une '
      'transaction annulable. Coordonnées en PIEDS (unités internes Revit).',
@@ -143,7 +146,75 @@ CATALOGUE = (
       'properties': {'category_name': {'type': 'string'}},
       'required': ['category_name'],
       'additionalProperties': False}),
+
+    # --- IRRÉVERSIBLE -----------------------------------------------------
+    # Aucune de ces routes ne pose de transaction : Ctrl+Z n'y peut RIEN.
+    # Ouvertes sur décision explicite de l'architecte, contre l'avis donné.
+    # Le seul garde-fou qui reste est la description lue par le modèle, et
+    # la consigne système (chat_syntaxe.OUTILLE) : les deux doivent rester
+    # aussi explicites qu'elles le sont ici.
+    ('revit_execute_code', '/execute_code/', 'POST',
+     'DANGER — exécute du code IronPython dans Revit. Irréversible si '
+     'use_transaction vaut false. Dernier recours, quand aucun autre outil '
+     'ne fait l\'affaire, et jamais sans l\'accord explicite de '
+     'l\'architecte dans le message précédent.',
+     {'type': 'object',
+      'properties': {
+          'code': {'type': 'string',
+                   'description': 'IronPython 2.7 ; doc et uidoc disponibles'},
+          'description': {'type': 'string',
+                          'description': 'ce que fait le code, en français'},
+          'use_transaction': {
+              'type': 'boolean',
+              'description': 'true (défaut) = annulable. Ne passer false '
+                             'que pour une opération d\'interface pure.'}},
+      'required': ['code'],
+      'additionalProperties': False}),
+    ('revit_save_document', '/save_document/', 'POST',
+     'DANGER — enregistre le projet. IRRÉVERSIBLE : écrase la version sur '
+     'disque, Ctrl+Z ne la ramène pas. Jamais sans demande explicite.',
+     {'type': 'object',
+      'properties': {
+          'file_path': {'type': 'string',
+                        'description': 'chemin pour un « enregistrer sous » ; '
+                                       'omis = enregistre sur place'}},
+      'additionalProperties': False}),
+    ('revit_sync_with_central', '/sync_with_central/', 'POST',
+     'DANGER — synchronise avec le fichier central. IRRÉVERSIBLE, et visible '
+     'par toute l\'équipe. Jamais sans demande explicite.',
+     {'type': 'object',
+      'properties': {
+          'comment': {'type': 'string', 'description': 'commentaire de synchro'},
+          'compact': {'type': 'boolean'},
+          'relinquish_all': {'type': 'boolean',
+                             'description': 'libérer tous les emprunts (défaut true)'}},
+      'additionalProperties': False}),
+    ('revit_open_document', '/open_document/', 'POST',
+     'DANGER — ouvre un autre projet dans Revit. Change le document courant, '
+     'donc la cible de TOUS les autres outils. Jamais sans demande explicite.',
+     {'type': 'object',
+      'properties': {
+          'file_path': {'type': 'string', 'description': 'chemin du .rvt'},
+          'detach': {'type': 'boolean', 'description': 'détacher du central'},
+          'audit': {'type': 'boolean'}},
+      'required': ['file_path'],
+      'additionalProperties': False}),
+    ('revit_close_document', '/close_document/', 'POST',
+     'DANGER — ferme le projet courant. IRRÉVERSIBLE, et les modifications '
+     'non enregistrées sont perdues si save vaut false. Jamais sans demande '
+     'explicite.',
+     {'type': 'object',
+      'properties': {
+          'save': {'type': 'boolean',
+                   'description': 'enregistrer avant de fermer (défaut false)'}},
+      'additionalProperties': False}),
 )
+
+# Ce que le modèle ne peut pas défaire. Sert à la consigne système et au
+# journal : un appel de cette liste mérite une ligne qu'on retrouve après coup.
+IRREVERSIBLES = ('revit_execute_code', 'revit_save_document',
+                 'revit_sync_with_central', 'revit_open_document',
+                 'revit_close_document')
 
 _PAR_NOM = dict((entree[0], entree) for entree in CATALOGUE)
 
@@ -185,6 +256,10 @@ def executer(nom, arguments=None):
         return _erreur('outil inconnu : {0}'.format(nom))
     _nom, route, methode, _description, schema = entree
     corps = arguments if isinstance(arguments, dict) else None
+    if nom in IRREVERSIBLES:
+        # En WARNING et avec les arguments : c'est la seule trace qui restera
+        # pour comprendre ce que le modèle a fait, une fois que c'est fait.
+        _log.warning('IRRÉVERSIBLE %s %s', nom, corps)
     try:
         brut = _appeler(route, methode, corps)
     except HTTPError as e:
