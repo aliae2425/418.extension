@@ -13,36 +13,50 @@ if _SHARED_LIB not in sys.path:
 
 from core import revit_outils
 
-# Aucune transaction derrière ces routes : rien à annuler après coup, et
-# sync_with_central pousse en plus sur le central. execute_code exécute de
-# l'IronPython arbitraire et peut se sortir lui-même de toute transaction.
-# Les rouvrir demande une décision explicite, pas un ajout de ligne distrait.
-INTERDITES = ('execute_code', 'open_document', 'close_document',
-              'save_document', 'sync_with_central')
+# Écriture annulable : chacune pose une transaction nommée, Ctrl+Z la défait.
+ECRITURE = ('place_family', 'color_splash', 'clear_colors')
 
-# Écriture autorisée : chacune pose une transaction nommée, Ctrl+Z la défait.
-ECRITURE_ADMISE = ('place_family', 'color_splash', 'clear_colors')
+# Tout ce que le serveur sait faire. Le catalogue est censé être complet
+# depuis que l'architecte a demandé à tout débloquer ; si une route manque,
+# c'est un oubli, pas une prudence.
+TOUTES = ('status', 'model_info', 'current_view_info', 'list_views',
+          'list_levels', 'list_family_categories', 'list_families',
+          'list_category_parameters', 'current_view_elements') + ECRITURE + (
+          'execute_code', 'save_document', 'sync_with_central',
+          'open_document', 'close_document')
 
 
 class TestCatalogue(unittest.TestCase):
-    def test_aucune_route_irreversible(self):
-        routes = [entree[1] for entree in revit_outils.CATALOGUE]
-        for interdite in INTERDITES:
-            for route in routes:
-                self.assertNotIn(interdite, route,
-                                 'route irréversible exposée : ' + route)
-
-    def test_les_trois_routes_annulables_sont_la(self):
+    def test_toutes_les_routes_du_serveur_sont_exposees(self):
         routes = ' '.join(entree[1] for entree in revit_outils.CATALOGUE)
-        for admise in ECRITURE_ADMISE:
-            self.assertIn(admise, routes, admise)
+        for attendue in TOUTES:
+            self.assertIn(attendue, routes, attendue)
 
     def test_une_route_qui_ecrit_le_dit_dans_sa_description(self):
         # Le modèle ne lit que la description : si elle ne distingue pas
         # regarder de modifier, il colorera la maquette pour « voir ».
         for nom, route, _m, description, _s in revit_outils.CATALOGUE:
-            if any(admise in route for admise in ECRITURE_ADMISE):
+            if any(ecrit in route for ecrit in ECRITURE):
                 self.assertIn('MODIFIE', description, nom)
+
+    def test_une_route_irreversible_crie_dans_sa_description(self):
+        # C'est le dernier garde-fou : plus de transaction, plus de Ctrl+Z.
+        # Adoucir ces descriptions, c'est retirer le filet.
+        for nom in revit_outils.IRREVERSIBLES:
+            description = revit_outils._PAR_NOM[nom][3]
+            self.assertIn('DANGER', description, nom)
+            self.assertIn('explicite', description, nom)
+
+    def test_les_irreversibles_sont_toutes_declarees(self):
+        # La liste sert au journal et à la consigne système : une route
+        # destructrice absente d'ici passerait sans laisser de trace.
+        for nom, route, _m, _d, _s in revit_outils.CATALOGUE:
+            destructrice = any(mot in route for mot in
+                               ('execute_code', 'save_document',
+                                'sync_with_central', 'open_document',
+                                'close_document'))
+            self.assertEqual(destructrice, nom in revit_outils.IRREVERSIBLES,
+                             nom)
 
     def test_noms_uniques_et_prefixes(self):
         noms = [entree[0] for entree in revit_outils.CATALOGUE]
