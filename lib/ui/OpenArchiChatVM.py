@@ -36,12 +36,27 @@ except Exception:
         revit_outils = None            # hors Revit : pas de bandeau d'alerte
 
 try:
-    from ui.helpers import FlowMarkdown as _flow
+    from core.markdown_simple import texte_nu as _md_nu
 except Exception:
     try:
-        from lib.ui.helpers import FlowMarkdown as _flow
+        from lib.core.markdown_simple import texte_nu as _md_nu
     except Exception:
-        _flow = None                   # hors WPF : les bulles restent en texte
+        _md_nu = None
+
+
+def _texte_nu(texte):
+    """Texte débarrassé de ses marques Markdown. Ne lève jamais.
+
+    Une bulle qui n'affiche rien parce que le nettoyage a buté sur un
+    caractère, c'est pire que des astérisques visibles.
+    """
+    if _md_nu is None:
+        return texte
+    try:
+        return _md_nu(texte)
+    except Exception:
+        _log.exception('nettoyage markdown')
+        return texte
 
 _log = _journal.journal('chat')
 
@@ -122,20 +137,11 @@ class MessageVM(BaseViewModel):
         self.Texte = texte
         self.DeUtilisateur = bool(de_utilisateur)
         self.Alignement = 'Right' if de_utilisateur else 'Left'
-        self._document = None
-
-    @property
-    def Document(self):
-        """Le texte mis en forme, pour le RichTextBox de la bulle.
-
-        Construit à la lecture, pas dans ``__init__`` : la liaison l'appelle
-        sur le fil d'interface au moment où la bulle apparaît. Le message
-        d'accueil, lui, est créé pendant que Revit bâtit le volet — on n'y
-        fabrique aucun objet WPF.
-        """
-        if self._document is None and _flow is not None:
-            self._document = _flow.document(self.Texte)
-        return self._document
+        # Marques Markdown retirées : le modèle répond en « **gras** » et en
+        # listes, et un TextBox les afficherait avec leurs astérisques.
+        # `Texte` reste brut — c'est lui qui repart au fournisseur dans
+        # l'historique, et c'est lui que /journal doit pouvoir montrer.
+        self.TexteAffiche = _texte_nu(texte)
 
 
 class OpenArchiChatVM(BaseViewModel):

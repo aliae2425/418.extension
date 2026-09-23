@@ -7,6 +7,7 @@ silencieusement deux contrôles sur la même ligne, ou en pose un hors grille.
 """
 from __future__ import unicode_literals
 import os
+import re
 import sys
 import unittest
 import xml.etree.ElementTree as ET
@@ -56,6 +57,16 @@ class TestGrilleDuPanneau(unittest.TestCase):
     def test_aucune_ligne_declaree_pour_rien(self):
         self.assertEqual(sorted(self._lignes_occupees()),
                          list(range(self._lignes_declarees())))
+
+    def test_pas_de_richtextbox(self):
+        """``RichTextBox.Document`` refuse ``null`` : une liaison vers une
+        propriété qui peut valoir ``None`` lève pendant l'inflation du
+        DataTemplate, remonte en XamlParseException, et Revit tombe. C'est
+        arrivé. Y revenir demande de l'éprouver hors Revit d'abord."""
+        with open(PANNEAU, 'rb') as fichier:
+            brut = fichier.read().decode('utf-8')
+        sans_commentaires = re.sub(r'<!--.*?-->', '', brut, flags=re.S)
+        self.assertNotIn('RichTextBox', sans_commentaires)
 
     def test_le_bandeau_d_alerte_est_en_tete(self):
         # Au-dessus de la conversation : c'est ce qui explique les réponses
