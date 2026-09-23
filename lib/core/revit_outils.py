@@ -2,7 +2,7 @@
 """Les outils que le modèle peut appeler sur la maquette. Lecture seule.
 
 Le panneau tourne DANS Revit : les routes pyRevit lui suffisent, elles sont
-déjà servies par notre instance (cf. ``routes418``). Pas de client MCP ici —
+déjà servies par pyRevit (cf. ``routes418``). Pas de client MCP ici —
 le protocole MCP existe pour les clients qui sont dehors, et le traverser
 depuis l'intérieur ajouterait un process Python à la place d'un GET local.
 
@@ -28,10 +28,10 @@ except ImportError:                    # IronPython 2.7
 
 try:
     from core.journal import journal
-    from core.routes418 import base, assurer
+    from core import routes418
 except Exception:
     from lib.core.journal import journal
-    from lib.core.routes418 import base, assurer
+    from lib.core import routes418
 
 _log = journal('outils')
 
@@ -103,12 +103,14 @@ def outils():
 
 def disponible():
     """``(utilisable, raison)`` — la raison n'a de sens que si c'est faux."""
+    if not routes418.base():
+        return False, routes418.ABSENT
     try:
         brut = _appeler('/status/', 'GET', None, timeout=3)
     except Exception as e:
         _log.warning('maquette injoignable : %s', e)
-        return False, ('Maquette injoignable : le serveur de routes 418 n\'a '
-                       'pas démarré. Rechargez pyRevit, puis /journal.')
+        return False, ('Maquette injoignable : le serveur de routes pyRevit '
+                       'ne répond pas. /journal pour le détail.')
     try:
         etat = json.loads(brut)
     except ValueError:
@@ -148,10 +150,11 @@ def executer(nom, arguments=None):
 
 
 def _appeler(route, methode, corps, timeout=DELAI):
-    # Démarrage paresseux : on est ici sur un fil de fond du chat, Revit est
-    # bâti et au repos. C'est le seul moment sûr pour ouvrir la socket.
-    assurer()
-    url = base() + PREFIXE + route
+    # On ne démarre rien : le serveur est celui de pyRevit, ou il n'y en a pas.
+    racine = routes418.base()
+    if not racine:
+        raise ValueError(routes418.ABSENT)
+    url = racine + PREFIXE + route
     donnees = None
     if methode == 'POST':
         # ensure_ascii=False : sous IronPython, laisser json échapper les

@@ -107,12 +107,24 @@ class TestTroncature(unittest.TestCase):
 class TestDisponible(unittest.TestCase):
     def setUp(self):
         self._vrai = revit_outils._appeler
+        self._base = revit_outils.routes418.base
+        # Un serveur pyRevit joignable : c'est le cas nominal.
+        revit_outils.routes418.base = lambda: 'http://127.0.0.1:48884'
 
     def tearDown(self):
         revit_outils._appeler = self._vrai
+        revit_outils.routes418.base = self._base
 
     def _repond(self, charge):
         revit_outils._appeler = lambda *a, **k: charge
+
+    def test_sans_serveur_pyrevit_on_dit_quoi_faire(self):
+        # Pas d'erreur réseau : il n'y a rien à joindre, et la sortie est une
+        # case à cocher dans pyRevit — l'utilisateur doit pouvoir la trouver.
+        revit_outils.routes418.base = lambda: ''
+        ouvert, raison = revit_outils.disponible()
+        self.assertFalse(ouvert)
+        self.assertIn('Routes', raison)
 
     def test_document_ouvert(self):
         self._repond(json.dumps({'revit_available': True}))

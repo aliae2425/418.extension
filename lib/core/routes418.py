@@ -1,24 +1,27 @@
 # -*- coding: utf-8 -*-
-"""Serveur de routes propre à 418 : notre instance, notre port, en local.
+"""Où joindre la maquette : le serveur de routes de pyRevit, port découvert.
 
-pyRevit n'expose qu'UN serveur de routes par process — ``routes.API(nom)`` ne
-donne qu'un préfixe d'URL, jamais un port — et il ne démarre que si la case
-« Routes » est cochée dans les réglages (``loader/sessionmgr.py`` :
-``if user_config.routes_server``). Un outil tout-en-un ne peut pas dépendre
-d'une case à cocher : on instancie donc notre propre ``RoutesServer``, sur un
-port fixe, lié à la boucle locale.
+418 n'instancie plus son propre ``RoutesServer``. L'essai a coûté deux
+plantages de Revit, et la raison est structurelle, pas une maladresse à
+corriger : le module ``pyrevit.routes.server.server`` crée un
+``UI.ExternalEvent`` au chargement, et Revit n'accepte ça que sur le fil
+principal, hors OnStartup. Notre serveur n'aurait besoin d'exister qu'au
+premier appel du chat — donc sur un fil de fond, donc trop tard. Les deux
+contraintes ne se recouvrent nulle part.
 
-Ce qu'on ne touche PAS, volontairement : ``user_config`` (réglage global de
-pyRevit, pas le nôtre), ``serverinfo.register()`` (sa comptabilité de ports)
-et ``envvars.ROUTES_SERVER`` (l'emplacement de SON serveur). Le serveur de
-pyRevit reste ce qu'il est, allumé ou éteint, sur 48884.
+S'y ajoutait un défaut qu'on ne pouvait pas corriger sans éditer amont :
+``REQUEST_HNDLR`` et ``EVENT_HNDLR`` sont des singletons de module,
+réécrits à chaque requête. Deux serveurs = deux requêtes concurrentes qui se
+marchent dessus dans le contexte d'API Revit.
 
-Le routeur de pyRevit est global : notre instance sert donc la même table de
-routes, ``/revit_mcp/...`` compris. On ne peut pas l'en empêcher sans éditer
-amont, et ça ne coûte rien puisqu'on n'écoute que sur la boucle locale.
+On se branche donc sur le serveur que pyRevit tient déjà, en lui demandant son
+port au lieu de le supposer — 48884 monte d'un cran par Revit supplémentaire,
+le coder en dur serait un bug en attente. On ne crée rien, on ne démarre rien,
+on ne touche à aucun de ses réglages.
 
-Hors Revit (tests), le module reste importable et ``demarrer()`` renvoie
-``None`` sans lever.
+Contrepartie assumée : si la case « Routes » des réglages pyRevit n'est pas
+cochée, aucun serveur ne tourne et les outils sont muets. Le bandeau du chat
+le dit, plutôt que de faire tomber Revit pour l'éviter.
 """
 from __future__ import unicode_literals
 
@@ -28,94 +31,34 @@ except Exception:
     from lib.core.journal import journal
 
 try:
+    # Lecture d'un dictionnaire posé sur l'AppDomain : aucun objet Revit créé,
+    # rien qui exige le fil principal. C'est tout ce qu'on s'autorise ici.
     from pyrevit.coreutils import envvars
-except Exception:                      # hors Revit : import silencieux
+except Exception:                      # hors Revit : module importable quand même
     envvars = None
 
 _log = journal('routes')
 
+ABSENT = ('Serveur de routes pyRevit éteint : cocher « Routes » dans les '
+          'réglages pyRevit, puis redémarrer Revit.')
 
-def _classe_serveur():
-    """``RoutesServer``, importé au dernier moment. ``None`` hors Revit.
 
-    Surtout PAS au chargement du module : importer
-    ``pyrevit.routes.server.server`` exécute son ``UI.ExternalEvent.Create()``
-    de niveau module. Or ce module est atteint par la chaîne
-    ``startup.py → OpenArchiPanel → OpenArchiChatVM → chat_oauth →
-    revit_outils → routes418``, donc pendant OnStartup — et créer un
-    ExternalEvent à ce moment-là fait tomber Revit au lancement.
-    """
-    try:
-        from pyrevit.routes.server.server import RoutesServer
-        return RoutesServer
-    except Exception:
-        _log.exception('RoutesServer indisponible')
+def serveur():
+    """L'instance que pyRevit fait tourner, ``None`` s'il n'y en a pas."""
+    if envvars is None:
         return None
-
-# Fixe, et à nous. Hors des plages exclues par Windows (50000-50059,
-# 55000-55001) et loin de celle de pyRevit, qui part de 48884 et monte d'un
-# cran par Revit supplémentaire — ce qui rend 48884 impossible à coder en dur.
-PORT = 41800
-
-# Jamais '' : c'est le défaut de ``routes_host`` chez pyRevit, et '' veut dire
-# 0.0.0.0, donc tout le réseau local. Nos routes ne sortent pas de la machine.
-HOTE = '127.0.0.1'
-
-# Rangé dans l'AppDomain, pas dans un global de module : un « Reload » pyRevit
-# rejoue les scripts dans un moteur neuf — les globals disparaissent, le
-# socket non.
-CLE = 'PYREVIT_418_ROUTESSERVER'
+    try:
+        return envvars.get_pyrevit_env_var(envvars.ROUTES_SERVER)
+    except Exception:
+        _log.exception('lecture de ROUTES_SERVER')
+        return None
 
 
 def base():
-    """Racine des appels HTTP vers la maquette."""
-    return 'http://{0}:{1}'.format(HOTE, PORT)
-
-
-def assurer():
-    """Le serveur, démarré si besoin. C'est la porte d'entrée normale.
-
-    Jamais appelé depuis ``startup.py`` : lier une socket et lancer un fil de
-    service pendant OnStartup fait tomber Revit au lancement. pyRevit ne
-    démarre le sien qu'à la toute fin de sa session, pour la même raison.
-    Ici on va plus loin — rien ne démarre tant que le chat n'a rien demandé.
-    """
-    if envvars is None:
-        return None
-    existant = envvars.get_pyrevit_env_var(CLE)
-    if existant is not None:
-        return existant
-    return demarrer()
-
-
-def demarrer():
-    """(Re)démarre notre serveur. Renvoie l'instance, ``None`` hors Revit."""
-    classe = _classe_serveur()
-    if classe is None or envvars is None:
-        return None
-    # Obligatoire, et pas par politesse : ``ThreadedHttpServer`` pose
-    # ``allow_reuse_address = True``, et sous Windows SO_REUSEADDR laisse un
-    # SECOND socket se lier à un port déjà écouté, sans la moindre erreur.
-    # Sans cet arrêt, chaque Reload empile une instance de plus sur le port et
-    # les requêtes partent au hasard de l'une ou de l'autre.
-    arreter()
-    serveur = classe(host=HOTE, port=PORT)         # démarre son fil tout seul
-    envvars.set_pyrevit_env_var(CLE, serveur)
-    _log.info('serveur 418 à l\'écoute sur %s', base())
-    return serveur
-
-
-def arreter():
-    """Arrête l'instance laissée par le chargement précédent, s'il y en a une."""
-    if envvars is None:
-        return
-    ancien = envvars.get_pyrevit_env_var(CLE)
-    if ancien is None:
-        return
-    try:
-        ancien.stop()
-        _log.debug('serveur 418 précédent arrêté')
-    except Exception:
-        _log.exception('arrêt du serveur 418 précédent')
-    finally:
-        envvars.set_pyrevit_env_var(CLE, None)
+    """Racine des appels HTTP vers la maquette, ``''`` si rien ne tourne."""
+    actif = serveur()
+    if actif is None:
+        return ''
+    # `host` vaut '' quand pyRevit écoute sur toutes les interfaces : on
+    # s'adresse à la boucle locale dans tous les cas, on est dans le process.
+    return 'http://127.0.0.1:{0}'.format(actif.port)
