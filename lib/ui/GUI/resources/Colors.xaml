@@ -6,6 +6,9 @@
     <!-- Backgrounds -->
     <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F3F3F3"/>
     <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF"/>
+    <!-- Bulles de reponse du modele : distinctes de celles de
+         l'utilisateur, qui gardent le fond des cartes. -->
+    <SolidColorBrush x:Key="BulleReponseBrush" Color="#EAF2FC"/>
     <SolidColorBrush x:Key="LayerFillColorDefaultBrush" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="MicaBackgroundBrush" Color="#F3F3F3"/>
     

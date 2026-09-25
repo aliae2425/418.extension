@@ -106,6 +106,66 @@ class TestBlocs(unittest.TestCase):
         self.assertEqual(md.blocs(None), [])
 
 
+class TestSouligne(unittest.TestCase):
+    def test_balise_u(self):
+        self.assertEqual(md.morceaux('un <u>mot</u> ici'),
+                         [(md.BRUT, 'un '), (md.SOULIGNE, 'mot'),
+                          (md.BRUT, ' ici')])
+
+    def test_le_souligne_cohabite_avec_le_gras(self):
+        self.assertEqual(md.morceaux('<u>a</u> **b**'),
+                         [(md.SOULIGNE, 'a'), (md.BRUT, ' '), (md.GRAS, 'b')])
+
+
+class TestTableaux(unittest.TestCase):
+    TABLE = ('| Vue | Type |\n'
+             '|-----|------|\n'
+             '| RDC | Plan |\n'
+             '| R+1 | Plan |')
+
+    def test_un_tableau_fait_un_seul_bloc(self):
+        # Ses lignes n'ont de sens qu'ensemble : c'est ce qui permet
+        # d'aligner les colonnes.
+        blocs = md.blocs(self.TABLE)
+        self.assertEqual(len(blocs), 1)
+        self.assertEqual(blocs[0][0], md.TABLEAU)
+
+    def test_la_ligne_de_separation_ne_s_affiche_pas(self):
+        _genre, _n, rangees = md.blocs(self.TABLE)[0]
+        self.assertEqual(len(rangees), 3)      # en-tête + deux lignes
+        plat = ''.join(c for rangee in rangees for cellule in rangee
+                       for _s, c in cellule)
+        self.assertNotIn('---', plat)
+
+    def test_les_cellules_sont_decoupees(self):
+        _genre, _n, rangees = md.blocs(self.TABLE)[0]
+        self.assertEqual(len(rangees[0]), 2)
+        self.assertEqual(rangees[1][0], [(md.BRUT, 'RDC')])
+
+    def test_le_markdown_des_cellules_est_analyse(self):
+        _g, _n, rangees = md.blocs('| **Vue** | `code` |\n|--|--|')[0]
+        self.assertEqual(rangees[0][0], [(md.GRAS, 'Vue')])
+        self.assertEqual(rangees[0][1], [(md.CODE, 'code')])
+
+    def test_le_texte_autour_reste_separe(self):
+        genres = [g for g, _n, _p in md.blocs(
+            'avant\n\n| a | b |\n|--|--|\n| 1 | 2 |\n\napres')]
+        self.assertEqual(genres, [md.PARAGRAPHE, md.TABLEAU, md.PARAGRAPHE])
+
+    def test_deux_tableaux_separes_restent_deux_blocs(self):
+        genres = [g for g, _n, _p in md.blocs(
+            '| a |\n|--|\ntexte\n| b |\n|--|')]
+        self.assertEqual(genres, [md.TABLEAU, md.PARAGRAPHE, md.TABLEAU])
+
+    def test_une_barre_dans_du_code_ne_fait_pas_un_tableau(self):
+        genres = [g for g, _n, _p in md.blocs('```\n| pas | un tableau |\n```')]
+        self.assertEqual(genres, [md.BLOC_CODE])
+
+    def test_une_cellule_vide_ne_disparait_pas(self):
+        _g, _n, rangees = md.blocs('| a |  | c |\n|--|--|--|')[0]
+        self.assertEqual(len(rangees[0]), 3)
+
+
 class TestTexteNu(unittest.TestCase):
     def test_les_marques_disparaissent(self):
         self.assertEqual(md.texte_nu('**a** et `b`'), 'a et b')

@@ -357,6 +357,14 @@ def executer(nom, arguments=None):
     except Exception as e:
         _log.exception('%s a échoué', nom)
         return _echoue(nom, '{0}'.format(e))
+    # Un 200 peut porter un échec : plusieurs routes vendorisées rendent
+    # `{"status": "error", …}` sans toucher au code HTTP (colors.py:1122,
+    # document.py:109). Sans ce contrôle, ces échecs-là n'atteignaient jamais
+    # le bandeau — d'où « la bulle n'apparaît pas à chaque fois ».
+    souci = _erreur_dans_le_corps(brut)
+    if souci:
+        _log.error('%s : %s', nom, souci)
+        _echec['texte'] = '{0} — {1}'.format(nom, souci)
     if nom in _CHANGENT_DE_DOCUMENT:
         oublier_unites()
     _log.debug('%s -> %s octets', nom, len(brut))
@@ -509,6 +517,26 @@ def _echoue(nom, message):
     _log.error('%s : %s', nom, message)
     _echec['texte'] = '{0} — {1}'.format(nom, message)
     return _erreur(message)
+
+
+def _erreur_dans_le_corps(brut):
+    """Message d'échec caché dans une réponse HTTP 200. '' s'il n'y en a pas.
+
+    On rend quand même le corps au modèle : il porte souvent des indications
+    utiles (« hints »), et c'est à lui d'en tirer la suite. Ici on ne fait
+    que retenir de quoi prévenir l'architecte.
+    """
+    try:
+        charge = json.loads(brut)
+    except ValueError:
+        return ''
+    if not isinstance(charge, dict):
+        return ''
+    if charge.get('status') == 'error' or charge.get('success') is False \
+            or charge.get('error'):
+        return '{0}'.format(charge.get('error') or charge.get('message') or
+                            'échec sans message')
+    return ''
 
 
 def dernier_echec():

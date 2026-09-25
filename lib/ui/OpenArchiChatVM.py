@@ -43,6 +43,14 @@ except Exception:
     except Exception:
         _md_nu = None
 
+try:
+    from ui.helpers import FlowMarkdown as _flow
+except Exception:
+    try:
+        from lib.ui.helpers import FlowMarkdown as _flow
+    except Exception:
+        _flow = None                   # hors WPF : bulles en texte nu
+
 
 def _texte_nu(texte):
     """Texte débarrassé de ses marques Markdown. Ne lève jamais.
@@ -165,11 +173,35 @@ class MessageVM(BaseViewModel):
         # afficher « 0 s » n'apprendrait rien.
         self.Duree = duree or ''
         self.DureeVisible = bool(self.Duree)
-        # Marques Markdown retirées : le modèle répond en « **gras** » et en
-        # listes, et un TextBox les afficherait avec leurs astérisques.
-        # `Texte` reste brut — c'est lui qui repart au fournisseur dans
-        # l'historique, et c'est lui que /journal doit pouvoir montrer.
+        # Repli texte, marques retirées : il sert quand WPF n'est pas là, et
+        # c'est lui qu'affiche le gabarit sans mise en forme. `Texte` reste
+        # brut — c'est lui qui repart au fournisseur dans l'historique, et
+        # c'est lui que /journal doit pouvoir montrer.
         self.TexteAffiche = _texte_nu(texte)
+        self._document = None
+        self._bati = False
+
+    @property
+    def MiseEnForme(self):
+        """Le gabarit riche est-il utilisable ? Le XAML s'y fie.
+
+        Faux = le RichTextBox n'est même pas construit. C'est le verrou : sa
+        propriété Document refuse null, et une liaison vers None a déjà fait
+        tomber Revit.
+        """
+        return self.Document is not None
+
+    @property
+    def Document(self):
+        """Le texte mis en forme. Construit à la lecture, sur le fil d'UI."""
+        if not self._bati:
+            self._bati = True
+            if _flow is not None:
+                try:
+                    self._document = _flow.document(self.Texte)
+                except Exception:
+                    _log.exception('mise en forme de la bulle')
+        return self._document
 
 
 class OpenArchiChatVM(BaseViewModel):

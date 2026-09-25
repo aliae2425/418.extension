@@ -644,6 +644,21 @@ class TestAttente(unittest.TestCase):
         self.assertEqual(self.vm.Messages[-1].Duree, '')
         self.assertFalse(self.vm.Messages[-1].DureeVisible)
 
+    def test_hors_wpf_la_bulle_retombe_sur_le_texte_nu(self):
+        # MiseEnForme faux = le RichTextBox n'est pas construit. C'est le
+        # verrou : sa propriété Document refuse null.
+        from ui.OpenArchiChatVM import MessageVM
+        bulle = MessageVM('OpenArchi', 'un **gras** et `du code`', False)
+        self.assertFalse(bulle.MiseEnForme)
+        self.assertIsNone(bulle.Document)
+        self.assertNotIn('**', bulle.TexteAffiche)
+
+    def test_le_texte_brut_survit_a_la_mise_en_forme(self):
+        # C'est lui qui repart au fournisseur dans l'historique.
+        from ui.OpenArchiChatVM import MessageVM
+        bulle = MessageVM('OpenArchi', 'un **gras**', False)
+        self.assertEqual(bulle.Texte, 'un **gras**')
+
     def test_l_accueil_n_a_pas_de_duree(self):
         self.assertFalse(self.vm.Messages[0].DureeVisible)
 
