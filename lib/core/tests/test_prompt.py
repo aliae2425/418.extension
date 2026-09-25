@@ -42,10 +42,20 @@ class TestAvecOutils(unittest.TestCase):
             self.assertIn(bloc, self.texte)
 
     def test_la_regle_des_unites_est_la(self):
-        # Le modèle répondait en pieds à un architecte qui travaille en
-        # mètres — constaté en recette §5.
-        self.assertIn('PIEDS', self.texte)
-        self.assertIn('0,3048', self.texte)
+        # Le modèle répondait en pieds ; lui demander de convertir n'a rien
+        # donné, deux passes de suite. 418 convertit donc lui-même, et
+        # l'invite doit dire au modèle de NE PAS reconvertir par-dessus.
+        self.assertIn('unite_de_longueur', self.texte)
+        self.assertIn('reconvertis', self.texte)
+
+    def test_on_ne_parle_plus_de_pieds_au_modele(self):
+        # S'il croit recevoir des pieds, il multiplie une valeur déjà
+        # convertie et se trompe d'un facteur 3,28.
+        self.assertNotIn('PIEDS', self.texte)
+
+    def test_la_colorisation_par_filtre_est_preferee(self):
+        self.assertIn('revit_filtre_couleur', self.texte)
+        self.assertIn('revit_color_splash', self.texte)
 
     def test_la_regle_de_troncature_est_la(self):
         # Sans elle, il rappelle le même outil pour le même résultat coupé.
