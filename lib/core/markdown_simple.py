@@ -21,6 +21,7 @@ BRUT = ''
 GRAS = 'gras'
 ITAL = 'ital'
 CODE = 'code'
+SOULIGNE = 'souligne'
 
 # Genres de bloc.
 PARAGRAPHE = 'p'
@@ -28,6 +29,7 @@ PUCE = 'puce'
 NUMERO = 'numero'
 TITRE = 'titre'
 BLOC_CODE = 'bloc_code'
+TABLEAU = 'tableau'
 
 _PUCE = re.compile(r'^\s*[-*+]\s+(.*)$')
 _NUMERO = re.compile(r'^\s*(\d+)[.)]\s+(.*)$')
@@ -42,10 +44,16 @@ _CLOTURE = re.compile(r'^\s*```')
 # noms d'outils à chaque réponse. C'est aussi la règle de CommonMark.
 _MORCEAUX = re.compile(
     r'(`[^`\n]+`'
+    r'|<u>.*?</u>'
     r'|\*\*(?:[^*\n]|\*(?!\*))+\*\*'
     r'|(?<!\w)__(?:[^_\n]|_(?!_))+__(?!\w)'
     r'|\*[^*\n]+\*'
     r'|(?<!\w)_[^_\n]+_(?!\w))')
+
+# Ligne de tableau : au moins une barre verticale encadrée de contenu.
+_TABLEAU = re.compile(r'^\s*\|(.+)\|\s*$')
+# Ligne de séparation « |---|:---:| » : elle ne s'affiche pas, elle annonce.
+_SEPARATEUR = re.compile(r'^\s*\|[\s:|-]+\|\s*$')
 
 
 def morceaux(ligne):
@@ -61,6 +69,8 @@ def morceaux(ligne):
 def _style(part):
     if part.startswith('`') and part.endswith('`'):
         return CODE
+    if part.startswith('<u>') and part.endswith('</u>'):
+        return SOULIGNE
     if ((part.startswith('**') and part.endswith('**')) or
             (part.startswith('__') and part.endswith('__'))):
         return GRAS
@@ -71,11 +81,20 @@ def _style(part):
 
 
 def _nu(part):
+    if part.startswith('<u>') and part.endswith('</u>'):
+        return part[3:-4]
     for marque in ('**', '__', '`', '*', '_'):
         if (part.startswith(marque) and part.endswith(marque) and
                 len(part) > 2 * len(marque)):
             return part[len(marque):-len(marque)]
     return part
+
+
+def cellules(ligne):
+    """Cellules d'une ligne de tableau, marques d'inline analysées."""
+    interieur = _TABLEAU.match(ligne).group(1)
+    return [morceaux(cellule.strip()) or [(BRUT, '')]
+            for cellule in interieur.split('|')]
 
 
 def blocs(texte):
@@ -87,18 +106,35 @@ def blocs(texte):
     """
     sortie = []
     dans_code = False
+    tableau = []                       # lignes de tableau en cours de série
+
+    def _vider_tableau():
+        # Un tableau est un bloc à lui seul : ses lignes n'ont de sens
+        # qu'ensemble, c'est ce qui permet d'aligner les colonnes.
+        if tableau:
+            sortie.append((TABLEAU, 0, list(tableau)))
+            del tableau[:]
+
     for ligne in (texte or '').splitlines():
         if _CLOTURE.match(ligne):
             # La clôture ouvre ou ferme ; dans les deux cas elle ne s'affiche
             # pas. Un bloc laissé ouvert se referme à la fin du texte.
+            _vider_tableau()
             dans_code = not dans_code
             continue
         if dans_code:
             sortie.append((BLOC_CODE, 0, [(CODE, ligne)]))
             continue
+        if _SEPARATEUR.match(ligne):
+            continue                   # « |---|---| » annonce, ne s'affiche pas
+        if _TABLEAU.match(ligne):
+            tableau.append(cellules(ligne))
+            continue
+        _vider_tableau()
         if not ligne.strip():
             continue
         sortie.append(_bloc(ligne))
+    _vider_tableau()
     return sortie
 
 
@@ -120,6 +156,12 @@ def texte_nu(texte):
     """Le même contenu, marques retirées. Utile hors WPF et pour les tests."""
     lignes = []
     for genre, _niveau, parts in blocs(texte):
+        if genre == TABLEAU:
+            for rangee in parts:
+                lignes.append('  '.join(
+                    ''.join(contenu for _s, contenu in cellule)
+                    for cellule in rangee))
+            continue
         plat = ''.join(contenu for _style_, contenu in parts)
         lignes.append('• ' + plat if genre == PUCE else plat)
     return '\n'.join(lignes)

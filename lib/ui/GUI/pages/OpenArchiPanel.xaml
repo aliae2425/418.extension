@@ -38,13 +38,29 @@
       </Style>
 
       <!--
-        Pas de RichTextBox ici, et ce n'est pas un oubli : sa propriété
-        Document REFUSE null (SetValueInvocationException). Une liaison vers
-        une propriété qui peut valoir None fait donc lever pendant l'inflation
-        du DataTemplate, l'exception remonte en XamlParseException et Revit
-        tombe. C'est arrivé. Les bulles affichent TexteAffiche, du texte nu
-        dont les marques Markdown ont été retirées par core.markdown_simple.
+        DEUX gabarits de bulle, et le choix n'est pas cosmétique :
+        RichTextBox.Document REFUSE null. Une liaison vers une propriété qui
+        peut valoir None lève pendant l'inflation du DataTemplate, remonte en
+        XamlParseException et tue Revit — c'est arrivé. Le ContentControl
+        plus bas ne construit le gabarit riche QUE si MiseEnForme est vrai ;
+        sinon le RichTextBox n'existe même pas.
       -->
+      <DataTemplate x:Key="BulleRiche">
+        <RichTextBox Document="{Binding Document, Mode=OneWay}"
+                     IsReadOnly="True" IsDocumentEnabled="False"
+                     Background="Transparent" BorderThickness="0"
+                     Padding="0" FontSize="12" MinWidth="0"
+                     IsTabStop="False"
+                     HorizontalScrollBarVisibility="Disabled"
+                     VerticalScrollBarVisibility="Disabled"
+                     Foreground="{DynamicResource TextPrimaryBrush}"
+                     SelectionBrush="{DynamicResource AccentBrush}"/>
+      </DataTemplate>
+
+      <DataTemplate x:Key="BulleBrute">
+        <TextBox Text="{Binding TexteAffiche, Mode=OneWay}"
+                 Style="{StaticResource BulleTexte}"/>
+      </DataTemplate>
     </Grid.Resources>
 
     <Grid.RowDefinitions>
@@ -106,16 +122,41 @@
         <ItemsControl.ItemTemplate>
           <DataTemplate>
             <StackPanel Margin="0,0,0,10" HorizontalAlignment="{Binding Alignement}">
-              <TextBlock Text="{Binding Auteur}" FontSize="10"
-                         Margin="4,0,4,3"
-                         HorizontalAlignment="{Binding Alignement}"
-                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+              <!-- Plus d'étiquette d'auteur : la couleur et l'alignement
+                   disent déjà qui parle, et « OpenArchi » répété à chaque
+                   bulle n'apprenait rien. -->
               <Border Padding="10,8" CornerRadius="10" MaxWidth="340"
-                      Background="{DynamicResource CardBackgroundBrush}"
                       BorderBrush="{DynamicResource ControlBorderBrush}"
                       BorderThickness="1">
-                <TextBox Text="{Binding TexteAffiche, Mode=OneWay}"
-                         Style="{StaticResource BulleTexte}"/>
+                <Border.Style>
+                  <Style TargetType="Border">
+                    <!-- Réponses du modèle : bleu clair. -->
+                    <Setter Property="Background"
+                            Value="{DynamicResource BulleReponseBrush}"/>
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding DeUtilisateur}" Value="True">
+                        <Setter Property="Background"
+                                Value="{DynamicResource CardBackgroundBrush}"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </Border.Style>
+                <ContentControl Content="{Binding}">
+                  <ContentControl.Style>
+                    <Style TargetType="ContentControl">
+                      <Setter Property="ContentTemplate"
+                              Value="{StaticResource BulleBrute}"/>
+                      <Style.Triggers>
+                        <!-- Le gabarit riche UNIQUEMENT si le document
+                             existe : sinon RichTextBox.Document lèverait. -->
+                        <DataTrigger Binding="{Binding MiseEnForme}" Value="True">
+                          <Setter Property="ContentTemplate"
+                                  Value="{StaticResource BulleRiche}"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </ContentControl.Style>
+                </ContentControl>
               </Border>
               <!-- Temps de réflexion, sous la bulle. Absent des messages qui
                    n'ont rien coûté (commandes locales, message d'accueil). -->
