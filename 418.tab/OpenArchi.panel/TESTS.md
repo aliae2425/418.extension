@@ -21,85 +21,95 @@ Légende : `[ ]` à faire · `[x]` conforme · `[!]` anomalie (à reporter en ba
 
 **Déjà validé, sorti de la liste** — volet et ancrage · saisie et commandes ·
 connexion complète · phrases d'attente et chronomètre · historique de saisie
-(Haut/Bas, brouillon, rejeu de commande) · recherche de familles par
-catégorie · annonce d'une liste tronquée · traces d'outils dans `/journal` ·
-`color_splash` et son annulation au `Ctrl+Z` · `execute_code` sur demande
-explicite. À rejouer seulement après un changement qui les touche.
+et curseur en fin de ligne · temps de réflexion sous la réponse · recherche
+de familles par catégorie · annonce d'une liste tronquée · altitudes et
+paramètres dans l'unité du projet · `color_splash` et son `Ctrl+Z` ·
+`execute_code` sur demande explicite · dix appels d'affilée sans plantage ·
+thème sombre.
 
 ---
 
+## 0 · Confort de lecture — **demandé, à faire**
 
-## 0 section retour et amélioration user : 
+- [ ] Fond des bulles de réponse en **bleu clair**, distinct des bulles
+      utilisateur
+- [ ] L'étiquette « OpenArchi » au-dessus de chaque réponse **disparaît**
+- [ ] Le **gras** s'affiche en gras
+- [ ] L'*italique* s'affiche en italique
+- [ ] Le souligné s'affiche souligné
+- [ ] Un tableau Markdown s'affiche en colonnes alignées
+- [ ] Le texte d'une bulle reste **sélectionnable et copiable**
+- [ ] Aucun astérisque, backtick ni barre verticale résiduel
 
-- change la couleur de fond des bulle réponse pour un bleu un peu plus claire 
-- Enleve openArchi au dessus de chaque bulle réponse. 
-- Modifier la bulle de réponse pour gerer les format tableau, souligné, gras, italique 
-      - gere le markdown de facon plus propre
+> Le `RichTextBox` a fait tomber Revit (sa propriété `Document` refuse
+> `null`). À reprendre sur le banc d'essai XAML hors Revit avant de livrer.
 
+## 1 · Filtres de couleur — **correctif à vérifier**
 
-## 1 · Corrections de la passe précédente
+`generate_distinct_colors` rend des `DB.Color`, pas des tuples : tout appel
+échouait. Corrigé, non rejoué.
 
-- [x] Rappel d'historique : le curseur se place **en fin de ligne**
-      _(il restait au début — la notification partait avant que WPF ait
-      écrit le texte, le déplacement passe maintenant après)_
-- [x] Taper au milieu d'une phrase : le curseur **ne saute pas** à la fin
-- [x] Une petite ligne sous chaque réponse indique le temps de réflexion
-      (`réfléchi 42 s`)
-- [x] Une commande locale (`/aide`) n'affiche **aucune** durée
-- [x] Le message d'accueil n'affiche aucune durée
+- [ ] « colore les portes par leur paramètre Mark » → ça n'échoue plus
+- [ ] Des filtres nommés `418 · Portes · Mark = …` apparaissent dans les
+      propriétés de la vue
+- [ ] Ils se réutilisent sur une autre vue
+- [ ] Relancer le même appel **met à jour** au lieu d'empiler un doublon
+- [ ] Un seul `Ctrl+Z` retire tout
+- [ ] Depuis une **feuille** : erreur propre, pas de plantage
+- [ ] Le modèle demande filtre ou remplacement quand la demande est ambiguë
 
-## 2 · Attente
+## 2 · Unités — reste à faire
 
-- [ ] Au-delà d'une minute : `1 min 05 s` => donne moi un prompt de test. 
-
-
-## 3 · Unités — **non résolu, demande du code**
-
-L'invite système demande la conversion, le modèle ne la fait pas. Ces lignes
-restent rouges tant que 418 ne convertit pas lui-même.
-
-- [x] « combien de niveaux, et à quelles altitudes ? » → altitudes dans
-      **l'unité du projet**, symbole affiché _(répond en pieds, sans unité)_
-- [x] « quels paramètres sur les murs ? » → valeurs dans l'unité du projet
-      _(données en ft)_
 - [!] Placer une famille : les coordonnées données **dans l'unité du projet**
-      arrivent au bon endroit _(interprétées en pieds)_
-- [!] Changer l'unité du projet (m → mm) : les réponses suivent => NOP
+      arrivent au bon endroit
+- [ ] Ouvrir un autre projet en cours de session : les altitudes suivent
+      **sa** unité, pas celle du précédent
 
-## 4 · Outils de lecture
+> **Tranché** : l'unité est fixée à la création du projet, elle est donc lue
+> une seule fois et gardée pour la session. La relire à chaque message
+> coûterait une requête de plus — le genre de requête en trop qui a fini par
+> faire tomber Revit. Seul un changement de document l'invalide
+> (`revit_open_document`, `revit_close_document`).
 
-- [x] Aucun chiffre annoncé qui ne vienne pas d'un appel d'outil
+## 3 · Erreurs visibles
+
+- [!] Une erreur d'outil apparaît **à chaque fois** en bandeau rouge
+      _(elle n'apparaît pas systématiquement)_
+- [ ] Le bandeau porte le message réel, pas seulement « HTTP 500 »
+- [ ] Il disparaît au bout de 15 s
+- [ ] Il disparaît aussi dès le message suivant
+- [ ] Après une erreur, `/journal` porte la trace
+
+## 4 · Attente
+
+- [ ] Au-delà d'une minute : `1 min 05 s`
+
+> Prompt de test : **« liste toutes les vues du projet, puis pour chacune des
+> trois premières donne son type, son échelle et sa discipline, puis résume
+> la maquette et compte les niveaux »** — cinq appels d'outils enchaînés,
+> largement au-delà de la minute.
 
 ## 5 · Écriture annulable
 
-- [x] « enlève les couleurs sur les portes »
-- [ ] `color_splash` depuis une **feuille** : erreur propre, pas de plantage
-- [!] Une erreur d'outil est **expliquée dans la bulle**, pas avalée => la bulle apparait pas a chaque fois 
 - [ ] Placer une famille sur un niveau nommé
-- [x] **Ctrl+Z** retire l'instance placée
 
-## 6 · Colorisation : filtre ou remplacement — **à construire**
-
-Demande : proposer le choix, et **créer un filtre par défaut**. Le serveur
-vendorisé ne sait faire que le remplacement graphique.
-
-- [!] Colorer une catégorie crée un **filtre de vue** nommé => Erreur a chaque fois qu'on mentionne les filtres 
-- [!] Le filtre apparaît dans les propriétés de la vue et se réutilise
-- [x] Demander explicitement un remplacement graphique donne l'ancien
-      comportement
-- [ ] Le modèle demande lequel des deux quand la demande est ambiguë
-
-## 7 · Outils irréversibles — **sur une copie du projet**
+## 6 · Outils irréversibles — **sur une copie du projet**
 
 > Aucun `Ctrl+Z` ne rattrape cette section.
 
-- [x] « vas-y » seul → il n'agit pas
 - [ ] `use_transaction` vaut `true` sur un `execute_code` courant
 - [ ] `/journal` contient `IRRÉVERSIBLE revit_execute_code {…}`
 - [ ] `revit_save_document` — fichier jetable uniquement
 - [ ] `revit_sync_with_central` — fichier jetable uniquement
 - [ ] `revit_open_document` puis les outils ciblent le **nouveau** document
 - [ ] `revit_close_document`
+
+## 7 · Sélection — **nouveau, jamais testé**
+
+- [ ] Sélectionner trois éléments dans Revit, puis « qu'est-ce que j'ai
+      sélectionné ? » → il les liste
+- [ ] « colore ça par leur type » → il part de la sélection
+- [ ] Sans rien de sélectionné, il le dit au lieu d'inventer
 
 ## 8 · Bandeau d'alerte
 
@@ -111,25 +121,16 @@ vendorisé ne sait faire que le remplacement graphique.
 - [ ] …et le chat répond quand même, sans outils
 - [ ] Le texte du bandeau se sélectionne
 
-## 9 · Affichage
+## 9 · Affichage — reste à faire
 
-- [!] Une réponse à listes et `**gras**` s'affiche sans astérisque ni backtick
-- [!] Les puces apparaissent en `•`
 - [ ] Les noms d'outils (`revit_list_views`) s'affichent **entiers**, sans
       italique parasite
 - [ ] Une réponse longue fait défiler automatiquement jusqu'en bas
-- [x] Thème sombre de Revit : le volet suit
 
 ## 10 · Résistance et stabilité
 
-Quatre plantages de Revit sur les passes précédentes. Cette section est celle
-qui compte le plus.
+Quatre plantages de Revit sur les passes précédentes.
 
-- [x] Une dizaine d'appels d'outils d'affilée : **Revit tient**
-- [x] Une erreur d'outil (document fermé en cours de route) donne une bulle,
-      pas un plantage
-- [ ] Après une erreur, `/journal` porte bien la trace — rien ne disparaît en
-      silence avec le process
 - [ ] Wi-Fi coupé → message réseau lisible, pas de gel
 - [ ] 5 messages enchaînés rapidement
 - [ ] Question longue en cours : Revit reste **rendu à la main**
@@ -140,12 +141,14 @@ qui compte le plus.
 
 ## Anomalies constatées
 
-| # | § | Ce qui s'est passé | Attendu | Journal | État |
-|---|---|---|---|---|---|
-| 1 | 3 | Altitudes et paramètres annoncés en pieds, sans unité | Unité du projet, symbole affiché | | **ouvert — code à écrire** |
-| 2 | 3 | `place_family` interprète les coordonnées en pieds | Unité du projet | | **ouvert — code à écrire** |
-| 3 | 6 | `color_splash` ne fait qu'un remplacement graphique | Filtre de vue par défaut | | **ouvert — à construire** |
-| 4 | | | | | |
+| # | § | Ce qui s'est passé | Attendu | État |
+|---|---|---|---|---|
+| 1 | 1 | `revit_filtre_couleur` échoue à chaque appel — `couleurs()` supposait des tuples, le vendor rend des `DB.Color` | Filtres posés | **corrigé, à rejouer** |
+| 2 | 2 | `place_family` : coordonnées au mauvais endroit | Unité du projet | ouvert |
+| 3 | 2 | Changer l'unité du projet ne change rien | — | **fermé — comportement voulu**, l'unité appartient au projet |
+| 4 | 3 | Le bandeau d'erreur n'apparaît pas à chaque échec | Systématique | ouvert |
+| 5 | 0 | Markdown non rendu, étiquette « OpenArchi » de trop | Bulles lisibles | ouvert |
+| 6 | | | | |
 
 > Coller l'extrait de `/journal` fait gagner le plus de temps : il porte le
 > nom de l'outil, ses arguments et la taille de la réponse.
@@ -154,20 +157,18 @@ qui compte le plus.
 
 ## Points de fragilité connus
 
+- **§0** le rendu Markdown — le `RichTextBox` a déjà fait tomber Revit
 - **§10** la stabilité — c'est là que ça a cassé quatre fois
-- **§3** les unités : l'invite seule ne suffit pas, le modèle ne convertit pas
-- **§5** `color_splash` depuis une feuille (vue sans remplacements possibles)
-- **§7** le modèle qui agit sans attendre la confirmation
+- **§1** `filtre_couleur` depuis une feuille (vue sans remplacements)
+- **§6** le modèle qui agit sans attendre la confirmation
 - **§10** deux instances de Revit — le port monte de 48884 à 48885
 
 ## Non couvert, et c'est normal
 
-Ces points n'existent pas encore, inutile de les tester :
-
 - les `#références` ne résolvent aucun élément Revit
 - les outils de `418.tab` (export, audit, duplication, renommage) ne sont pas
   appelables par le modèle
-- gras et italique sont **nettoyés, pas rendus** (le `RichTextBox` faisait
-  tomber Revit)
 - les connexions *codex* et *clé API* n'ont pas d'outils
 - l'historique de saisie ne survit pas à la fermeture du volet
+- les **valeurs de paramètres** restent en pieds : il faudrait le type
+  d'unité de chaque paramètre, qu'aucune route n'expose

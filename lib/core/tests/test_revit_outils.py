@@ -203,6 +203,44 @@ class TestUnites(unittest.TestCase):
         self.assertAlmostEqual(corps['location']['x'], 3.28084, 4)
         self.assertEqual(corps['family_name'], 'X')
 
+    def test_l_unite_est_gardee_pour_la_session(self):
+        # Elle est fixée à la création du projet : la relire à chaque
+        # message serait une requête de plus, et c'est ce genre de requête
+        # en trop qui a fini par faire tomber Revit.
+        appels = []
+        vrai = revit_outils._appeler
+        revit_outils._appeler = lambda *a, **k: (
+            appels.append(a) or json.dumps({'par_pied': 0.3048}))
+        try:
+            revit_outils.oublier_unites()
+            revit_outils.unites()
+            revit_outils.unites()
+            revit_outils.unites()
+        finally:
+            revit_outils._appeler = vrai
+        self.assertEqual(len(appels), 1)
+
+    def test_changer_de_document_oublie_l_unite(self):
+        # L'autre projet a son unité : convertir avec l'ancienne donnerait
+        # des valeurs fausses, pire que pas de conversion.
+        vrai = revit_outils._appeler
+        revit_outils._appeler = lambda *a, **k: json.dumps({'ok': True})
+        try:
+            revit_outils.executer('revit_open_document',
+                                  {'file_path': 'C:/autre.rvt'})
+        finally:
+            revit_outils._appeler = vrai
+        self.assertEqual(revit_outils._unites, {})
+
+    def test_un_outil_ordinaire_garde_l_unite(self):
+        vrai = revit_outils._appeler
+        revit_outils._appeler = lambda *a, **k: json.dumps({'ok': True})
+        try:
+            revit_outils.executer('revit_status')
+        finally:
+            revit_outils._appeler = vrai
+        self.assertTrue(revit_outils._unites)
+
     def test_un_outil_sans_longueur_en_entree_n_est_pas_touche(self):
         corps = {'contains': 'porte', 'limit': 5}
         self.assertEqual(revit_outils._vers_revit('revit_list_families',

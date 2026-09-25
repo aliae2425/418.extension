@@ -64,19 +64,29 @@ def couleurs(nombre):
     remplacement au filtre changerait toutes les couleurs du projet.
     """
     try:
-        from revit_mcp.colors import generate_distinct_colors, hex_to_rgb
+        from revit_mcp.colors import generate_distinct_colors
     except Exception:
         # Repli : teintes réparties sur le cercle, sans dépendre du vendor.
         return [_tsv_vers_rvb(360.0 * i / max(nombre, 1), 0.65, 0.95)
                 for i in range(nombre)]
-    brutes = generate_distinct_colors(nombre)
-    sortie = []
-    for couleur in brutes:
-        if isinstance(couleur, tuple) and len(couleur) == 3:
-            sortie.append(tuple(int(c) for c in couleur))
-        else:
-            sortie.append(tuple(hex_to_rgb(couleur)))
-    return sortie
+    return [_rvb(couleur) for couleur in generate_distinct_colors(nombre)]
+
+
+def _rvb(couleur):
+    """Une couleur, quelle que soit sa forme, en ``(r, v, b)``.
+
+    ``generate_distinct_colors`` rend des ``DB.Color`` — pas des tuples, pas
+    des chaînes hexa. Le supposer a fait échouer tout appel au filtre de
+    couleur, et le repli testé hors Revit ne passait jamais par là.
+    """
+    for attributs in (('Red', 'Green', 'Blue'), ('R', 'G', 'B')):
+        if all(hasattr(couleur, a) for a in attributs):
+            return tuple(int(getattr(couleur, a)) for a in attributs)
+    if isinstance(couleur, (tuple, list)) and len(couleur) == 3:
+        return tuple(int(composante) for composante in couleur)
+    # Dernier cas : une chaîne hexa, « #RRGGBB ».
+    texte = '{0}'.format(couleur).lstrip('#')
+    return tuple(int(texte[i:i + 2], 16) for i in (0, 2, 4))
 
 
 def _tsv_vers_rvb(teinte, saturation, valeur):

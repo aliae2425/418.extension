@@ -74,6 +74,41 @@ class TestCouleurs(unittest.TestCase):
         self.assertEqual(api418.couleurs(0), [])
 
 
+class TestFormesDeCouleur(unittest.TestCase):
+    """La forme que rend le vendor, et celles qu'on pourrait recevoir.
+
+    Hors Revit, ``couleurs()`` prend toujours le repli : la branche qui
+    appelle le vendor n'était donc JAMAIS testée, et elle supposait des
+    tuples ou des chaînes hexa. Le vendor rend des ``DB.Color``. Tout appel
+    au filtre de couleur échouait, et la suite restait verte.
+    """
+
+    class _CouleurRevit(object):
+        """Sosie d'un DB.Color : ce que rend generate_distinct_colors."""
+        def __init__(self, r, v, b):
+            self.Red, self.Green, self.Blue = r, v, b
+
+    def test_un_db_color_est_lu(self):
+        self.assertEqual(api418._rvb(self._CouleurRevit(255, 128, 0)),
+                         (255, 128, 0))
+
+    def test_un_tuple_passe(self):
+        self.assertEqual(api418._rvb((1, 2, 3)), (1, 2, 3))
+
+    def test_une_liste_passe(self):
+        self.assertEqual(api418._rvb([1, 2, 3]), (1, 2, 3))
+
+    def test_une_chaine_hexa_passe(self):
+        self.assertEqual(api418._rvb('#FF8000'), (255, 128, 0))
+        self.assertEqual(api418._rvb('00FF00'), (0, 255, 0))
+
+    def test_toutes_les_formes_donnent_des_entiers(self):
+        for couleur in (self._CouleurRevit(10, 20, 30), (10, 20, 30),
+                        [10, 20, 30], '#0A141E'):
+            for composante in api418._rvb(couleur):
+                self.assertIsInstance(composante, int)
+
+
 class TestCharge(unittest.TestCase):
     class _Requete(object):
         def __init__(self, data):
