@@ -29,20 +29,20 @@ thème sombre.
 
 ---
 
-## 0 · Confort de lecture — **demandé, à faire**
+## 0 · Confort de lecture
 
-- [ ] Fond des bulles de réponse en **bleu clair**, distinct des bulles
+Le rendu Markdown est **abandonné** : trois tentatives, trois plantages de
+Revit. À la place, le modèle a consigne de n'en pas produire.
+
+- [ ] Fond des bulles de réponse en bleu clair, distinct des bulles
       utilisateur
-- [ ] L'étiquette « OpenArchi » au-dessus de chaque réponse **disparaît**
-- [ ] Le **gras** s'affiche en gras
-- [ ] L'*italique* s'affiche en italique
-- [ ] Le souligné s'affiche souligné
-- [ ] Un tableau Markdown s'affiche en colonnes alignées
+- [ ] L'étiquette « OpenArchi » au-dessus de chaque réponse a disparu
 - [ ] Le texte d'une bulle reste **sélectionnable et copiable**
-- [ ] Aucun astérisque, backtick ni barre verticale résiduel
-
-> Le `RichTextBox` a fait tomber Revit (sa propriété `Document` refuse
-> `null`). À reprendre sur le banc d'essai XAML hors Revit avant de livrer.
+- [ ] Demander « fais-moi un tableau des trois premières vues » → il répond
+      en lignes « nom : valeur », **pas** en barres verticales
+- [ ] Demander « mets les noms en gras » → il n'écrit aucun astérisque
+- [ ] Une liste sort en tirets simples
+- [ ] Aucun backtick autour des noms d'outils
 
 ## 1 · Filtres de couleur — **correctif à vérifier**
 
@@ -129,7 +129,7 @@ thème sombre.
 
 ## 10 · Résistance et stabilité
 
-Quatre plantages de Revit sur les passes précédentes.
+Cinq plantages de Revit sur les passes précédentes.
 
 - [ ] Wi-Fi coupé → message réseau lisible, pas de gel
 - [ ] 5 messages enchaînés rapidement
@@ -147,7 +147,7 @@ Quatre plantages de Revit sur les passes précédentes.
 | 2 | 2 | `place_family` : coordonnées au mauvais endroit | Unité du projet | ouvert |
 | 3 | 2 | Changer l'unité du projet ne change rien | — | **fermé — comportement voulu**, l'unité appartient au projet |
 | 4 | 3 | Le bandeau d'erreur n'apparaît pas à chaque échec | Systématique | ouvert |
-| 5 | 0 | Markdown non rendu, étiquette « OpenArchi » de trop | Bulles lisibles | ouvert |
+| 5 | 0 | Rendu Markdown : trois plantages de Revit | — | **fermé — abandonné**, le modèle n'en produit plus |
 | 6 | | | | |
 
 > Coller l'extrait de `/journal` fait gagner le plus de temps : il porte le
@@ -157,7 +157,6 @@ Quatre plantages de Revit sur les passes précédentes.
 
 ## Points de fragilité connus
 
-- **§0** le rendu Markdown — le `RichTextBox` a déjà fait tomber Revit
 - **§10** la stabilité — c'est là que ça a cassé quatre fois
 - **§1** `filtre_couleur` depuis une feuille (vue sans remplacements)
 - **§6** le modèle qui agit sans attendre la confirmation
@@ -170,5 +169,7 @@ Quatre plantages de Revit sur les passes précédentes.
   appelables par le modèle
 - les connexions *codex* et *clé API* n'ont pas d'outils
 - l'historique de saisie ne survit pas à la fermeture du volet
+- **gras, italique et tableaux ne sont pas rendus** : le modèle a
+  consigne de n'en pas produire, c'est la seule parade qui tienne
 - les **valeurs de paramètres** restent en pieds : il faudrait le type
   d'unité de chaque paramètre, qu'aucune route n'expose

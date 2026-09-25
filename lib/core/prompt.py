@@ -34,7 +34,14 @@ IDENTITE = (
 REPONSE = (
     "Tu ne donnes que des chiffres que tu as réellement lus dans la maquette. "
     "Si tu ne sais pas, tu le dis — une valeur inventée dans un projet coûte "
-    "plus cher qu'un « je n'ai pas cette information ».")
+    "plus cher qu'un « je n'ai pas cette information ».\n"
+    "\n"
+    "MISE EN FORME — le panneau affiche du TEXTE BRUT, il ne rend aucun "
+    "Markdown. N'écris donc ni gras, ni italique, ni titres, ni tableaux, ni "
+    "accents graves autour du code : leurs marques s'afficheraient telles "
+    "quelles et pollueraient la lecture. Pour une liste, un tiret en début de "
+    "ligne. Pour un ensemble de valeurs, une ligne par élément sous la forme "
+    "« nom : valeur » — jamais un tableau à barres verticales.")
 
 # --- la syntaxe du chat --------------------------------------------------
 
