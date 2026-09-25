@@ -95,6 +95,14 @@
                 <TextBox Text="{Binding TexteAffiche, Mode=OneWay}"
                          Style="{StaticResource BulleTexte}"/>
               </Border>
+              <!-- Temps de réflexion, sous la bulle. Absent des messages qui
+                   n'ont rien coûté (commandes locales, message d'accueil). -->
+              <TextBlock Text="{Binding Duree}" FontSize="9"
+                         Margin="4,3,4,0"
+                         HorizontalAlignment="{Binding Alignement}"
+                         Visibility="{Binding DureeVisible,
+                                      Converter={StaticResource BoolVersVisibilite}}"
+                         Foreground="{DynamicResource TextSecondaryBrush}"/>
             </StackPanel>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
@@ -204,8 +212,10 @@
         <ColumnDefinition Width="Auto"/>
       </Grid.ColumnDefinitions>
 
-      <TextBox Grid.Column="0" Padding="10,0"
-               ToolTip="/commande pour une commande, #{Élément} pour citer la maquette"
+      <!-- x:Name : le panneau y remet le curseur en fin de ligne après un
+           rappel d'historique, sinon WPF le repose au début. -->
+      <TextBox x:Name="Saisie" Grid.Column="0" Padding="10,0"
+               ToolTip="/commande pour une commande, #{Élément} pour citer la maquette&#10;Haut / Bas : rappeler un message envoyé"
                Text="{Binding Saisie, UpdateSourceTrigger=PropertyChanged}">
         <TextBox.InputBindings>
           <KeyBinding Key="Return" Command="{Binding EnvoyerCommand}"/>
@@ -213,6 +223,11 @@
           <KeyBinding Key="Tab" Command="{Binding CompleterCommand}"/>
           <!-- Échap remonte d'une étape de /connect, sinon ferme la liste. -->
           <KeyBinding Key="Escape" Command="{Binding RetourCommand}"/>
+          <!-- Haut / Bas : historique des messages envoyés, comme un
+               terminal. Le champ tient sur une ligne, les flèches n'ont
+               donc rien d'autre à y faire. -->
+          <KeyBinding Key="Up" Command="{Binding PrecedentCommand}"/>
+          <KeyBinding Key="Down" Command="{Binding SuivantCommand}"/>
         </TextBox.InputBindings>
       </TextBox>
 

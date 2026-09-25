@@ -9,7 +9,8 @@ _SHARED_LIB = os.path.abspath(os.path.join(_HERE, '..', '..'))  # -> 418.extensi
 if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
 
-from core.chat_syntaxe import analyser, detail_http, SYSTEME
+from core.chat_syntaxe import analyser, detail_http
+from core.prompt import systeme
 
 
 class _FausseErreur(object):
@@ -30,7 +31,7 @@ class TestInviteUnique(unittest.TestCase):
         # ajustement, sans que rien ne le signale.
         from core import chat_cli, chat_oauth, chat_openai
         for client in (chat_cli, chat_oauth, chat_openai):
-            self.assertIs(client.SYSTEME, SYSTEME)
+            self.assertIs(client.systeme, systeme)
 
 
 class TestDetailHttp(unittest.TestCase):

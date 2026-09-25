@@ -18,10 +18,12 @@ except ImportError:                    # IronPython 2.7
 
 try:
     from core.journal import journal
-    from core.chat_syntaxe import SYSTEME, detail_http
+    from core.chat_syntaxe import detail_http
+    from core.prompt import systeme
 except Exception:
     from lib.core.journal import journal
-    from lib.core.chat_syntaxe import SYSTEME, detail_http
+    from lib.core.chat_syntaxe import detail_http
+    from lib.core.prompt import systeme
 
 _log = journal('openai')
 
@@ -91,7 +93,7 @@ def charge(messages, modele=None):
     """Corps de la requête. ``messages`` : liste de couples (role, texte)."""
     return {
         'model': modele or MODELE_DEFAUT,
-        'messages': ([{'role': 'system', 'content': SYSTEME}] +
+        'messages': ([{'role': 'system', 'content': systeme(False)}] +
                      [{'role': role, 'content': texte}
                       for role, texte in messages]),
     }

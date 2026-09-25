@@ -48,6 +48,44 @@ class OpenArchiPanel(forms.WPFPanel):
             raise
         self.DataContext = vm
         self._suivre_dernier_message(vm)
+        self._curseur_en_fin(vm)
+
+    def _curseur_en_fin(self, _vm):
+        """Après un rappel d'historique, remet le curseur en fin de ligne.
+
+        Deux pièges, tous deux payés :
+
+        - suivre ``PropertyChanged`` du VM ne marche pas : la notification
+          part AVANT que la liaison ait écrit le texte dans le champ, donc
+          WPF repose le curseur au début juste après nous. D'où le
+          ``BeginInvoke`` en priorité Background, qui passe après elle.
+        - ne réagir qu'aux flèches Haut et Bas, jamais à ``TextChanged`` :
+          sinon chaque frappe renverrait le curseur au bout, et il
+          deviendrait impossible de corriger le milieu d'une phrase.
+        """
+        try:
+            from System import Action
+            from System.Windows.Input import Key
+            from System.Windows.Threading import DispatcherPriority
+
+            def _au_bout():
+                try:
+                    self.Saisie.CaretIndex = len(self.Saisie.Text or '')
+                except Exception:
+                    pass               # jamais laisser lever sur le fil d'UI
+
+            def _touche(sender, args):
+                if args.Key not in (Key.Up, Key.Down):
+                    return
+                try:
+                    self.Saisie.Dispatcher.BeginInvoke(
+                        DispatcherPriority.Background, Action(_au_bout))
+                except Exception:
+                    pass
+
+            self.Saisie.PreviewKeyDown += _touche
+        except Exception:
+            _log.exception('suivi du curseur impossible')
 
     def _suivre_dernier_message(self, vm):
         # Défilement automatique : sans cela le dernier message reste sous la

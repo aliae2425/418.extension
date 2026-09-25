@@ -15,10 +15,10 @@ import time
 
 try:
     from core.journal import journal, flux
-    from core.chat_syntaxe import SYSTEME
+    from core.prompt import systeme
 except Exception:
     from lib.core.journal import journal, flux
-    from lib.core.chat_syntaxe import SYSTEME
+    from lib.core.prompt import systeme
 
 _log = journal('cli')
 
@@ -232,7 +232,8 @@ def modeles():
 
 def invite(messages):
     """Aplatit l'échange : ``codex exec`` ne garde rien d'un appel à l'autre."""
-    lignes = [SYSTEME, '']
+    # Pas d'outils par ici : le CLI n'a pas de boucle d'outils.
+    lignes = [systeme(False), '']
     for role, texte in messages:
         lignes.append('{0} : {1}'.format(
             'Utilisateur' if role == 'user' else 'Toi', texte))

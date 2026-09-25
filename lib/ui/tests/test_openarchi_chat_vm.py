@@ -493,6 +493,95 @@ class TestCatalogue(unittest.TestCase):
         self.assertIsNone(client_de('Fournisseur Fantome', CLE_API))
 
 
+class TestHistoriqueSaisie(unittest.TestCase):
+    """Flèches Haut / Bas : rappeler un message envoyé, comme un terminal."""
+
+    def setUp(self):
+        self.vm = OpenArchiChatVM(OpenArchiConfig(_StoreMemoire()),
+                                  client=_ClientFactice())
+
+    def _envoyer(self, texte):
+        self.vm.Saisie = texte
+        self.vm._envoyer()
+
+    def test_rien_a_rappeler_au_depart(self):
+        self.vm._precedent()
+        self.assertEqual(self.vm.Saisie, '')
+
+    def test_haut_rappelle_le_dernier_envoi(self):
+        self._envoyer('bonjour')
+        self.vm._precedent()
+        self.assertEqual(self.vm.Saisie, 'bonjour')
+
+    def test_haut_remonte_du_plus_recent_au_plus_ancien(self):
+        self._envoyer('un')
+        self._envoyer('deux')
+        self.vm._precedent()
+        self.assertEqual(self.vm.Saisie, 'deux')
+        self.vm._precedent()
+        self.assertEqual(self.vm.Saisie, 'un')
+
+    def test_on_bute_sur_le_plus_ancien_sans_se_vider(self):
+        self._envoyer('un')
+        for _ in range(5):
+            self.vm._precedent()
+        self.assertEqual(self.vm.Saisie, 'un')
+
+    def test_bas_redescend(self):
+        self._envoyer('un')
+        self._envoyer('deux')
+        self.vm._precedent()
+        self.vm._precedent()
+        self.vm._suivant()
+        self.assertEqual(self.vm.Saisie, 'deux')
+
+    def test_le_brouillon_est_rendu_en_redescendant(self):
+        # Ce qu'on était en train de taper ne doit pas être perdu parce
+        # qu'on a jeté un œil à l'historique.
+        self._envoyer('un')
+        self.vm.Saisie = 'moitié de phra'
+        self.vm._precedent()
+        self.assertEqual(self.vm.Saisie, 'un')
+        self.vm._suivant()
+        self.assertEqual(self.vm.Saisie, 'moitié de phra')
+
+    def test_bas_sans_navigation_en_cours_ne_fait_rien(self):
+        self._envoyer('un')
+        self.vm.Saisie = 'en cours'
+        self.vm._suivant()
+        self.assertEqual(self.vm.Saisie, 'en cours')
+
+    def test_taper_quitte_l_historique(self):
+        self._envoyer('un')
+        self._envoyer('deux')
+        self.vm._precedent()          # « deux »
+        self.vm.Saisie = 'autre chose'
+        self.vm._precedent()          # repart du plus récent
+        self.assertEqual(self.vm.Saisie, 'deux')
+
+    def test_une_commande_se_rejoue(self):
+        # C'est l'usage visé : relancer /journal sans le retaper.
+        self._envoyer('/aide')
+        self.vm._precedent()
+        self.assertEqual(self.vm.Saisie, '/aide')
+
+    def test_pas_de_doublon_immediat(self):
+        self._envoyer('/aide')
+        self._envoyer('/aide')
+        self.vm._precedent()
+        self.vm._precedent()
+        self.assertEqual(self.vm.Saisie, '/aide')
+        self.assertEqual(len(self.vm._saisies), 1)
+
+    def test_un_envoi_reinitialise_la_navigation(self):
+        self._envoyer('un')
+        self.vm._precedent()
+        self._envoyer('deux')
+        self.assertEqual(self.vm.Saisie, '')
+        self.vm._precedent()
+        self.assertEqual(self.vm.Saisie, 'deux')
+
+
 class TestAttente(unittest.TestCase):
     """Phrases qui tournent et chronomètre. Le DispatcherTimer est absent
     hors .NET : on appelle ``_tic()`` à sa place, une seconde par appel."""
@@ -539,6 +628,25 @@ class TestAttente(unittest.TestCase):
         self.vm.EnAttente = True
         self.assertNotIn('·', self.vm.TexteAttente)
 
+    def test_la_duree_est_posee_sous_la_reponse(self):
+        self.vm.Saisie = 'bonjour'
+        self.vm.EnAttente = True
+        for _ in range(3):
+            self.vm._tic()
+        self.vm._sur_reponse('voilà')
+        bulle = self.vm.Messages[-1]
+        self.assertIn('3 s', bulle.Duree)
+        self.assertTrue(bulle.DureeVisible)
+
+    def test_une_reponse_instantanee_n_affiche_pas_de_duree(self):
+        # « 0 s » sous une commande locale n'apprend rien.
+        self.vm._sur_reponse('voilà')
+        self.assertEqual(self.vm.Messages[-1].Duree, '')
+        self.assertFalse(self.vm.Messages[-1].DureeVisible)
+
+    def test_l_accueil_n_a_pas_de_duree(self):
+        self.assertFalse(self.vm.Messages[0].DureeVisible)
+
     def test_une_reponse_arrete_le_chrono(self):
         self.vm.Saisie = 'bonjour'
         self.vm._envoyer()
@@ -558,21 +666,44 @@ class TestAlerteMaquette(unittest.TestCase):
         self.assertFalse(self.vm.AlerteVisible)
 
     def test_une_raison_affiche_le_bandeau(self):
-        self.vm._sur_maquette('Maquette injoignable : rechargez pyRevit.')
+        self.vm.Alerte = 'Maquette injoignable : rechargez pyRevit.'
         self.assertTrue(self.vm.AlerteVisible)
         self.assertIn('injoignable', self.vm.Alerte)
 
     def test_le_bandeau_se_referme_quand_ca_remarche(self):
-        self.vm._sur_maquette('cassé')
-        self.vm._sur_maquette('')
+        self.vm.Alerte = 'cassé'
+        self.vm.Alerte = ''
         self.assertFalse(self.vm.AlerteVisible)
 
-    def test_hors_revit_aucune_socket_n_est_ouverte(self):
-        # Sans dispatcher, `_en_arriere_plan` exécute sur place : la
-        # vérification doit s'abstenir, sinon chaque test du VM tape le réseau.
-        self.assertIsNone(self.vm._dispatcher)
-        self.vm._verifier_maquette()
-        self.assertEqual(self.vm.Alerte, '')
+    def test_rafraichir_l_alerte_ne_touche_pas_au_reseau(self):
+        # Le bandeau relit le dernier verdict connu. Relancer une requête
+        # juste pour l'afficher, c'était une collision de plus sur le serveur
+        # de routes — et un crash de Revit.
+        from core import revit_outils
+        appels = []
+        vrai = revit_outils._appeler
+        revit_outils._appeler = lambda *a, **k: appels.append(a)
+        try:
+            self.vm._rafraichir_alerte()
+        finally:
+            revit_outils._appeler = vrai
+        self.assertEqual(appels, [])
+
+    def test_le_bandeau_suit_le_dernier_verdict(self):
+        from core import revit_outils
+        revit_outils._dernier['raison'] = 'Aucun document Revit ouvert'
+        try:
+            self.vm._rafraichir_alerte()
+            self.assertTrue(self.vm.AlerteVisible)
+        finally:
+            revit_outils._dernier['raison'] = ''
+
+    def test_une_suite_qui_leve_ne_tue_pas_le_fil_d_interface(self):
+        # Sans l'enveloppe de `_en_arriere_plan`, l'exception part non
+        # rattrapée sur le fil d'interface de Revit et le process meurt.
+        def casse(_resultat):
+            raise RuntimeError('boum dans la suite')
+        self.vm._en_arriere_plan(lambda: 'ok', casse)   # ne doit pas lever
 
 
 if __name__ == '__main__':

@@ -46,7 +46,18 @@ try:
 except Exception as e:
     print('418: serveur MCP non démarré: {}'.format(e))
 
-# --- Rien de plus ici ------------------------------------------------------
-# Le chat se branche sur le serveur de routes de pyRevit (port découvert, cf.
-# lib/core/routes418.py). 418 n'en démarre aucun : l'essai a coûté deux
-# plantages de Revit. Ne rien relancer ici sans relire ce module.
+# --- Routes propres à 418 --------------------------------------------------
+# Ce qui manque au serveur vendorisé s'ajoute sous notre propre API, jamais
+# dans vendor/ (miroir git subtree : toute édition part en conflit au prochain
+# pull). Enregistrer une route ne fait qu'inscrire une fonction dans le
+# routeur global — aucune socket, aucun fil, aucun WPF.
+try:
+    from core.api418 import enregistrer as _enregistrer_418
+    if _enregistrer_418() is not None:
+        print('418: routes /418/ enregistrées')
+except Exception as e:
+    print('418: routes propres non enregistrées: {}'.format(e))
+
+# 418 ne DÉMARRE aucun serveur : le chat se branche sur celui de pyRevit
+# (port découvert, cf. lib/core/routes418.py). L'essai d'en lancer un a coûté
+# deux plantages de Revit. Ne rien relancer ici sans relire ce module.

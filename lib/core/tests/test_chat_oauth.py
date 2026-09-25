@@ -193,7 +193,7 @@ class TestCharge(unittest.TestCase):
     def test_store_faux_et_types_de_contenu_par_role(self):
         corps = chat_oauth.charge([('user', 'salut'), ('assistant', 'ok')])
         self.assertFalse(corps['store'])
-        self.assertEqual(corps['instructions'], chat_oauth.SYSTEME)
+        self.assertEqual(corps['instructions'], chat_oauth.systeme(False))
         self.assertEqual(corps['input'][0]['content'][0]['type'], 'input_text')
         # L'assistant en input_text fait répondre un 400 au corps entier.
         self.assertEqual(corps['input'][1]['content'][0]['type'], 'output_text')
@@ -488,9 +488,9 @@ class TestCorpsAvecOutils(unittest.TestCase):
     def test_la_consigne_outils_suit_les_outils(self):
         avec = chat_oauth.corps([], None, [self.OUTIL])
         sans = chat_oauth.corps([], None, None)
-        self.assertIn(chat_oauth.OUTILLE, avec['instructions'])
+        self.assertIn('IRRÉVERSIBLES', avec['instructions'])
         # Sans outils, ne rien promettre : il n'y a pas de boucle derrière.
-        self.assertEqual(sans['instructions'], chat_oauth.SYSTEME)
+        self.assertEqual(sans['instructions'], chat_oauth.systeme(False))
         self.assertNotIn('tools', sans)
 
 

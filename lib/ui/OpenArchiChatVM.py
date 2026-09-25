@@ -98,6 +98,29 @@ except Exception:
     CommandManager = None
 
 
+def _dispatcher_interface():
+    """Le dispatcher du fil d'interface, ``None`` hors .NET.
+
+    ``Dispatcher.CurrentDispatcher`` en CRÉE un pour le fil appelant s'il n'y
+    en a pas — on récupère alors un dispatcher sans boucle de messages, et
+    tout ce qu'on lui confie s'exécute sur le mauvais fil. Celui de
+    l'Application, quand elle existe, est celui qui possède réellement les
+    liaisons.
+    """
+    if Dispatcher is None:
+        return None
+    try:
+        from System.Windows import Application
+        if Application.Current is not None:
+            return Application.Current.Dispatcher
+    except Exception:
+        pass
+    try:
+        return Dispatcher.CurrentDispatcher
+    except Exception:
+        return None
+
+
 class _ListeSimple(list):
     """Liste Python exposant l'API d'ObservableCollection (tests hors .NET)."""
     Add = list.append
@@ -128,7 +151,7 @@ class SuggestionVM(BaseViewModel):
 class MessageVM(BaseViewModel):
     """Une bulle de la conversation. Immuable : aucune notification requise."""
 
-    def __init__(self, auteur, texte, de_utilisateur):
+    def __init__(self, auteur, texte, de_utilisateur, duree=''):
         try:
             BaseViewModel.__init__(self)
         except Exception:
@@ -137,6 +160,11 @@ class MessageVM(BaseViewModel):
         self.Texte = texte
         self.DeUtilisateur = bool(de_utilisateur)
         self.Alignement = 'Right' if de_utilisateur else 'Left'
+        # Temps de réflexion, sous la bulle. '' sur tout ce qui n'a pas
+        # demandé de réflexion : une commande locale répond instantanément,
+        # afficher « 0 s » n'apprendrait rien.
+        self.Duree = duree or ''
+        self.DureeVisible = bool(self.Duree)
         # Marques Markdown retirées : le modèle répond en « **gras** » et en
         # listes, et un TextBox les afficherait avec leurs astérisques.
         # `Texte` reste brut — c'est lui qui repart au fournisseur dans
@@ -160,6 +188,15 @@ class OpenArchiChatVM(BaseViewModel):
         self._client_injecte = client
         self._saisie = ''
         self._en_attente = False
+        # Historique de saisie, façon terminal : Haut remonte, Bas redescend.
+        # `_rang` à None = on n'y navigue pas ; `_brouillon` garde ce qui était
+        # tapé quand on a commencé à remonter, pour le rendre en redescendant.
+        self._saisies = []
+        self._rang = None
+        self._brouillon = ''
+        # Vrai pendant qu'on pose une entrée d'historique : le setter de
+        # Saisie doit alors savoir que ce n'est PAS une frappe de l'utilisateur.
+        self._navigue = False
         self._phrase = self.ATTENTE_DEFAUT
         # Un libellé imposé (« connexion… ») ne tourne pas : il dit ce qui se
         # passe, une blague le remplacerait par du bruit.
@@ -167,10 +204,7 @@ class OpenArchiChatVM(BaseViewModel):
         self._secondes = 0
         self._horloge = None
         self._alerte = ''
-        # Capturé ici : le VM est construit sur le fil d'interface, et c'est
-        # le seul par lequel Messages et les notifications peuvent passer.
-        self._dispatcher = (Dispatcher.CurrentDispatcher
-                            if Dispatcher is not None else None)
+        self._dispatcher = _dispatcher_interface()
         self.Messages = self._nouvelle_liste()
         # Déclarées AVANT toute écriture de Saisie : son setter rafraîchit
         # l'autocomplétion, qui lit COMMANDES et Suggestions.
@@ -198,6 +232,10 @@ class OpenArchiChatVM(BaseViewModel):
                                  if RelayCommand else None)
         self.RetourCommand = (RelayCommand(self._retour)
                               if RelayCommand else None)
+        self.PrecedentCommand = (RelayCommand(self._precedent)
+                                 if RelayCommand else None)
+        self.SuivantCommand = (RelayCommand(self._suivant)
+                               if RelayCommand else None)
         self.Messages.Add(MessageVM('OpenArchi', self.ACCUEIL, False))
         # PAS de vérification de la maquette ici. Le VM est construit pendant
         # que Revit bâtit le volet ancré, au démarrage : y lancer un fil de
@@ -220,8 +258,51 @@ class OpenArchiChatVM(BaseViewModel):
     @Saisie.setter
     def Saisie(self, valeur):
         self._saisie = valeur or ''
+        # Frappe libre : on quitte l'historique, la prochaine flèche Haut
+        # repartira du message le plus récent.
+        if not self._navigue:
+            self._rang = None
         self.notify_property('Saisie')
         self._rafraichir_suggestions()
+
+    # --- historique de saisie --------------------------------------------
+
+    def _poser(self, texte):
+        """Écrit dans le champ sans sortir de l'historique."""
+        self._navigue = True
+        try:
+            self.Saisie = texte
+        finally:
+            self._navigue = False
+
+    def _retenir(self, texte):
+        """Ajoute au fond de l'historique. Ignore une répétition immédiate."""
+        if not texte or self._saisies[-1:] == [texte]:
+            return
+        self._saisies.append(texte)
+
+    def _precedent(self, _=None):
+        """Flèche Haut : remonte vers les messages plus anciens."""
+        if not self._saisies:
+            return
+        if self._rang is None:
+            # Premier pas : mettre de côté ce qui était en train d'être tapé.
+            self._brouillon = self._saisie
+            self._rang = len(self._saisies)
+        if self._rang == 0:
+            return                     # déjà au plus ancien, on y reste
+        self._rang -= 1
+        self._poser(self._saisies[self._rang])
+
+    def _suivant(self, _=None):
+        """Flèche Bas : redescend, puis rend le brouillon mis de côté."""
+        if self._rang is None:
+            return
+        self._rang += 1
+        if self._rang >= len(self._saisies):
+            self._rang = None
+            return self._poser(self._brouillon)
+        self._poser(self._saisies[self._rang])
 
     @property
     def TexteAttente(self):
@@ -310,24 +391,18 @@ class OpenArchiChatVM(BaseViewModel):
     def AlerteVisible(self):
         return bool(self._alerte)
 
-    def _verifier_maquette(self):
-        """Teste le lien avec la maquette, hors du fil d'interface.
+    def _rafraichir_alerte(self):
+        """Relit la dernière raison connue. AUCUN appel réseau ici.
 
-        C'est un GET sur la boucle locale, mais servi par le serveur de routes
-        du MÊME process Revit : lancé depuis le fil d'interface il se bloque.
-        Et Revit avale les exceptions d'un volet en construction — l'échec
-        serait muet.
+        On ne relance pas de vérification : le client vient d'interroger la
+        maquette pour bâtir son catalogue d'outils, la réponse est fraîche.
+        Un second fil de fond qui repart taper le même serveur, c'était une
+        requête concurrente de plus — et deux requêtes simultanées font
+        s'écraser les handlers partagés du serveur de routes pyRevit.
         """
-        # Pas de dispatcher = pas de .NET = pas de Revit (tests) : il n'y a
-        # rien à joindre, et `_en_arriere_plan` exécuterait sur place, ce qui
-        # ferait ouvrir une socket à chaque test du VM.
-        if revit_outils is None or self._dispatcher is None:
+        if revit_outils is None:
             return
-        self._en_arriere_plan(lambda: revit_outils.disponible()[1],
-                              self._sur_maquette)
-
-    def _sur_maquette(self, raison):
-        self.Alerte = raison
+        self.Alerte = revit_outils.derniere_raison()
 
     @property
     def _client(self):
@@ -488,8 +563,14 @@ class OpenArchiChatVM(BaseViewModel):
         self.notify_property('Statut')
         self._dire('Connecté — {0}'.format(self.Statut))
 
-    def _dire(self, texte):
-        self.Messages.Add(MessageVM('OpenArchi', texte, False))
+    def _dire(self, texte, duree=''):
+        self.Messages.Add(MessageVM('OpenArchi', texte, False, duree))
+
+    def _duree_reflexion(self):
+        """« réfléchi 42 s », ou '' si ça n'a pas duré une seconde."""
+        if _attente is None or self._secondes <= 0:
+            return ''
+        return 'réfléchi {0}'.format(_attente.duree(self._secondes))
 
     def _completer(self, _=None):
         # Tab : complète sur la première proposition retenable, comme un shell
@@ -511,6 +592,10 @@ class OpenArchiChatVM(BaseViewModel):
         # Envoyer abandonne un choix de fournisseur en cours.
         self._fermer_liste()
         self.Messages.Add(MessageVM('Moi', texte, True))
+        # Retenu AVANT de vider : la flèche Haut doit le retrouver, commande
+        # comme message libre — c'est surtout pour rejouer une commande.
+        self._retenir(texte)
+        self._brouillon = ''
         self.Saisie = ''
         # Une commande répond sur place et touche l'interface (listes,
         # réglages) : elle doit rester sur le fil d'interface.
@@ -522,11 +607,13 @@ class OpenArchiChatVM(BaseViewModel):
         self._en_arriere_plan(lambda: self.repondre(texte), self._sur_reponse)
 
     def _sur_reponse(self, reponse):
+        # Lu AVANT que EnAttente remette le compteur à zéro.
+        duree = self._duree_reflexion()
         self.EnAttente = False
-        self._dire(reponse)
+        self._dire(reponse, duree)
         # Le document a pu être fermé entre deux messages : le bandeau ne doit
         # pas rester périmé, dans un sens comme dans l'autre.
-        self._verifier_maquette()
+        self._rafraichir_alerte()
 
     def _en_arriere_plan(self, travail, suite):
         """``travail`` hors du fil d'interface, ``suite`` de retour dessus.
@@ -534,8 +621,19 @@ class OpenArchiChatVM(BaseViewModel):
         Sans .NET (tests hors Revit), tout s'exécute sur place : le VM reste
         synchrone et se teste sans rien simuler.
         """
+        def _sur_le_fil(resultat):
+            # ENVELOPPE OBLIGATOIRE. Ce qui s'exécute ici touche des
+            # propriétés liées et Messages : une exception qui s'en échappe
+            # part non rattrapée sur le fil d'interface de Revit, et Revit
+            # meurt. C'est arrivé — PresentationCore, InvalidOperationException.
+            # Une bulle d'erreur vaut mieux qu'une session perdue.
+            try:
+                suite(resultat)
+            except Exception:
+                _log.exception('suite() sur le fil d\'interface')
+
         if Thread is None or self._dispatcher is None:
-            return suite(travail())
+            return _sur_le_fil(travail())
 
         def _courir():
             try:
@@ -544,7 +642,7 @@ class OpenArchiChatVM(BaseViewModel):
                 _log.exception('travail de fond')  # attrape déjà tout
                 resultat = '{0}'.format(e)
             try:
-                self._dispatcher.Invoke(Action(lambda: suite(resultat)))
+                self._dispatcher.Invoke(Action(lambda: _sur_le_fil(resultat)))
             except Exception:
                 _log.exception('retour sur le fil d\'interface')
 
