@@ -32,6 +32,25 @@ class TestSansOutils(unittest.TestCase):
         self.assertIn('français', self.texte)
 
 
+class TestPasDeMarkdown(unittest.TestCase):
+    """Le panneau affiche du texte brut : le rendre est ce qui a fait tomber
+    Revit trois fois. On demande donc au modèle de n'en pas produire — c'est
+    trois lignes d'invite au lieu d'un FlowDocument."""
+
+    def test_la_consigne_vaut_avec_ET_sans_outils(self):
+        # Le volet est le même dans les deux cas, la règle aussi.
+        for avec in (False, True):
+            texte = prompt.systeme(avec)
+            self.assertIn('TEXTE BRUT', texte)
+            self.assertIn('tableaux', texte)
+
+    def test_elle_dit_quoi_faire_a_la_place(self):
+        # Interdire sans proposer laisse le modèle inventer sa propre forme.
+        texte = prompt.systeme(True)
+        self.assertIn('tiret', texte)
+        self.assertIn('nom : valeur', texte)
+
+
 class TestAvecOutils(unittest.TestCase):
     def setUp(self):
         self.texte = prompt.systeme(True)
