@@ -357,6 +357,8 @@ def executer(nom, arguments=None):
     except Exception as e:
         _log.exception('%s a échoué', nom)
         return _echoue(nom, '{0}'.format(e))
+    if nom in _CHANGENT_DE_DOCUMENT:
+        oublier_unites()
     _log.debug('%s -> %s octets', nom, len(brut))
     return _tronquer(brut, bool(schema.get('properties')))
 
@@ -402,6 +404,14 @@ def _tronquer(texte, filtrable=True):
 def unites():
     """Unité de longueur du projet, lue une fois. ``{}`` si indisponible.
 
+    Mise en cache pour la session, et c'est voulu : l'unité est fixée à la
+    création du projet, elle ne bouge pas en cours de route. La relire à
+    chaque message coûterait un aller-retour HTTP de plus — exactement le
+    genre de requête en trop qui a fini par faire tomber Revit.
+
+    Le seul cas qui l'invalide est un changement de document, d'où l'oubli
+    déclenché par ``revit_open_document`` et ``revit_close_document``.
+
     Sans elle on ne convertit rien et on laisse les pieds passer : mieux vaut
     une valeur juste dans la mauvaise unité qu'une valeur fausse.
     """
@@ -419,8 +429,14 @@ def unites():
 
 
 def oublier_unites():
-    """À appeler si le projet change — l'unité n'est pas la même partout."""
+    """À appeler quand le document change : l'autre projet a son unité."""
     _unites.clear()
+
+
+# Ces outils changent de document sous nos pieds : l'unité en cache
+# appartenait au projet précédent, et convertir avec elle donnerait des
+# valeurs fausses — pire que pas de conversion du tout.
+_CHANGENT_DE_DOCUMENT = ('revit_open_document', 'revit_close_document')
 
 
 def _vers_projet(brut):
