@@ -183,24 +183,18 @@ class MessageVM(BaseViewModel):
 
     @property
     def MiseEnForme(self):
-        """Le gabarit riche est-il utilisable ? Le XAML s'y fie.
+        """Toujours faux aujourd'hui : le gabarit riche est débranché.
 
-        Faux = le RichTextBox n'est même pas construit. C'est le verrou : sa
-        propriété Document refuse null, et une liaison vers None a déjà fait
-        tomber Revit.
+        Construire le FlowDocument depuis une liaison, c'est le construire
+        PENDANT l'inflation du DataTemplate — et là, la moindre erreur
+        remonte en XamlParseException et tue Revit à l'ouverture d'un projet.
+        Le rebrancher demande de bâtir le document AVANT, sur le fil
+        d'interface, et de ne laisser à la liaison qu'un champ à lire.
         """
-        return self.Document is not None
+        return False
 
     @property
     def Document(self):
-        """Le texte mis en forme. Construit à la lecture, sur le fil d'UI."""
-        if not self._bati:
-            self._bati = True
-            if _flow is not None:
-                try:
-                    self._document = _flow.document(self.Texte)
-                except Exception:
-                    _log.exception('mise en forme de la bulle')
         return self._document
 
 
