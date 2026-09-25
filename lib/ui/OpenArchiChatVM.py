@@ -178,32 +178,24 @@ class MessageVM(BaseViewModel):
         # brut — c'est lui qui repart au fournisseur dans l'historique, et
         # c'est lui que /journal doit pouvoir montrer.
         self.TexteAffiche = _texte_nu(texte)
-        # DES CHAMPS, PAS DES PROPRIÉTÉS. Une propriété qui fabrique du WPF
-        # est évaluée par la liaison, donc PENDANT l'inflation du
-        # DataTemplate : la moindre erreur y remonte en XamlParseException et
-        # tue Revit à l'ouverture d'un projet. C'est arrivé. Ici la liaison
-        # ne lit qu'un objet déjà prêt, ou rien.
-        self.Document = None
-        self.MiseEnForme = False
+        self._document = None
+        self._bati = False
 
-    def mettre_en_forme(self):
-        """Bâtit le document, sur le fil d'interface et hors de toute liaison.
+    @property
+    def MiseEnForme(self):
+        """Toujours faux aujourd'hui : le gabarit riche est débranché.
 
-        Rattrape tout : un échec laisse ``MiseEnForme`` à faux, et le gabarit
-        en texte nu prend le relais. Une bulle sans gras vaut mieux qu'une
-        session perdue.
+        Construire le FlowDocument depuis une liaison, c'est le construire
+        PENDANT l'inflation du DataTemplate — et là, la moindre erreur
+        remonte en XamlParseException et tue Revit à l'ouverture d'un projet.
+        Le rebrancher demande de bâtir le document AVANT, sur le fil
+        d'interface, et de ne laisser à la liaison qu'un champ à lire.
         """
-        if _flow is None or self.Document is not None:
-            return self
-        try:
-            document = _flow.document(self.Texte)
-        except Exception:
-            _log.exception('mise en forme de la bulle')
-            return self
-        if document is not None:
-            self.Document = document
-            self.MiseEnForme = True
-        return self
+        return False
+
+    @property
+    def Document(self):
+        return self._document
 
 
 class OpenArchiChatVM(BaseViewModel):
@@ -654,10 +646,7 @@ class OpenArchiChatVM(BaseViewModel):
         self._dire('Connecté — {0}'.format(self.Statut))
 
     def _dire(self, texte, duree=''):
-        # Mise en forme AVANT l'ajout à la liste : la liaison trouvera un
-        # document prêt, elle n'en fabriquera aucun.
-        self.Messages.Add(
-            MessageVM('OpenArchi', texte, False, duree).mettre_en_forme())
+        self.Messages.Add(MessageVM('OpenArchi', texte, False, duree))
 
     def _duree_reflexion(self):
         """« réfléchi 42 s », ou '' si ça n'a pas duré une seconde."""
@@ -687,7 +676,7 @@ class OpenArchiChatVM(BaseViewModel):
         self._fermer_liste()
         if self._grave:
             self.Alerte = ''
-        self.Messages.Add(MessageVM('Moi', texte, True).mettre_en_forme())
+        self.Messages.Add(MessageVM('Moi', texte, True))
         # Retenu AVANT de vider : la flèche Haut doit le retrouver, commande
         # comme message libre — c'est surtout pour rejouer une commande.
         self._retenir(texte)
