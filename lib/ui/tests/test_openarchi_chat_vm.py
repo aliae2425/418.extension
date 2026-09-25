@@ -644,14 +644,50 @@ class TestAttente(unittest.TestCase):
         self.assertEqual(self.vm.Messages[-1].Duree, '')
         self.assertFalse(self.vm.Messages[-1].DureeVisible)
 
+    def test_document_et_miseenforme_sont_des_champs(self):
+        """LA leçon des plantages : une PROPRIÉTÉ qui fabrique du WPF est
+        évaluée par la liaison, donc pendant l'inflation du DataTemplate. La
+        moindre erreur y remonte en XamlParseException et tue Revit à
+        l'ouverture d'un projet. Ces deux-là doivent rester des champs, posés
+        d'avance par mettre_en_forme()."""
+        from ui.OpenArchiChatVM import MessageVM
+        for nom in ('Document', 'MiseEnForme'):
+            self.assertNotIsInstance(getattr(MessageVM, nom, None), property,
+                                     nom + ' est redevenu une propriété')
+
     def test_hors_wpf_la_bulle_retombe_sur_le_texte_nu(self):
         # MiseEnForme faux = le RichTextBox n'est pas construit. C'est le
-        # verrou : sa propriété Document refuse null.
+        # second verrou : sa propriété Document refuse null.
         from ui.OpenArchiChatVM import MessageVM
-        bulle = MessageVM('OpenArchi', 'un **gras** et `du code`', False)
+        bulle = MessageVM('OpenArchi', 'un **gras** et `du code`',
+                          False).mettre_en_forme()
         self.assertFalse(bulle.MiseEnForme)
         self.assertIsNone(bulle.Document)
         self.assertNotIn('**', bulle.TexteAffiche)
+
+    def test_mettre_en_forme_ne_leve_jamais(self):
+        # Même si l'analyse bute : une bulle sans gras vaut mieux qu'une
+        # session perdue.
+        from ui import OpenArchiChatVM as module
+        from ui.OpenArchiChatVM import MessageVM
+
+        class _Casse(object):
+            @staticmethod
+            def document(_texte):
+                raise RuntimeError('boum')
+
+        vrai = module._flow
+        module._flow = _Casse
+        try:
+            bulle = MessageVM('OpenArchi', 'x', False).mettre_en_forme()
+        finally:
+            module._flow = vrai
+        self.assertFalse(bulle.MiseEnForme)
+
+    def test_le_message_d_accueil_ne_fabrique_aucun_wpf(self):
+        # Il est créé pendant que Revit bâtit le volet ancré — le moment le
+        # plus fragile. Et il n'a aucun markdown à rendre.
+        self.assertFalse(self.vm.Messages[0].MiseEnForme)
 
     def test_le_texte_brut_survit_a_la_mise_en_forme(self):
         # C'est lui qui repart au fournisseur dans l'historique.

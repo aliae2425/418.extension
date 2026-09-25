@@ -141,14 +141,29 @@
                     </Style.Triggers>
                   </Style>
                 </Border.Style>
-                <!-- Bulle en texte nu. Le gabarit riche est écrit et testé
-                     (BulleRiche), mais il reste débranché : le construire
-                     PENDANT l'inflation du DataTemplate fait remonter la
-                     moindre erreur en XamlParseException, et Revit tombe à
-                     l'ouverture d'un projet. Le rebrancher demande de bâtir
-                     le document AVANT la liaison, pas pendant. -->
-                <TextBox Text="{Binding TexteAffiche, Mode=OneWay}"
-                         Style="{StaticResource BulleTexte}"/>
+                <!-- Le document est bâti par le ViewModel AVANT d'arriver
+                     ici (MessageVM.mettre_en_forme), et Document comme
+                     MiseEnForme sont des CHAMPS : la liaison ne calcule
+                     rien. Une propriété qui fabriquait du WPF à la lecture
+                     s'évaluait pendant l'inflation du DataTemplate, et la
+                     moindre erreur y remontait en XamlParseException — Revit
+                     tombait à l'ouverture d'un projet. -->
+                <ContentControl Content="{Binding}">
+                  <ContentControl.Style>
+                    <Style TargetType="ContentControl">
+                      <Setter Property="ContentTemplate"
+                              Value="{StaticResource BulleBrute}"/>
+                      <Style.Triggers>
+                        <!-- Le gabarit riche UNIQUEMENT si le document
+                             existe : RichTextBox.Document refuse null. -->
+                        <DataTrigger Binding="{Binding MiseEnForme}" Value="True">
+                          <Setter Property="ContentTemplate"
+                                  Value="{StaticResource BulleRiche}"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </ContentControl.Style>
+                </ContentControl>
               </Border>
               <!-- Temps de réflexion, sous la bulle. Absent des messages qui
                    n'ont rien coûté (commandes locales, message d'accueil). -->
