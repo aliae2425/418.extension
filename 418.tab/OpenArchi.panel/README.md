@@ -10,6 +10,9 @@ Tout est dans l'extension : aucun CLI à installer, aucun `uv`, aucun serveur
 externe. La connexion au modèle passe par votre abonnement ChatGPT, dans le
 navigateur, ou par une clé API si vous préférez.
 
+La recette à passer avant de valider une version est dans
+[TESTS.md](TESTS.md).
+
 ---
 
 ## Prise en main

@@ -15,33 +15,10 @@ import re
 
 # Une seule invite pour tous les clients : trois copies, c'était trois
 # comportements qui s'éloignent au premier ajustement.
-SYSTEME = ("Tu assistes un architecte dans Autodesk Revit. Réponds en "
-           "français, brièvement. Les #références citent des éléments de la "
-           "maquette ; tu n'y as pas encore accès, demande-les si besoin.")
-
-# Ajouté à SYSTEME par le client UNIQUEMENT quand des outils sont réellement
-# fournis. L'écrire dans SYSTEME ferait promettre au modèle, chez les clients
-# qui n'ont pas de boucle d'outils, des yeux qu'il n'a pas.
-OUTILLE = (
-    "\n\nTu disposes d'outils sur la maquette ouverte (préfixe revit_). "
-    "Appelle librement ceux qui LISENT, plutôt que de supposer ou de demander "
-    "à l'architecte ce que tu peux voir toi-même. Les longueurs et les "
-    "coordonnées sont en PIEDS, l'unité interne de Revit.\n"
-    "\n"
-    "Les outils qui ÉCRIVENT ne s'appellent jamais pour explorer, seulement "
-    "sur une demande claire, et tu annonces ce que tu vas faire avant :\n"
-    "- revit_place_family, revit_color_splash, revit_clear_colors posent une "
-    "transaction que l'architecte peut annuler au Ctrl+Z ;\n"
-    "- revit_execute_code, revit_save_document, revit_sync_with_central, "
-    "revit_open_document et revit_close_document sont IRRÉVERSIBLES : aucun "
-    "Ctrl+Z ne les défait. Tu ne les appelles que si l'architecte les a "
-    "demandés explicitement dans son dernier message. Un « fais le "
-    "nécessaire » ou un « vas-y » ne suffit pas : dans le doute, tu décris "
-    "l'appel exact que tu ferais et tu attends qu'il le confirme.\n"
-    "\n"
-    "revit_execute_code est un dernier recours : si un autre outil fait le "
-    "travail, prends-le. Quand tu l'emploies, laisse use_transaction à true "
-    "sauf pour une opération d'interface pure, et explique ton code.")
+# L'invite système a déménagé dans core/prompt.py — un seul endroit pour la
+# régler. Ce module ne garde que la syntaxe du chat et la lecture des erreurs
+# HTTP. Ne pas réintroduire de texte système ici : deux sources, ce sont deux
+# comportements qui s'éloignent au premier ajustement.
 
 # Une commande n'est reconnue qu'EN TÊTE de message : une barre oblique au
 # milieu d'une phrase (« 1/2 », un chemin, une URL) n'en est pas une.

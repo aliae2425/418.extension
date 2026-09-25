@@ -33,10 +33,12 @@ except ImportError:                    # IronPython 2.7
 
 try:
     from core.journal import journal
-    from core.chat_syntaxe import SYSTEME, OUTILLE, detail_http
+    from core.chat_syntaxe import detail_http
+    from core.prompt import systeme
 except Exception:
     from lib.core.journal import journal
-    from lib.core.chat_syntaxe import SYSTEME, OUTILLE, detail_http
+    from lib.core.chat_syntaxe import detail_http
+    from lib.core.prompt import systeme
 
 try:
     from core import revit_outils
@@ -553,14 +555,14 @@ def corps(entree, modele=None, outils=None):
     """Corps Responses à partir d'items déjà construits (boucle d'outils)."""
     charge_utile = {
         'model': modele or MODELE_DEFAUT,
-        'instructions': SYSTEME,
+        'instructions': systeme(False),
         'input': entree,
         # store=false est exigé par le backend, ce n'est pas une préférence.
         'store': False,
         'stream': True,
     }
     if outils:
-        charge_utile['instructions'] = SYSTEME + OUTILLE
+        charge_utile['instructions'] = systeme(True)
         # Forme à plat, vérifiée contre le backend : pas de niveau
         # « function » intermédiaire, contrairement à /v1/chat/completions.
         charge_utile['tools'] = [

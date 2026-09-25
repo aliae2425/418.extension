@@ -17,7 +17,7 @@ from core import chat_cli
 class TestInvite(unittest.TestCase):
     def test_systeme_en_tete_puis_lechange(self):
         texte = chat_cli.invite([('user', 'salut'), ('assistant', 'ok')])
-        self.assertTrue(texte.startswith(chat_cli.SYSTEME))
+        self.assertTrue(texte.startswith(chat_cli.systeme(False)))
         self.assertIn('Utilisateur : salut', texte)
         self.assertIn('Toi : ok', texte)
 

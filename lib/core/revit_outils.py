@@ -32,6 +32,7 @@ Logique pure (aucun import Revit ni WPF) pour rester testable hors Revit.
 """
 from __future__ import unicode_literals
 import json
+import threading
 
 try:                                   # CPython 3
     from urllib.request import Request, urlopen
@@ -41,9 +42,11 @@ except ImportError:                    # IronPython 2.7
 
 try:
     from core.journal import journal
+    from core.chat_syntaxe import detail_http
     from core import routes418
 except Exception:
     from lib.core.journal import journal
+    from lib.core.chat_syntaxe import detail_http
     from lib.core import routes418
 
 _log = journal('outils')
@@ -60,6 +63,25 @@ LIMITE_SORTIE = 6000
 
 DELAI = 30
 
+# Le serveur de routes pyRevit partage UN handler de requête et UN
+# ExternalEvent entre toutes ses requêtes (server.py:36-41, singletons de
+# module réécrits à chaque appel). Deux requêtes simultanées se marchent
+# dessus dans le contexte d'API Revit — au mieux la réponse part au mauvais
+# appelant, au pire Revit tombe. On ne peut pas corriger amont, mais on peut
+# garantir que 418 n'en émet jamais deux à la fois.
+# ponytail: verrou global. Il ne protège que de NOUS — un client MCP externe
+# ou rvt-mcp qui tape le même serveur en parallèle rouvre la course.
+_VERROU = threading.Lock()
+
+# Dernier verdict de `disponible()`, relu par le bandeau du panneau sans
+# refaire d'appel : une requête de plus, c'était une occasion de collision.
+_dernier = {'ok': True, 'raison': ''}
+
+# Dernier outil qui a échoué. Le modèle reçoit l'erreur et en fait ce qu'il
+# veut — parfois rien. L'architecte, lui, doit la voir : le panneau vient la
+# chercher ici pour l'afficher en haut.
+_echec = {'texte': ''}
+
 _VIDE = {'type': 'object', 'properties': {}, 'additionalProperties': False}
 
 # nom exposé au modèle · route · méthode · description · schéma des arguments
@@ -68,17 +90,28 @@ CATALOGUE = (
      'État du lien avec Revit et titre du document ouvert.', _VIDE),
     ('revit_model_info', '/model_info/', 'GET',
      'Vue d\'ensemble de la maquette : niveaux, nombre de pièces, '
-     'avertissements.', _VIDE),
+     'avertissements. Les altitudes y sont en PIEDS, comme partout dans '
+     'Revit.', _VIDE),
     ('revit_current_view_info', '/current_view_info/', 'GET',
      'Vue active : nom, type, échelle, discipline.', _VIDE),
     ('revit_list_views', '/list_views/', 'GET',
-     'Toutes les vues exportables du projet, par type.', _VIDE),
+     'Toutes les vues du projet, rangées par type. Les FEUILLES sont dans le '
+     'seau « other », pas dans un seau à elles. Sortie volumineuse et sans '
+     'aucun filtre : sur un gros projet elle arrive tronquée, dis-le plutôt '
+     'que de la présenter comme complète.', _VIDE),
     ('revit_list_levels', '/list_levels/', 'GET',
-     'Niveaux du projet avec leur altitude.', _VIDE),
+     'Niveaux du projet. Les altitudes sont en PIEDS : convertis-les en '
+     'mètres (×0,3048) avant de les annoncer.', _VIDE),
     ('revit_list_family_categories', '/list_family_categories/', 'GET',
-     'Catégories de familles chargées et leur nombre de types.', _VIDE),
+     'Catégories de familles chargées et leur nombre de types. À appeler '
+     'AVANT de chercher une famille par son nom : il donne les noms de '
+     'catégories réellement présents dans ce projet, en français.', _VIDE),
     ('revit_list_families', '/list_families/', 'POST',
-     'Familles et types chargés, filtrables par fragment de nom.',
+     'Familles et types chargés. ATTENTION : « contains » filtre sur le nom '
+     'de la famille ou du type, JAMAIS sur la catégorie — chercher « porte » '
+     'ne rend pas les éléments de la catégorie « Portes » si les familles '
+     'portent un autre nom. Ne rien trouver ne prouve rien : vérifie avec '
+     'revit_list_family_categories avant de conclure à une absence.',
      {'type': 'object',
       'properties': {
           'contains': {'type': 'string',
@@ -225,12 +258,27 @@ def outils():
             for nom, _route, _methode, description, schema in CATALOGUE]
 
 
+def derniere_raison():
+    """Ce qu'a conclu le dernier ``disponible()``. Aucun appel réseau.
+
+    Le panneau s'en sert pour son bandeau : refaire une requête juste pour
+    l'afficher, c'était une occasion de collision de plus sur le serveur.
+    """
+    return _dernier['raison']
+
+
 def disponible():
     """``(utilisable, raison)`` — la raison n'a de sens que si c'est faux."""
+    ok, raison = _verdict()
+    _dernier['ok'], _dernier['raison'] = ok, raison
+    return ok, raison
+
+
+def _verdict():
     if not routes418.base():
         return False, routes418.ABSENT
     try:
-        brut = _appeler('/status/', 'GET', None, timeout=3)
+        brut = _appeler('/status/', 'GET', None, timeout=5)
     except Exception as e:
         _log.warning('maquette injoignable : %s', e)
         return False, ('Maquette injoignable : le serveur de routes pyRevit '
@@ -263,16 +311,16 @@ def executer(nom, arguments=None):
     try:
         brut = _appeler(route, methode, corps)
     except HTTPError as e:
-        _log.error('%s -> HTTP %s', nom, getattr(e, 'code', '?'))
-        return _erreur('Revit a refusé l\'appel (HTTP {0})'.format(
-            getattr(e, 'code', '?')))
+        # detail_http lit le CORPS de la réponse : sans lui on ne garderait
+        # que « HTTP 500 » et le vrai message — « AttributeError: Name » —
+        # mourrait dans le journal de Revit.
+        return _echoue(nom, detail_http(e))
     except URLError as e:
-        _log.error('%s -> injoignable : %s', nom, getattr(e, 'reason', e))
-        return _erreur('maquette injoignable — {0}'.format(
+        return _echoue(nom, 'maquette injoignable — {0}'.format(
             getattr(e, 'reason', e)))
     except Exception as e:
         _log.exception('%s a échoué', nom)
-        return _erreur('{0}'.format(e))
+        return _echoue(nom, '{0}'.format(e))
     _log.debug('%s -> %s octets', nom, len(brut))
     return _tronquer(brut, bool(schema.get('properties')))
 
@@ -291,7 +339,11 @@ def _appeler(route, methode, corps, timeout=DELAI):
     requete = Request(url, data=donnees)
     if donnees is not None:
         requete.add_header('Content-Type', 'application/json; charset=utf-8')
-    return urlopen(requete, timeout=timeout).read().decode('utf-8', 'replace')
+    # Une seule requête 418 en vol à la fois : le serveur de routes n'en
+    # supporte pas deux (cf. _VERROU).
+    with _VERROU:
+        return urlopen(requete,
+                       timeout=timeout).read().decode('utf-8', 'replace')
 
 
 def _tronquer(texte, filtrable=True):
