@@ -176,6 +176,9 @@ class OpenArchiChatVM(BaseViewModel):
     ACCUEIL = ("Panneau OpenArchi prêt. /connect pour choisir le fournisseur. "
                "#{Nom} pour citer un élément.")
     ATTENTE_DEFAUT = 'réflexion…'
+    # Assez pour lire une erreur technique, assez peu pour ne pas rester en
+    # travers du volet une fois la question suivante posée.
+    DUREE_TOAST = 15
 
     def __init__(self, config=None, client=None):
         try:
@@ -204,6 +207,8 @@ class OpenArchiChatVM(BaseViewModel):
         self._secondes = 0
         self._horloge = None
         self._alerte = ''
+        self._grave = False
+        self._expiration = None
         self._dispatcher = _dispatcher_interface()
         self.Messages = self._nouvelle_liste()
         # Déclarées AVANT toute écriture de Saisie : son setter rafraîchit
@@ -384,12 +389,58 @@ class OpenArchiChatVM(BaseViewModel):
     @Alerte.setter
     def Alerte(self, valeur):
         self._alerte = valeur or ''
+        if not self._alerte:
+            self._grave = False
         self.notify_property('Alerte')
         self.notify_property('AlerteVisible')
+        self.notify_property('AlerteGrave')
 
     @property
     def AlerteVisible(self):
         return bool(self._alerte)
+
+    @property
+    def AlerteGrave(self):
+        """Vrai pour un échec d'outil : le bandeau passe en rouge.
+
+        Un état (« aucun document ouvert ») et un échec (« AttributeError »)
+        ne se lisent pas pareil — le premier décrit, le second s'est produit.
+        """
+        return self._grave
+
+    def _toast(self, texte):
+        """Affiche un échec d'outil en haut du volet, et le fait expirer.
+
+        Le modèle reçoit l'erreur et en fait ce qu'il veut, parfois rien :
+        sans ça, un outil qui casse est invisible pour l'architecte.
+        """
+        if not texte:
+            return
+        self._alerte = texte
+        self._grave = True
+        self.notify_property('Alerte')
+        self.notify_property('AlerteVisible')
+        self.notify_property('AlerteGrave')
+        self._armer_expiration()
+
+    def _armer_expiration(self):
+        # Même prudence que le chronomètre : créé à la première utilisation,
+        # jamais à la construction du VM, et il tique sur le fil d'interface.
+        if DispatcherTimer is None or TimeSpan is None:
+            return                     # hors .NET : le toast reste affiché
+        if self._expiration is None:
+            self._expiration = DispatcherTimer()
+            self._expiration.Interval = TimeSpan.FromSeconds(self.DUREE_TOAST)
+            self._expiration.Tick += self._expirer
+        self._expiration.Stop()        # relance le décompte à chaque toast
+        self._expiration.Start()
+
+    def _expirer(self, *_args):
+        if self._expiration is not None:
+            self._expiration.Stop()
+        # On ne vide pas aveuglément : l'état de la maquette, lui, reste vrai.
+        self.Alerte = ''
+        self._rafraichir_alerte()
 
     def _rafraichir_alerte(self):
         """Relit la dernière raison connue. AUCUN appel réseau ici.
@@ -402,7 +453,12 @@ class OpenArchiChatVM(BaseViewModel):
         """
         if revit_outils is None:
             return
-        self.Alerte = revit_outils.derniere_raison()
+        # Un échec d'outil prime sur l'état : il vient de se produire.
+        echec = revit_outils.dernier_echec()
+        if echec:
+            return self._toast(echec)
+        if not self._grave:            # ne pas écraser un toast en cours
+            self.Alerte = revit_outils.derniere_raison()
 
     @property
     def _client(self):
@@ -589,8 +645,11 @@ class OpenArchiChatVM(BaseViewModel):
         texte = self._saisie.strip()
         if not texte or self._en_attente:
             return
-        # Envoyer abandonne un choix de fournisseur en cours.
+        # Envoyer abandonne un choix de fournisseur en cours, et referme un
+        # toast d'erreur : il parlait du message précédent.
         self._fermer_liste()
+        if self._grave:
+            self.Alerte = ''
         self.Messages.Add(MessageVM('Moi', texte, True))
         # Retenu AVANT de vider : la flèche Haut doit le retrouver, commande
         # comme message libre — c'est surtout pour rejouer une commande.

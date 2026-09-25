@@ -28,6 +28,15 @@ explicite. À rejouer seulement après un changement qui les touche.
 
 ---
 
+
+## 0 section retour et amélioration user : 
+
+- change la couleur de fond des bulle réponse pour un bleu un peu plus claire 
+- Enleve openArchi au dessus de chaque bulle réponse. 
+- Modifier la bulle de réponse pour gerer les format tableau, souligné, gras, italique 
+      - gere le markdown de facon plus propre
+
+
 ## 1 · Corrections de la passe précédente
 
 - [x] Rappel d'historique : le curseur se place **en fin de ligne**
@@ -41,7 +50,8 @@ explicite. À rejouer seulement après un changement qui les touche.
 
 ## 2 · Attente
 
-- [ ] Au-delà d'une minute : `1 min 05 s`
+- [ ] Au-delà d'une minute : `1 min 05 s` => donne moi un prompt de test. 
+
 
 ## 3 · Unités — **non résolu, demande du code**
 
@@ -62,20 +72,20 @@ restent rouges tant que 418 ne convertit pas lui-même.
 
 ## 5 · Écriture annulable
 
-- [ ] « enlève les couleurs sur les portes »
+- [x] « enlève les couleurs sur les portes »
 - [ ] `color_splash` depuis une **feuille** : erreur propre, pas de plantage
-- [ ] Une erreur d'outil est **expliquée dans la bulle**, pas avalée
+- [!] Une erreur d'outil est **expliquée dans la bulle**, pas avalée => la bulle apparait pas a chaque fois 
 - [ ] Placer une famille sur un niveau nommé
-- [ ] **Ctrl+Z** retire l'instance placée
+- [x] **Ctrl+Z** retire l'instance placée
 
 ## 6 · Colorisation : filtre ou remplacement — **à construire**
 
 Demande : proposer le choix, et **créer un filtre par défaut**. Le serveur
 vendorisé ne sait faire que le remplacement graphique.
 
-- [ ] Colorer une catégorie crée un **filtre de vue** nommé
-- [ ] Le filtre apparaît dans les propriétés de la vue et se réutilise
-- [ ] Demander explicitement un remplacement graphique donne l'ancien
+- [!] Colorer une catégorie crée un **filtre de vue** nommé => Erreur a chaque fois qu'on mentionne les filtres 
+- [!] Le filtre apparaît dans les propriétés de la vue et se réutilise
+- [x] Demander explicitement un remplacement graphique donne l'ancien
       comportement
 - [ ] Le modèle demande lequel des deux quand la demande est ambiguë
 
@@ -83,7 +93,7 @@ vendorisé ne sait faire que le remplacement graphique.
 
 > Aucun `Ctrl+Z` ne rattrape cette section.
 
-- [ ] « vas-y » seul → il n'agit pas
+- [x] « vas-y » seul → il n'agit pas
 - [ ] `use_transaction` vaut `true` sur un `execute_code` courant
 - [ ] `/journal` contient `IRRÉVERSIBLE revit_execute_code {…}`
 - [ ] `revit_save_document` — fichier jetable uniquement
@@ -103,20 +113,20 @@ vendorisé ne sait faire que le remplacement graphique.
 
 ## 9 · Affichage
 
-- [ ] Une réponse à listes et `**gras**` s'affiche sans astérisque ni backtick
-- [ ] Les puces apparaissent en `•`
+- [!] Une réponse à listes et `**gras**` s'affiche sans astérisque ni backtick
+- [!] Les puces apparaissent en `•`
 - [ ] Les noms d'outils (`revit_list_views`) s'affichent **entiers**, sans
       italique parasite
 - [ ] Une réponse longue fait défiler automatiquement jusqu'en bas
-- [ ] Thème sombre de Revit : le volet suit
+- [x] Thème sombre de Revit : le volet suit
 
 ## 10 · Résistance et stabilité
 
 Quatre plantages de Revit sur les passes précédentes. Cette section est celle
 qui compte le plus.
 
-- [ ] Une dizaine d'appels d'outils d'affilée : **Revit tient**
-- [ ] Une erreur d'outil (document fermé en cours de route) donne une bulle,
+- [x] Une dizaine d'appels d'outils d'affilée : **Revit tient**
+- [x] Une erreur d'outil (document fermé en cours de route) donne une bulle,
       pas un plantage
 - [ ] Après une erreur, `/journal` porte bien la trace — rien ne disparaît en
       silence avec le process

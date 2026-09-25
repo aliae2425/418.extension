@@ -689,6 +689,48 @@ class TestAlerteMaquette(unittest.TestCase):
             revit_outils._appeler = vrai
         self.assertEqual(appels, [])
 
+    def test_un_echec_d_outil_s_affiche_en_rouge(self):
+        from core import revit_outils
+        revit_outils._echec['texte'] = 'revit_execute_code — AttributeError'
+        try:
+            self.vm._rafraichir_alerte()
+            self.assertTrue(self.vm.AlerteVisible)
+            self.assertTrue(self.vm.AlerteGrave)
+            self.assertIn('AttributeError', self.vm.Alerte)
+        finally:
+            revit_outils._echec['texte'] = ''
+
+    def test_un_echec_prime_sur_l_etat(self):
+        # L'état décrit, l'échec vient de se produire.
+        from core import revit_outils
+        revit_outils._echec['texte'] = 'revit_status — HTTP 500'
+        revit_outils._dernier['raison'] = 'Aucun document Revit ouvert'
+        try:
+            self.vm._rafraichir_alerte()
+            self.assertIn('500', self.vm.Alerte)
+        finally:
+            revit_outils._echec['texte'] = ''
+            revit_outils._dernier['raison'] = ''
+
+    def test_un_echec_n_est_affiche_qu_une_fois(self):
+        from core import revit_outils
+        revit_outils._echec['texte'] = 'revit_status — cassé'
+        try:
+            self.vm._rafraichir_alerte()
+            self.assertTrue(self.vm.AlerteGrave)
+            self.vm.Alerte = ''
+            self.vm._rafraichir_alerte()   # ne doit pas le rejouer
+            self.assertFalse(self.vm.AlerteGrave)
+        finally:
+            revit_outils._echec['texte'] = ''
+
+    def test_envoyer_referme_le_toast(self):
+        # Il parlait du message précédent.
+        self.vm._toast('revit_status — cassé')
+        self.vm.Saisie = 'et maintenant ?'
+        self.vm._envoyer()
+        self.assertFalse(self.vm.AlerteGrave)
+
     def test_le_bandeau_suit_le_dernier_verdict(self):
         from core import revit_outils
         revit_outils._dernier['raison'] = 'Aucun document Revit ouvert'

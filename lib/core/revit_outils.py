@@ -51,8 +51,6 @@ except Exception:
 
 _log = journal('outils')
 
-PREFIXE = '/revit_mcp'
-
 # Un modèle qui boucle brûle l'abonnement en silence : le plafond n'est pas
 # une précaution, c'est le garde-fou.
 TOURS_MAX = 5
@@ -82,31 +80,52 @@ _dernier = {'ok': True, 'raison': ''}
 # chercher ici pour l'afficher en haut.
 _echec = {'texte': ''}
 
+# Unité de longueur du projet, lue une fois par session sur /418/unites/.
+# Revit stocke tout en PIEDS ; l'architecte lit et écrit dans l'unité de son
+# projet. Le modèle, lui, ne convertit pas quand on le lui demande — vérifié
+# deux fois en recette. Donc on convertit ici, des deux côtés.
+_unites = {}
+
+# Clés dont la valeur est une longueur en pieds dans les réponses du serveur.
+# Recherche récursive plutôt qu'une table de chemins : « elevation » n'est
+# ambigu nulle part dans cette API, et un chemin en dur casserait au premier
+# changement de forme amont.
+_CLES_LONGUEUR = ('elevation',)
+
+# Arguments d'entrée exprimés dans l'unité du projet, à repasser en pieds
+# avant d'atteindre Revit.
+_ENTREES_LONGUEUR = {'revit_place_family': ('location',)}
+
 _VIDE = {'type': 'object', 'properties': {}, 'additionalProperties': False}
 
 # nom exposé au modèle · route · méthode · description · schéma des arguments
 CATALOGUE = (
-    ('revit_status', '/status/', 'GET',
+    ('revit_status', '/revit_mcp/status/', 'GET',
      'État du lien avec Revit et titre du document ouvert.', _VIDE),
-    ('revit_model_info', '/model_info/', 'GET',
+    ('revit_model_info', '/revit_mcp/model_info/', 'GET',
      'Vue d\'ensemble de la maquette : niveaux, nombre de pièces, '
-     'avertissements. Les altitudes y sont en PIEDS, comme partout dans '
-     'Revit.', _VIDE),
-    ('revit_current_view_info', '/current_view_info/', 'GET',
+     'avertissements. Les altitudes sont déjà dans l\'unité du projet '
+     '(« unite_de_longueur »).', _VIDE),
+    ('revit_current_view_info', '/revit_mcp/current_view_info/', 'GET',
      'Vue active : nom, type, échelle, discipline.', _VIDE),
-    ('revit_list_views', '/list_views/', 'GET',
+    ('revit_list_views', '/revit_mcp/list_views/', 'GET',
      'Toutes les vues du projet, rangées par type. Les FEUILLES sont dans le '
      'seau « other », pas dans un seau à elles. Sortie volumineuse et sans '
      'aucun filtre : sur un gros projet elle arrive tronquée, dis-le plutôt '
      'que de la présenter comme complète.', _VIDE),
-    ('revit_list_levels', '/list_levels/', 'GET',
-     'Niveaux du projet. Les altitudes sont en PIEDS : convertis-les en '
-     'mètres (×0,3048) avant de les annoncer.', _VIDE),
-    ('revit_list_family_categories', '/list_family_categories/', 'GET',
+    ('revit_list_levels', '/revit_mcp/list_levels/', 'GET',
+     'Niveaux du projet. Les altitudes sont DÉJÀ converties dans l\'unité du '
+     'projet, donnée par « unite_de_longueur » — annonce-les telles quelles, '
+     'avec ce symbole.', _VIDE),
+    ('revit_selection', '/418/selection/', 'GET',
+     'Ce que l\'architecte a sélectionné dans Revit à l\'instant : id, nom et '
+     'catégorie. À appeler dès qu\'il dit « ça », « ceux-là » ou « ma '
+     'sélection ».', _VIDE),
+    ('revit_list_family_categories', '/revit_mcp/list_family_categories/', 'GET',
      'Catégories de familles chargées et leur nombre de types. À appeler '
      'AVANT de chercher une famille par son nom : il donne les noms de '
      'catégories réellement présents dans ce projet, en français.', _VIDE),
-    ('revit_list_families', '/list_families/', 'POST',
+    ('revit_list_families', '/revit_mcp/list_families/', 'POST',
      'Familles et types chargés. ATTENTION : « contains » filtre sur le nom '
      'de la famille ou du type, JAMAIS sur la catégorie — chercher « porte » '
      'ne rend pas les éléments de la catégorie « Portes » si les familles '
@@ -119,7 +138,7 @@ CATALOGUE = (
           'limit': {'type': 'integer',
                     'description': 'nombre maximum de résultats (défaut 50)'}},
       'additionalProperties': False}),
-    ('revit_list_category_parameters', '/list_category_parameters/', 'POST',
+    ('revit_list_category_parameters', '/revit_mcp/list_category_parameters/', 'POST',
      'Paramètres disponibles sur les éléments d\'une catégorie.',
      {'type': 'object',
       'properties': {
@@ -127,7 +146,7 @@ CATALOGUE = (
                             'description': 'nom de catégorie, p. ex. « Portes »'}},
       'required': ['category_name'],
       'additionalProperties': False}),
-    ('revit_current_view_elements', '/current_view_elements/', 'POST',
+    ('revit_current_view_elements', '/revit_mcp/current_view_elements/', 'POST',
      'Éléments visibles dans la vue active.',
      {'type': 'object',
       'properties': {
@@ -140,16 +159,32 @@ CATALOGUE = (
     # --- écriture, dans une transaction nommée ----------------------------
     # Ctrl+Z les défait une par une : le garde-fou est la pile d'annulation
     # de Revit.
-    ('revit_place_family', '/place_family/', 'POST',
+    ('revit_filtre_couleur', '/418/filtre_couleur/', 'POST',
+     'Colore une catégorie par valeur de paramètre en créant des FILTRES DE '
+     'VUE nommés. MODIFIE l\'affichage de la vue active, dans une '
+     'transaction annulable. À PRÉFÉRER à revit_color_splash : l\'architecte '
+     'retrouve les filtres dans les propriétés de la vue, les réutilise et '
+     'les modifie. Relancer le même appel met à jour les filtres au lieu '
+     'd\'en empiler.',
+     {'type': 'object',
+      'properties': {
+          'category_name': {'type': 'string',
+                            'description': 'p. ex. « Portes »'},
+          'parameter_name': {'type': 'string',
+                             'description': 'paramètre qui porte les valeurs'}},
+      'required': ['category_name', 'parameter_name'],
+      'additionalProperties': False}),
+    ('revit_place_family', '/revit_mcp/place_family/', 'POST',
      'Place une instance de famille. MODIFIE la maquette, dans une '
-     'transaction annulable. Coordonnées en PIEDS (unités internes Revit).',
+     'transaction annulable. Coordonnées dans l\'UNITÉ DU PROJET : donne-les '
+     'telles que l\'architecte les exprime, la conversion est faite pour toi.',
      {'type': 'object',
       'properties': {
           'family_name': {'type': 'string'},
           'type_name': {'type': 'string',
                         'description': 'type voulu ; le premier si omis'},
           'location': {'type': 'object',
-                       'description': 'position en pieds',
+                       'description': 'position dans l\'unité du projet',
                        'properties': {'x': {'type': 'number'},
                                       'y': {'type': 'number'},
                                       'z': {'type': 'number'}},
@@ -160,7 +195,7 @@ CATALOGUE = (
                          'description': 'paramètres à poser, p. ex. {"Mark": "A1"}'}},
       'required': ['family_name', 'location'],
       'additionalProperties': False}),
-    ('revit_color_splash', '/color_splash/', 'POST',
+    ('revit_color_splash', '/revit_mcp/color_splash/', 'POST',
      'Colore les éléments d\'une catégorie selon les valeurs d\'un paramètre. '
      'MODIFIE l\'affichage de la vue active, dans une transaction annulable.',
      {'type': 'object',
@@ -172,7 +207,7 @@ CATALOGUE = (
                             'description': 'couleurs hexa, p. ex. ["#FF0000"]'}},
       'required': ['category_name', 'parameter_name'],
       'additionalProperties': False}),
-    ('revit_clear_colors', '/clear_colors/', 'POST',
+    ('revit_clear_colors', '/revit_mcp/clear_colors/', 'POST',
      'Retire les remplacements de couleur d\'une catégorie. MODIFIE '
      'l\'affichage de la vue active, dans une transaction annulable.',
      {'type': 'object',
@@ -186,7 +221,7 @@ CATALOGUE = (
     # Le seul garde-fou qui reste est la description lue par le modèle, et
     # la consigne système (chat_syntaxe.OUTILLE) : les deux doivent rester
     # aussi explicites qu'elles le sont ici.
-    ('revit_execute_code', '/execute_code/', 'POST',
+    ('revit_execute_code', '/revit_mcp/execute_code/', 'POST',
      'DANGER — exécute du code IronPython dans Revit. Irréversible si '
      'use_transaction vaut false. Dernier recours, quand aucun autre outil '
      'ne fait l\'affaire, et jamais sans l\'accord explicite de '
@@ -203,7 +238,7 @@ CATALOGUE = (
                              'que pour une opération d\'interface pure.'}},
       'required': ['code'],
       'additionalProperties': False}),
-    ('revit_save_document', '/save_document/', 'POST',
+    ('revit_save_document', '/revit_mcp/save_document/', 'POST',
      'DANGER — enregistre le projet. IRRÉVERSIBLE : écrase la version sur '
      'disque, Ctrl+Z ne la ramène pas. Jamais sans demande explicite.',
      {'type': 'object',
@@ -212,7 +247,7 @@ CATALOGUE = (
                         'description': 'chemin pour un « enregistrer sous » ; '
                                        'omis = enregistre sur place'}},
       'additionalProperties': False}),
-    ('revit_sync_with_central', '/sync_with_central/', 'POST',
+    ('revit_sync_with_central', '/revit_mcp/sync_with_central/', 'POST',
      'DANGER — synchronise avec le fichier central. IRRÉVERSIBLE, et visible '
      'par toute l\'équipe. Jamais sans demande explicite.',
      {'type': 'object',
@@ -222,7 +257,7 @@ CATALOGUE = (
           'relinquish_all': {'type': 'boolean',
                              'description': 'libérer tous les emprunts (défaut true)'}},
       'additionalProperties': False}),
-    ('revit_open_document', '/open_document/', 'POST',
+    ('revit_open_document', '/revit_mcp/open_document/', 'POST',
      'DANGER — ouvre un autre projet dans Revit. Change le document courant, '
      'donc la cible de TOUS les autres outils. Jamais sans demande explicite.',
      {'type': 'object',
@@ -232,7 +267,7 @@ CATALOGUE = (
           'audit': {'type': 'boolean'}},
       'required': ['file_path'],
       'additionalProperties': False}),
-    ('revit_close_document', '/close_document/', 'POST',
+    ('revit_close_document', '/revit_mcp/close_document/', 'POST',
      'DANGER — ferme le projet courant. IRRÉVERSIBLE, et les modifications '
      'non enregistrées sont perdues si save vaut false. Jamais sans demande '
      'explicite.',
@@ -278,7 +313,7 @@ def _verdict():
     if not routes418.base():
         return False, routes418.ABSENT
     try:
-        brut = _appeler('/status/', 'GET', None, timeout=5)
+        brut = _appeler(_PAR_NOM['revit_status'][1], 'GET', None, timeout=5)
     except Exception as e:
         _log.warning('maquette injoignable : %s', e)
         return False, ('Maquette injoignable : le serveur de routes pyRevit '
@@ -304,12 +339,13 @@ def executer(nom, arguments=None):
         return _erreur('outil inconnu : {0}'.format(nom))
     _nom, route, methode, _description, schema = entree
     corps = arguments if isinstance(arguments, dict) else None
+    corps = _vers_revit(nom, corps)
     if nom in IRREVERSIBLES:
         # En WARNING et avec les arguments : c'est la seule trace qui restera
         # pour comprendre ce que le modèle a fait, une fois que c'est fait.
         _log.warning('IRRÉVERSIBLE %s %s', nom, corps)
     try:
-        brut = _appeler(route, methode, corps)
+        brut = _vers_projet(_appeler(route, methode, corps))
     except HTTPError as e:
         # detail_http lit le CORPS de la réponse : sans lui on ne garderait
         # que « HTTP 500 » et le vrai message — « AttributeError: Name » —
@@ -330,7 +366,7 @@ def _appeler(route, methode, corps, timeout=DELAI):
     racine = routes418.base()
     if not racine:
         raise ValueError(routes418.ABSENT)
-    url = racine + PREFIXE + route
+    url = racine + route
     donnees = None
     if methode == 'POST':
         # ensure_ascii=False : sous IronPython, laisser json échapper les
@@ -361,6 +397,113 @@ def _tronquer(texte, filtrable=True):
                'incomplète, inutile de le rappeler à l\'identique')
     return '{0}\n…tronqué à {1} caractères — {2}.'.format(
         texte[:LIMITE_SORTIE], LIMITE_SORTIE, conseil)
+
+
+def unites():
+    """Unité de longueur du projet, lue une fois. ``{}`` si indisponible.
+
+    Sans elle on ne convertit rien et on laisse les pieds passer : mieux vaut
+    une valeur juste dans la mauvaise unité qu'une valeur fausse.
+    """
+    if _unites:
+        return _unites
+    try:
+        _unites.update(json.loads(_appeler('/418/unites/', 'GET', None,
+                                           timeout=5)))
+        _log.info('unité du projet : %s (1 pied = %s)',
+                  _unites.get('symbole') or _unites.get('libelle'),
+                  _unites.get('par_pied'))
+    except Exception as e:
+        _log.warning('unités du projet indisponibles : %s', e)
+    return _unites
+
+
+def oublier_unites():
+    """À appeler si le projet change — l'unité n'est pas la même partout."""
+    _unites.clear()
+
+
+def _vers_projet(brut):
+    """Convertit les longueurs d'une réponse en unité du projet."""
+    facteur = unites().get('par_pied')
+    if not facteur:
+        return brut
+    try:
+        charge = json.loads(brut)
+    except ValueError:
+        return brut                    # pas du JSON : rien à convertir
+    converti = _parcourir(charge, facteur)
+    if converti is charge:
+        return brut                    # aucune longueur trouvée, on n'y touche pas
+    # Le symbole part avec : sans lui le modèle annonce un nombre nu.
+    if isinstance(converti, dict):
+        converti['unite_de_longueur'] = (_unites.get('symbole') or
+                                         _unites.get('libelle') or '')
+    return json.dumps(converti, ensure_ascii=False)
+
+
+def _parcourir(objet, facteur):
+    """Multiplie toute valeur portée par une clé de longueur. Sinon, identité."""
+    if isinstance(objet, dict):
+        touche = False
+        sortie = {}
+        for cle, valeur in objet.items():
+            if cle in _CLES_LONGUEUR and isinstance(valeur, (int, float)) \
+                    and not isinstance(valeur, bool):
+                sortie[cle] = round(valeur * facteur, 4)
+                touche = True
+            else:
+                sortie[cle] = _parcourir(valeur, facteur)
+                touche = touche or sortie[cle] is not valeur
+        return sortie if touche else objet
+    if isinstance(objet, list):
+        converti = [_parcourir(x, facteur) for x in objet]
+        touche = any(a is not b for a, b in zip(converti, objet))
+        return converti if touche else objet
+    return objet
+
+
+def _vers_revit(nom, corps):
+    """Repasse en pieds les longueurs que le modèle a données en unité projet."""
+    champs = _ENTREES_LONGUEUR.get(nom)
+    if not champs or not isinstance(corps, dict):
+        return corps
+    facteur = unites().get('en_pieds')
+    if not facteur:
+        return corps
+    sortie = dict(corps)
+    for champ in champs:
+        valeur = sortie.get(champ)
+        if isinstance(valeur, dict):
+            sortie[champ] = dict(
+                (cle, v * facteur if isinstance(v, (int, float))
+                 and not isinstance(v, bool) else v)
+                for cle, v in valeur.items())
+    return sortie
+
+
+def _echoue(nom, message):
+    """Journalise, retient pour le panneau, et rend l'erreur au modèle.
+
+    Les trois destinataires d'un échec d'outil, et ils ne veulent pas la même
+    chose : le journal pour comprendre après coup, le panneau pour que
+    l'architecte le voie tout de suite, le modèle pour qu'il tente autre
+    chose plutôt que d'inventer une réponse.
+    """
+    _log.error('%s : %s', nom, message)
+    _echec['texte'] = '{0} — {1}'.format(nom, message)
+    return _erreur(message)
+
+
+def dernier_echec():
+    """Le dernier échec d'outil, UNE seule fois. '' s'il n'y en a pas eu.
+
+    Consommé à la lecture : le panneau l'affiche une fois, il ne le rejoue
+    pas à chaque message suivant.
+    """
+    texte = _echec['texte']
+    _echec['texte'] = ''
+    return texte
 
 
 def _erreur(message):
