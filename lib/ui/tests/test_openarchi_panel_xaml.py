@@ -63,24 +63,18 @@ class TestGrilleDuPanneau(unittest.TestCase):
             return re.sub(r'<!--.*?-->', '',
                           fichier.read().decode('utf-8'), flags=re.S)
 
-    def test_le_richtextbox_est_sous_condition(self):
-        """``RichTextBox.Document`` refuse ``null`` — une liaison vers une
-        propriété qui peut valoir ``None`` lève pendant l'inflation du
-        DataTemplate, remonte en XamlParseException et tue Revit.
+    def test_aucune_bulle_ne_construit_de_wpf_par_liaison(self):
+        """Le gabarit riche reste DÉBRANCHÉ.
 
-        Le contrôle ne doit donc exister que sous le gabarit choisi par
-        ``MiseEnForme``, jamais posé directement dans la liste."""
+        Construire un FlowDocument depuis une liaison, c'est le construire
+        pendant l'inflation du DataTemplate : la moindre erreur y remonte en
+        XamlParseException et tue Revit à l'ouverture d'un projet. C'est
+        arrivé. Le rebrancher demande de bâtir le document AVANT la liaison.
+        """
         source = self._source()
-        self.assertIn('RichTextBox', source)
-        self.assertIn('MiseEnForme', source)
-        # Il vit dans un DataTemplate nommé, pas en vrac dans le gabarit.
-        self.assertIn('x:Key="BulleRiche"', source)
-        avant = source.index('x:Key="BulleRiche"')
-        self.assertLess(avant, source.index('RichTextBox'))
-
-    def test_un_gabarit_de_repli_existe(self):
-        # Sans lui, un document absent ne laisserait rien à afficher.
-        self.assertIn('x:Key="BulleBrute"', self._source())
+        liste = source[source.index('ItemsSource="{Binding Messages}"'):]
+        self.assertNotIn('RichTextBox', liste)
+        self.assertNotIn('MiseEnForme', liste)
 
     def test_l_etiquette_d_auteur_a_disparu(self):
         self.assertNotIn('Binding Auteur', self._source())

@@ -141,22 +141,14 @@
                     </Style.Triggers>
                   </Style>
                 </Border.Style>
-                <ContentControl Content="{Binding}">
-                  <ContentControl.Style>
-                    <Style TargetType="ContentControl">
-                      <Setter Property="ContentTemplate"
-                              Value="{StaticResource BulleBrute}"/>
-                      <Style.Triggers>
-                        <!-- Le gabarit riche UNIQUEMENT si le document
-                             existe : sinon RichTextBox.Document lèverait. -->
-                        <DataTrigger Binding="{Binding MiseEnForme}" Value="True">
-                          <Setter Property="ContentTemplate"
-                                  Value="{StaticResource BulleRiche}"/>
-                        </DataTrigger>
-                      </Style.Triggers>
-                    </Style>
-                  </ContentControl.Style>
-                </ContentControl>
+                <!-- Bulle en texte nu. Le gabarit riche est écrit et testé
+                     (BulleRiche), mais il reste débranché : le construire
+                     PENDANT l'inflation du DataTemplate fait remonter la
+                     moindre erreur en XamlParseException, et Revit tombe à
+                     l'ouverture d'un projet. Le rebrancher demande de bâtir
+                     le document AVANT la liaison, pas pendant. -->
+                <TextBox Text="{Binding TexteAffiche, Mode=OneWay}"
+                         Style="{StaticResource BulleTexte}"/>
               </Border>
               <!-- Temps de réflexion, sous la bulle. Absent des messages qui
                    n'ont rien coûté (commandes locales, message d'accueil). -->
