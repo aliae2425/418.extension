@@ -38,29 +38,23 @@
       </Style>
 
       <!--
-        DEUX gabarits de bulle, et le choix n'est pas cosmétique :
-        RichTextBox.Document REFUSE null. Une liaison vers une propriété qui
-        peut valoir None lève pendant l'inflation du DataTemplate, remonte en
-        XamlParseException et tue Revit — c'est arrivé. Le ContentControl
-        plus bas ne construit le gabarit riche QUE si MiseEnForme est vrai ;
-        sinon le RichTextBox n'existe même pas.
-      -->
-      <DataTemplate x:Key="BulleRiche">
-        <RichTextBox Document="{Binding Document, Mode=OneWay}"
-                     IsReadOnly="True" IsDocumentEnabled="False"
-                     Background="Transparent" BorderThickness="0"
-                     Padding="0" FontSize="12" MinWidth="0"
-                     IsTabStop="False"
-                     HorizontalScrollBarVisibility="Disabled"
-                     VerticalScrollBarVisibility="Disabled"
-                     Foreground="{DynamicResource TextPrimaryBrush}"
-                     SelectionBrush="{DynamicResource AccentBrush}"/>
-      </DataTemplate>
+        PAS de gabarit riche ici, et ce n'est pas un oubli.
 
-      <DataTemplate x:Key="BulleBrute">
-        <TextBox Text="{Binding TexteAffiche, Mode=OneWay}"
-                 Style="{StaticResource BulleTexte}"/>
-      </DataTemplate>
+        Trois tentatives, trois plantages de Revit — XamlParseException
+        depuis RevitAPIUI, à la construction du volet puis à l'envoi d'un
+        message. La dernière bâtissait pourtant le FlowDocument AVANT la
+        liaison, dans un try/except, avec un rendu validé hors Revit
+        (tableau compris). Revit est tombé quand même.
+
+        Ce qui est établi : le banc d'essai PowerShell ne reproduit PAS les
+        conditions de pyRevit (IronPython 2.7 + hôte Revit). Tant qu'on n'a
+        pas de quoi reproduire un plantage HORS de la machine de production,
+        on ne remet pas de FlowDocument dans ce volet.
+
+        Le code d'analyse et de rendu reste écrit et testé — core/
+        markdown_simple.py et ui/helpers/FlowMarkdown.py — mais débranché.
+        Les bulles affichent TexteAffiche, marques Markdown retirées.
+      -->
     </Grid.Resources>
 
     <Grid.RowDefinitions>
