@@ -39,8 +39,13 @@ REPONSE = (
     "MISE EN FORME — le panneau affiche du TEXTE BRUT, il ne rend aucun "
     "Markdown. N'écris donc ni gras, ni italique, ni titres, ni tableaux, ni "
     "accents graves autour du code : leurs marques s'afficheraient telles "
-    "quelles et pollueraient la lecture. Pour une liste, un tiret en début de "
-    "ligne. Pour un ensemble de valeurs, une ligne par élément sous la forme "
+    "quelles et pollueraient la lecture.\n"
+    "N'invente AUCUN marqueur de remplacement — ni crochets, ni majuscules, "
+    "ni guillemets ajoutés. Si l'architecte demande d'insister sur un mot, "
+    "écris-le simplement : la bulle ne sait pas le mettre en valeur, et un "
+    "[mot] entre crochets est plus laid qu'un mot nu.\n"
+    "Une liste se fait en début de ligne, au tiret ou à la puce, au choix. "
+    "Pour un ensemble de valeurs, une ligne par élément sous la forme "
     "« nom : valeur » — jamais un tableau à barres verticales.")
 
 # --- la syntaxe du chat --------------------------------------------------

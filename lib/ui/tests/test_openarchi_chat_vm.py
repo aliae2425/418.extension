@@ -690,6 +690,24 @@ class TestAlerteMaquette(unittest.TestCase):
         self.vm.Alerte = ''
         self.assertFalse(self.vm.AlerteVisible)
 
+    def test_un_echec_laisse_une_bulle_dans_le_fil(self):
+        # Le bandeau expire et se fait ecraser : il ne peut pas etre le seul
+        # canal. La bulle, elle, reste et se colle dans un rapport.
+        from core import revit_outils
+        revit_outils._echec['texte'] = 'revit_execute_code — AttributeError'
+        avant = len(self.vm.Messages)
+        try:
+            self.vm._signaler_echec()
+        finally:
+            revit_outils._echec['texte'] = ''
+        self.assertEqual(len(self.vm.Messages), avant + 1)
+        self.assertIn('AttributeError', self.vm.Messages[-1].Texte)
+
+    def test_sans_echec_aucune_bulle_n_est_ajoutee(self):
+        avant = len(self.vm.Messages)
+        self.vm._signaler_echec()
+        self.assertEqual(len(self.vm.Messages), avant)
+
     def test_rafraichir_l_alerte_ne_touche_pas_au_reseau(self):
         # Le bandeau relit le dernier verdict connu. Relancer une requête
         # juste pour l'afficher, c'était une collision de plus sur le serveur
@@ -708,7 +726,7 @@ class TestAlerteMaquette(unittest.TestCase):
         from core import revit_outils
         revit_outils._echec['texte'] = 'revit_execute_code — AttributeError'
         try:
-            self.vm._rafraichir_alerte()
+            self.vm._signaler_echec()
             self.assertTrue(self.vm.AlerteVisible)
             self.assertTrue(self.vm.AlerteGrave)
             self.assertIn('AttributeError', self.vm.Alerte)
@@ -721,7 +739,7 @@ class TestAlerteMaquette(unittest.TestCase):
         revit_outils._echec['texte'] = 'revit_status — HTTP 500'
         revit_outils._dernier['raison'] = 'Aucun document Revit ouvert'
         try:
-            self.vm._rafraichir_alerte()
+            self.vm._signaler_echec()
             self.assertIn('500', self.vm.Alerte)
         finally:
             revit_outils._echec['texte'] = ''
@@ -731,10 +749,10 @@ class TestAlerteMaquette(unittest.TestCase):
         from core import revit_outils
         revit_outils._echec['texte'] = 'revit_status — cassé'
         try:
-            self.vm._rafraichir_alerte()
+            self.vm._signaler_echec()
             self.assertTrue(self.vm.AlerteGrave)
             self.vm.Alerte = ''
-            self.vm._rafraichir_alerte()   # ne doit pas le rejouer
+            self.vm._signaler_echec()      # ne doit pas le rejouer
             self.assertFalse(self.vm.AlerteGrave)
         finally:
             revit_outils._echec['texte'] = ''

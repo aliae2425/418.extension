@@ -50,6 +50,13 @@ class TestPasDeMarkdown(unittest.TestCase):
         self.assertIn('tiret', texte)
         self.assertIn('nom : valeur', texte)
 
+    def test_elle_interdit_les_marqueurs_de_remplacement(self):
+        # Premiere version : « pas d'asterisques » a produit des [crochets].
+        # Interdire une forme sans interdire la substitution ne suffit pas.
+        texte = prompt.systeme(True)
+        self.assertIn('crochets', texte)
+        self.assertIn('marqueur de remplacement', texte)
+
 
 class TestAvecOutils(unittest.TestCase):
     def setUp(self):
