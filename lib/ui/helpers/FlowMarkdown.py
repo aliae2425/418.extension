@@ -5,16 +5,18 @@ Un ``TextBox`` n'affiche que du texte brut ; un ``TextBlock`` met en forme
 mais ne se sélectionne pas sous WPF. Les bulles doivent faire les deux, d'où
 le ``RichTextBox`` en lecture seule.
 
-**Ce qui a fait tomber Revit la première fois, et comment on s'en garde** :
-``RichTextBox.Document`` REFUSE ``null``. Une liaison vers une propriété qui
-peut valoir ``None`` lève pendant l'inflation du DataTemplate, l'exception
-remonte en ``XamlParseException`` et le process meurt. Deux verrous depuis :
+**Trois plantages de Revit, et ce qu'on en retient.** Relus ensemble, ils
+disent que la configuration la plus simple n'avait jamais été essayée :
 
-1. ``document()`` ne rend jamais ``None`` quand WPF est là — un document vide
-   plutôt que rien ;
-2. le XAML ne montre le ``RichTextBox`` que si ``MiseEnForme`` est vrai, via
-   un ``ContentControl`` qui change de gabarit — le contrôle n'est même pas
-   construit dans l'autre cas.
+- 1re : ``RichTextBox`` direct, ``Document`` pouvant valoir ``null`` — il
+  refuse ``null``, la liaison lève, ``XamlParseException``, process mort ;
+- 2e et 3e : un ``ContentControl`` qui bascule de gabarit par ``DataTrigger``
+  et ``StaticResource``. Jamais élucidées — mais c'est la seule pièce que la
+  1re n'avait pas.
+
+D'où la forme d'aujourd'hui : **un seul gabarit, un ``RichTextBox`` direct,
+et un ``Document`` qui n'est JAMAIS ``null``**. Pas de bascule, pas de
+``ContentControl``. Et une surface WPF réduite au minimum : trois types.
 
 L'analyse vit dans ``core.markdown_simple`` (pure, testable) ; ici on ne fait
 qu'assembler des objets WPF.
@@ -36,11 +38,14 @@ try:
 except Exception:
     from lib.core import markdown_simple as md
 
+# Surface WPF volontairement MINIMALE : FlowDocument, Paragraph, Run, et
+# quatre assignations de propriété. Pas de Table, pas de TableCell, pas de
+# TextAlignment — les tableaux sont rendus en colonnes de texte calées à
+# l'espace. Chaque type WPF de plus est une façon de plus de tomber, et on
+# est déjà tombés trois fois.
 try:
-    from System.Windows import Thickness, FontWeights, FontStyles, TextAlignment
-    from System.Windows.Documents import (FlowDocument, Paragraph, Run, Table,
-                                          TableColumn, TableRowGroup, TableRow,
-                                          TableCell)
+    from System.Windows import Thickness, FontWeights, FontStyles
+    from System.Windows.Documents import FlowDocument, Paragraph, Run
     from System.Windows.Media import FontFamily
 except Exception:
     FlowDocument = None
@@ -56,24 +61,30 @@ def disponible():
     return FlowDocument is not None
 
 
-def document(texte):
+def document(texte, mise_en_forme=True):
     """``FlowDocument`` prêt pour un RichTextBox. ``None`` seulement hors .NET.
 
-    Ne lève jamais : une bulle sans mise en forme vaut mieux qu'un volet mort.
+    **Ne rend JAMAIS None quand WPF est là.** C'est le contrat : la liaison
+    du panneau pose cette valeur sur ``RichTextBox.Document``, qui refuse
+    ``null`` — un None ici lève pendant l'inflation du DataTemplate et tue
+    Revit. Trois replis en cascade plutôt qu'un seul.
+
+    ``mise_en_forme`` à faux rend le texte en un seul paragraphe, sans
+    analyse : c'est le mode de bissection de ``/format``.
     """
     if FlowDocument is None:
         return None
-    try:
-        return _bati(texte)
-    except Exception:
-        # Repli : le texte nu dans un document valide. Rendre None ici
-        # ferait lever la liaison, et c'est ce qui a tué Revit.
+    if mise_en_forme:
         try:
-            secours = _vide()
-            secours.Blocks.Add(_paragraphe_simple(md.texte_nu(texte)))
-            return secours
+            return _bati(texte)
         except Exception:
-            return _vide()
+            pass                       # on tente plus simple juste en dessous
+    try:
+        secours = _vide()
+        secours.Blocks.Add(_paragraphe_simple(md.texte_nu(texte)))
+        return secours
+    except Exception:
+        return _vide()                 # vide mais valide : jamais None
 
 
 def _vide():
@@ -88,10 +99,52 @@ def _bati(texte):
     doc = _vide()
     for genre, niveau, parts in md.blocs(texte):
         if genre == md.TABLEAU:
-            doc.Blocks.Add(_tableau(parts))
+            for para in _tableau(parts):
+                doc.Blocks.Add(para)
         else:
             doc.Blocks.Add(_paragraphe(genre, niveau, parts))
     return doc
+
+
+def _tableau(rangees):
+    """Un tableau rendu en paragraphes calés à l'espace, PAS en ``Table``.
+
+    Un vrai ``Table`` WPF, c'est cinq types de plus (Table, TableColumn,
+    TableRowGroup, TableRow, TableCell) et un moteur de mise en page à part.
+    Après trois plantages, la colonne alignée à l'espace en police fixe rend
+    le même service pour un dixième de la surface exposée.
+    """
+    largeurs = _largeurs(rangees)
+    paragraphes = []
+    for rang, rangee in enumerate(rangees):
+        para = Paragraph()
+        para.Margin = Thickness(_RETRAIT, 0, 0, 0)
+        if rang == 0:
+            para.FontWeight = FontWeights.Bold
+        for colonne, cellule in enumerate(rangee):
+            plat = ''.join(contenu for _style, contenu in cellule)
+            # Dernière colonne : pas de remplissage, sinon la bulle s'élargit
+            # d'espaces invisibles.
+            if colonne < len(rangee) - 1:
+                plat = plat.ljust(largeurs[colonne] + 2)
+            morceau = _morceau(md.CODE, plat)
+            morceau.FontWeight = (FontWeights.Bold if rang == 0
+                                  else FontWeights.Normal)
+            para.Inlines.Add(morceau)
+        paragraphes.append(para)
+    return paragraphes
+
+
+def _largeurs(rangees):
+    largeurs = []
+    for rangee in rangees:
+        for colonne, cellule in enumerate(rangee):
+            plat = ''.join(contenu for _style, contenu in cellule)
+            if colonne >= len(largeurs):
+                largeurs.append(len(plat))
+            else:
+                largeurs[colonne] = max(largeurs[colonne], len(plat))
+    return largeurs
 
 
 def _paragraphe_simple(texte):
@@ -119,45 +172,6 @@ def _paragraphe(genre, niveau, parts):
     for style, contenu in parts:
         para.Inlines.Add(_morceau(style, contenu))
     return para
-
-
-def _tableau(rangees):
-    """Un vrai ``Table`` : les colonnes s'alignent et le texte se replie.
-
-    La première rangée sert d'en-tête — c'est la convention Markdown, et la
-    ligne « |---| » qui l'annonce a déjà été écartée par l'analyse.
-    """
-    table = Table()
-    table.CellSpacing = 0
-    table.Margin = Thickness(0, 0, 0, _ENTRE_BLOCS)
-    largeur = max(len(rangee) for rangee in rangees)
-    for _ in range(largeur):
-        table.Columns.Add(TableColumn())
-    groupe = TableRowGroup()
-    for rang, rangee in enumerate(rangees):
-        ligne = TableRow()
-        if rang == 0:
-            ligne.FontWeight = FontWeights.Bold
-        for cellule in rangee:
-            ligne.Cells.Add(_cellule(cellule))
-        # Une rangée plus courte que les autres laisserait un trou : WPF
-        # décale alors toutes les colonnes suivantes.
-        for _ in range(largeur - len(rangee)):
-            ligne.Cells.Add(_cellule([(md.BRUT, '')]))
-        groupe.Rows.Add(ligne)
-    table.RowGroups.Add(groupe)
-    return table
-
-
-def _cellule(parts):
-    para = Paragraph()
-    para.Margin = Thickness(0)
-    para.TextAlignment = TextAlignment.Left
-    for style, contenu in parts:
-        para.Inlines.Add(_morceau(style, contenu))
-    cellule = TableCell(para)
-    cellule.Padding = Thickness(0, 1, 8, 1)
-    return cellule
 
 
 def _morceau(style, contenu):

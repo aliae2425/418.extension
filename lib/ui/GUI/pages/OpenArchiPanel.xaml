@@ -135,14 +135,29 @@
                     </Style.Triggers>
                   </Style>
                 </Border.Style>
-                <!-- Bulle en texte nu. Le gabarit riche est écrit et testé
-                     (BulleRiche), mais il reste débranché : le construire
-                     PENDANT l'inflation du DataTemplate fait remonter la
-                     moindre erreur en XamlParseException, et Revit tombe à
-                     l'ouverture d'un projet. Le rebrancher demande de bâtir
-                     le document AVANT la liaison, pas pendant. -->
-                <TextBox Text="{Binding TexteAffiche, Mode=OneWay}"
-                         Style="{StaticResource BulleTexte}"/>
+                <!--
+                  UN SEUL gabarit, un RichTextBox direct, et c'est délibéré.
+
+                  Trois plantages de Revit sur cette bulle. Le premier venait
+                  d'un Document à null — il refuse null. Les deux suivants
+                  d'un ContentControl qui basculait de gabarit par DataTrigger
+                  et StaticResource : jamais élucidés, mais c'est la seule
+                  pièce que le premier essai n'avait pas.
+
+                  Donc : pas de bascule, pas de ContentControl, pas de second
+                  gabarit. MessageVM.mettre_en_forme() pose le Document AVANT
+                  que la liaison n'y touche, et ne rend jamais null sous WPF.
+                  « /format off » coupe l'analyse sans changer de contrôle.
+                -->
+                <RichTextBox Document="{Binding Document, Mode=OneWay}"
+                             IsReadOnly="True" IsDocumentEnabled="False"
+                             Background="Transparent" BorderThickness="0"
+                             Padding="0" FontSize="12" MinWidth="0"
+                             IsTabStop="False"
+                             HorizontalScrollBarVisibility="Disabled"
+                             VerticalScrollBarVisibility="Disabled"
+                             Foreground="{DynamicResource TextPrimaryBrush}"
+                             SelectionBrush="{DynamicResource AccentBrush}"/>
               </Border>
               <!-- Temps de réflexion, sous la bulle. Absent des messages qui
                    n'ont rien coûté (commandes locales, message d'accueil). -->
