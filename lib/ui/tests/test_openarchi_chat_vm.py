@@ -168,8 +168,8 @@ class TestAutocomplete(unittest.TestCase):
         self.vm.Saisie = '/'
         self.assertTrue(self.vm.SuggestionsVisibles)
         self.assertEqual(self._libelles(),
-                         ['/aide', '/connect', '/journal', '/logout',
-                          '/model'])
+                         ['/aide', '/connect', '/format', '/journal',
+                          '/logout', '/model'])
 
     def test_filtre_sur_le_prefixe(self):
         self.vm.Saisie = '/co'
@@ -644,14 +644,32 @@ class TestAttente(unittest.TestCase):
         self.assertEqual(self.vm.Messages[-1].Duree, '')
         self.assertFalse(self.vm.Messages[-1].DureeVisible)
 
-    def test_hors_wpf_la_bulle_retombe_sur_le_texte_nu(self):
-        # MiseEnForme faux = le RichTextBox n'est pas construit. C'est le
-        # verrou : sa propriété Document refuse null.
+    def test_hors_wpf_la_bulle_garde_son_texte_nu(self):
+        # Sans WPF, Document reste None — et il n'y a alors aucun XAML pour
+        # s'en plaindre. TexteAffiche reste le repli lisible.
         from ui.OpenArchiChatVM import MessageVM
-        bulle = MessageVM('OpenArchi', 'un **gras** et `du code`', False)
-        self.assertFalse(bulle.MiseEnForme)
+        bulle = MessageVM('OpenArchi', 'un **gras** et `du code`',
+                          False).mettre_en_forme()
         self.assertIsNone(bulle.Document)
         self.assertNotIn('**', bulle.TexteAffiche)
+
+    def test_document_reste_un_champ(self):
+        """LA leçon des plantages : une PROPRIÉTÉ qui fabrique du WPF est
+        évaluée par la liaison, donc pendant l'inflation du DataTemplate. La
+        moindre erreur y remonte en XamlParseException et tue Revit."""
+        from ui.OpenArchiChatVM import MessageVM
+        self.assertNotIsInstance(getattr(MessageVM, 'Document', None),
+                                 property)
+
+    def test_format_bascule_et_ne_persiste_pas(self):
+        # Reglage de SESSION : un plantage doit se reparer en relancant
+        # Revit, pas en editant un JSON.
+        self.assertTrue(self.vm._format)
+        self.assertIn('coupée', self.vm._commande_format(''))
+        self.assertFalse(self.vm._format)
+        self.assertIn('activée', self.vm._commande_format('on'))
+        self.assertIn('coupée', self.vm._commande_format('off'))
+        self.assertIn('Usage', self.vm._commande_format('nawak'))
 
     def test_le_texte_brut_survit_a_la_mise_en_forme(self):
         # C'est lui qui repart au fournisseur dans l'historique.

@@ -30,20 +30,31 @@ thème sombre · chronomètre au-delà de la minute · bulles bleues sans
 
 ---
 
-## 0 · Confort de lecture
+## 0 · Mise en forme des bulles — **4e tentative**
 
-Le rendu Markdown est **abandonné** : trois tentatives, trois plantages de
-Revit. À la place, le modèle a consigne de n'en pas produire.
+Trois plantages sur cette zone. La configuration d'aujourd'hui n'avait jamais
+été essayée : **un seul gabarit, un RichTextBox direct, un Document jamais
+nul**. Ni bascule de template, ni ContentControl — la seule pièce que la 1re
+tentative n'avait pas, et elle tombait pour une autre cause, corrigée depuis.
+Surface WPF réduite à trois types : FlowDocument, Paragraph, Run.
 
-Consigne durcie : interdire les astérisques ne suffisait pas, le modèle les
-remplaçait par des crochets. L'invite interdit maintenant **tout marqueur de
-substitution**, et accepte tiret comme puce.
+**Si Revit retombe** : `/format off` coupe l'analyse sans changer de contrôle
+et sans Reload. Le réglage n'est PAS persisté — relancer Revit revient
+toujours à un état sain.
 
-- [ ] « mets les noms en gras » → ni astérisque, ni **crochets**, ni
-      majuscules : le mot écrit simplement
-- [ ] « fais-moi un tableau des trois premières vues » → lignes
-      « nom : valeur » ou liste, jamais de barres verticales
-- [ ] Une liste sort en tirets ou en puces, les deux conviennent
+- [ ] Le volet s'ouvre, Revit tient
+- [ ] Envoyer un message : Revit tient
+- [ ] Le **gras** s'affiche en gras
+- [ ] L'*italique* s'affiche en italique
+- [ ] `<u>souligné</u>` s'affiche souligné
+- [ ] Le `code` s'affiche en chasse fixe
+- [ ] Une liste sort en puces alignées
+- [ ] Un tableau sort en colonnes calées, lisible dans 340 px
+- [ ] Les titres `#` ressortent en gras, un peu plus gros
+- [ ] Le texte reste **sélectionnable et copiable**
+- [ ] `/format off` puis un message → bulle en texte nu, Revit tient
+- [ ] `/format on` → la mise en forme revient
+- [ ] Les bulles déjà affichées gardent leur rendu (documenté)
 
 ## 1 · Filtres de couleur — **correctif à vérifier**
 
@@ -143,8 +154,8 @@ Cinq plantages de Revit sur les passes précédentes.
 | 2 | 2 | `place_family` : coordonnées au mauvais endroit | Unité du projet | ouvert |
 | 3 | 2 | Changer l'unité du projet ne change rien | — | **fermé — comportement voulu**, l'unité appartient au projet |
 | 4 | 3 | Le bandeau d'erreur n'apparaît pas à chaque échec | Systématique | **traité — bulle ajoutée**, à rejouer |
-| 5 | 0 | Rendu Markdown : trois plantages de Revit | — | **fermé — abandonné**, le modèle n'en produit plus |
-| 6 | 0 | « pas d'astérisque » → le modèle met des crochets | Mot nu | **corrigé, à rejouer** |
+| 5 | 0 | Rendu Markdown : trois plantages de Revit | Formats rendus | **4e tentative — gabarit unique**, à éprouver |
+| 6 | 0 | « pas d'astérisque » → le modèle met des crochets | — | **fermé** : le panneau rend le Markdown, plus d'interdiction |
 | 7 | | | | |
 
 > Coller l'extrait de `/journal` fait gagner le plus de temps : il porte le
@@ -155,6 +166,7 @@ Cinq plantages de Revit sur les passes précédentes.
 ## Points de fragilité connus
 
 - **§9** la stabilité — c'est là que ça a cassé cinq fois
+- **§0** la mise en forme — trois plantages déjà, `/format off` est la sortie
 - **§1** `filtre_couleur` depuis une feuille (vue sans remplacements)
 - **§5** le modèle qui agit sans attendre la confirmation
 - **§9** deux instances de Revit — le port monte de 48884 à 48885
@@ -166,7 +178,5 @@ Cinq plantages de Revit sur les passes précédentes.
   appelables par le modèle
 - les connexions *codex* et *clé API* n'ont pas d'outils
 - l'historique de saisie ne survit pas à la fermeture du volet
-- **gras, italique et tableaux ne sont pas rendus** : le modèle a
-  consigne de n'en pas produire, c'est la seule parade qui tienne
 - les **valeurs de paramètres** restent en pieds : il faudrait le type
   d'unité de chaque paramètre, qu'aucune route n'expose

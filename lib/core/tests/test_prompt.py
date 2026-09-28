@@ -32,30 +32,28 @@ class TestSansOutils(unittest.TestCase):
         self.assertIn('français', self.texte)
 
 
-class TestPasDeMarkdown(unittest.TestCase):
-    """Le panneau affiche du texte brut : le rendre est ce qui a fait tomber
-    Revit trois fois. On demande donc au modèle de n'en pas produire — c'est
-    trois lignes d'invite au lieu d'un FlowDocument."""
+class TestMiseEnForme(unittest.TestCase):
+    """Le panneau rend le Markdown : l'invite doit le dire, et poser les
+    limites de place plutot que d'interdire."""
 
     def test_la_consigne_vaut_avec_ET_sans_outils(self):
-        # Le volet est le même dans les deux cas, la règle aussi.
+        # Le volet est le meme dans les deux cas, la regle aussi.
         for avec in (False, True):
             texte = prompt.systeme(avec)
-            self.assertIn('TEXTE BRUT', texte)
-            self.assertIn('tableaux', texte)
+            self.assertIn('MISE EN FORME', texte)
+            self.assertIn('gras', texte)
 
-    def test_elle_dit_quoi_faire_a_la_place(self):
-        # Interdire sans proposer laisse le modèle inventer sa propre forme.
+    def test_elle_n_interdit_plus_le_markdown(self):
+        # Premiere version : « n'ecris pas de gras » a produit des crochets.
+        # Le panneau rend maintenant les formats, l'interdiction n'a plus
+        # lieu d'etre.
         texte = prompt.systeme(True)
-        self.assertIn('tiret', texte)
-        self.assertIn('nom : valeur', texte)
+        self.assertNotIn('TEXTE BRUT', texte)
+        self.assertNotIn('marqueur de remplacement', texte)
 
-    def test_elle_interdit_les_marqueurs_de_remplacement(self):
-        # Premiere version : « pas d'asterisques » a produit des [crochets].
-        # Interdire une forme sans interdire la substitution ne suffit pas.
-        texte = prompt.systeme(True)
-        self.assertIn('crochets', texte)
-        self.assertIn('marqueur de remplacement', texte)
+    def test_elle_rappelle_la_largeur_de_la_bulle(self):
+        # Sans ca, un tableau de six colonnes arrive dans 340 px.
+        self.assertIn('340', prompt.systeme(True))
 
 
 class TestAvecOutils(unittest.TestCase):

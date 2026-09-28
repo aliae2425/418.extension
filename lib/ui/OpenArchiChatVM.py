@@ -178,24 +178,25 @@ class MessageVM(BaseViewModel):
         # brut — c'est lui qui repart au fournisseur dans l'historique, et
         # c'est lui que /journal doit pouvoir montrer.
         self.TexteAffiche = _texte_nu(texte)
-        self._document = None
-        self._bati = False
+        # UN CHAMP, pas une propriété : une propriété qui fabrique du WPF est
+        # évaluée par la liaison, donc pendant l'inflation du DataTemplate.
+        # Posé par mettre_en_forme(), sur le fil d'interface.
+        self.Document = None
 
-    @property
-    def MiseEnForme(self):
-        """Toujours faux aujourd'hui : le gabarit riche est débranché.
+    def mettre_en_forme(self, actif=True):
+        """Bâtit le document, hors de toute liaison. Ne lève jamais.
 
-        Construire le FlowDocument depuis une liaison, c'est le construire
-        PENDANT l'inflation du DataTemplate — et là, la moindre erreur
-        remonte en XamlParseException et tue Revit à l'ouverture d'un projet.
-        Le rebrancher demande de bâtir le document AVANT, sur le fil
-        d'interface, et de ne laisser à la liaison qu'un champ à lire.
+        ``Document`` reste ``None`` hors WPF — c'est le seul cas, et il n'y a
+        alors aucun XAML pour s'en plaindre. Dans Revit il est TOUJOURS posé :
+        ``RichTextBox.Document`` refuse ``null``.
         """
-        return False
-
-    @property
-    def Document(self):
-        return self._document
+        if _flow is None:
+            return self
+        try:
+            self.Document = _flow.document(self.Texte, actif)
+        except Exception:
+            _log.exception('mise en forme de la bulle')
+        return self
 
 
 class OpenArchiChatVM(BaseViewModel):
@@ -232,6 +233,10 @@ class OpenArchiChatVM(BaseViewModel):
         self._fixe = False
         self._secondes = 0
         self._horloge = None
+        # Mise en forme des bulles. Drapeau de SESSION, jamais persiste :
+        # si elle refait tomber Revit, relancer suffit a revenir au texte
+        # nu. Un reglage ecrit sur disque enfermerait dans la boucle.
+        self._format = True
         self._alerte = ''
         self._grave = False
         self._expiration = None
@@ -248,6 +253,8 @@ class OpenArchiChatVM(BaseViewModel):
                        self._commande_logout),
             'journal': ('afficher les dernières lignes du journal',
                         self._commande_journal),
+            'format': ('activer ou couper la mise en forme des bulles',
+                       self._commande_format),
             'aide': ('lister les commandes disponibles', self._commande_aide),
         }
         self.Suggestions = self._nouvelle_liste()
@@ -267,7 +274,9 @@ class OpenArchiChatVM(BaseViewModel):
                                  if RelayCommand else None)
         self.SuivantCommand = (RelayCommand(self._suivant)
                                if RelayCommand else None)
-        self.Messages.Add(MessageVM('OpenArchi', self.ACCUEIL, False))
+        self.Messages.Add(
+            MessageVM('OpenArchi', self.ACCUEIL, False)
+            .mettre_en_forme(self._format))
         # PAS de vérification de la maquette ici. Le VM est construit pendant
         # que Revit bâtit le volet ancré, au démarrage : y lancer un fil de
         # fond qui revient notifier une propriété liée a fait lever WPF hors
@@ -659,7 +668,9 @@ class OpenArchiChatVM(BaseViewModel):
         self._dire('Connecté — {0}'.format(self.Statut))
 
     def _dire(self, texte, duree=''):
-        self.Messages.Add(MessageVM('OpenArchi', texte, False, duree))
+        self.Messages.Add(
+            MessageVM('OpenArchi', texte, False, duree)
+            .mettre_en_forme(self._format))
 
     def _duree_reflexion(self):
         """« réfléchi 42 s », ou '' si ça n'a pas duré une seconde."""
@@ -689,7 +700,8 @@ class OpenArchiChatVM(BaseViewModel):
         self._fermer_liste()
         if self._grave:
             self.Alerte = ''
-        self.Messages.Add(MessageVM('Moi', texte, True))
+        self.Messages.Add(
+            MessageVM('Moi', texte, True).mettre_en_forme(self._format))
         # Retenu AVANT de vider : la flèche Haut doit le retrouver, commande
         # comme message libre — c'est surtout pour rejouer une commande.
         self._retenir(texte)
@@ -827,6 +839,28 @@ class OpenArchiChatVM(BaseViewModel):
         return '{0}\n\n{1}'.format(
             _journal.chemin() or 'journal indisponible',
             fin or '(vide — rejouer l\'action à déboguer)')
+
+    def _commande_format(self, arguments):
+        """Active ou coupe la mise en forme des bulles, sans Reload.
+
+        Réglage de SESSION, jamais écrit sur disque : la mise en forme a déjà
+        fait tomber Revit trois fois. Un réglage persistant enfermerait dans
+        la boucle — relancer Revit doit toujours ramener à un état sain.
+        Sert aussi à bissecter : si un message casse l'affichage, `/format`
+        le rend en texte nu sans rien perdre de la conversation.
+        """
+        demande = arguments.strip().lower()
+        if demande in ('on', 'oui', 'actif'):
+            self._format = True
+        elif demande in ('off', 'non', 'coupe'):
+            self._format = False
+        elif demande:
+            return 'Usage : /format, /format on, ou /format off.'
+        else:
+            self._format = not self._format
+        return ('Mise en forme {0}. Elle s\'applique aux prochains messages ; '
+                'ceux déjà affichés gardent leur rendu.'.format(
+                    'activée' if self._format else 'coupée'))
 
     def _commande_model(self, arguments):
         client = self._client
