@@ -479,12 +479,25 @@ class OpenArchiChatVM(BaseViewModel):
         """
         if revit_outils is None:
             return
-        # Un échec d'outil prime sur l'état : il vient de se produire.
-        echec = revit_outils.dernier_echec()
-        if echec:
-            return self._toast(echec)
         if not self._grave:            # ne pas écraser un toast en cours
             self.Alerte = revit_outils.derniere_raison()
+
+    def _signaler_echec(self):
+        """Un outil en échec laisse une BULLE, pas seulement un bandeau.
+
+        « L'erreur n'apparaît pas à chaque fois » vient de là : un bandeau
+        expire au bout de 15 s, se fait écraser par l'état de la maquette et
+        disparaît au message suivant. Une interface transitoire ne peut pas
+        être le seul canal d'une erreur. La bulle, elle, reste dans le fil,
+        se relit et se colle dans un rapport.
+        """
+        if revit_outils is None:
+            return
+        echec = revit_outils.dernier_echec()
+        if not echec:
+            return
+        self._dire('Outil en échec — {0}'.format(echec))
+        self._toast(echec)
 
     @property
     def _client(self):
@@ -696,6 +709,8 @@ class OpenArchiChatVM(BaseViewModel):
         duree = self._duree_reflexion()
         self.EnAttente = False
         self._dire(reponse, duree)
+        # L'échec d'abord : il vient de se produire, l'état peut attendre.
+        self._signaler_echec()
         # Le document a pu être fermé entre deux messages : le bandeau ne doit
         # pas rester périmé, dans un sens comme dans l'autre.
         self._rafraichir_alerte()
