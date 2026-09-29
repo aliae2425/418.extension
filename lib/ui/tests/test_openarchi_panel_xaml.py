@@ -63,6 +63,19 @@ class TestGrilleDuPanneau(unittest.TestCase):
             return re.sub(r'<!--.*?-->', '',
                           fichier.read().decode('utf-8'), flags=re.S)
 
+    def test_aucune_bulle_ne_construit_de_wpf_par_liaison(self):
+        """Le gabarit riche reste DÉBRANCHÉ.
+
+        Construire un FlowDocument depuis une liaison, c'est le construire
+        pendant l'inflation du DataTemplate : la moindre erreur y remonte en
+        XamlParseException et tue Revit à l'ouverture d'un projet. C'est
+        arrivé. Le rebrancher demande de bâtir le document AVANT la liaison.
+        """
+        source = self._source()
+        liste = source[source.index('ItemsSource="{Binding Messages}"'):]
+        self.assertNotIn('RichTextBox', liste)
+        self.assertNotIn('MiseEnForme', liste)
+
     def test_l_etiquette_d_auteur_a_disparu(self):
         self.assertNotIn('Binding Auteur', self._source())
 
