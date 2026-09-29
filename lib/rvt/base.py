@@ -114,6 +114,30 @@ def vers_revit(doc, valeur):
             DB.SpecTypeId.Length).GetUnitTypeId())
 
 
+def mesure(doc, valeur, specification):
+    """Convertit une mesure interne vers l'unité du projet, avec son symbole.
+
+    ``specification`` est un ``SpecTypeId`` — Area, Volume, Length… Les aires
+    ne se convertissent PAS avec le facteur des longueurs : un pied carré
+    vaut 0,0929 m², pas 0,3048. L'erreur est tentante et silencieuse.
+    """
+    try:
+        options = doc.GetUnits().GetFormatOptions(specification)
+        unite = options.GetUnitTypeId()
+        return (round(DB.UnitUtils.ConvertFromInternalUnits(
+            float(valeur), unite), 3), symbole_unite(options))
+    except Exception:
+        return float(valeur), ''
+
+
+def aire(doc, valeur):
+    return mesure(doc, valeur, DB.SpecTypeId.Area)
+
+
+def volume(doc, valeur):
+    return mesure(doc, valeur, DB.SpecTypeId.Volume)
+
+
 def point(doc, brut):
     """``{"x":…,"y":…,"z":…}`` en unité projet → ``XYZ`` en pieds."""
     if not isinstance(brut, dict):

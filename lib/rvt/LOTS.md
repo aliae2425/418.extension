@@ -28,7 +28,7 @@ paramétré : les quatre `export_*` en un `exporter(format=…)`, les trois
 | lot | famille | outils | état |
 |---|---|---|---|
 | 1 | socle, requête, vues, feuilles, paramètres, familles, graphismes, document | **25** | **fait** |
-| 2 | nomenclatures, pièces et finitions | ~10 | à faire |
+| 2 | pièces, nomenclatures, audit | **9** | **fait** |
 | 3 | annotation, cotes, étiquettes | ~12 | à faire |
 | 4 | matériaux, géométrie, clash | ~10 | à faire |
 | 5 | création : niveaux, quadrillages, murs, sols | ~12 | à faire |
@@ -38,6 +38,25 @@ paramétré : les quatre `export_*` en un `exporter(format=…)`, les trois
 | 9 | liens, coordonnées partagées | ~6 | à faire |
 | 10 | organisation : gabarits, worksets, groupes | ~8 | à faire |
 | 11 | lint et audit : non étiquetés, doublons | ~6 | à faire |
+
+## Lot 2 — livré
+
+**Pièces** — `revit_pieces` (surfaces dans l'unité du projet, non placées
+comptées à part parce qu'elles fausseraient tout total) ·
+`revit_surfaces_par_niveau` · `revit_pieces_sans_nom`
+
+**Nomenclatures** — `revit_nomenclatures` · `revit_lire_nomenclature`. Lire
+une nomenclature vaut mieux que recompter à côté : elle porte les champs, les
+filtres et les groupements que l'architecte a choisis, donc on répond avec
+SES chiffres.
+
+**Audit** — `revit_non_etiquetes` · `revit_vues_inutilisees` ·
+`revit_familles_inutilisees` · `revit_statistiques`
+
+Piège écarté en passant : les **aires ne se convertissent pas avec le facteur
+des longueurs**. Un pied carré vaut 0,0929 m², pas 0,3048 — l'erreur est
+tentante et silencieuse. D'où `base.mesure(doc, valeur, SpecTypeId)`, qui
+prend la spécification plutôt que de supposer.
 
 ## Lot 1 — livré
 
