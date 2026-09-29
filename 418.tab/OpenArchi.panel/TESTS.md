@@ -39,10 +39,10 @@ Consigne durcie : interdire les astérisques ne suffisait pas, le modèle les
 remplaçait par des crochets. L'invite interdit maintenant **tout marqueur de
 substitution**, et accepte tiret comme puce.
 
-- [ ] « mets les noms en gras » → ni astérisque, ni **crochets**, ni
+- [x] « mets les noms en gras » → ni astérisque, ni **crochets**, ni
       majuscules : le mot écrit simplement
-- [ ] « fais-moi un tableau des trois premières vues » → lignes
-      « nom : valeur » ou liste, jamais de barres verticales
+- [!] « fais-moi un tableau des trois premières vues » → lignes
+      « nom : valeur » ou liste, jamais de barres verticales => devien ilsible sans mise en page
 - [ ] Une liste sort en tirets ou en puces, les deux conviennent
 
 ## 1 · Filtres de couleur — **correctif à vérifier**

@@ -12,7 +12,9 @@ if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
 
 from core import prompt
-from core import revit_outils
+import rvt
+from rvt import registre
+rvt.charger_outils()
 
 
 class TestSansOutils(unittest.TestCase):
@@ -79,9 +81,19 @@ class TestAvecOutils(unittest.TestCase):
         # convertie et se trompe d'un facteur 3,28.
         self.assertNotIn('PIEDS', self.texte)
 
-    def test_la_colorisation_par_filtre_est_preferee(self):
-        self.assertIn('revit_filtre_couleur', self.texte)
-        self.assertIn('revit_color_splash', self.texte)
+    def test_la_colorisation_passe_par_des_filtres_nommes(self):
+        # Le remplacement élément par élément du serveur précédent était
+        # invisible dans l'arbre du projet : il n'existe plus.
+        self.assertIn('revit_colorer', self.texte)
+        self.assertIn('filtres de vue nommés', self.texte)
+
+    def test_tout_outil_nomme_dans_l_invite_existe_vraiment(self):
+        """Nommer un outil disparu, c'est promettre ce qui n'est plus là —
+        et c'est exactement ce qui s'est produit en renommant le serveur."""
+        import re
+        connus = set(registre.OUTILS)
+        for nom in set(re.findall(r'revit_[a-z_]+', self.texte)):
+            self.assertIn(nom, connus, nom + ' est cité mais n\'existe pas')
 
     def test_la_regle_de_troncature_est_la(self):
         # Sans elle, il rappelle le même outil pour le même résultat coupé.
@@ -96,7 +108,7 @@ class TestAvecOutils(unittest.TestCase):
     def test_les_outils_irreversibles_sont_tous_nommes(self):
         # Un outil destructeur absent de l'invite n'a plus que sa
         # description pour garde-fou.
-        for nom in revit_outils.IRREVERSIBLES:
+        for nom in registre.irreversibles():
             self.assertIn(nom, self.texte, nom)
 
     def test_une_demande_vague_ne_vaut_pas_accord(self):
