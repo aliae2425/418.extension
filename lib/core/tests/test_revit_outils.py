@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Tests du catalogue d'outils Revit. Aucun réseau, aucun Revit."""
+"""Tests du pont chat ↔ outils Revit. Aucun réseau, aucun Revit.
+
+Le catalogue n'est plus écrit ici : il vient de ``/418/outils/``. Ces tests
+le simulent, et vérifient surtout ce qui a cassé en vrai — un chemin en dur
+qui diverge, un échec caché dans un HTTP 200, une sortie non tronquée.
+"""
 from __future__ import unicode_literals
 import json
 import os
@@ -13,238 +18,110 @@ if _SHARED_LIB not in sys.path:
 
 from core import revit_outils
 
-# Écriture annulable : chacune pose une transaction nommée, Ctrl+Z la défait.
-ECRITURE = ('place_family', 'color_splash', 'clear_colors')
-
-# Tout ce que le serveur sait faire. Le catalogue est censé être complet
-# depuis que l'architecte a demandé à tout débloquer ; si une route manque,
-# c'est un oubli, pas une prudence.
-NOTRES = ('selection', 'filtre_couleur')
-
-TOUTES = ('status', 'model_info', 'current_view_info', 'list_views',
-          'list_levels', 'list_family_categories', 'list_families',
-          'list_category_parameters', 'current_view_elements') + ECRITURE + (
-          'execute_code', 'save_document', 'sync_with_central',
-          'open_document', 'close_document') + NOTRES
-
-
-class TestCatalogue(unittest.TestCase):
-    def test_toutes_les_routes_du_serveur_sont_exposees(self):
-        routes = ' '.join(entree[1] for entree in revit_outils.CATALOGUE)
-        for attendue in TOUTES:
-            self.assertIn(attendue, routes, attendue)
-
-    def test_une_route_qui_ecrit_le_dit_dans_sa_description(self):
-        # Le modèle ne lit que la description : si elle ne distingue pas
-        # regarder de modifier, il colorera la maquette pour « voir ».
-        for nom, route, _m, description, _s in revit_outils.CATALOGUE:
-            if any(ecrit in route for ecrit in ECRITURE):
-                self.assertIn('MODIFIE', description, nom)
-
-    def test_une_route_irreversible_crie_dans_sa_description(self):
-        # C'est le dernier garde-fou : plus de transaction, plus de Ctrl+Z.
-        # Adoucir ces descriptions, c'est retirer le filet.
-        for nom in revit_outils.IRREVERSIBLES:
-            description = revit_outils._PAR_NOM[nom][3]
-            self.assertIn('DANGER', description, nom)
-            self.assertIn('explicite', description, nom)
-
-    def test_les_irreversibles_sont_toutes_declarees(self):
-        # La liste sert au journal et à la consigne système : une route
-        # destructrice absente d'ici passerait sans laisser de trace.
-        for nom, route, _m, _d, _s in revit_outils.CATALOGUE:
-            destructrice = any(mot in route for mot in
-                               ('execute_code', 'save_document',
-                                'sync_with_central', 'open_document',
-                                'close_document'))
-            self.assertEqual(destructrice, nom in revit_outils.IRREVERSIBLES,
-                             nom)
-
-    def test_noms_uniques_et_prefixes(self):
-        noms = [entree[0] for entree in revit_outils.CATALOGUE]
-        self.assertEqual(len(noms), len(set(noms)))
-        for nom in noms:
-            self.assertTrue(nom.startswith('revit_'), nom)
-
-    def test_schemas_utilisables_par_un_client(self):
-        for outil in revit_outils.outils():
-            self.assertTrue(outil['nom'])
-            self.assertTrue(outil['description'])
-            self.assertEqual(outil['parametres'].get('type'), 'object')
-            # Sans 'properties', le backend refuse le schéma.
-            self.assertIsInstance(outil['parametres'].get('properties'), dict)
-
-    def test_toute_route_porte_un_prefixe_d_api_connu(self):
-        # Une route sans préfixe part sur un 404 muet. C'est arrivé : le
-        # passage aux chemins absolus avait laissé « /status/ » dans
-        # disponible(), et le chat a perdu TOUS ses outils sans un mot —
-        # un 404 se lit « maquette injoignable », pas « erreur de chemin ».
-        for nom, route, _m, _d, _s in revit_outils.CATALOGUE:
-            self.assertTrue(route.startswith(('/revit_mcp/', '/418/')),
-                            '{0} : {1}'.format(nom, route))
-
-    def test_le_controle_de_disponibilite_passe_par_le_catalogue(self):
-        # Le chemin n'est plus écrit deux fois : le renommer d'un côté sans
-        # l'autre est ce qui a cassé.
-        appels = []
-        vrai = revit_outils._appeler
-        base = revit_outils.routes418.base
-        revit_outils.routes418.base = lambda: 'http://127.0.0.1:48884'
-        revit_outils._appeler = lambda route, *a, **k: (
-            appels.append(route) or json.dumps({'revit_available': True}))
-        try:
-            revit_outils.disponible()
-        finally:
-            revit_outils._appeler = vrai
-            revit_outils.routes418.base = base
-        self.assertEqual(appels, [revit_outils._PAR_NOM['revit_status'][1]])
-
-    def test_get_sans_parametres_post_avec(self):
-        for nom, _route, methode, _d, schema in revit_outils.CATALOGUE:
-            if methode == 'GET':
-                self.assertEqual(schema['properties'], {}, nom)
+CATALOGUE = {'outils': [
+    {'nom': 'revit_etat', 'description': 'état', 'ecrit': False,
+     'irreversible': False,
+     'parametres': {'type': 'object', 'properties': {}}},
+    {'nom': 'revit_familles', 'description': 'familles', 'ecrit': False,
+     'irreversible': False,
+     'parametres': {'type': 'object',
+                    'properties': {'categorie': {'type': 'string'}}}},
+    {'nom': 'revit_executer_code', 'description': 'DANGER', 'ecrit': True,
+     'irreversible': True,
+     'parametres': {'type': 'object',
+                    'properties': {'code': {'type': 'string'}}}},
+]}
 
 
-class TestExecution(unittest.TestCase):
+class _Pont(unittest.TestCase):
+    """Base commune : serveur joignable, catalogue servi, rien en vol."""
+
     def setUp(self):
         self.appels = []
         self._vrai = revit_outils._appeler
+        self._base = revit_outils.routes418.base
+        revit_outils.routes418.base = lambda: 'http://127.0.0.1:48884'
+        revit_outils.oublier_catalogue()
         revit_outils._appeler = self._faux
 
     def tearDown(self):
         revit_outils._appeler = self._vrai
+        revit_outils.routes418.base = self._base
+        revit_outils.oublier_catalogue()
+        revit_outils._echec['texte'] = ''
 
     def _faux(self, route, methode, corps, timeout=None):
         self.appels.append((route, methode, corps))
+        if route == '/418/outils/':
+            return json.dumps(CATALOGUE, ensure_ascii=False)
         return json.dumps({'ok': True}, ensure_ascii=False)
 
+
+class TestCatalogueServi(_Pont):
+    def test_le_catalogue_vient_du_serveur(self):
+        # Il n'est plus écrit à la main : c'est ce qui avait diverge deux fois.
+        noms = [o['nom'] for o in revit_outils.outils()]
+        self.assertEqual(noms, ['revit_etat', 'revit_familles',
+                                'revit_executer_code'])
+
+    def test_il_n_est_demande_qu_une_fois(self):
+        revit_outils.outils()
+        revit_outils.outils()
+        self.assertEqual(self.appels.count(('/418/outils/', 'GET', None)), 1)
+
+    def test_les_irreversibles_viennent_du_serveur(self):
+        self.assertEqual(revit_outils.irreversibles(),
+                         ('revit_executer_code',))
+
+    def test_un_serveur_muet_donne_un_catalogue_vide(self):
+        # Pas de tools envoyés = le chat marche comme avant, sans outils.
+        revit_outils.oublier_catalogue()
+        revit_outils._appeler = lambda *a, **k: (_ for _ in ()).throw(
+            ValueError('injoignable'))
+        self.assertEqual(revit_outils.outils(), [])
+
+
+class TestExecution(_Pont):
     def test_outil_inconnu_rend_une_erreur_lisible(self):
         sortie = json.loads(revit_outils.executer('revit_inexistant'))
         self.assertIn('erreur', sortie)
-        self.assertEqual(self.appels, [])
+        # Le catalogue a été demandé, mais aucun outil appelé.
+        self.assertNotIn('/418/outil/revit_inexistant',
+                         [a[0] for a in self.appels])
 
-    def test_appel_get_ne_porte_pas_de_corps(self):
-        revit_outils.executer('revit_status')
-        route, methode, corps = self.appels[0]
-        self.assertEqual((route, methode), ('/revit_mcp/status/', 'GET'))
-        self.assertIsNone(corps)
-
-    def test_arguments_transmis_au_post(self):
-        revit_outils.executer('revit_list_families', {'contains': 'porte'})
-        route, methode, corps = self.appels[0]
-        self.assertEqual((route, methode), ('/revit_mcp/list_families/', 'POST'))
-        self.assertEqual(corps, {'contains': 'porte'})
+    def test_l_outil_est_appele_sur_sa_route(self):
+        revit_outils.executer('revit_familles', {'categorie': 'Portes'})
+        route, methode, corps = self.appels[-1]
+        self.assertEqual((route, methode),
+                         ('/418/outil/revit_familles', 'POST'))
+        self.assertEqual(corps, {'categorie': 'Portes'})
 
     def test_arguments_non_dict_ignores(self):
         # Le modèle peut renvoyer n'importe quoi ; ça ne doit pas lever.
-        revit_outils.executer('revit_status', 'nawak')
-        self.assertIsNone(self.appels[0][2])
+        revit_outils.executer('revit_etat', 'nawak')
+        self.assertEqual(self.appels[-1][2], {})
 
     def test_echec_reseau_devient_une_erreur_pour_le_modele(self):
+        revit_outils.outils()          # catalogue d'abord
         def casse(*_a, **_k):
             raise ValueError('socket fermée')
         revit_outils._appeler = casse
-        sortie = json.loads(revit_outils.executer('revit_status'))
+        sortie = json.loads(revit_outils.executer('revit_etat'))
         self.assertIn('socket fermée', sortie['erreur'])
 
+    def test_un_echec_cache_dans_un_200_est_retenu(self):
+        # Plusieurs routes rendent {"erreur": …} sans toucher au code HTTP :
+        # sans ce contrôle, l'architecte ne voyait jamais ces échecs-là.
+        revit_outils.outils()
+        revit_outils._appeler = lambda *a, **k: json.dumps(
+            {'erreur': 'aucune vue active'})
+        revit_outils.executer('revit_etat')
+        self.assertIn('aucune vue active', revit_outils.dernier_echec())
 
-class TestUnites(unittest.TestCase):
-    """Le modèle ne convertit pas quand on le lui demande — vérifié deux fois
-    en recette. La conversion se fait donc ici, dans les deux sens."""
-
-    def setUp(self):
-        revit_outils.oublier_unites()
-        revit_outils._unites.update({'symbole': 'm', 'libelle': 'Mètres',
-                                     'par_pied': 0.3048, 'en_pieds': 3.28084})
-
-    def tearDown(self):
-        revit_outils.oublier_unites()
-
-    def test_une_altitude_sort_en_unite_projet(self):
-        brut = json.dumps({'levels': [{'name': 'RDC', 'elevation': 100.0}]})
-        sortie = json.loads(revit_outils._vers_projet(brut))
-        self.assertAlmostEqual(sortie['levels'][0]['elevation'], 30.48, 2)
-
-    def test_le_symbole_accompagne_la_valeur(self):
-        # Sans lui, le modèle annonce un nombre nu.
-        brut = json.dumps({'levels': [{'elevation': 100.0}]})
-        self.assertEqual(json.loads(revit_outils._vers_projet(brut))
-                         ['unite_de_longueur'], 'm')
-
-    def test_conversion_en_profondeur(self):
-        brut = json.dumps({'a': {'b': [{'elevation': 10.0}]}})
-        sortie = json.loads(revit_outils._vers_projet(brut))
-        self.assertAlmostEqual(sortie['a']['b'][0]['elevation'], 3.048, 3)
-
-    def test_ce_qui_n_est_pas_une_longueur_est_intact(self):
-        brut = json.dumps({'count': 262, 'name': 'RDC', 'actif': True})
-        self.assertEqual(json.loads(revit_outils._vers_projet(brut)),
-                         {'count': 262, 'name': 'RDC', 'actif': True})
-
-    def test_sans_longueur_la_reponse_n_est_pas_touchee(self):
-        # Pas de champ « unite_de_longueur » posé pour rien.
-        brut = json.dumps({'status': 'active'})
-        self.assertEqual(revit_outils._vers_projet(brut), brut)
-
-    def test_une_reponse_non_json_passe_telle_quelle(self):
-        self.assertEqual(revit_outils._vers_projet('<html>'), '<html>')
-
-    def test_sans_unites_connues_on_ne_convertit_rien(self):
-        # Mieux vaut une valeur juste dans la mauvaise unité qu'une fausse.
-        revit_outils.oublier_unites()
-        revit_outils._unites.update({'nada': 1})
-        brut = json.dumps({'elevation': 100.0})
-        self.assertEqual(revit_outils._vers_projet(brut), brut)
-
-    def test_les_coordonnees_repassent_en_pieds(self):
-        corps = revit_outils._vers_revit(
-            'revit_place_family', {'family_name': 'X',
-                                   'location': {'x': 1.0, 'y': 2.0, 'z': 0.0}})
-        self.assertAlmostEqual(corps['location']['x'], 3.28084, 4)
-        self.assertEqual(corps['family_name'], 'X')
-
-    def test_l_unite_est_gardee_pour_la_session(self):
-        # Elle est fixée à la création du projet : la relire à chaque
-        # message serait une requête de plus, et c'est ce genre de requête
-        # en trop qui a fini par faire tomber Revit.
-        appels = []
-        vrai = revit_outils._appeler
-        revit_outils._appeler = lambda *a, **k: (
-            appels.append(a) or json.dumps({'par_pied': 0.3048}))
-        try:
-            revit_outils.oublier_unites()
-            revit_outils.unites()
-            revit_outils.unites()
-            revit_outils.unites()
-        finally:
-            revit_outils._appeler = vrai
-        self.assertEqual(len(appels), 1)
-
-    def test_changer_de_document_oublie_l_unite(self):
-        # L'autre projet a son unité : convertir avec l'ancienne donnerait
-        # des valeurs fausses, pire que pas de conversion.
-        vrai = revit_outils._appeler
-        revit_outils._appeler = lambda *a, **k: json.dumps({'ok': True})
-        try:
-            revit_outils.executer('revit_open_document',
-                                  {'file_path': 'C:/autre.rvt'})
-        finally:
-            revit_outils._appeler = vrai
-        self.assertEqual(revit_outils._unites, {})
-
-    def test_un_outil_ordinaire_garde_l_unite(self):
-        vrai = revit_outils._appeler
-        revit_outils._appeler = lambda *a, **k: json.dumps({'ok': True})
-        try:
-            revit_outils.executer('revit_status')
-        finally:
-            revit_outils._appeler = vrai
-        self.assertTrue(revit_outils._unites)
-
-    def test_un_outil_sans_longueur_en_entree_n_est_pas_touche(self):
-        corps = {'contains': 'porte', 'limit': 5}
-        self.assertEqual(revit_outils._vers_revit('revit_list_families',
-                                                  corps), corps)
+    def test_l_echec_ne_se_lit_qu_une_fois(self):
+        revit_outils._echec['texte'] = 'x'
+        self.assertEqual(revit_outils.dernier_echec(), 'x')
+        self.assertEqual(revit_outils.dernier_echec(), '')
 
 
 class TestTroncature(unittest.TestCase):
@@ -265,25 +142,8 @@ class TestTroncature(unittest.TestCase):
         self.assertIn('aucun filtre', revit_outils._tronquer(long, False))
         self.assertIn('restreindre', revit_outils._tronquer(long, True))
 
-    def test_le_conseil_suit_le_schema_de_l_outil(self):
-        for nom, _r, _m, _d, schema in revit_outils.CATALOGUE:
-            filtrable = bool(schema.get('properties'))
-            attendu = 'restreindre' if filtrable else 'aucun filtre'
-            self.assertIn(attendu, revit_outils._tronquer('y' * 99999,
-                                                          filtrable), nom)
 
-
-class TestDisponible(unittest.TestCase):
-    def setUp(self):
-        self._vrai = revit_outils._appeler
-        self._base = revit_outils.routes418.base
-        # Un serveur pyRevit joignable : c'est le cas nominal.
-        revit_outils.routes418.base = lambda: 'http://127.0.0.1:48884'
-
-    def tearDown(self):
-        revit_outils._appeler = self._vrai
-        revit_outils.routes418.base = self._base
-
+class TestDisponible(_Pont):
     def _repond(self, charge):
         revit_outils._appeler = lambda *a, **k: charge
 
@@ -295,12 +155,16 @@ class TestDisponible(unittest.TestCase):
         self.assertFalse(ouvert)
         self.assertIn('Routes', raison)
 
+    def test_le_controle_interroge_la_route_d_etat(self):
+        revit_outils.disponible()
+        self.assertEqual(self.appels[-1][0], '/418/etat/')
+
     def test_document_ouvert(self):
-        self._repond(json.dumps({'revit_available': True}))
+        self._repond(json.dumps({'revit_disponible': True}))
         self.assertEqual(revit_outils.disponible(), (True, ''))
 
     def test_revit_sans_document(self):
-        self._repond(json.dumps({'revit_available': False}))
+        self._repond(json.dumps({'revit_disponible': False}))
         ouvert, raison = revit_outils.disponible()
         self.assertFalse(ouvert)
         self.assertIn('document', raison.lower())

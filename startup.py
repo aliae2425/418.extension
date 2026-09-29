@@ -31,33 +31,18 @@ if not forms.is_registered_dockable_panel(OpenArchiPanel):
         print('OpenArchi: enregistrement du panneau impossible '
               '(redémarrez Revit): {}'.format(e))
 
-# --- Serveur MCP (upstream vendorisé, NE JAMAIS éditer vendor/) -------------
-# Le dossier porte un tiret : non importable en package, d'où le sys.path.
-# On exécute leur startup.py tel quel plutôt que de recopier leur liste de
-# routes — un `git subtree pull` ne doit rien casser ici.
-_MCP = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                    'vendor', 'mcp-server-for-revit')
-if _MCP not in sys.path:
-    sys.path.append(_MCP)
-
-try:
-    with open(os.path.join(_MCP, 'startup.py')) as _f:
-        exec(_f.read(), {'__name__': 'revit_mcp_startup'})
-except Exception as e:
-    print('418: serveur MCP non démarré: {}'.format(e))
-
-# --- Routes propres à 418 --------------------------------------------------
-# Ce qui manque au serveur vendorisé s'ajoute sous notre propre API, jamais
-# dans vendor/ (miroir git subtree : toute édition part en conflit au prochain
-# pull). Enregistrer une route ne fait qu'inscrire une fonction dans le
-# routeur global — aucune socket, aucun fil, aucun WPF.
-try:
-    from core.api418 import enregistrer as _enregistrer_418
-    if _enregistrer_418() is not None:
-        print('418: routes /418/ enregistrées')
-except Exception as e:
-    print('418: routes propres non enregistrées: {}'.format(e))
-
+# --- Outils Revit de 418 ---------------------------------------------------
+# Remplace vendor/mcp-server-for-revit, supprimé : le miroir git subtree
+# interdisait d'éditer ce qu'on utilisait tous les jours. Enregistrer une
+# route ne fait qu'inscrire une fonction dans le routeur global de pyRevit —
+# aucune socket, aucun fil, aucun WPF.
+#
 # 418 ne DÉMARRE aucun serveur : le chat se branche sur celui de pyRevit
 # (port découvert, cf. lib/core/routes418.py). L'essai d'en lancer un a coûté
 # deux plantages de Revit. Ne rien relancer ici sans relire ce module.
+try:
+    from rvt import enregistrer as _enregistrer_418
+    if _enregistrer_418() is not None:
+        print('418: outils Revit enregistrés')
+except Exception as e:
+    print('418: outils Revit non enregistrés: {}'.format(e))
