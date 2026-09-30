@@ -54,7 +54,9 @@ def charger_outils():
     journal, et le catalogue le dira par son absence.
     """
     familles = ('requete', 'vues', 'feuilles', 'parametres', 'familles',
-                'graphismes', 'pieces', 'nomenclatures', 'audit', 'document')
+                'graphismes', 'pieces', 'nomenclatures', 'audit',
+                'materiaux', 'geometrie', 'organisation', 'annotation',
+                'creation', 'modification', 'reseaux', 'export', 'document')
     charges = []
     for famille in familles:
         try:
