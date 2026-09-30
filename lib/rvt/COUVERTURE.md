@@ -1,7 +1,14 @@
-# Couverture rvt-mcp → `lib/rvt`
+# Couverture et maintenance — `lib/rvt`
+
+**Périmètre : le derrière.** Ce que chaque outil fait, ce qu'il rend, ce
+qu'il casse, et ce qui manque encore par rapport à l'amont.
+
+Le panneau lui-même — saisie, affichage, bandeau, stabilité — se suit dans
+[`418.tab/OpenArchi.panel/TESTS.md`](../../418.tab/OpenArchi.panel/TESTS.md).
+Ici on ne juge pas comment la réponse s'affiche, seulement si elle est juste.
 
 Comparatif entre les **229 outils** de [rvt-mcp](https://github.com/bimwright/rvt-mcp)
-(bimwright, Apache-2.0, C#) et les **56 outils** portés ici.
+(bimwright, Apache-2.0, C#) et les **56 outils** portés.
 
 Inventaire amont relevé le 30/09/2026 depuis `src/shared/Handlers/*.cs`.
 
@@ -9,12 +16,33 @@ Inventaire amont relevé le 30/09/2026 depuis `src/shared/Handlers/*.cs`.
 |---|---|
 | **rvt-mcp** | le ou les outils amont |
 | **418** | notre équivalent, `—` si non porté |
-| **Testé** | a tourné pour de vrai dans Revit |
+| **Testé** | a tourné pour de vrai dans Revit, sur une maquette |
 
 Le portage n'est pas un miroir : **41 outils amont se replient sur 4 des
 nôtres** grâce au regroupement, et une trentaine ne nous concernent pas.
-Cocher « testé » demande de l'avoir vu marcher sur une maquette, pas d'avoir
-lu le code.
+Cocher « testé » demande de l'avoir vu marcher, pas d'avoir lu le code.
+
+## Anomalies d'outils
+
+| # | outil | ce qui se passe | attendu | état |
+|---|---|---|---|---|
+| 1 | `revit_colorer` | échouait à chaque appel — le générateur de couleurs rendait des `DB.Color`, supposés être des tuples | filtres posés | **réécrit dans `lib/rvt`, à rejouer** |
+| 2 | `revit_placer` | coordonnées interprétées au mauvais endroit | unité du projet | **conversion refaite en `base.point()`, à rejouer** |
+| 3 | | | | |
+
+## Ordre de vérification conseillé
+
+Les familles ne se valent pas en risque. Par ordre décroissant :
+
+1. **création · réseaux · annotation** — jamais exécutées, et ce sont les API
+   dont les signatures changent le plus entre versions de Revit ;
+2. **export** — irréversible, écrit sur disque, à ne tenter que sur un
+   dossier jetable ;
+3. **modification** — `transformer(action='supprimer')` supprime pour de vrai ;
+4. **matériaux · géométrie** — lecture, mais beaucoup de géométrie absente
+   selon les éléments ;
+5. **requête · vues · feuilles · pièces · nomenclatures · audit** — lecture
+   pure, le plus sûr pour commencer.
 
 ---
 
@@ -239,3 +267,73 @@ Ce qui manque et qui se sentira le plus vite, par ordre :
 
 Aucune case n'est cochée : **rien n'a encore tourné dans Revit.** Le premier
 passage compte plus que le reste du tableau.
+
+---
+
+## Maintenance
+
+### Ajouter un outil
+
+Une famille = un fichier dans `rvt/outils/`, déclaré dans `charger_outils()`.
+Dans le fichier :
+
+```python
+@outil('feuilles', 'Ce que le modèle lit pour décider de l\'appeler.',
+       proprietes={'contient': {'type': 'string', 'description': '…'}},
+       requis=(), ecrit=False, irreversible=False, besoins=('doc',))
+def feuilles(doc, donnees=None):
+    return {'count': …, 'feuilles': […]}
+```
+
+La déclaration sert au routage, au catalogue et aux garde-fous. Il n'y a rien
+d'autre à mettre à jour — c'est tout l'intérêt du registre.
+
+### Règles qui ont toutes été payées
+
+**Déclaration hors du corps.** `@outil(...)` s'exécute à l'import même quand
+`DB` est `None` : c'est ce qui rend le catalogue testable hors Revit.
+
+**`ErreurOutil` pour ce que l'appelant peut corriger** — catégorie inconnue,
+paramètre absent, aucune vue active. Elle sort en HTTP 400 avec son message,
+et le modèle peut réessayer autrement. Tout le reste part en 500, avec sa
+trace dans le journal.
+
+**Un outil d'écriture qui ne modifie rien doit lever.** Rendre « 0 modifié »
+laisse le modèle annoncer une modification qui n'a pas eu lieu.
+
+**Les mesures se convertissent aux frontières**, jamais au milieu :
+`base.point()` en entrée, `base.vers_projet()` et `base.mesure()` en sortie.
+Et **une aire ne se convertit pas avec le facteur d'une longueur** — un pied
+carré vaut 0,0929 m², pas 0,3048.
+
+**Toute liste porte `total` et `partielle`.** Sans ça le modèle croit avoir
+tout vu et l'annonce.
+
+**Une famille qui ne s'importe pas ne doit pas emporter les autres** —
+`charger_outils()` attrape par famille. Une famille en moins vaut mieux qu'un
+chat sans outils.
+
+### Pièges d'API rencontrés
+
+- `element.Name` **lève** sur certains types sous IronPython — c'est
+  l'`AttributeError: Name` des journaux. Passer par `base.nom_element()` ;
+- `ElementId.Value` en 2024+, `IntegerValue` avant — `base.id_valeur()` ;
+- `ParameterFilterRuleFactory.CreateEqualsRule` a perdu son argument
+  `caseSensitive` en 2022 : les deux signatures sont tentées ;
+- `IndependentTag.GetTaggedLocalElementIds()` n'existe qu'à partir de 2022,
+  `TaggedLocalElementId` avant ;
+- l'export NWC exige le greffon Navisworks Exporter, absent chez beaucoup —
+  l'outil le dit plutôt que de laisser une trace incompréhensible.
+
+### Ce qu'on ne fait pas ici
+
+**Aucune socket, aucun fil, aucun WPF.** Enregistrer une route pose une
+fonction dans le routeur global de pyRevit, rien de plus. 418 ne démarre
+aucun serveur : l'essai a coûté deux plantages de Revit. Le chat se branche
+sur celui de pyRevit, port découvert dans `core/routes418.py`.
+
+**Une seule requête en vol à la fois.** Le serveur de routes partage un
+handler et un `ExternalEvent` entre toutes ses requêtes ; deux appels
+simultanés se marchent dessus dans le contexte d'API. Le verrou de
+`core/revit_outils.py` ne protège que de nous — un client MCP externe qui
+tape le même serveur rouvre la course.
