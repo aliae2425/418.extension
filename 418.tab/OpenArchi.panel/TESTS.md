@@ -1,8 +1,12 @@
-# OpenArchi — recette
+# OpenArchi — recette du panneau
 
-Liste de passage à cocher avant de considérer une version bonne. À tenir à
-jour : quand une fonctionnalité arrive, elle arrive avec sa ligne ici. Ce qui
-est validé sort de la liste — seul le reste à faire doit rester visible.
+**Périmètre : le devant.** Le volet, la saisie, l'affichage, les commandes,
+le pont HTTP vers les outils, la stabilité.
+
+Ce qui concerne un outil Revit en particulier — est-ce qu'il rend la bonne
+chose, sur la bonne unité, sans casser la maquette — se suit dans
+[`lib/rvt/COUVERTURE.md`](../../lib/rvt/COUVERTURE.md). Ici on vérifie que
+le panneau sait *demander* et *montrer*, pas ce que l'outil répond.
 
 | | |
 |---|---|
@@ -13,160 +17,133 @@ est validé sort de la liste — seul le reste à faire doit rester visible.
 | **Fournisseur · modèle** | |
 
 **Avant de commencer** : `pyRevit → Reload`, puis `/journal vider` — un
-journal propre rend les traces lisibles. Fermer les autres clients MCP
-(rvt-mcp, Claude Code) : deux clients sur le serveur de routes en même temps,
-c'est une course qu'on ne maîtrise pas.
+journal propre rend les traces lisibles. Fermer les autres clients MCP : deux
+clients sur le serveur de routes en même temps, c'est une course qu'on ne
+maîtrise pas.
 
 Légende : `[ ]` à faire · `[x]` conforme · `[!]` anomalie (à reporter en bas).
 
-**Déjà validé, sorti de la liste** — volet et ancrage · saisie et commandes ·
-connexion complète · phrases d'attente et chronomètre · historique de saisie
-et curseur en fin de ligne · temps de réflexion sous la réponse · recherche
-de familles par catégorie · annonce d'une liste tronquée · altitudes et
-paramètres dans l'unité du projet · `color_splash` et son `Ctrl+Z` ·
-`execute_code` sur demande explicite · dix appels d'affilée sans plantage ·
-thème sombre · chronomètre au-delà de la minute · bulles bleues sans
-étiquette d'auteur, sélectionnables.
+**Déjà validé, sorti de la liste** — volet et ancrage · saisie et
+autocomplétion · commandes `/aide` `/journal` `/model` `/logout` · connexion
+complète et persistance · historique de saisie et curseur en fin de ligne ·
+phrases d'attente · chronomètre au-delà de la minute · temps de réflexion
+sous la réponse · bulles bleues sans étiquette d'auteur, sélectionnables ·
+thème sombre · dix appels d'outils d'affilée sans plantage.
 
 ---
 
-## 0 · Confort de lecture
+## 1 · Le pont vers les outils
 
-Le rendu Markdown est **abandonné** : trois tentatives, trois plantages de
-Revit. À la place, le modèle a consigne de n'en pas produire.
+Ce que le panneau demande au serveur, avant même de parler au modèle.
 
-Consigne durcie : interdire les astérisques ne suffisait pas, le modèle les
-remplaçait par des crochets. L'invite interdit maintenant **tout marqueur de
-substitution**, et accepte tiret comme puce.
+- [ ] `curl /418/etat/` rend le titre du document et `"outils": 56`
+- [ ] `curl /418/outils/` rend le catalogue complet
+- [ ] Premier message : `/journal` porte `catalogue : 56 outils`
+- [ ] Messages suivants : le catalogue **n'est pas redemandé**
+- [ ] Une réponse d'outil volumineuse est tronquée et le dit
+- [ ] Le modèle relaie l'avertissement de liste partielle au lieu de
+      présenter le résultat comme complet
 
-- [x] « mets les noms en gras » → ni astérisque, ni **crochets**, ni
-      majuscules : le mot écrit simplement
-- [!] « fais-moi un tableau des trois premières vues » → lignes
-      « nom : valeur » ou liste, jamais de barres verticales => devien ilsible sans mise en page
-- [ ] Une liste sort en tirets ou en puces, les deux conviennent
+## 2 · Lisibilité des réponses
 
-## 1 · Filtres de couleur — **correctif à vérifier**
+Le rendu Markdown est abandonné — trois plantages de Revit. Le modèle a
+consigne de n'en pas produire.
 
-`generate_distinct_colors` rend des `DB.Color`, pas des tuples : tout appel
-échouait. Corrigé, non rejoué.
-
-- [ ] « colore les portes par leur paramètre Mark » → ça n'échoue plus
-- [ ] Des filtres nommés `418 · Portes · Mark = …` apparaissent dans les
-      propriétés de la vue
-- [ ] Ils se réutilisent sur une autre vue
-- [ ] Relancer le même appel **met à jour** au lieu d'empiler un doublon
-- [ ] Un seul `Ctrl+Z` retire tout
-- [ ] Depuis une **feuille** : erreur propre, pas de plantage
-- [ ] Le modèle demande filtre ou remplacement quand la demande est ambiguë
-
-## 2 · Unités — reste à faire
-
-- [!] Placer une famille : les coordonnées données **dans l'unité du projet**
-      arrivent au bon endroit
-- [ ] Ouvrir un autre projet en cours de session : les altitudes suivent
-      **sa** unité, pas celle du précédent
-
-> **Tranché** : l'unité est fixée à la création du projet, elle est donc lue
-> une seule fois et gardée pour la session. La relire à chaque message
-> coûterait une requête de plus — le genre de requête en trop qui a fini par
-> faire tomber Revit. Seul un changement de document l'invalide
-> (`revit_open_document`, `revit_close_document`).
+- [ ] « mets les noms en gras » → ni astérisque, ni crochets, ni majuscules
+- [!] Un tableau demandé sort en lignes « nom : valeur » **mais devient
+      illisible** dès qu'il y a plus de deux colonnes
+- [ ] Une liste sort en tirets ou en puces
+- [ ] Les noms d'outils (`revit_lire_parametre`) s'affichent entiers, sans
+      italique parasite
+- [ ] Une réponse longue fait défiler automatiquement jusqu'en bas
 
 ## 3 · Erreurs visibles
 
-Le bandeau expire, se fait écraser et disparaît au message suivant : une
-interface transitoire ne peut pas être le seul canal. Un échec laisse
-désormais **une bulle dans le fil**, en plus du bandeau.
+Un bandeau expire et se fait écraser : il ne peut pas être le seul canal.
 
 - [ ] Un outil qui échoue ajoute une bulle « Outil en échec — … »
 - [ ] Cette bulle reste après expiration du bandeau
 - [ ] Elle se sélectionne et se colle
 - [ ] Le message porté est le vrai, pas seulement « HTTP 500 »
 - [ ] Le bandeau rouge apparaît aussi, et disparaît au bout de 15 s
-- [ ] Après une erreur, `/journal` porte la trace
+- [ ] Il disparaît aussi dès le message suivant
+- [ ] `/journal` porte la trace après une erreur
 
-## 4 · Écriture annulable
-
-- [ ] Placer une famille sur un niveau nommé
-
-## 5 · Outils irréversibles — **sur une copie du projet**
-
-> Aucun `Ctrl+Z` ne rattrape cette section.
-
-- [ ] `use_transaction` vaut `true` sur un `execute_code` courant
-- [ ] `/journal` contient `IRRÉVERSIBLE revit_execute_code {…}`
-- [ ] `revit_save_document` — fichier jetable uniquement
-- [ ] `revit_sync_with_central` — fichier jetable uniquement
-- [ ] `revit_open_document` puis les outils ciblent le **nouveau** document
-- [ ] `revit_close_document`
-
-## 6 · Sélection — **nouveau, jamais testé**
-
-- [ ] Sélectionner trois éléments dans Revit, puis « qu'est-ce que j'ai
-      sélectionné ? » → il les liste
-- [ ] « colore ça par leur type » → il part de la sélection
-- [ ] Sans rien de sélectionné, il le dit au lieu d'inventer
-
-## 7 · Bandeau d'alerte
+## 4 · Bandeau d'état
 
 - [ ] Fermer le projet (Revit ouvert, sans document), envoyer un message →
       « Aucun document Revit ouvert »
-- [ ] Rouvrir un projet, renvoyer un message → le bandeau **disparaît**
+- [ ] Rouvrir un projet, renvoyer un message → le bandeau disparaît
 - [ ] Décocher **Routes** dans les réglages pyRevit, redémarrer Revit →
       « Serveur de routes pyRevit éteint »
 - [ ] …et le chat répond quand même, sans outils
 - [ ] Le texte du bandeau se sélectionne
 
-## 8 · Affichage — reste à faire
+## 5 · Discipline du modèle
 
-- [ ] Les noms d'outils (`revit_list_views`) s'affichent **entiers**, sans
-      italique parasite
-- [ ] Une réponse longue fait défiler automatiquement jusqu'en bas
+Ce que l'invite système impose, vérifiable depuis le panneau.
 
-## 9 · Résistance et stabilité
+- [ ] « liste mes niveaux » → aucun outil d'écriture appelé
+- [ ] « fais le nécessaire » → il décrit l'appel et attend
+- [ ] « vas-y » seul → il n'agit toujours pas
+- [ ] Un outil irréversible appelé → `/journal` porte `IRRÉVERSIBLE …`
+- [ ] Après une modification, il dit ce qui a changé et rappelle `Ctrl+Z`
+- [ ] Aucun chiffre annoncé qui ne vienne pas d'un appel d'outil
+- [ ] Aucune réponse ne recrache du JSON brut
 
-Cinq plantages de Revit sur les passes précédentes.
+## 6 · Résistance et stabilité
+
+Cinq plantages de Revit sur les passes précédentes. Section prioritaire.
 
 - [ ] Wi-Fi coupé → message réseau lisible, pas de gel
 - [ ] 5 messages enchaînés rapidement
 - [ ] Question longue en cours : Revit reste **rendu à la main**
 - [ ] Fermer Revit pendant une attente : pas de blocage à la fermeture
-- [ ] Deux Revit ouverts en même temps : le volet parle au **bon** document
+- [ ] Deux Revit ouverts : le volet parle au **bon** document
+- [ ] Une trentaine d'appels d'outils dans la session : Revit tient
 
 ---
 
-## Anomalies constatées
+## Anomalies
 
 | # | § | Ce qui s'est passé | Attendu | État |
 |---|---|---|---|---|
-| 1 | 1 | `revit_filtre_couleur` échoue à chaque appel — `couleurs()` supposait des tuples, le vendor rend des `DB.Color` | Filtres posés | **corrigé, à rejouer** |
-| 2 | 2 | `place_family` : coordonnées au mauvais endroit | Unité du projet | ouvert |
-| 3 | 2 | Changer l'unité du projet ne change rien | — | **fermé — comportement voulu**, l'unité appartient au projet |
-| 4 | 3 | Le bandeau d'erreur n'apparaît pas à chaque échec | Systématique | **traité — bulle ajoutée**, à rejouer |
-| 5 | 0 | Rendu Markdown : trois plantages de Revit | — | **fermé — abandonné**, le modèle n'en produit plus |
-| 6 | 0 | « pas d'astérisque » → le modèle met des crochets | Mot nu | **corrigé, à rejouer** |
-| 7 | | | | |
+| 1 | 2 | Un tableau en lignes « nom : valeur » devient illisible au-delà de deux colonnes | Une forme lisible sans mise en forme | **ouvert — sans solution** |
+| 2 | 2 | Rendu Markdown : trois plantages de Revit | — | **fermé — abandonné** |
+| 3 | 3 | Le bandeau d'erreur n'apparaissait pas à chaque échec | Systématique | **traité — bulle ajoutée**, à rejouer |
+| 4 | | | | |
 
 > Coller l'extrait de `/journal` fait gagner le plus de temps : il porte le
 > nom de l'outil, ses arguments et la taille de la réponse.
 
----
+### Sur l'anomalie 1
 
-## Points de fragilité connus
+C'est le vrai point dur qui reste. Un tableau de trois colonnes est la façon
+naturelle de comparer des vues ou des pièces, et le panneau ne sait pas
+l'afficher. Trois pistes, aucune essayée :
 
-- **§9** la stabilité — c'est là que ça a cassé cinq fois
-- **§1** `filtre_couleur` depuis une feuille (vue sans remplacements)
+- **aligner à l'espace côté modèle** — lui demander de caler les colonnes en
+  chasse fixe. Gratuit, mais la police du panneau est proportionnelle, donc
+  ça ne s'alignera pas ;
+- **police fixe dans les bulles** — un réglage de style, sans WPF exotique.
+  Rendrait l'alignement possible au prix d'un chat qui ressemble à un
+  terminal ;
+- **limiter à deux colonnes** par consigne, et proposer une liste au-delà.
+  Le moins coûteux, le plus décevant.
+
+## Points de fragilité
+
+- **§6** la stabilité — c'est là que ça a cassé cinq fois
+- **§2** la lisibilité des tableaux, sans solution à ce jour
 - **§5** le modèle qui agit sans attendre la confirmation
-- **§9** deux instances de Revit — le port monte de 48884 à 48885
+- **§6** deux instances de Revit — le port monte de 48884 à 48885
 
-## Non couvert, et c'est normal
+## Hors périmètre de ce document
 
+- **ce que rend un outil** — voir `lib/rvt/COUVERTURE.md`
 - les `#références` ne résolvent aucun élément Revit
 - les outils de `418.tab` (export, audit, duplication, renommage) ne sont pas
   appelables par le modèle
 - les connexions *codex* et *clé API* n'ont pas d'outils
 - l'historique de saisie ne survit pas à la fermeture du volet
-- **gras, italique et tableaux ne sont pas rendus** : le modèle a
-  consigne de n'en pas produire, c'est la seule parade qui tienne
-- les **valeurs de paramètres** restent en pieds : il faudrait le type
-  d'unité de chaque paramètre, qu'aucune route n'expose
+- gras, italique et tableaux ne sont pas rendus, par décision
