@@ -212,10 +212,15 @@ déposant un `SelectionPage.xaml` dans son propre `GUI/Views/pages/`.
 ressources dans la fenêtre avant de charger le XAML. Toujours charger les
 ressources avant une fenêtre qui les référence.
 
-**Icônes** : `lib/ui/GUI/resources/Icons.xaml` est la SEULE copie du jeu
-(géométries [Lucide](https://lucide.dev), clés nommées par le RÔLE et non par
-le nom Lucide — c'est ce qui donne le même dessin au même onglet dans tous les
-outils). Les `icon.png` / `icon.dark.png` du ruban en sont un **rendu jetable** :
+**Icônes** : toute icône de l'extension vient de
+[Lucide](https://lucide.dev), et de Lucide seul — fenêtres comme ruban. Pas de
+dessin maison, pas de second jeu. S'il n'existe pas de Lucide pour l'idée,
+prendre un voisin : la cohérence prime sur l'exactitude.
+
+`lib/ui/GUI/resources/Icons.xaml` est la SEULE copie du jeu, clés nommées par
+le RÔLE et non par le nom Lucide — c'est ce qui donne le même dessin au même
+onglet dans tous les outils. Les `icon.png` / `icon.dark.png` du ruban en sont
+un **rendu jetable** :
 
 ```powershell
 .\tools\icones.ps1 -Lister
@@ -225,6 +230,12 @@ outils). Les `icon.png` / `icon.dark.png` du ruban en sont un **rendu jetable** 
 **Ne jamais dessiner une icône de ruban à la main** : ajouter sa géométrie à
 `Icons.xaml`, puis régénérer. Ce n'est pas une étape de build — rien ne
 l'appelle automatiquement.
+
+Dette connue : **4 des 22 `icon.png` du ruban seulement sont rendues depuis
+`Icons.xaml`** (Audit, et les 3 scaffolds de Manage). Les 18 autres sont du
+Lucide elles aussi, mais exportées avant que `tools/icones.ps1` existe : aucune
+clé ne les décrit, leur géométrie source est perdue. À rapatrier au fil de
+l'eau — quand on touche à un bouton, ajouter sa clé et régénérer son PNG.
 
 **Alignement** : `lib/core/align.py` sépare le calcul pur (`deltas_alignement`,
 `deltas_distribution`, sur des scalaires projetés) de la glu Revit
