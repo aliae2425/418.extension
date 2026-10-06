@@ -2,7 +2,9 @@
 from __future__ import unicode_literals
 
 __title__ = "Centrer\nvertical."
-__doc__ = "Centre verticalement les éléments sélectionnés sur le milieu de l'étendue de la sélection."
+__doc__ = ("Centre verticalement les éléments sélectionnés sur le milieu de "
+           "l'étendue de la sélection, dans l'orientation de la vue active. "
+           "Les éléments épinglés servent de référence : ils ne bougent pas.")
 __author__ = 'Aliae'
 __min_revit_ver__ = 2026
 
