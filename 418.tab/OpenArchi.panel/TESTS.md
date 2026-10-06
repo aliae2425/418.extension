@@ -91,6 +91,36 @@ Ce que l'invite système impose, vérifiable depuis le panneau.
 - [ ] Aucun chiffre annoncé qui ne vienne pas d'un appel d'outil
 - [ ] Aucune réponse ne recrache du JSON brut
 
+## 5 bis · Pièces jointes (glisser-déposer)
+
+Le dépôt lui-même ne se teste qu'ici : les tests couvrent la logique du VM,
+pas `PreviewDrop` ni l'API Revit. Un dépôt n'envoie jamais de message tout
+seul — il pose une bulle, la question suivante l'emmène.
+
+- [ ] Un `.md` lâché sur la conversation → bulle courte `Pièce jointe : …`
+- [ ] Le lâcher **sur le champ de saisie** marche aussi (le TextBox ne
+      l'avale pas : c'est tout l'objet du `PreviewDrop`)
+- [ ] Question qui suit → le modèle cite le contenu du fichier
+- [ ] Un `.docx` ou un `.zip` → refus « format binaire », pas de bulle
+- [ ] Un fichier > 200 ko → tronqué, et la bulle le dit
+- [ ] Un dossier lâché → « c'est un dossier », rien d'autre
+
+PDF — seulement sur la connexion **Clé API** :
+
+- [ ] Sur *Navigateur* ou *codex* → refus nommant « Clé API », pas un silence
+- [ ] Sur *Clé API* → le modèle répond sur le contenu du PDF
+- [ ] PDF > 8 Mo → refus annonçant le plafond
+
+DWG — passe par Revit, jamais sans confirmation :
+
+- [ ] Un `.dwg` lâché → la liste en place propose **Lier** / **Annuler**
+- [ ] *Annuler*, puis Échap sur un second dépôt → **rien** dans la maquette
+- [ ] *Lier* → le DWG apparaît dans la vue active, la bulle liste ses calques
+- [ ] `Ctrl+Z` défait la liaison
+- [ ] Vue active absente ou inadaptée → message lisible, pas de plantage
+- [ ] Ensuite, « que contient le DWG ? » → le modèle l'interroge par les
+      outils `rvt` (il est devenu de la maquette, plus une pièce jointe)
+
 ## 6 · Résistance et stabilité
 
 Cinq plantages de Revit sur les passes précédentes. Section prioritaire.
@@ -145,5 +175,8 @@ l'afficher. Trois pistes, aucune essayée :
 - les outils de `418.tab` (export, audit, duplication, renommage) ne sont pas
   appelables par le modèle
 - les connexions *codex* et *clé API* n'ont pas d'outils
+- aucune pièce jointe **image** : le contrat `(role, texte)` ne la porte pas
+- un PDF n'est pas extrait en local — il part tel quel au fournisseur, donc
+  à chaque message tant qu'il est dans la conversation
 - l'historique de saisie ne survit pas à la fermeture du volet
 - gras, italique et tableaux ne sont pas rendus, par décision

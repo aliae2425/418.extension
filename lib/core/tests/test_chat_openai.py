@@ -33,6 +33,31 @@ class TestCharge(unittest.TestCase):
         self.assertTrue(brut.encode('utf-8'))
 
 
+class TestPiecesJointes(unittest.TestCase):
+    PIECE = {'nom': 'notice.pdf', 'media': 'application/pdf', 'b64': 'QUJD'}
+
+    def test_sans_piece_le_contenu_reste_une_chaine(self):
+        # Basculer tout l'historique en blocs sans raison, c'est changer la
+        # forme d'un corps qui marche.
+        corps = chat_openai.charge([('user', 'salut')])
+        self.assertEqual(corps['messages'][1]['content'], 'salut')
+
+    def test_la_piece_se_pose_sur_le_dernier_tour_utilisateur(self):
+        corps = chat_openai.charge(
+            [('user', 'premier'), ('assistant', 'ok'), ('user', 'et ça ?')],
+            pieces=[self.PIECE])
+        self.assertEqual(corps['messages'][1]['content'], 'premier')
+        dernier = corps['messages'][3]['content']
+        self.assertEqual([bloc['type'] for bloc in dernier], ['text', 'file'])
+        self.assertEqual(dernier[0]['text'], 'et ça ?')
+        self.assertEqual(dernier[1]['file']['filename'], 'notice.pdf')
+        self.assertEqual(dernier[1]['file']['file_data'],
+                         'data:application/pdf;base64,QUJD')
+
+    def test_un_historique_sans_tour_utilisateur_ne_leve_pas(self):
+        chat_openai.charge([('assistant', 'ok')], pieces=[self.PIECE])
+
+
 class TestExtraire(unittest.TestCase):
     def test_texte_du_premier_choix(self):
         brut = json.dumps({'choices': [{'message': {'content': ' bonjour '}}]})

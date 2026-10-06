@@ -87,13 +87,18 @@ def selection(doc, uidoc, donnees=None):
 def categories(doc, donnees=None):
     donnees = donnees or {}
     comptes = {}
-    collecteur = DB.FilteredElementCollector(doc).WhereElementIsNotElementType()
+    # Un collecteur sans aucun filtre refuse d'être parcouru : pour « tout »,
+    # il faut deux passes, instances puis types.
+    collecteurs = [
+        DB.FilteredElementCollector(doc).WhereElementIsNotElementType()]
     if donnees.get('avec_types'):
-        collecteur = DB.FilteredElementCollector(doc)
-    for element in collecteur:
-        nom = base.categorie_nom(element)
-        if nom != 'Inconnue':
-            comptes[nom] = comptes.get(nom, 0) + 1
+        collecteurs.append(
+            DB.FilteredElementCollector(doc).WhereElementIsElementType())
+    for collecteur in collecteurs:
+        for element in collecteur:
+            nom = base.categorie_nom(element)
+            if nom != 'Inconnue':
+                comptes[nom] = comptes.get(nom, 0) + 1
     return {'count': len(comptes), 'categories': comptes}
 
 

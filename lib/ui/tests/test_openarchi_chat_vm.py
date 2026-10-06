@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+import base64
+import json
 import os
+import shutil
 import sys
+import tempfile
 import unittest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -9,6 +13,7 @@ _SHARED_LIB = os.path.abspath(os.path.join(_HERE, '..', '..'))  # -> 418.extensi
 if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
 
+from ui import OpenArchiChatVM as chatvm
 from ui.OpenArchiChatVM import OpenArchiChatVM
 from ui.OpenArchiConfig import (OpenArchiConfig, PROVIDERS, ACTIFS,
                                 CATALOGUE, connexions_de, client_de,
@@ -56,6 +61,7 @@ class _ClientFactice(object):
         self._fermeture = fermeture
         self.recus = None
         self.modele_recu = None
+        self.pieces_recues = None
         self.connexions_ouvertes = 0
         self.fermetures = 0
 
@@ -78,9 +84,10 @@ class _ClientFactice(object):
     def modeles(self):
         return self._modeles
 
-    def repondre(self, messages, modele=None, **_kwargs):
+    def repondre(self, messages, modele=None, pieces=None, **_kwargs):
         self.recus = messages
         self.modele_recu = modele
+        self.pieces_recues = pieces
         if self.erreur is not None:
             raise self.erreur
         return self.reponse
@@ -779,6 +786,173 @@ class TestAlerteMaquette(unittest.TestCase):
         def casse(_resultat):
             raise RuntimeError('boum dans la suite')
         self.vm._en_arriere_plan(lambda: 'ok', casse)   # ne doit pas lever
+
+
+class TestPiecesJointes(unittest.TestCase):
+    """Glisser-déposer : le panneau ne fait que passer les chemins ici."""
+
+    def setUp(self):
+        self.client = _ClientFactice()
+        self.vm = OpenArchiChatVM(config=OpenArchiConfig(_StoreMemoire()),
+                                  client=self.client)
+        self.dossier = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.dossier, ignore_errors=True)
+
+    def _ecrire(self, nom, octets):
+        chemin = os.path.join(self.dossier, nom)
+        with open(chemin, 'wb') as fichier:
+            fichier.write(octets)
+        return chemin
+
+    def test_la_bulle_reste_courte_mais_l_historique_porte_tout(self):
+        chemin = self._ecrire('plan.csv', 'niveau;surface\nR+1;42\n'.encode())
+        self.vm.deposer([chemin])
+        bulle = self.vm.Messages[-1]
+        self.assertTrue(bulle.DeUtilisateur)
+        self.assertIn('plan.csv', bulle.TexteAffiche)
+        self.assertNotIn('R+1', bulle.TexteAffiche)
+        self.assertIn('R+1', bulle.Texte)
+
+    def test_deposer_n_envoie_rien(self):
+        self.vm.deposer([self._ecrire('note.md', b'# titre')])
+        self.assertIsNone(self.client.recus)
+
+    def test_la_piece_repart_dans_l_historique_du_message_suivant(self):
+        self.vm.deposer([self._ecrire('note.md', b'surface utile 42')])
+        self.vm.Saisie = 'et donc ?'
+        self.vm._envoyer()
+        envoye = '\n'.join(texte for _role, texte in self.client.recus)
+        self.assertIn('surface utile 42', envoye)
+
+    def test_un_binaire_est_refuse_sans_bulle_utilisateur(self):
+        self.vm.deposer([self._ecrire('photo.png', b'\x89PNG\x00\x1a\n')])
+        dernier = self.vm.Messages[-1]
+        self.assertFalse(dernier.DeUtilisateur)
+        self.assertIn('binaire', dernier.Texte)
+
+    def test_au_dela_du_plafond_c_est_tronque_et_annonce(self):
+        self.vm.PIECE_MAX = 64
+        self.vm.deposer([self._ecrire('gros.txt', b'a' * 500)])
+        bulle = self.vm.Messages[-1]
+        self.assertIn('tronqué', bulle.TexteAffiche)
+        self.assertLess(len(bulle.Texte), 500)
+
+    def test_un_chemin_illisible_ne_leve_pas(self):
+        # Un dépôt qui lève, c'est Revit qui tombe : le fil d'UI appelle
+        # deposer() directement.
+        self.vm.deposer([os.path.join(self.dossier, 'absent.txt'),
+                         self.dossier])
+        self.assertEqual(len(self.vm.Messages), 3)
+
+
+class TestPdf(TestPiecesJointes):
+    """Le PDF part au fournisseur en base64 — là où c'est possible."""
+
+    def _pdf(self, octets=b'%PDF-1.7\n\x00 faux mais binaire'):
+        return self._ecrire('notice.pdf', octets)
+
+    def test_hors_cle_api_c_est_un_refus_annonce(self):
+        self.vm._config.appliquer_connexion(NAVIGATEUR)
+        self.vm.deposer([self._pdf()])
+        dernier = self.vm.Messages[-1]
+        self.assertFalse(dernier.DeUtilisateur)
+        self.assertIn(CLE_API, dernier.Texte)
+        self.assertEqual(self.vm._pieces(), [])
+
+    def test_sur_cle_api_la_piece_voyage_en_base64(self):
+        self.vm._config.appliquer_connexion(CLE_API)
+        self.vm.deposer([self._pdf(b'%PDF-1.7 corps')])
+        piece = self.vm._pieces()[0]
+        self.assertEqual(piece['nom'], 'notice.pdf')
+        self.assertEqual(piece['media'], 'application/pdf')
+        self.assertEqual(base64.b64decode(piece['b64']), b'%PDF-1.7 corps')
+
+    def test_la_piece_accompagne_l_appel_au_fournisseur(self):
+        self.vm._config.appliquer_connexion(CLE_API)
+        self.vm.deposer([self._pdf()])
+        self.vm.Saisie = 'que dit cette notice ?'
+        self.vm._envoyer()
+        self.assertEqual(len(self.client.pieces_recues), 1)
+        # Le PDF ne doit pas AUSSI se retrouver en texte dans l'historique.
+        self.assertNotIn('%PDF', '\n'.join(t for _r, t in self.client.recus))
+
+    def test_au_dela_du_plafond_rien_n_est_joint(self):
+        self.vm._config.appliquer_connexion(CLE_API)
+        self.vm.PDF_MAX = 32
+        self.vm.deposer([self._pdf(b'%PDF' + b'x' * 500)])
+        self.assertEqual(self.vm._pieces(), [])
+        self.assertIn('plafond', self.vm.Messages[-1].Texte)
+
+    def test_un_pdf_n_est_jamais_lu_comme_du_binaire_generique(self):
+        # Sans l'aiguillage par extension, il tomberait dans _joindre_texte
+        # et se ferait refuser pour « format binaire » — message trompeur.
+        self.vm._config.appliquer_connexion(NAVIGATEUR)
+        self.vm.deposer([self._pdf()])
+        self.assertNotIn('binaire', self.vm.Messages[-1].Texte)
+
+
+class TestDwg(TestPiecesJointes):
+    """Le DWG passe par Revit, et seulement après confirmation."""
+
+    def setUp(self):
+        TestPiecesJointes.setUp(self)
+        self.appels = []
+
+        class _Pont(object):
+            @staticmethod
+            def executer(nom, arguments=None):
+                self.appels.append((nom, arguments))
+                return json.dumps({'lie': 'plan.dwg', 'vue': 'Niveau 0',
+                                   'calques': ['MURS', 'COTES']})
+        self._pont_sauve = chatvm.revit_outils
+        chatvm.revit_outils = _Pont
+
+    def tearDown(self):
+        chatvm.revit_outils = self._pont_sauve
+        TestPiecesJointes.tearDown(self)
+
+    def _dwg(self):
+        return self._ecrire('plan.dwg', b'AC1032\x00\x00 binaire')
+
+    def test_le_depot_demande_avant_d_ecrire(self):
+        self.vm.deposer([self._dwg()])
+        self.assertTrue(self.vm.SuggestionsVisibles)
+        self.assertEqual([s.Nom for s in self.vm.Suggestions],
+                         ['lier', 'annuler'])
+        self.assertEqual(self.appels, [])      # rien n'a touché la maquette
+
+    def test_lier_appelle_l_outil_revit_et_resume(self):
+        chemin = self._dwg()
+        self.vm.deposer([chemin])
+        self.vm._choisir(self.vm.Suggestions[0])
+        self.assertEqual(self.appels, [('revit_lier_dwg', {'chemin': chemin})])
+        self.assertIn('Niveau 0', self.vm.Messages[-1].Texte)
+        self.assertIn('MURS', self.vm.Messages[-1].Texte)
+        self.assertFalse(self.vm.SuggestionsVisibles)
+
+    def test_annuler_n_ecrit_rien(self):
+        self.vm.deposer([self._dwg()])
+        self.vm._choisir(self.vm.Suggestions[1])
+        self.assertEqual(self.appels, [])
+        self.assertFalse(self.vm.SuggestionsVisibles)
+
+    def test_echap_sur_un_depot_annule_au_lieu_de_remonter(self):
+        # 'depot' n'est pas dans ETAPES : sans sa branche, _retour lève un
+        # ValueError sur .index() — et ça part du fil d'interface.
+        self.vm.deposer([self._dwg()])
+        self.vm._retour()
+        self.assertEqual(self.appels, [])
+        self.assertFalse(self.vm.SuggestionsVisibles)
+
+    def test_un_echec_de_l_outil_se_lit_dans_la_bulle(self):
+        chatvm.revit_outils = type('P', (), {'executer': staticmethod(
+            lambda nom, arguments=None: json.dumps(
+                {'erreur': 'aucune vue active'}))})
+        self.vm.deposer([self._dwg()])
+        self.vm._choisir(self.vm.Suggestions[0])
+        self.assertIn('aucune vue active', self.vm.Messages[-1].Texte)
 
 
 if __name__ == '__main__':

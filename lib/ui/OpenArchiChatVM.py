@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+import base64
+import json
+import os
 
 try:
     from ui.base.BaseViewModel import BaseViewModel
@@ -66,14 +69,49 @@ def _texte_nu(texte):
         _log.exception('nettoyage markdown')
         return texte
 
+def _poids(octets):
+    """« 2,1 Mo » / « 340 ko ». Virgule décimale : on écrit en français."""
+    if octets >= 1024 * 1024:
+        return '{0} Mo'.format(
+            '{0:.1f}'.format(octets / (1024.0 * 1024.0)).replace('.', ','))
+    return '{0} ko'.format(max(1, int(octets // 1024)))
+
+
+# Au-delà, la bulle devient un mur : le détail complet reste à un
+# revit_elements près, et le modèle sait maintenant que le DWG est là.
+_CALQUES_MONTRES = 12
+
+
+def _resume_dwg(brut):
+    """La sortie de ``revit_lier_dwg`` en une phrase lisible."""
+    try:
+        charge = json.loads(brut)
+    except (ValueError, TypeError):
+        return 'DWG : réponse illisible de Revit. /journal pour le détail.'
+    if not isinstance(charge, dict) or charge.get('erreur'):
+        return 'DWG non lié : {0}'.format(
+            (charge or {}).get('erreur') or 'échec sans message')
+    calques = charge.get('calques') or []
+    if not calques:
+        suite = 'aucun calque nommé'
+    else:
+        montres = ', '.join(calques[:_CALQUES_MONTRES])
+        reste = len(calques) - _CALQUES_MONTRES
+        suite = '{0} calques : {1}{2}'.format(
+            len(calques), montres, ' …' if reste > 0 else '')
+    return '{0} lié dans « {1} » — {2}.'.format(
+        charge.get('lie') or 'DWG', charge.get('vue') or 'la vue active',
+        suite)
+
+
 _log = _journal.journal('chat')
 
 try:
     from ui.OpenArchiConfig import (OpenArchiConfig, CATALOGUE, ACTIFS,
-                                    connexions_de, MODELE_DEFAUT)
+                                    connexions_de, MODELE_DEFAUT, CLE_API)
 except Exception:
     from lib.ui.OpenArchiConfig import (OpenArchiConfig, CATALOGUE, ACTIFS,
-                                        connexions_de, MODELE_DEFAUT)
+                                        connexions_de, MODELE_DEFAUT, CLE_API)
 
 # Hors Revit (tests unitaires en CPython), .NET est absent : on retombe sur
 # une liste Python. Le VM reste testable, seule la notification WPF disparaît.
@@ -159,7 +197,8 @@ class SuggestionVM(BaseViewModel):
 class MessageVM(BaseViewModel):
     """Une bulle de la conversation. Immuable : aucune notification requise."""
 
-    def __init__(self, auteur, texte, de_utilisateur, duree=''):
+    def __init__(self, auteur, texte, de_utilisateur, duree='', affiche=None,
+                 piece=None):
         try:
             BaseViewModel.__init__(self)
         except Exception:
@@ -177,7 +216,13 @@ class MessageVM(BaseViewModel):
         # c'est lui qu'affiche le gabarit sans mise en forme. `Texte` reste
         # brut — c'est lui qui repart au fournisseur dans l'historique, et
         # c'est lui que /journal doit pouvoir montrer.
-        self.TexteAffiche = _texte_nu(texte)
+        #
+        # `affiche` découple les deux : une pièce jointe montre « plan.csv —
+        # 12 ko » dans la bulle et emmène ses 12 ko dans l'historique.
+        self.TexteAffiche = affiche if affiche is not None else _texte_nu(texte)
+        # Fichier binaire à faire porter par l'appel (PDF). ``Texte`` ne peut
+        # pas le transporter : il repart en base64 dans un bloc à part.
+        self.Piece = piece
         self._document = None
         self._bati = False
 
@@ -202,6 +247,13 @@ class OpenArchiChatVM(BaseViewModel):
     ACCUEIL = ("Panneau OpenArchi prêt. /connect pour choisir le fournisseur. "
                "#{Nom} pour citer un élément.")
     ATTENTE_DEFAUT = 'réflexion…'
+    # Plafond d'une pièce jointe. Un CSV de projet entier noierait la fenêtre
+    # de contexte, et le fournisseur le facturerait au jeton.
+    PIECE_MAX = 200 * 1024
+    # Plafond d'un PDF. Plus haut parce qu'il ne mange pas de contexte en
+    # jetons de texte, plus bas qu'il n'y paraît parce qu'il repart dans
+    # CHAQUE requête tant qu'il est dans la conversation.
+    PDF_MAX = 8 * 1024 * 1024
     # Assez pour lire une erreur technique, assez peu pour ne pas rester en
     # travers du volet une fois la question suivante posée.
     DUREE_TOAST = 15
@@ -255,6 +307,9 @@ class OpenArchiChatVM(BaseViewModel):
         # frappe, et l'assistant de /connect. Ses étapes s'enchaînent dans
         # l'ordre ci-dessous ; Échap remonte d'un cran.
         self._etape = None
+        # DWG lâché, en attente de confirmation. Un seul à la fois : le
+        # suivant remplace, comme une question qui chasse la précédente.
+        self._depot = None
         self.EnvoyerCommand = (RelayCommand(self._envoyer, self._peut_envoyer)
                                if RelayCommand else None)
         self.ChoisirSuggestionCommand = (RelayCommand(self._choisir)
@@ -560,6 +615,15 @@ class OpenArchiChatVM(BaseViewModel):
         self.notify_property('SuggestionsVisibles')
 
     def _entrees(self, etape):
+        if etape == 'depot':
+            # Confirmation d'un DWG lâché. Elle réutilise la liste en place
+            # plutôt qu'un bouton dans la bulle : même mécanique que
+            # /connect, aucun gabarit de message à toucher — et ce gabarit
+            # a déjà fait tomber Revit trois fois (cf. OpenArchiPanel.xaml).
+            return [SuggestionVM('lier', 'poser le DWG dans la vue active',
+                                 libelle='Lier'),
+                    SuggestionVM('annuler', 'ne rien écrire dans la maquette',
+                                 libelle='Annuler')]
         if etape == 'fournisseurs':
             return [SuggestionVM(nom, self._resume(nom), libelle=nom,
                                  actif=nom in ACTIFS)
@@ -587,6 +651,10 @@ class OpenArchiChatVM(BaseViewModel):
         """Échap : remonte d'une étape, ou referme la liste."""
         if self._etape is None:
             return
+        # 'depot' n'est pas une étape de /connect : Échap y annule, il ne
+        # remonte nulle part.
+        if self._etape == 'depot':
+            return self._annuler_depot()
         rang = self.ETAPES.index(self._etape)
         if rang == 0:
             self._fermer_liste()
@@ -599,6 +667,9 @@ class OpenArchiChatVM(BaseViewModel):
         # Le XAML désactive déjà le bouton ; Tab passe par ici sans lui.
         if not suggestion.Actif:
             return
+        if self._etape == 'depot':
+            return (self._lier_depot() if suggestion.Nom == 'lier'
+                    else self._annuler_depot())
         if self._etape == 'fournisseurs':
             return self._choisir_provider(suggestion.Nom)
         if self._etape == 'connexions':
@@ -704,6 +775,166 @@ class OpenArchiChatVM(BaseViewModel):
         self.EnAttente = True
         self._en_arriere_plan(lambda: self.repondre(texte), self._sur_reponse)
 
+    # --- pièces jointes --------------------------------------------------
+
+    def deposer(self, chemins):
+        """Fichiers lâchés sur le panneau. Trois voies, une par format.
+
+        Le format décide, parce que leurs plafonds n'ont rien à voir :
+
+        - **DWG** — aucun modèle ne lit du DWG. La seule chose qui sache
+          ouvrir ce fichier ici, c'est Revit : on propose de le lier, et ce
+          sont les outils ``rvt`` qui le décriront ensuite. Écrit dans la
+          maquette, donc on demande d'abord.
+        - **PDF** — part en base64 au fournisseur, ce que seule la connexion
+          « Clé API » accepte. Ailleurs : refus annoncé, pas un silence.
+        - **le reste** — s'il se lit en texte, il se lit en texte.
+
+        Aucune de ces voies n'envoie de message : le dépôt se pose dans la
+        conversation, c'est la question suivante qui l'emmène. Un glissé de
+        travers ne doit ni facturer un tour ni toucher la maquette.
+        """
+        for chemin in (chemins or []):
+            try:
+                self._deposer_un(chemin)
+            except Exception as e:
+                _log.exception('dépôt de %s', chemin)
+                self._dire('Pièce jointe illisible : {0}'.format(e))
+
+    def _deposer_un(self, chemin):
+        nom = os.path.basename(chemin)
+        if os.path.isdir(chemin):
+            return self._dire(
+                '{0} : c\'est un dossier, pas un fichier.'.format(nom))
+        extension = os.path.splitext(nom)[1].lower()
+        if extension == '.dwg':
+            return self._proposer_dwg(chemin)
+        if extension == '.pdf':
+            return self._joindre_pdf(chemin)
+        return self._joindre_texte(chemin)
+
+    # --- texte -----------------------------------------------------------
+
+    def _joindre_texte(self, chemin):
+        nom, texte, ennui = self._lire_piece(chemin)
+        if texte is None:
+            return self._dire('{0} : {1}'.format(nom, ennui))
+        self.Messages.Add(MessageVM(
+            'Moi',
+            'Pièce jointe « {0} » :\n\n{1}'.format(nom, texte),
+            True,
+            # Pas d'emoji trombone : U+1F4CE est hors du plan de base, et on
+            # ne sait pas ce qu'en fait IronPython 2.7 à la lecture du
+            # source. Du texte, ça s'affiche partout.
+            affiche='Pièce jointe : {0} — {1}'.format(nom, ennui)))
+
+    # --- PDF ---------------------------------------------------------------
+
+    def _joindre_pdf(self, chemin):
+        """Le PDF part tel quel au fournisseur, en base64.
+
+        Pas d'extraction locale : pyRevit tourne sur un CPython stdlib seul,
+        et un extracteur écrit à la main rend n'importe quoi sur un PDF
+        d'architecte (polices sous-ensemblées, CMap). Mieux vaut ne pas
+        joindre que joindre du charabia.
+        """
+        nom = os.path.basename(chemin)
+        if self._config.connexion != CLE_API:
+            return self._dire(
+                '{0} : un PDF ne passe que par la connexion « {1} ». '
+                '« {2} » n\'accepte que du texte — /connect pour changer, '
+                'ou lâchez plutôt un export texte.'.format(
+                    nom, CLE_API, self._config.connexion or 'celle en cours'))
+        taille = os.path.getsize(chemin)
+        if taille > self.PDF_MAX:
+            return self._dire(
+                '{0} : {1}, au-delà du plafond de {2}. Un PDF repart au '
+                'fournisseur à CHAQUE message : au-delà, la facture grimpe '
+                'sans prévenir.'.format(nom, _poids(taille),
+                                        _poids(self.PDF_MAX)))
+        with open(chemin, 'rb') as fichier:
+            brut = fichier.read()
+        self.Messages.Add(MessageVM(
+            'Moi', 'Pièce jointe « {0} » (PDF).'.format(nom), True,
+            affiche='Pièce jointe : {0} — {1}'.format(nom, _poids(taille)),
+            piece={'nom': nom, 'media': 'application/pdf',
+                   'b64': base64.b64encode(brut).decode('ascii')}))
+
+    def _pieces(self):
+        """Les fichiers joints de la conversation, pour le prochain appel.
+
+        L'API est sans mémoire : une pièce repart à chaque tour, sinon le
+        modèle l'a perdue. C'est le protocole, pas un oubli — et c'est ce qui
+        justifie ``PDF_MAX``.
+        """
+        return [message.Piece for message in list(self.Messages)
+                if getattr(message, 'Piece', None)]
+
+    # --- DWG ---------------------------------------------------------------
+
+    def _proposer_dwg(self, chemin):
+        """Lier écrit dans la maquette : on demande avant, jamais après."""
+        self._depot = chemin
+        self._dire('{0} — {1}. Aucun modèle ne lit le DWG : Revit peut le '
+                   'lier dans la vue active, et le modèle l\'interrogera '
+                   'ensuite comme le reste de la maquette.'.format(
+                       os.path.basename(chemin),
+                       _poids(os.path.getsize(chemin))))
+        self._ouvrir('depot')
+
+    def _lier_depot(self):
+        chemin, self._depot = self._depot, None
+        self._fermer_liste()
+        if not chemin:
+            return
+        if revit_outils is None:
+            return self._dire('Hors Revit : rien à lier.')
+        self.TexteAttente = 'liaison du DWG…'
+        self.EnAttente = True
+        self._en_arriere_plan(
+            lambda: revit_outils.executer('revit_lier_dwg',
+                                          {'chemin': chemin}),
+            self._sur_dwg)
+
+    def _sur_dwg(self, brut):
+        self.EnAttente = False
+        # Passe par _dire : le résultat devient un tour de la conversation,
+        # donc le modèle sait que le DWG est là sans qu'on le lui répète.
+        self._dire(_resume_dwg(brut))
+        self._signaler_echec()
+
+    def _annuler_depot(self):
+        nom = os.path.basename(self._depot or '')
+        self._depot = None
+        self._fermer_liste()
+        self._dire('{0} : rien lié.'.format(nom))
+
+    def _lire_piece(self, chemin):
+        """``(nom, texte, mention)``. ``texte`` à ``None`` = refusée.
+
+        Détection du binaire à l'octet nul, comme git : pas de liste
+        d'extensions à tenir à jour, et un .md sans extension passe quand
+        même. Un .docx y est vu binaire — c'est juste, on ne sait pas
+        l'extraire.
+        """
+        nom = os.path.basename(chemin)
+        if os.path.isdir(chemin):
+            return nom, None, 'c\'est un dossier, pas un fichier.'
+        with open(chemin, 'rb') as fichier:
+            brut = fichier.read(self.PIECE_MAX + 1)
+        if b'\x00' in brut:
+            return (nom, None,
+                    'format binaire — seules les pièces en texte passent '
+                    'pour l\'instant (images et PDF : pas encore).')
+        tronque = len(brut) > self.PIECE_MAX
+        texte = brut[:self.PIECE_MAX].decode('utf-8', 'replace')
+        if tronque:
+            texte += '\n\n[…] pièce tronquée à {0} ko.'.format(
+                self.PIECE_MAX // 1024)
+        mention = '{0} ko{1}'.format(max(1, len(brut) // 1024),
+                                     ', tronqué' if tronque else '')
+        return nom, texte, mention
+
     def _sur_reponse(self, reponse):
         # Lu AVANT que EnAttente remette le compteur à zéro.
         duree = self._duree_reflexion()
@@ -771,8 +1002,12 @@ class OpenArchiChatVM(BaseViewModel):
             return ('{0} : pas encore branché. /connect pour en choisir un '
                     'autre.'.format(self._config.provider))
         try:
+            # pieces= est facultatif dans le contrat : les clients qui ne
+            # savent pas porter de fichier l'avalent par leur **_kwargs, et
+            # _joindre_pdf a déjà refusé le dépôt chez eux.
             return client.repondre(self._historique(analyse.texte),
-                                   modele=self._config.modele)
+                                   modele=self._config.modele,
+                                   pieces=self._pieces())
         except Exception as e:
             _log.exception('repondre() a échoué')
             return '{0} : {1}'.format(self._config.provider, e)

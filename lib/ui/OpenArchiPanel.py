@@ -49,6 +49,53 @@ class OpenArchiPanel(forms.WPFPanel):
         self.DataContext = vm
         self._suivre_dernier_message(vm)
         self._curseur_en_fin(vm)
+        self._depot_fichiers(vm)
+
+    def _depot_fichiers(self, vm):
+        """Glisser-déposer de fichiers sur le panneau.
+
+        Deux points qui ne s'improvisent pas :
+
+        - en *Preview* (tunneling), pas en bubbling : le champ de saisie est
+          un TextBox, donc ``AllowDrop`` d'office, et il avale le dépôt avant
+          que la Page le voie. On marque ``Handled`` en descendant.
+        - ``DragDropEffects.None`` ne s'écrit pas en Python — ``None`` est un
+          mot-clé, d'où le ``getattr``.
+        """
+        try:
+            from System.Windows import DataFormats, DragDropEffects
+
+            aucun = getattr(DragDropEffects, 'None')
+
+            def _fichiers(args):
+                try:
+                    if not args.Data.GetDataPresent(DataFormats.FileDrop):
+                        return None
+                    return list(args.Data.GetData(DataFormats.FileDrop))
+                except Exception:
+                    return None
+
+            def _survol(sender, args):
+                args.Effects = (DragDropEffects.Copy if _fichiers(args)
+                                else aucun)
+                args.Handled = True
+
+            def _depot(sender, args):
+                chemins = _fichiers(args)
+                if not chemins:
+                    return
+                args.Handled = True
+                try:
+                    vm.deposer(chemins)
+                except Exception:
+                    # Jamais laisser lever sur le fil d'UI : Revit tombe.
+                    _log.exception('dépôt de %s', chemins)
+
+            self.AllowDrop = True
+            self.PreviewDragOver += _survol
+            self.PreviewDrop += _depot
+        except Exception:
+            _log.exception('glisser-déposer indisponible')
 
     def _curseur_en_fin(self, _vm):
         """Après un rappel d'historique, remet le curseur en fin de ligne.

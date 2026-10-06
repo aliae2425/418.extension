@@ -89,17 +89,40 @@ def modeles():
     return tuple(noms)
 
 
-def charge(messages, modele=None):
-    """Corps de la requête. ``messages`` : liste de couples (role, texte)."""
+def charge(messages, modele=None, pieces=None):
+    """Corps de la requête. ``messages`` : liste de couples (role, texte).
+
+    ``pieces`` : fichiers à joindre, ``{'nom':…, 'media':…, 'b64':…}``. Ils
+    partent sur le DERNIER message utilisateur — c'est la question en cours,
+    et c'est le seul endroit où l'API accepte un contenu mixte sans que le
+    reste de l'historique bascule en blocs.
+    """
+    tours = [{'role': role, 'content': texte} for role, texte in messages]
+    if pieces:
+        _joindre(tours, pieces)
     return {
         'model': modele or MODELE_DEFAUT,
-        'messages': ([{'role': 'system', 'content': systeme(False)}] +
-                     [{'role': role, 'content': texte}
-                      for role, texte in messages]),
+        'messages': [{'role': 'system', 'content': systeme(False)}] + tours,
     }
 
 
-def repondre(messages, cle=None, modele=None, timeout=60):
+def _joindre(tours, pieces):
+    """Bascule le dernier tour utilisateur en blocs et y pose les fichiers."""
+    for tour in reversed(tours):
+        if tour['role'] != 'user':
+            continue
+        tour['content'] = (
+            [{'type': 'text', 'text': tour['content']}] +
+            [{'type': 'file',
+              'file': {'filename': piece['nom'],
+                       'file_data': 'data:{0};base64,{1}'.format(
+                           piece['media'], piece['b64'])}}
+             for piece in pieces])
+        return
+
+
+def repondre(messages, cle=None, modele=None, timeout=60, pieces=None,
+             **_kwargs):
     """Renvoie le texte de la réponse, ou lève ``ErreurOpenAI``."""
     cle = cle or os.environ.get(CLE_ENV)
     if not cle:
@@ -107,7 +130,7 @@ def repondre(messages, cle=None, modele=None, timeout=60):
 
     # ensure_ascii=False : sous IronPython, laisser json échapper lui-même
     # les accents lève. On encode explicitement derrière.
-    corps = json.dumps(charge(messages, modele), ensure_ascii=False)
+    corps = json.dumps(charge(messages, modele, pieces), ensure_ascii=False)
     requete = Request(URL, data=corps.encode('utf-8'))
     requete.add_header('Content-Type', 'application/json; charset=utf-8')
     requete.add_header('Authorization', 'Bearer ' + cle)

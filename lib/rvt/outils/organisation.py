@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Organisation : gabarits de vue, sous-projets, groupes, liens."""
 from __future__ import unicode_literals
+import os
 
 try:
     from rvt.registre import outil
@@ -122,6 +123,57 @@ def liens(doc, donnees=None):
             'chemin': _chemin(doc, type_lien)})
     trouves.sort(key=lambda l: l['nom'])
     return {'count': len(trouves), 'liens': trouves}
+
+
+@outil('lier_dwg',
+       'Lie un fichier DWG dans la vue active et renvoie ses calques. Le '
+       'DWG devient interrogeable comme le reste de la maquette. MODIFIE '
+       'la maquette, dans une transaction annulable.',
+       proprietes={
+           'chemin': {'type': 'string',
+                      'description': 'chemin absolu du fichier .dwg'}},
+       requis=('chemin',), ecrit=True, besoins=('doc', 'uidoc'))
+def lier_dwg(doc, uidoc, donnees=None):
+    donnees = donnees or {}
+    chemin = (donnees.get('chemin') or '').strip()
+    if not chemin.lower().endswith('.dwg'):
+        raise base.ErreurOutil('ce n\'est pas un .dwg : {0}'.format(chemin))
+    if not os.path.isfile(chemin):
+        raise base.ErreurOutil('fichier introuvable : {0}'.format(chemin))
+    vue = uidoc.ActiveView
+    if vue is None:
+        raise base.ErreurOutil('aucune vue active où poser le DWG')
+
+    options = DB.DWGImportOptions()
+    # ThisViewOnly : un DWG posé dans TOUTES les vues d'un coup, personne ne
+    # le demande, et ça se retire mal.
+    options.ThisViewOnly = True
+    options.Placement = DB.ImportPlacement.Origin
+
+    with base.transaction(doc, '418 — lier {0}'.format(
+            os.path.basename(chemin))):
+        # Link() rend un bool et pose l'ElementId en paramètre `out` : les
+        # deux ponts .NET (pythonnet, IronPython) le renvoient en second.
+        abouti, identifiant = doc.Link(chemin, options, vue)
+    if not abouti:
+        raise base.ErreurOutil('Revit a refusé le lien : {0}'.format(chemin))
+
+    instance = doc.GetElement(identifiant)
+    return {'lie': os.path.basename(chemin),
+            'id': base.id_valeur(identifiant),
+            'vue': base.nom_element(vue),
+            'calques': _calques(instance)}
+
+
+def _calques(instance):
+    """Noms des calques du DWG — ce sont les sous-catégories de sa catégorie."""
+    try:
+        categorie = instance.Category
+        return sorted(sous.Name for sous in categorie.SubCategories)
+    except Exception:
+        # Un DWG sans calque nommé reste un lien valide : ne pas faire
+        # échouer l'opération pour la liste qui l'accompagne.
+        return []
 
 
 def _vues_visees(doc, uidoc, noms):
