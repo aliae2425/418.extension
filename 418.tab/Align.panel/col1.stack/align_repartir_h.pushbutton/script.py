@@ -2,7 +2,9 @@
 from __future__ import unicode_literals
 
 __title__ = "Répartir\nhorizont."
-__doc__ = "Répartit horizontalement les éléments sélectionnés : centres également espacés entre les deux extrêmes."
+__doc__ = ("Répartit horizontalement les éléments sélectionnés : centres "
+           "également espacés entre les deux extrêmes, qui ne bougent pas. "
+           "Les éléments épinglés sont des points fixes supplémentaires.")
 __author__ = 'Aliae'
 __min_revit_ver__ = 2026
 
