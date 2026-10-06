@@ -4,10 +4,22 @@
     <!--
       Jeu d'icônes Lucide (https://lucide.dev), SEULE copie de l'extension.
 
+      RÈGLE : toute icône de l'extension vient de Lucide, et de Lucide seul —
+      fenêtres comme ruban. Pas de dessin maison, pas de second jeu, pas de
+      glyphe récupéré ailleurs. Une icône cohérente vaut mieux qu'une icône
+      exacte : s'il n'existe pas de Lucide pour l'idée, en prendre un voisin
+      plutôt que d'en dessiner un.
+
       Les clés portent le RÔLE, pas le nom Lucide : c'est ce qui tient la
       continuité entre les outils. Un onglet « Sélection » affiche le même
       dessin dans BatchExport, Matériaux et les 4 outils à rail parce qu'ils
       demandent tous IconSelection.
+
+      ÉTAT : 4 des 22 icon.png du ruban sont rendues depuis ce fichier (Audit
+      et les 3 scaffolds de Manage). Les 18 autres sont du Lucide lui aussi,
+      mais produites avant tools/icones.ps1 et sans clé ici — leur géométrie
+      source n'est donc écrite nulle part. À rapatrier au fil de l'eau : quand
+      on touche à un bouton, ajouter sa clé et régénérer son PNG.
 
       Conventions Lucide, à respecter pour toute icône ajoutée ici :
         - viewBox 24 x 24, aucun remplissage, tracé seul ;
