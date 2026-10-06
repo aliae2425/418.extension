@@ -1,0 +1,191 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding Titre}"
+        Width="1240" Height="760"
+        MinWidth="900" MinHeight="560"
+        WindowStyle="SingleBorderWindow"
+        ResizeMode="CanResize"
+        Background="{DynamicResource WindowBackgroundBrush}"
+        WindowStartupLocation="CenterScreen">
+
+  <!--
+    Fenêtre « Rampe parking » — DataContext = MainViewModel.
+
+    Chargée par BaseWindow via XamlReader.Load : PAS de x:Class, PAS de
+    code-behind, tout brush/style de thème en DynamicResource (les
+    dictionnaires sont fusionnés APRÈS le parse).
+
+    ATTENTION, deux écarts assumés par rapport aux autres fenêtres de
+    l'extension :
+
+    1. PAS de `AllowsTransparency="True"` ni de `WindowStyle="None"`, donc pas
+       de barre de titre maison. WebView2 est un contrôle à HWND : dans une
+       fenêtre WPF transparente il ne s'affiche pas du tout (problème
+       d'airspace). C'est la transparence qui saute, pas le navigateur.
+    2. Le WebView2 n'est PAS déclaré ici. XamlReader.Load devrait sinon
+       résoudre le namespace clr au moment du parse, ce qui échoue si
+       l'assembly n'est pas encore référencée. Il est instancié en Python et
+       injecté dans WebHost par MainWindowView.
+  -->
+
+  <Grid Margin="16">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="440"/>   <!-- contraintes lues -->
+      <ColumnDefinition Width="16"/>
+      <ColumnDefinition Width="*"/>     <!-- calculateur web -->
+    </Grid.ColumnDefinitions>
+
+    <!-- ================= Colonne gauche : ce que dit la maquette ======== -->
+    <Grid Grid.Column="0">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>  <!-- en-tête + saisie + verdict -->
+        <RowDefinition Height="*"/>     <!-- paramètres de l'élément -->
+        <RowDefinition Height="Auto"/>  <!-- actions -->
+      </Grid.RowDefinitions>
+
+      <StackPanel Grid.Row="0">
+        <TextBlock Text="{Binding Titre}"
+                   Style="{DynamicResource HeaderTextBlockStyle}"/>
+        <TextBlock Text="{Binding Source}"
+                   Style="{DynamicResource BodyTextBlockStyle}"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   TextWrapping="Wrap"
+                   Margin="0,2,0,0"/>
+
+        <Border Style="{DynamicResource CardStyle}" Padding="14" Margin="0,12,0,0">
+          <StackPanel>
+            <TextBlock Text="Contraintes lues dans la maquette"
+                       Style="{DynamicResource SubHeaderTextBlockStyle}"
+                       Margin="0,0,0,10"/>
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <StackPanel Grid.Column="0">
+                <TextBlock Text="Hauteur (m)" FontSize="11" Margin="0,0,0,3"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <TextBox x:Name="HauteurTextBox"
+                         Text="{Binding Hauteur, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Text="Longueur (m)" FontSize="11" Margin="0,0,0,3"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <TextBox x:Name="LongueurTextBox"
+                         Text="{Binding Longueur, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+              </StackPanel>
+              <StackPanel Grid.Column="4">
+                <TextBlock Text="Largeur (m)" FontSize="11" Margin="0,0,0,3"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <TextBox x:Name="LargeurTextBox"
+                         Text="{Binding Largeur, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+              </StackPanel>
+            </Grid>
+
+            <!-- Verdict recalculé côté Revit : réponse immédiate, sans
+                 attendre le chargement de la page web. -->
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+              <TextBlock Text="Pente"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         VerticalAlignment="Center"/>
+              <TextBlock Text="{Binding Pente}"
+                         Style="{DynamicResource SubHeaderTextBlockStyle}"
+                         Margin="8,0,12,0"
+                         VerticalAlignment="Center"/>
+              <TextBlock Text="{Binding Verdict}"
+                         Foreground="{Binding VerdictCouleur}"
+                         FontWeight="SemiBold"
+                         VerticalAlignment="Center"
+                         TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <TextBlock Text="{Binding Avertissement}"
+                       Foreground="{DynamicResource WarningBrush}"
+                       FontSize="11"
+                       TextWrapping="Wrap"
+                       Margin="0,10,0,0"/>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <!-- Paramètres de l'élément : la « preview » demandée. Lecture seule,
+           tels que Revit les affiche (unités du projet comprises). -->
+      <Border Grid.Row="1" Style="{DynamicResource CardStyle}"
+              Padding="14" Margin="0,12,0,0">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <TextBlock Grid.Row="0"
+                     Text="Paramètres de l'élément"
+                     Style="{DynamicResource SubHeaderTextBlockStyle}"
+                     Margin="0,0,0,8"/>
+          <ScrollViewer Grid.Row="1"
+                        VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding Parametres}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="8"/>
+                      <ColumnDefinition Width="140"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="{Binding Nom}"
+                               FontSize="11"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBlock Grid.Column="2"
+                               Text="{Binding Valeur}"
+                               FontSize="11"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal"
+                  HorizontalAlignment="Right" Margin="0,12,0,0">
+        <Button x:Name="NavigateurButton"
+                Content="Ouvrir dans le navigateur"
+                Style="{DynamicResource SecondaryActionButtonStyle}"
+                Margin="0,0,8,0"/>
+        <Button x:Name="EnvoyerButton"
+                Content="Envoyer les valeurs"
+                Style="{DynamicResource PrimaryActionButtonStyle}"/>
+      </StackPanel>
+    </Grid>
+
+    <!-- ================= Colonne droite : le calculateur web ============ -->
+    <Border Grid.Column="2"
+            BorderBrush="{DynamicResource ControlBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="6"
+            Background="{DynamicResource CardBackgroundBrush}">
+      <!-- WebHost reçoit le WebView2 depuis MainWindowView. Si le contrôle
+           ne peut pas être créé, le message ci-dessous reste en place et
+           explique pourquoi ; le bouton « Ouvrir dans le navigateur » prend
+           alors le relais. -->
+      <Border x:Name="WebHost">
+        <TextBlock x:Name="WebHostMessage"
+                   Text="Chargement du calculateur…"
+                   Style="{DynamicResource BodyTextBlockStyle}"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   TextWrapping="Wrap"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Margin="24"/>
+      </Border>
+    </Border>
+  </Grid>
+</Window>
