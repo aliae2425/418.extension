@@ -225,17 +225,21 @@ un **rendu jetable** :
 ```powershell
 .\tools\icones.ps1 -Lister
 .\tools\icones.ps1 -Cle IconAudit -Destination "418.tab\Audit.panel\Audit.pushbutton"
+.\tools\icones.ps1 -Verifier
 ```
 
 **Ne jamais dessiner une icône de ruban à la main** : ajouter sa géométrie à
 `Icons.xaml`, puis régénérer. Ce n'est pas une étape de build — rien ne
 l'appelle automatiquement.
 
-Dette connue : **4 des 22 `icon.png` du ruban seulement sont rendues depuis
-`Icons.xaml`** (Audit, et les 3 scaffolds de Manage). Les 18 autres sont du
-Lucide elles aussi, mais exportées avant que `tools/icones.ps1` existe : aucune
-clé ne les décrit, leur géométrie source est perdue. À rapatrier au fil de
-l'eau — quand on touche à un bouton, ajouter sa clé et régénérer son PNG.
+`-Verifier` rend chaque clé et compare les empreintes aux `icon.png` du ruban :
+il sort en erreur dès qu'une icône n'est reproductible par aucune clé. **Le
+lancer après tout ajout d'icône** — c'est faute de ce contrôle que 18 boutons
+avaient dérivé hors du pipeline.
+
+Une seule exception, déclarée dans `tools/icones.ps1` : la **théière** d'Infos
+est le logo du dépôt (HTTP 418, « I'm a teapot ») et n'existe pas chez Lucide.
+Elle ne se régénère pas.
 
 **Alignement** : `lib/core/align.py` sépare le calcul pur (`deltas_alignement`,
 `deltas_distribution`, sur des scalaires projetés) de la glu Revit

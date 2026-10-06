@@ -15,8 +15,18 @@
 #
 #   .\tools\icones.ps1 -Lister
 #   .\tools\icones.ps1 -Cle IconAudit -Destination "418.tab\Audit.panel\Audit.pushbutton"
+#   .\tools\icones.ps1 -Verifier
+#
+# -Verifier rend chaque cle et compare les empreintes aux icon.png du ruban :
+# code de sortie 1 des qu'un PNG n'est reproductible par aucune cle. C'est le
+# garde-fou de la regle « tout vient de Lucide, via ce script » — sans lui elle
+# se redelite en silence, comme elle l'a deja fait pour 18 boutons.
 
-param([string]$Cle, [string]$Destination, [switch]$Lister)
+param([string]$Cle, [string]$Destination, [switch]$Lister, [switch]$Verifier)
+
+# Seule icone legitimement hors pipeline : la theiere est le logo du depot
+# (HTTP 418, « I'm a teapot ») et n'existe pas chez Lucide.
+$exceptions = @('418.panel\Infos.pushbutton')
 
 Add-Type -AssemblyName PresentationCore, PresentationFramework, WindowsBase
 
@@ -25,6 +35,40 @@ $source = Join-Path $PSScriptRoot '..\lib\ui\GUI\resources\Icons.xaml'
 [xml]$xaml = Get-Content -LiteralPath $source -Encoding UTF8
 $icones = @{}
 foreach ($n in $xaml.ResourceDictionary.PathGeometry) { $icones[$n.Key] = $n.Figures }
+
+if ($Verifier) {
+    $racine = (Resolve-Path (Join-Path $PSScriptRoot '..\418.tab')).Path
+    $tampon = Join-Path ([System.IO.Path]::GetTempPath()) ("icones-" + [System.Guid]::NewGuid().ToString('N'))
+
+    # empreinte de chaque cle, rendue dans un dossier jetable
+    $parEmpreinte = @{}
+    foreach ($k in $icones.Keys) {
+        $d = Join-Path $tampon $k
+        New-Item -ItemType Directory -Force $d | Out-Null
+        & $PSCommandPath -Cle $k -Destination $d | Out-Null
+        $parEmpreinte[(Get-FileHash (Join-Path $d 'icon.png')).Hash] = $k
+    }
+
+    $orphelins = @()
+    foreach ($png in Get-ChildItem -Recurse -Filter 'icon.png' -Path $racine | Sort-Object FullName) {
+        $relatif = $png.DirectoryName.Substring($racine.Length).TrimStart('\')
+        if ($exceptions -contains $relatif) { Write-Output ("exception  {0}" -f $relatif); continue }
+        $h = (Get-FileHash $png.FullName).Hash
+        if ($parEmpreinte.ContainsKey($h)) { Write-Output ("{0,-24} {1}" -f $parEmpreinte[$h], $relatif) }
+        else { $orphelins += $relatif; Write-Output ("HORS PIPELINE            {0}" -f $relatif) }
+    }
+    Remove-Item -Recurse -Force $tampon
+
+    if ($orphelins.Count -gt 0) {
+        Write-Output ""
+        Write-Output "$($orphelins.Count) icone(s) non reproductible(s) depuis Icons.xaml."
+        Write-Output "Ajouter leur geometrie Lucide puis regenerer, ou les declarer en exception."
+        exit 1
+    }
+    Write-Output ""
+    Write-Output "Toutes les icones du ruban sortent d'Icons.xaml."
+    exit 0
+}
 
 if ($Lister -or -not $Cle -or -not $Destination) {
     Write-Output "Cles disponibles dans $((Resolve-Path $source).Path) :"
