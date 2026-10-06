@@ -110,9 +110,14 @@
                            M2 12 a1 1 0 0 0 0.58 0.91 l8.6 3.91 a2 2 0 0 0 1.65 0 l8.58 -3.9 A1 1 0 0 0 22 12
                            M2 17 a1 1 0 0 0 0.58 0.91 l8.6 3.91 a2 2 0 0 0 1.65 0 l8.58 -3.9 A1 1 0 0 0 22 17"/>
 
-    <!-- lucide: message-circle — panneau de chat OpenArchi -->
+    <!-- lucide: bot-message-square — panneau de chat OpenArchi -->
     <PathGeometry x:Key="IconChat"
-                  Figures="M7.9 20 A9 9 0 1 0 4 16.1 L2 22 Z"/>
+                  Figures="M12 6 V2 H8
+                           M9 11 V13
+                           M15 11 V13
+                           M2 12 H4
+                           M20 12 H22
+                           M20 16 a2 2 0 0 1 -2 2 H8.828 a2 2 0 0 0 -1.414 0.586 l-2.202 2.202 A0.71 0.71 0 0 1 4 20.286 V8 a2 2 0 0 1 2 -2 h12 a2 2 0 0 1 2 2 Z"/>
 
     <!-- lucide: arrow-up — envoi d'un message dans le chat -->
     <PathGeometry x:Key="IconEnvoyer"
