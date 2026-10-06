@@ -1,4 +1,27 @@
-# 418.extension
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="418.tab/418.panel/Infos.pushbutton/icon.dark.png">
+    <img src="418.tab/418.panel/Infos.pushbutton/icon.png" width="90" height="90" alt="418.extension">
+  </picture>
+</p>
+
+<h1 align="center">418.extension</h1>
+
+<p align="center">
+  <em>I'm a teapot.</em>
+</p>
+
+<p align="center">
+  <img alt="Revit 2026+" src="https://img.shields.io/badge/Revit-2026%2B-0696D7?style=for-the-badge&logo=autodesk&logoColor=white">
+  <img alt="Extension pyRevit" src="https://img.shields.io/badge/pyRevit-extension-F7941E?style=for-the-badge">
+  <img alt="IronPython 2.7" src="https://img.shields.io/badge/IronPython-2.7-3776AB?style=for-the-badge&logo=python&logoColor=white">
+</p>
+
+<p align="center">
+  <a href="https://github.com/aliae2425/418.extension/tags"><img alt="Version" src="https://img.shields.io/github/v/tag/aliae2425/418.extension?style=for-the-badge&label=version&color=4c1&filter=v*"></a>
+  <a href="LICENSE"><img alt="Licence MIT" src="https://img.shields.io/badge/licence-MIT-4c1?style=for-the-badge"></a>
+  <a href="https://forthebadge.com"><img alt="Built with love" src="https://forthebadge.com/images/badges/built-with-love.svg"></a>
+</p>
 
 Boîte à outils Revit pour la production de documents : **export PDF/DWG en lot**,
 **duplication** et **renommage** de feuilles et de vues, **recadrage d'images**.
