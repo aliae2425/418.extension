@@ -92,6 +92,25 @@ amputé d'`Audit.panel`) : leurs tags `v2.5.0` à `v2.8.0` pointent donc hors du
 tronc. C'est normal et ça ne se corrige pas — à partir de la prochaine release,
 le tag est sur `main`.
 
+**Lire l'historique.** Le graphe brut est large (jusqu'à 10 rails en
+juillet 2026) parce qu'il porte neuf mois de branches de travail. Ne pas
+chercher à l'aplatir : c'est la *vue* qu'il faut changer, pas la donnée.
+
+```bash
+git log --first-parent --graph --oneline    # le tronc seul : 188 entrees, une ligne droite
+```
+
+Deux alias locaux le font (`git config alias.*`, non versionnés, à reposer sur
+un nouveau clone) :
+
+| alias | ce qu'il montre |
+|---|---|
+| `git tronc` | le tronc seul — une entrée par intégration, zéro rail |
+| `git releases` | les versions livrées, date et intitulé |
+
+`--first-parent` ne cache rien : les commits des branches restent accessibles,
+ils ne polluent simplement plus la lecture du tronc.
+
 ## Outils en chantier : le drapeau bêta
 
 pyRevit ne **construit pas** un composant bêta tant que « Load Beta Tools » est
