@@ -1,89 +1,246 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guide de Claude Code (claude.ai/code) sur ce dépôt.
 
-## What this is
+## Ce que c'est
 
-A [pyRevit](https://github.com/eirannejad/pyRevit) extension for Revit: export en lot PDF/DWG, duplication et renommage de feuilles/vues, audit de modèle. All UI text, comments, and commit messages are in **French**.
+Une extension [pyRevit](https://github.com/eirannejad/pyRevit) pour Revit, qui
+outille la **production de documents** : export PDF/DWG en lot, duplication et
+renommage de feuilles et de vues, alignement d'éléments en vue, gestion des
+matériaux, recadrage d'images, import SVG, audit de modèle.
 
-- **Minimum Revit version**: 2026
-- **Python**: 2/3 compatible (`from __future__ import unicode_literals` at top of files, `# -*- coding: utf-8 -*-` header)
+La ligne directrice : **ce qu'un architecte refait dix fois par semaine doit
+tenir en un clic, et être reproductible**. Un export doit donner deux fois le
+même résultat ; un renommage doit se relire avant d'être appliqué. D'où l'aperçu
+systématique avant validation, et le refus des raccourcis qui marchent « la
+plupart du temps ».
 
-## Agent behavior
-Always use agent teams for tasks involving more than one file.
-Lead must use delegate mode. Require plan approval before writing code.
+Tout le texte d'interface, les commentaires et les messages de commit sont en
+**français**.
 
-## Status line
-Show context percentage, session cost, git branch.
+- **Revit minimum** : 2026
+- **Python** : compatible 2/3 (`from __future__ import unicode_literals` en
+  tête, en-tête `# -*- coding: utf-8 -*-`). Revit exécute du **IronPython 2.7** ;
+  les tests tournent en CPython 3. Ce grand écart est la source de la moitié des
+  pièges listés plus bas.
 
-## Development workflow
+## Comportement d'agent
 
-There is no build step, compiler, or linter. The development cycle is:
+Toujours utiliser des équipes d'agents pour les tâches touchant plus d'un
+fichier. Le lead travaille en mode délégation. Faire approuver le plan avant
+d'écrire du code.
 
-1. Edit files directly in the pyRevit extensions folder (this repo).
-2. In Revit: **pyRevit tab → Reload** (or `Ctrl+F5` with pyRevit hotkeys enabled).
-3. Click the button to test.
+## Ligne de statut
 
-To test a single pushbutton without reloading all of pyRevit, right-click its button → **Run script**.
+Afficher le pourcentage de contexte, le coût de session, la branche git.
 
-**Tests**: plain `unittest` scripts under each pushbutton's `tests/` (plus `lib/core/tests/`). They bootstrap `sys.path` themselves — run one with `python tests/test_x.py` from the pushbutton folder. No test runner, no framework, no fixtures. Revit imports are wrapped in `try/except` so pure-Python logic runs outside Revit.
+## Cycle de développement
 
-## Extension layout
+Ni build, ni compilateur, ni linter :
+
+1. Éditer les fichiers directement dans le dossier d'extensions pyRevit (ce dépôt).
+2. Dans Revit : **onglet pyRevit → Reload** (ou `Ctrl+F5`).
+3. Cliquer le bouton pour tester.
+
+Pour tester un seul bouton sans tout recharger : clic droit sur le bouton →
+**Run script**.
+
+**Tests** : scripts `unittest` nus sous les `tests/` de chaque bouton, plus
+`lib/core/tests/` et `lib/ui/tests/`. Ils amorcent leur `sys.path` eux-mêmes —
+`python tests/test_x.py` suffit. Aucun runner, aucun framework, aucune fixture.
+Les imports Revit sont sous `try/except` pour que la logique pure tourne hors
+Revit ; un test ne doit jamais toucher le réseau ni la maquette.
+
+Tout passer en une fois :
+
+```bash
+for t in $(git ls-files '*/tests/test_*.py'); do python "$t" >/dev/null || echo "ECHEC $t"; done
+```
+
+## Branches
+
+- **`main`** — ce qui est livré. Se rafraîchit par un `git merge Developpement`
+  **ordinaire**, puis un tag `vX.Y.Z`. Son arbre est identique à celui de
+  `Developpement` : il n'y a plus rien à retirer à la main.
+- **`Developpement`** — l'intégration, où vivent tous les outils, finis ou non.
+- **`feat/*`** — le travail en cours. Fusionnée dans `Developpement` quand elle
+  aboutit, **puis supprimée** (sinon elles s'accumulent : il y en a eu 33).
+
+Ce qui n'est pas prêt n'est pas retiré de `main` — c'est **masqué par un drapeau
+bêta** (voir ci-dessous). C'est la seule chose qui sépare un outil livré d'un
+outil en chantier.
+
+Trois familles de tags, à ne pas mélanger : `v*` pour les versions livrées,
+`jalon/*` pour les repères historiques, `archive/*` pour ancrer une branche
+supprimée.
+
+## Outils en chantier : le drapeau bêta
+
+pyRevit ne **construit pas** un composant bêta tant que « Load Beta Tools » est
+décoché dans ses réglages. Rien n'apparaît dans le ruban, le script n'est pas
+chargé. Deux granularités :
+
+| Portée | Où | Quoi |
+|---|---|---|
+| un panneau entier | `<Panneau>.panel/bundle.yaml` | `is_beta: true` |
+| un bouton | `script.py` | `__beta__ = True` |
+
+Aujourd'hui : **`Audit.panel`** (fonctionnel, pas stabilisé) et les trois
+scaffolds **`Manage.panel/Manage{Filtre,Sheet,View}`** (ossature MVVM seule, la
+fenêtre s'ouvre et ne fait rien).
+
+Sortir un outil de bêta = retirer la ligne. Ne jamais recréer une branche
+amputée pour cacher quelque chose.
+
+## Arborescence
 
 ```
 418.tab/
+├── 418.panel/Infos.pushbutton/               ← modale « À propos »
+├── Audit.panel/Audit.pushbutton/             ← santé du modèle (BÊTA)
 ├── Export.panel/BatchExport.pushbutton/      ← export PDF/DWG en lot (principal)
-├── Audit.panel/Audit.pushbutton/             ← audit de santé du modèle + dashboard
+├── Manage.panel/
+│   ├── Materiaux.pushbutton/                 ← voir, éditer, remplacer, renommer
+│   └── Manage{Filtre,Sheet,View}.pushbutton/ ← scaffolds (BÊTA)
 ├── Tools.panel/
 │   ├── ImageCrop.pushbutton/
+│   ├── SvgImport.pushbutton/
 │   └── col1.stack/
 │       ├── duplicate_sheets.pushbutton/
 │       ├── views_duplicate.pushbutton/
 │       └── Rename.pulldown/{FindReplace_Sheets, FindReplace - Views}.pushbutton/
-└── 418.panel/Infos.pushbutton/               ← modale « À propos »
+└── Align.panel/col{1,2,3}.stack/             ← 8 boutons aligner/centrer/répartir
 ```
 
-Each pushbutton is self-contained: `script.py` is the entry point, `GUI/` holds XAML, `lib/` holds Python logic split `services/` (métier) · `viewmodels/` · `views/` · `models/`.
+Chaque bouton est autonome : `script.py` en point d'entrée, `GUI/` pour le
+XAML, `lib/` pour la logique découpée `services/` (métier) · `viewmodels/` ·
+`views/` · `models/`.
 
-## Shared socle (`lib/` at the extension root)
+L'ordre des panneaux dans le ruban est fixé par `418.tab/bundle.yaml` — **un
+composant absent de `layout:` n'est pas construit** (`genericcomps.py:368`).
 
-pyRevit puts this on `sys.path`, so it is imported as `core.X` / `ui.X` from any pushbutton.
+## Socle partagé (`lib/` à la racine)
+
+pyRevit le met sur `sys.path` : il s'importe en `core.X` / `ui.X` depuis
+n'importe quel bouton.
 
 ```
 lib/
-├── core/   AppPaths, UserConfig, sanitize, transaction, selection,
+├── core/   AppPaths, UserConfig, sanitize, transaction, selection, align,
 │           bulk_edit, list_selection, text_filter, token_expander,
 │           rename_service
 └── ui/
     ├── base/     BaseViewModel, BaseWindow, RailWindow,
-    │             SelectionPageVM, SelectionItemVM
+    │             SelectionPageVM, SelectionItemVM, SheetPreviewGroupVM
     ├── helpers/  UIResourceLoader, RelayCommand, DarkMode, wpf_runtime
-    ├── GUI/resources/  Colors/Styles + variantes Dark (SEULE copie des thèmes)
-    └── GUI/pages/      SelectionPage.xaml (SEULE copie, partagée par 4 outils)
+    └── GUI/
+        ├── resources/  Colors/Styles + variantes Dark (SEULE copie des thèmes)
+        │                et Icons.xaml (SEULE copie du jeu d'icônes)
+        └── pages/      SelectionPage.xaml
 ```
 
-**Put shared logic here, not in a pushbutton.** Anything duplicated across two tools belongs in the socle.
+**La logique partagée va ici, pas dans un bouton.** Tout ce qui est dupliqué
+entre deux outils appartient au socle.
 
-## Important patterns
+## Motifs importants
 
-**MVVM**: `script.py` → `MainViewModel` → `MainWindowView` (hérite de `BaseWindow`). Les services sont instanciés par le VM et **injectés** aux couches basses — elles n'en créent jamais.
+**MVVM** : `script.py` → `MainViewModel` → `MainWindowView` (hérite de
+`BaseWindow`). Les services sont instanciés par le VM et **injectés** aux
+couches basses — elles n'en créent jamais.
 
-**UserConfig**: `lib/core/UserConfig.py`, unique implémentation. Persiste en JSON dans `418.extension/data/<namespace>.json` (indépendant de `pyrevit.userconfig`, qui ne persiste rien en mode admin). Clés insensibles à la casse. BatchExport utilise le namespace `'batch_export'`. Le VM crée UNE instance et l'injecte à tous les services.
+**UserConfig** : `lib/core/UserConfig.py`, unique implémentation. Persiste en
+JSON dans `418.extension/data/<namespace>.json` (indépendant de
+`pyrevit.userconfig`, qui ne persiste rien en mode admin). Clés insensibles à
+la casse. Namespaces en service : `'batch_export'`, `'audit'`. Le VM crée UNE
+instance et l'injecte à tous les services.
 
-**AppPaths**: Never hardcode paths to XAML or resources. `AppPaths().resources_dir()` / `.data_dir()`.
+**`UserConfig` est un magasin de chaînes** : il sérialise `None` en `"None"`,
+qui repasserait ensuite pour une valeur légitime. Écrire `''` pour « pas de
+choix », jamais `None`.
 
-**Import guards**: cross-layer imports use the two-tier form — `from core.X import Y` first, `from lib.core.X import Y` as fallback, `None` last. Ne JAMAIS utiliser d'import relatif profond (`from ...core.X`) : selon la racine de package utilisée à l'import, il remonte au-dessus de `lib` et retombe silencieusement sur `None`.
+**AppPaths** : ne jamais coder en dur un chemin vers un XAML ou une ressource.
+`AppPaths().resources_dir()` / `.data_dir()`.
 
-**Jamais de sous-dossier nommé `core/` ou `ui/` dans un bouton.** En import relatif implicite (Python 2 / IronPython, pas d'`absolute_import` dans le dépôt), un `core/` à côté d'un module fait résoudre ses `from core.X import Y` vers `<package>/core/X` et masque le socle — le module meurt à l'import ou retombe sur `None`. A déjà cassé BatchExport deux fois (`lib/core/`, puis `lib/services/core/`). Garde-fou : `tests/test_destination_service.py::TestPasDeMasquageDuSocle`.
+**Gardes d'import** : les imports inter-couches prennent la forme à deux
+étages — `from core.X import Y` d'abord, `from lib.core.X import Y` en repli,
+`None` en dernier. Ne JAMAIS utiliser d'import relatif profond
+(`from ...core.X`) : selon la racine de package utilisée à l'import, il remonte
+au-dessus de `lib` et retombe silencieusement sur `None`.
 
-**Naming patterns**: `NamingService` résout les motifs à jetons (`{numero}`, `{titre}`, `{param:NOM}`, `{param_projet:NOM}`) contre un élément Revit. C'est la SEULE source de nommage — l'ancien système de `rows` et `NamingResolver` ont été supprimés.
+**Jamais de sous-dossier nommé `core/` ou `ui/` dans un bouton.** En import
+relatif implicite (Python 2 / IronPython, pas d'`absolute_import` dans le
+dépôt), un `core/` à côté d'un module fait résoudre ses `from core.X import Y`
+vers `<package>/core/X` et masque le socle — le module meurt à l'import ou
+retombe sur `None`. A déjà cassé BatchExport deux fois (`lib/core/`, puis
+`lib/services/core/`). Garde-fou :
+`tests/test_destination_service.py::TestPasDeMasquageDuSocle`.
 
-**Sanitization**: `lib/core/sanitize.py`, source unique. `sanitize()` pour les noms de fichiers (max 180, retire `\/:*?"<>|` + espaces/points finaux, `fallback` paramétrable) ; `sanitize_revit_name()` pour les noms d'éléments Revit. `DestinationService.sanitize()` n'est qu'un passe-plat avec `fallback='untitled'`.
+**JSON sous IronPython** : toujours `json.dumps(..., ensure_ascii=False)` puis
+encoder soi-même en UTF-8. Laisser json échapper les accents lève sous
+IronPython 2.7 — et reste **invisible en test CPython**, donc aucun test ne
+vous préviendra.
 
-**Destination**: `DestinationService` est la source unique (dossier, flags sous-dossiers/séparation formats, unicité). Utilisée par le VM ET par `ExportOrchestrator`.
+**Motifs de nommage** : `NamingService` résout les motifs à jetons
+(`{numero}`, `{nom}`, `{titre}`, `{date}`, `{projet_*}`, `{param:NOM}`,
+`{param_projet:NOM}`) contre un élément Revit. C'est la SEULE source de
+nommage — l'ancien système de `rows` et `NamingResolver` ont été supprimés. Un
+jeton vide ou introuvable disparaît du nom : jamais de `{...}` brut en sortie.
 
-**Sélection de liste**: `SelectionPageVM` (socle, `lib/ui/base/`) — une seule couche. Un outil appelle `SelectionPageVM.depuis_descripteurs(descripteurs, ids, titre, est_identifiant=…)` avec des triplets `(id, colonne_gauche, nom)`.
+**Assainissement** : `lib/core/sanitize.py`, source unique. `sanitize()` pour
+les noms de fichiers (max 180, retire `\/:*?"<>|` + espaces/points finaux,
+`fallback` paramétrable) ; `sanitize_revit_name()` pour les noms d'éléments
+Revit. `DestinationService.sanitize()` n'est qu'un passe-plat avec
+`fallback='untitled'`.
 
-**Outils à rail**: les 4 outils de `Tools.panel` héritent de `RailWindow` (socle) et ne déclarent que de la donnée — `ONGLETS`, `SUIVANTS`, `RUN`, `RADIOS`. Contrat côté VM : `Mode` (chaîne) + `set_mode()` + un attribut par onglet. La page Sélection est partagée (`lib/ui/GUI/pages/SelectionPage.xaml`) ; un outil peut la surcharger en déposant un `SelectionPage.xaml` dans son propre `GUI/Views/pages/`.
+**Destination** : `DestinationService` est la source unique (dossier, drapeaux
+sous-dossiers/séparation formats, unicité). Utilisée par le VM ET par
+`ExportOrchestrator`.
 
-**WPF loading**: `UIResourceLoader` merges resource dictionaries into the window before loading XAML. Always load resources before loading a window that references them.
+**Sélection de liste** : `SelectionPageVM` (socle, `lib/ui/base/`) — une seule
+couche. Un outil appelle
+`SelectionPageVM.depuis_descripteurs(descripteurs, ids, titre, est_identifiant=…)`
+avec des triplets `(id, colonne_gauche, nom)`.
+
+**Outils à rail** : les 4 outils de `Tools.panel` et Matériaux héritent de
+`RailWindow` (socle) et ne déclarent que de la donnée — `ONGLETS`, `SUIVANTS`,
+`RUN`, `RADIOS`. Contrat côté VM : `Mode` (chaîne) + `set_mode()` + un attribut
+par onglet. La page Sélection est partagée
+(`lib/ui/GUI/pages/SelectionPage.xaml`) ; un outil peut la surcharger en
+déposant un `SelectionPage.xaml` dans son propre `GUI/Views/pages/`.
+
+**Chargement WPF** : `UIResourceLoader` fusionne les dictionnaires de
+ressources dans la fenêtre avant de charger le XAML. Toujours charger les
+ressources avant une fenêtre qui les référence.
+
+**Icônes** : `lib/ui/GUI/resources/Icons.xaml` est la SEULE copie du jeu
+(géométries [Lucide](https://lucide.dev), clés nommées par le RÔLE et non par
+le nom Lucide — c'est ce qui donne le même dessin au même onglet dans tous les
+outils). Les `icon.png` / `icon.dark.png` du ruban en sont un **rendu jetable** :
+
+```powershell
+.\tools\icones.ps1 -Lister
+.\tools\icones.ps1 -Cle IconAudit -Destination "418.tab\Audit.panel\Audit.pushbutton"
+```
+
+**Ne jamais dessiner une icône de ruban à la main** : ajouter sa géométrie à
+`Icons.xaml`, puis régénérer. Ce n'est pas une étape de build — rien ne
+l'appelle automatiquement.
+
+**Alignement** : `lib/core/align.py` sépare le calcul pur (`deltas_alignement`,
+`deltas_distribution`, sur des scalaires projetés) de la glu Revit
+(`executer()`). Les éléments **épinglés servent de référence** : ils ne bougent
+pas, les autres s'y calent ; si tout est épinglé, l'outil le dit et ne touche à
+rien.
+
+## Vocabulaire
+
+`CONTEXT.md` est le glossaire métier — uniquement des définitions, aucune
+décision d'implémentation. S'y tenir dans le code comme dans l'interface.
+Attention : il décrit le repérage des coupes, une fonctionnalité qui vit
+aujourd'hui sur `test/reperage-coupes` et n'est pas encore dans cette branche.
+
+## Hors de cette branche
+
+Un harnais LLM (clients de modèle interchangeables, panneau de chat ancrable,
+pont MCP vers la maquette) est en cours sur `feat/mcp`. Rien n'en est fusionné
+ici : ne pas le décrire comme acquis, ne pas s'appuyer dessus.
