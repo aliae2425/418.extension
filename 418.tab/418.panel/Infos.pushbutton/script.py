@@ -5,6 +5,7 @@ __title__ = "À propos"
 __doc__ = "Informations sur l'extension 418 (version, dépôt, licence)."
 __author__ = 'Aliae'
 __min_revit_ver__ = 2026
+__beta__ = False
 
 from lib.viewmodels.AboutViewModel import AboutViewModel
 from lib.views.AboutWindowView import AboutWindowView

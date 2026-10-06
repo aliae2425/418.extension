@@ -1,7 +1,8 @@
 # 418.extension
 
 Boîte à outils Revit pour la production de documents : **export PDF/DWG en lot**,
-**duplication** et **renommage** de feuilles et de vues, **recadrage d'images**.
+**duplication** et **renommage** de feuilles et de vues, **alignement** d'éléments
+en vue, gestion des **matériaux**, **recadrage d'images** et **import SVG**.
 
 Extension [pyRevit](https://github.com/eirannejad/pyRevit) — s'ajoute à Revit sous
 la forme d'un onglet **418**.
@@ -40,10 +41,16 @@ L'onglet **418** apparaît dans le ruban. Pour mettre à jour : `git pull`, puis
 | Tools | **Renommer feuilles** | Rechercher-remplacer / préfixe / suffixe sur numéro et nom |
 | Tools | **Renommer vues** | Rechercher-remplacer / préfixe / suffixe sur les noms de vues |
 | Tools | **ImageCrop** | Découpe une image importée selon des zones de pochage |
+| Tools | **Importer SVG** | Importe un fichier SVG dans la vue active, via un DXF temporaire |
+| Manage | **Matériaux** | Voir, éditer, remplacer et renommer les matériaux du modèle |
+| Align | **8 boutons** | Aligner, centrer et répartir les éléments d'une vue |
 | 418 | **À propos** | Version, dépôt, licence |
 
 Tous les outils affichent un **aperçu avant validation** : rien n'est modifié dans
 le modèle avant que vous cliquiez sur le bouton d'action.
+
+Quelques outils sont encore en chantier et **n'apparaissent pas dans le ruban** par
+défaut — voir [Outils en bêta](#outils-en-bêta) plus bas.
 
 ### Export — PDF / DWG en lot
 
@@ -121,6 +128,51 @@ Découpe une image importée en morceaux, sans logiciel externe.
 Chaque zone produit un morceau d'image calé exactement dans son cadre. L'image
 d'origine est conservée. Les zones traitées passent en contour vert sans fond
 (simple habillage graphique de la vue, non destructif).
+
+### Importer SVG
+
+Importe un fichier SVG dans la vue active, en passant par un DXF temporaire.
+L'outil prévient avant une décomposition vouée à échouer plutôt que de laisser
+Revit produire un import vide.
+
+### Matériaux
+
+Liste les matériaux du modèle : consultation, édition, remplacement d'un matériau
+par un autre, renommage en lot. L'éditeur montre un **aperçu fidèle** des motifs
+de surface — taille réelle, densité, phase des tirets — plutôt qu'une vignette
+approximative.
+
+### Aligner, centrer, répartir
+
+Huit boutons dans l'onglet **Align**, applicables à une sélection dans la vue
+active : aligner à gauche / à droite / en haut / en bas, centrer horizontalement
+ou verticalement, répartir horizontalement ou verticalement.
+
+L'alignement se cale sur les extrêmes de la sélection, pas sur la vue. Les
+**éléments épinglés servent de référence** : ils ne bougent pas, les autres
+viennent s'y aligner. Si toute la sélection est épinglée, l'outil le signale et
+ne touche à rien.
+
+La répartition espace également les centres entre les deux éléments extrêmes.
+
+---
+
+## Outils en bêta
+
+Certains outils sont présents dans le dépôt mais **pas encore finalisés**. Ils
+portent le drapeau bêta de pyRevit : le bouton n'est tout simplement pas
+construit, et rien n'apparaît dans le ruban.
+
+Pour les afficher : **pyRevit → Settings → cocher « Load Beta Tools »**, puis
+**Reload**.
+
+| Onglet | Outil | État |
+|---|---|---|
+| Audit | **Audit** | Analyse de santé du modèle — fonctionnel, pas encore stabilisé |
+| Manage | **Filtres**, **Feuilles**, **Vues** | Ossatures MVVM seules : la fenêtre s'ouvre, aucune logique métier n'est branchée |
+
+Ne comptez pas dessus en production : ils peuvent changer ou disparaître sans
+préavis.
 
 ---
 
