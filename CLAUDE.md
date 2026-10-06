@@ -59,9 +59,21 @@ for t in $(git ls-files '*/tests/test_*.py'); do python "$t" >/dev/null || echo 
 
 ## Branches
 
-- **`main`** — ce qui est livré. Se rafraîchit par un `git merge Developpement`
-  **ordinaire**, puis un tag `vX.Y.Z`. Son arbre est identique à celui de
-  `Developpement` : il n'y a plus rien à retirer à la main.
+- **`main`** — ce qui est livré. **Avance en fast-forward, jamais par merge** :
+
+  ```bash
+  git checkout main && git merge --ff-only Developpement
+  git tag -a vX.Y.Z -m "…" && git push origin main --tags
+  ```
+
+  `--ff-only` n'est pas une coquetterie : il échoue bruyamment si `main` a
+  pris un commit propre, ce qui est exactement ce qu'on veut interdire. Un
+  seul commit sur `main` et les deux branches divergent pour toujours, chaque
+  release ajoutant alors un commit de merge vide — l'échelle qu'on a mis neuf
+  mois à produire et qu'on a remise à plat le 2026-10-06.
+
+  Un correctif urgent se fait donc sur une branche issue du tag, puis remonte
+  dans `Developpement` ; jamais directement sur `main`.
 - **`Developpement`** — l'intégration, où vivent tous les outils, finis ou non.
 - **`feat/*`** — le travail en cours. Fusionnée dans `Developpement` quand elle
   aboutit, **puis supprimée** (sinon elles s'accumulent : il y en a eu 33).
@@ -72,7 +84,13 @@ outil en chantier.
 
 Trois familles de tags, à ne pas mélanger : `v*` pour les versions livrées,
 `jalon/*` pour les repères historiques, `archive/*` pour ancrer une branche
-supprimée.
+supprimée ou un état d'avant réécriture.
+
+**Les `v*` sont la seule trace des versions livrées.** Les états antérieurs à
+la 2.9 ont été produits par l'ancien procédé (instantané de `Developpement`
+amputé d'`Audit.panel`) : leurs tags `v2.5.0` à `v2.8.0` pointent donc hors du
+tronc. C'est normal et ça ne se corrige pas — à partir de la prochaine release,
+le tag est sur `main`.
 
 ## Outils en chantier : le drapeau bêta
 
