@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+import re as _re
 
 try:
     from Autodesk.Revit.DB import (ViewSheet, View, ViewType, Material,
@@ -10,6 +11,15 @@ except Exception:
     ViewType = None
     Material = None
     FilteredElementCollector = None
+
+
+def cle_naturelle(texte):
+    """Clé de tri « naturelle » : les blocs de chiffres comparés en NOMBRE.
+
+    A9 passe donc avant A10, là où un tri de chaînes place A10 avant A9.
+    C'est l'ordre attendu sur des numéros de feuille et des noms de vue."""
+    return [(0, int(p), u'') if p.isdigit() else (1, 0, p.lower())
+            for p in _re.split(r'(\d+)', texte or u'')]
 
 
 def _selected_elements(uidoc):
@@ -50,12 +60,13 @@ def _is_duplicable_view(view):
 
 
 def all_views(doc):
-    """Toutes les vues duplicables du document (hors feuilles et templates), triées par nom."""
+    """Toutes les vues duplicables du document (hors feuilles et templates),
+    triées par nom en ordre naturel croissant."""
     if FilteredElementCollector is None or View is None:
         return []
     vues = [v for v in FilteredElementCollector(doc).OfClass(View).ToElements()
             if _is_duplicable_view(v)]
-    return sorted(vues, key=lambda v: v.Name)
+    return sorted(vues, key=lambda v: cle_naturelle(v.Name))
 
 
 def all_materials(doc):
@@ -70,11 +81,12 @@ def all_materials(doc):
 
 
 def all_sheets(doc):
-    """Toutes les `ViewSheet` du document, triées par `SheetNumber`."""
+    """Toutes les `ViewSheet` du document, triées par `SheetNumber` en ordre
+    naturel croissant."""
     if FilteredElementCollector is None or ViewSheet is None:
         return []
     sheets = list(FilteredElementCollector(doc)
                   .OfClass(ViewSheet)
                   .WhereElementIsNotElementType()
                   .ToElements())
-    return sorted(sheets, key=lambda s: s.SheetNumber)
+    return sorted(sheets, key=lambda s: cle_naturelle(s.SheetNumber))

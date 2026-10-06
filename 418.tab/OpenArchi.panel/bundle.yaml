@@ -1,0 +1,6 @@
+# Le harnais LLM n'est pas finalise : pyRevit ne construit pas le panneau tant
+# que « Load Beta Tools » est decoche dans ses reglages (uimaker.py:1092).
+# Attention, le drapeau ne couvre que le ruban — le volet ancrable et le
+# serveur MCP demarrent depuis startup.py, qui se garde lui-meme sur
+# user_config.core.load_beta.
+is_beta: true

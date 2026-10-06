@@ -54,6 +54,11 @@
                    LineHeight="20"
                    Foreground="{DynamicResource TextSecondaryBrush}"/>
 
+        <TextBlock x:Name="DureeBlock"
+                   Margin="0,10,0,0"
+                   FontSize="12.5"
+                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+
         <StackPanel Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,20,0,0">

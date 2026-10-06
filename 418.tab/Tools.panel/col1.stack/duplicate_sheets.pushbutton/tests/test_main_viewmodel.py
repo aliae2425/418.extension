@@ -43,6 +43,16 @@ class TestMainViewModel(unittest.TestCase):
         vm.SelectionVM.FilteredItems[1].IsSelected = True  # coche A102 (id 2)
         self.assertEqual(vm.SelectedSheetIds, [2])
 
+    def test_selection_revit_desordonnee_est_remise_dans_l_ordre(self):
+        """La sélection Revit arrive en vrac : l'aperçu ET l'ordre de
+        duplication doivent suivre le numéro de feuille croissant."""
+        descr = [(1, u'A101', u'RDC'), (2, u'A102', u'R+1'), (3, u'A103', u'R+2')]
+        vm = MainViewModel()
+        vm.charger(descr, [3, 1, 2])
+        self.assertEqual(vm.SelectedSheetIds, [1, 2, 3])
+        self.assertEqual([g.NumeroGenere for g in vm.OptionsVM.PreviewGroups],
+                         [u'A101', u'A102', u'A103'])
+
     def test_set_mode(self):
         vm = MainViewModel()
         vm.charger(self.DESCR, [1])

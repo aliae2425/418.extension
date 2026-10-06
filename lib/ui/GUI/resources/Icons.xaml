@@ -4,10 +4,26 @@
     <!--
       Jeu d'icônes Lucide (https://lucide.dev), SEULE copie de l'extension.
 
+      RÈGLE : toute icône de l'extension vient de Lucide, et de Lucide seul —
+      fenêtres comme ruban. Pas de dessin maison, pas de second jeu, pas de
+      glyphe récupéré ailleurs. Une icône cohérente vaut mieux qu'une icône
+      exacte : s'il n'existe pas de Lucide pour l'idée, en prendre un voisin
+      plutôt que d'en dessiner un.
+
       Les clés portent le RÔLE, pas le nom Lucide : c'est ce qui tient la
       continuité entre les outils. Un onglet « Sélection » affiche le même
       dessin dans BatchExport, Matériaux et les 4 outils à rail parce qu'ils
       demandent tous IconSelection.
+
+      Les 22 icon.png du ruban sortent toutes de ce fichier, à une exception
+      près : la théière d'Infos est le logo du dépôt (HTTP 418, « I'm a
+      teapot ») et n'existe pas chez Lucide. Elle est déclarée comme telle
+      dans tools/icones.ps1 et ne se régénère pas.
+
+      Le garde-fou : `.\tools\icones.ps1 -Verifier` rend chaque clé et compare
+      les empreintes aux PNG du ruban. Il sort en erreur dès qu'une icône n'est
+      reproductible par aucune clé. Le lancer après tout ajout d'icône — c'est
+      faute de ce contrôle que 18 boutons avaient dérivé hors du pipeline.
 
       Conventions Lucide, à respecter pour toute icône ajoutée ici :
         - viewBox 24 x 24, aucun remplissage, tracé seul ;
@@ -73,6 +89,21 @@
                            M14 17 A3 3 0 1 0 20 17 A3 3 0 1 0 14 17 Z
                            M4 7 A3 3 0 1 0 10 7 A3 3 0 1 0 4 7 Z"/>
 
+    <!-- lucide: box-select — outil en chantier, ossature sans logique métier -->
+    <PathGeometry x:Key="IconScaffold"
+                  Figures="M5 3 a2 2 0 0 0 -2 2
+                           M19 3 a2 2 0 0 1 2 2
+                           M21 19 a2 2 0 0 1 -2 2
+                           M5 21 a2 2 0 0 1 -2 -2
+                           M9 3 H10
+                           M9 21 H10
+                           M14 3 H15
+                           M14 21 H15
+                           M3 9 V10
+                           M21 9 V10
+                           M3 14 V15
+                           M21 14 V15"/>
+
     <!-- lucide: layers — export par jeu de feuilles -->
     <PathGeometry x:Key="IconJeux"
                   Figures="M12.83 2.18 a2 2 0 0 0 -1.66 0 L2.6 6.08 a1 1 0 0 0 0 1.83 l8.58 3.91 a2 2 0 0 0 1.66 0 l8.58 -3.9 a1 1 0 0 0 0 -1.83 Z
@@ -92,5 +123,124 @@
     <PathGeometry x:Key="IconEnvoyer"
                   Figures="M5 12 L12 5 L19 12
                            M12 19 V5"/>
+
+    <!-- ===================================================================
+         Boutons du ruban.
+
+         Un bouton de ruban porte le dessin de SON geste, là où les clés
+         ci-dessus portent un rôle partagé entre outils. D'où un IconMateriaux
+         (la grille de cards, dans la fenêtre) ET un IconMateriauxRuban (la
+         matière elle-même, dans le ruban) : deux rôles, deux dessins.
+
+         Régénérer après toute modification ici :
+           .\tools\icones.ps1 -Cle <clé> -Destination "418.tab\...\X.pushbutton"
+         =================================================================== -->
+
+    <!-- lucide: printer — ruban Export -->
+    <PathGeometry x:Key="IconExport"
+                  Figures="M6 18 H4 a2 2 0 0 1 -2 -2 v -5 a2 2 0 0 1 2 -2 h16 a2 2 0 0 1 2 2 v5 a2 2 0 0 1 -2 2 h-2
+                           M6 9 V3 a1 1 0 0 1 1 -1 h10 a1 1 0 0 1 1 1 v6
+                           M7 14 H17 A1 1 0 0 1 18 15 V21 A1 1 0 0 1 17 22 H7 A1 1 0 0 1 6 21 V15 A1 1 0 0 1 7 14 Z"/>
+
+    <!-- lucide: eclipse — ruban Matériaux (la matière, pas la grille) -->
+    <PathGeometry x:Key="IconMateriauxRuban"
+                  Figures="M2 12 A10 10 0 1 1 22 12 A10 10 0 1 1 2 12 Z
+                           M12 2 a7 7 0 1 0 10 10"/>
+
+    <!-- lucide: crop — ruban ImageCrop -->
+    <PathGeometry x:Key="IconRecadrer"
+                  Figures="M6 2 V16 a2 2 0 0 0 2 2 H22
+                           M18 22 V8 a2 2 0 0 0 -2 -2 H2"/>
+
+    <!-- lucide: spline — ruban Importer SVG -->
+    <PathGeometry x:Key="IconImporterSvg"
+                  Figures="M17 5 A2 2 0 1 1 21 5 A2 2 0 1 1 17 5 Z
+                           M3 19 A2 2 0 1 1 7 19 A2 2 0 1 1 3 19 Z
+                           M5 17 A12 12 0 0 1 17 5"/>
+
+    <!-- lucide: files — ruban Dupliquer feuilles -->
+    <PathGeometry x:Key="IconDupliquerFeuilles"
+                  Figures="M15 2 h-4 a2 2 0 0 0 -2 2 v11 a2 2 0 0 0 2 2 h8 a2 2 0 0 0 2 -2 V8
+                           M16.706 2.706 A2.4 2.4 0 0 0 15 2 v5 a1 1 0 0 0 1 1 h5 a2.4 2.4 0 0 0 -0.706 -1.706 Z
+                           M5 7 a2 2 0 0 0 -2 2 v11 a2 2 0 0 0 2 2 h8 a2 2 0 0 0 1.732 -1"/>
+
+    <!-- lucide: copy-plus — ruban Dupliquer vues -->
+    <PathGeometry x:Key="IconDupliquerVues"
+                  Figures="M15 12 V18
+                           M12 15 H18
+                           M10 8 H20 A2 2 0 0 1 22 10 V20 A2 2 0 0 1 20 22 H10 A2 2 0 0 1 8 20 V10 A2 2 0 0 1 10 8 Z
+                           M4 16 c -1.1 0 -2 -0.9 -2 -2 V4 c 0 -1.1 0.9 -2 2 -2 h10 c 1.1 0 2 0.9 2 2"/>
+
+    <!-- lucide: file-spreadsheet — ruban Renommer feuilles -->
+    <PathGeometry x:Key="IconRenommerFeuilles"
+                  Figures="M6 22 a2 2 0 0 1 -2 -2 V4 a2 2 0 0 1 2 -2 h8 a2.4 2.4 0 0 1 1.704 0.706 l3.588 3.588 A2.4 2.4 0 0 1 20 8 v12 a2 2 0 0 1 -2 2 Z
+                           M14 2 V7 a1 1 0 0 0 1 1 H20
+                           M8 13 H10
+                           M14 13 H16
+                           M8 17 H10
+                           M14 17 H16"/>
+
+    <!-- lucide: scan-eye — ruban Renommer vues -->
+    <PathGeometry x:Key="IconRenommerVues"
+                  Figures="M3 7 V5 a2 2 0 0 1 2 -2 H7
+                           M17 3 H19 a2 2 0 0 1 2 2 V7
+                           M21 17 V19 a2 2 0 0 1 -2 2 H17
+                           M7 21 H5 a2 2 0 0 1 -2 -2 V17
+                           M11 12 A1 1 0 1 1 13 12 A1 1 0 1 1 11 12 Z
+                           M18.944 12.33 a1 1 0 0 0 0 -0.66 a7.5 7.5 0 0 0 -13.888 0 a1 1 0 0 0 0 0.66 a7.5 7.5 0 0 0 13.888 0"/>
+
+    <!-- ========== Align : le nom dit le geste, pas l'axe du guide Lucide ========== -->
+
+    <!-- lucide: align-start-vertical -->
+    <PathGeometry x:Key="IconAlignerGauche"
+                  Figures="M8 14 H13 A2 2 0 0 1 15 16 V18 A2 2 0 0 1 13 20 H8 A2 2 0 0 1 6 18 V16 A2 2 0 0 1 8 14 Z
+                           M8 4 H20 A2 2 0 0 1 22 6 V8 A2 2 0 0 1 20 10 H8 A2 2 0 0 1 6 8 V6 A2 2 0 0 1 8 4 Z
+                           M2 2 V22"/>
+
+    <!-- lucide: align-end-vertical -->
+    <PathGeometry x:Key="IconAlignerDroite"
+                  Figures="M4 4 H16 A2 2 0 0 1 18 6 V8 A2 2 0 0 1 16 10 H4 A2 2 0 0 1 2 8 V6 A2 2 0 0 1 4 4 Z
+                           M11 14 H16 A2 2 0 0 1 18 16 V18 A2 2 0 0 1 16 20 H11 A2 2 0 0 1 9 18 V16 A2 2 0 0 1 11 14 Z
+                           M22 22 V2"/>
+
+    <!-- lucide: align-start-horizontal -->
+    <PathGeometry x:Key="IconAlignerHaut"
+                  Figures="M6 6 H8 A2 2 0 0 1 10 8 V20 A2 2 0 0 1 8 22 H6 A2 2 0 0 1 4 20 V8 A2 2 0 0 1 6 6 Z
+                           M16 6 H18 A2 2 0 0 1 20 8 V13 A2 2 0 0 1 18 15 H16 A2 2 0 0 1 14 13 V8 A2 2 0 0 1 16 6 Z
+                           M22 2 H2"/>
+
+    <!-- lucide: align-end-horizontal -->
+    <PathGeometry x:Key="IconAlignerBas"
+                  Figures="M6 2 H8 A2 2 0 0 1 10 4 V16 A2 2 0 0 1 8 18 H6 A2 2 0 0 1 4 16 V4 A2 2 0 0 1 6 2 Z
+                           M16 9 H18 A2 2 0 0 1 20 11 V16 A2 2 0 0 1 18 18 H16 A2 2 0 0 1 14 16 V11 A2 2 0 0 1 16 9 Z
+                           M22 22 H2"/>
+
+    <!-- lucide: align-center-vertical — le guide est vertical, le geste horizontal -->
+    <PathGeometry x:Key="IconCentrerHorizontal"
+                  Figures="M12 2 V22
+                           M8 10 H4 a2 2 0 0 1 -2 -2 V6 c 0 -1.1 0.9 -2 2 -2 H8
+                           M16 10 H20 a2 2 0 0 0 2 -2 V6 a2 2 0 0 0 -2 -2 H16
+                           M8 20 H7 a2 2 0 0 1 -2 -2 V16 c 0 -1.1 0.9 -2 2 -2 H8
+                           M16 14 H17 a2 2 0 0 1 2 2 V18 a2 2 0 0 1 -2 2 H16"/>
+
+    <!-- lucide: align-center-horizontal — le guide est horizontal, le geste vertical -->
+    <PathGeometry x:Key="IconCentrerVertical"
+                  Figures="M2 12 H22
+                           M10 16 V20 a2 2 0 0 1 -2 2 H6 a2 2 0 0 1 -2 -2 V16
+                           M10 8 V4 a2 2 0 0 0 -2 -2 H6 a2 2 0 0 0 -2 2 V8
+                           M20 16 V17 a2 2 0 0 1 -2 2 H16 a2 2 0 0 1 -2 -2 V16
+                           M14 8 V7 c 0 -1.1 0.9 -2 2 -2 H18 a2 2 0 0 1 2 2 V8"/>
+
+    <!-- lucide: align-horizontal-space-around -->
+    <PathGeometry x:Key="IconRepartirHorizontal"
+                  Figures="M11 7 H13 A2 2 0 0 1 15 9 V15 A2 2 0 0 1 13 17 H11 A2 2 0 0 1 9 15 V9 A2 2 0 0 1 11 7 Z
+                           M4 22 V2
+                           M20 22 V2"/>
+
+    <!-- lucide: align-vertical-space-around -->
+    <PathGeometry x:Key="IconRepartirVertical"
+                  Figures="M9 9 H15 A2 2 0 0 1 17 11 V13 A2 2 0 0 1 15 15 H9 A2 2 0 0 1 7 13 V11 A2 2 0 0 1 9 9 Z
+                           M22 20 H2
+                           M22 4 H2"/>
 
 </ResourceDictionary>

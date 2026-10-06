@@ -15,9 +15,10 @@ def _xaml_path():
 
 
 class ExportDoneView(BaseWindow):
-    def __init__(self, destination_path):
+    def __init__(self, destination_path, duree=None):
         super(ExportDoneView, self).__init__(_xaml_path(), view_model=None)
         self._destination = destination_path or u''
+        self._duree = duree or u''
 
     def _load(self):
         super(ExportDoneView, self)._load()
@@ -29,6 +30,13 @@ class ExportDoneView(BaseWindow):
             try:
                 dest_block.Text = u'Les fichiers ont été exportés vers :\n{}'.format(
                     self._destination)
+            except Exception:
+                pass
+
+        duree_block = self._window.FindName(u'DureeBlock')
+        if duree_block is not None and self._duree:
+            try:
+                duree_block.Text = u'Export réalisé en {}'.format(self._duree)
             except Exception:
                 pass
 

@@ -65,6 +65,7 @@ class OptionsPageVM(BaseViewModel):
         self._UseExistingLegends = defaults.use_existing_legends
         self._UseExistingSchedules = defaults.use_existing_schedules
         self._ViewDuplicateOption = defaults.view_duplicate_option
+        self._Count = u'1'
         self._source_items = []   # list of (numero, nom)
         self._PreviewGroups = []
         self._RegexError = u''
@@ -362,6 +363,19 @@ class OptionsPageVM(BaseViewModel):
             self._ViewDuplicateOption = value
             self.notify_property('ViewDuplicateOption')
 
+    # -- Nombre de copies par feuille ----------------------------------------
+
+    @property
+    def Count(self):
+        return self._Count
+
+    @Count.setter
+    def Count(self, value):
+        if value != self._Count:
+            self._Count = value
+            self.notify_property('Count')
+            self._recompute_preview()
+
     # -- Preview en temps réel ----------------------------------------------
 
     @property
@@ -404,9 +418,16 @@ class OptionsPageVM(BaseViewModel):
             self._RegexError = new_error
             self.notify_property('RegexError')
             self.notify_property('HasRegexError')
+        try:
+            count = max(1, int(self._Count))
+        except (ValueError, TypeError):
+            count = 1
         self._PreviewGroups = [
-            SheetPreviewGroupVM(num, nom, svc_n.apply(num), svc_nm.apply(nom))
+            SheetPreviewGroupVM(num, nom,
+                                svc_n.apply(num, index=i + 1),
+                                svc_nm.apply(nom, index=i + 1))
             for (num, nom) in self._source_items
+            for i in range(count)
         ]
         self.notify_property('PreviewGroups')
         self.notify_property('HasPreview')
@@ -442,4 +463,5 @@ class OptionsPageVM(BaseViewModel):
             use_existing_legends=self._UseExistingLegends,
             use_existing_schedules=self._UseExistingSchedules,
             view_duplicate_option=self._ViewDuplicateOption,
+            count=self._Count,
         )

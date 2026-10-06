@@ -2,7 +2,9 @@
 from __future__ import unicode_literals
 
 __title__ = "Aligner\nen bas"
-__doc__ = "Aligne les éléments sélectionnés sur le bord bas de la vue active."
+__doc__ = ("Aligne les éléments sélectionnés sur le bord bas de la "
+           "sélection, dans l'orientation de la vue active. Les éléments "
+           "épinglés servent de référence : ils ne bougent pas.")
 __author__ = 'Aliae'
 __min_revit_ver__ = 2026
 
