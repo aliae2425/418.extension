@@ -73,6 +73,21 @@
                            M14 17 A3 3 0 1 0 20 17 A3 3 0 1 0 14 17 Z
                            M4 7 A3 3 0 1 0 10 7 A3 3 0 1 0 4 7 Z"/>
 
+    <!-- lucide: box-select — outil en chantier, ossature sans logique métier -->
+    <PathGeometry x:Key="IconScaffold"
+                  Figures="M5 3 a2 2 0 0 0 -2 2
+                           M19 3 a2 2 0 0 1 2 2
+                           M21 19 a2 2 0 0 1 -2 2
+                           M5 21 a2 2 0 0 1 -2 -2
+                           M9 3 H10
+                           M9 21 H10
+                           M14 3 H15
+                           M14 21 H15
+                           M3 9 V10
+                           M21 9 V10
+                           M3 14 V15
+                           M21 14 V15"/>
+
     <!-- lucide: layers — export par jeu de feuilles -->
     <PathGeometry x:Key="IconJeux"
                   Figures="M12.83 2.18 a2 2 0 0 0 -1.66 0 L2.6 6.08 a1 1 0 0 0 0 1.83 l8.58 3.91 a2 2 0 0 0 1.66 0 l8.58 -3.9 a1 1 0 0 0 0 -1.83 Z
