@@ -9,6 +9,11 @@ outille la **production de documents** : export PDF/DWG en lot, duplication et
 renommage de feuilles et de vues, alignement d'éléments en vue, gestion des
 matériaux, recadrage d'images, import SVG, audit de modèle.
 
+S'y greffe, **en bêta**, un harnais LLM (`lib/core/chat_*`, `lib/ui/OpenArchi*`,
+`vendor/`) : la plomberie qui laisse un modèle travailler sur la maquette. Il
+dépend des outils déterministes, jamais l'inverse — voir « Le harnais » plus
+bas.
+
 La ligne directrice : **ce qu'un architecte refait dix fois par semaine doit
 tenir en un clic, et être reproductible**. Un export doit donner deux fois le
 même résultat ; un renommage doit se relire avant d'être appliqué. D'où l'aperçu
@@ -49,7 +54,8 @@ Pour tester un seul bouton sans tout recharger : clic droit sur le bouton →
 `lib/core/tests/` et `lib/ui/tests/`. Ils amorcent leur `sys.path` eux-mêmes —
 `python tests/test_x.py` suffit. Aucun runner, aucun framework, aucune fixture.
 Les imports Revit sont sous `try/except` pour que la logique pure tourne hors
-Revit ; un test ne doit jamais toucher le réseau ni la maquette.
+Revit ; un test ne doit jamais toucher le réseau, la maquette, ni lancer un CLI
+(injecter un double, cf. `_ClientFactice`).
 
 Tout passer en une fois :
 
@@ -122,12 +128,111 @@ chargé. Deux granularités :
 | un panneau entier | `<Panneau>.panel/bundle.yaml` | `is_beta: true` |
 | un bouton | `script.py` | `__beta__ = True` |
 
-Aujourd'hui : **`Audit.panel`** (fonctionnel, pas stabilisé) et les trois
-scaffolds **`Manage.panel/Manage{Filtre,Sheet,View}`** (ossature MVVM seule, la
-fenêtre s'ouvre et ne fait rien).
+Aujourd'hui :
+
+- **`Audit.panel`** — fonctionnel, pas stabilisé ;
+- **`Manage.panel/Manage{Filtre,Sheet,View}`** — scaffolds (ossature MVVM
+  seule, la fenêtre s'ouvre et ne fait rien) ;
+- **`OpenArchi.panel`** — le harnais LLM ;
+- **`Tools.panel/RampeParking.pushbutton`** — lecture des contraintes de rampe.
 
 Sortir un outil de bêta = retirer la ligne. Ne jamais recréer une branche
 amputée pour cacher quelque chose.
+
+**Le drapeau ne couvre que le ruban.** `startup.py` est exécuté par pyRevit au
+lancement, bêta ou non : tout ce qui n'est pas prêt y est gardé derrière
+`user_config.core.load_beta` à la main. C'est le cas du panneau ancrable
+OpenArchi et du serveur MCP.
+
+## Le harnais
+
+**Agnostique du modèle.** Un fournisseur = un module de `lib/core/` qui honore
+trois membres, rien de plus :
+
+| membre | rôle |
+|---|---|
+| `pret()` | le client est utilisable ici et maintenant |
+| `raison()` | ce qu'il manque quand `pret()` est faux, dit à l'utilisateur |
+| `connecter()` | ouvre le flux navigateur, `None` s'il n'en a pas |
+| `deconnecter()` | ferme la session, `None` s'il n'y en a pas |
+| `modeles()` | noms disponibles, `()` si le client n'en expose pas |
+| `attendre_connexion()` | *facultatif* — bloque jusqu'à la fin du flux navigateur |
+| `repondre(messages, modele=None)` | `messages` = couples `(role, texte)` → texte |
+
+Deux voies d'authentification, volontairement :
+
+- `chat_cli.py` — passe par un CLI déjà connecté dans le navigateur
+  (`codex login`), l'abonnement paie. **Aucun jeton n'est lu ni stocké par
+  418** : le CLI garde son OAuth, on lui parle en sous-processus.
+- `chat_openai.py` — clé API en variable d'environnement (`OPENAI_API_KEY`),
+  `urllib` nu. Jamais de secret dans `data/`, qui finit poussé.
+
+`lib/ui/OpenArchiConfig.py` est le catalogue, en arbre **fournisseur →
+connexion → modèle**. **Un client à `None` suffit à griser l'entrée dans
+`/connect`** — c'est le même champ qui décide de l'affichage et de
+l'aiguillage, pas deux ; un fournisseur est grisé quand aucune de ses
+connexions n'a de client. `/connect` déroule les trois étapes dans la liste en
+place (Échap remonte d'un cran), `/model` ouvre directement la troisième.
+Persisté en trois clés : `provider`, `connexion`, `modele`.
+
+**`UserConfig` est un magasin de chaînes** : il sérialise `None` en `"None"`,
+qui repasserait ensuite pour un nom de modèle valide. Écrire `''` pour « pas
+de choix », jamais `None`.
+
+Une entrée de la liste s'exécute au clic — elle ne remplit pas le champ de
+saisie. Le jour où une commande prendra des arguments, il faudra rétablir le
+remplissage pour celle-là.
+
+**Le CLI codex n'expose aucun catalogue de modèles** — ni commande, ni config,
+ni cache ; seul son `app-server` JSON-RPC expérimental le ferait. `modeles()`
+y renvoie donc `()`, et `/model <nom>` permet d'en imposer un à la main. Ne pas
+coder de liste en dur : elle vieillirait sans que rien ne le signale.
+
+**Journal.** `lib/core/journal.py` écrit dans `data/418.log`. Un volet ancré
+n'a aucune fenêtre de sortie pyRevit : un `print` s'y perd, et Revit avale les
+exceptions de construction d'un volet. Tout ce qui doit se relire après coup
+passe par `journal('<nom>')`. `/journal` en affiche la fin dans une bulle —
+sélectionnable, donc collable dans un rapport de bug — et `/journal vider` le
+remet à zéro. Un sous-processus lancé sans être attendu branche ses flux sur
+`journal.flux()`, sinon son échec est muet.
+
+**Surfaces.** Deux façons d'atteindre la maquette, à garder ouvertes toutes
+les deux :
+
+- *dans Revit* — panneau ancrable OpenArchi (`lib/ui/OpenArchiPanel.py`),
+  enregistré par le `startup.py` racine. Syntaxe : `/commande` et
+  `#{Référence}`, analysées par `lib/core/chat_syntaxe.py`.
+- *hors Revit* — serveur MCP vendorisé, pour les clients déjà installés chez
+  l'utilisateur (Claude Code, Codex, Claude Desktop…).
+
+**Ce qui n'est pas encore branché** — à ne pas décrire comme acquis :
+
+- les `#références` sont analysées mais ne résolvent aucun élément Revit ;
+- le modèle ne peut appeler aucun des outils de `418.tab` (pas de boucle
+  d'outils) ;
+- pas de surcouche `routes.API('418')` : seules les routes vendorisées
+  existent.
+
+**Fil d'exécution.** L'appel au modèle part sur un `Thread` de fond et revient
+par `Dispatcher.Invoke` — Revit reste rendu à la main, `EnAttente` pilote
+l'animation d'attente. Hors .NET (tests), `_en_arriere_plan` exécute sur
+place : le VM reste synchrone et se teste sans rien simuler. **Une commande
+`/x` ne part JAMAIS en fond** : elle touche les listes et les réglages, donc
+elle doit rester sur le fil d'interface.
+
+## Serveur MCP (`vendor/mcp-server-for-revit`)
+
+Miroir git subtree de
+[mcp-servers-for-revit/mcp-server-for-revit-python](https://github.com/mcp-servers-for-revit/mcp-server-for-revit-python)
+(MIT). Moitié « dans Revit » : routes pyRevit sur
+`http://127.0.0.1:48884/revit_mcp`, démarrées par le `startup.py` racine.
+Moitié « hors Revit » : `vendor/.../main.py` (FastMCP, `uv run`).
+
+- **Ne JAMAIS éditer sous `vendor/`.** Toute la surcouche 418 vit ailleurs et
+  s'enregistre sur son propre `routes.API('418')` (`lib/core/api418.py`) —
+  sinon le prochain `git subtree pull` part en conflit.
+- Mise à jour :
+  `git subtree pull --prefix=vendor/mcp-server-for-revit <url> master --squash`
 
 ## Arborescence
 
@@ -139,9 +244,11 @@ amputée pour cacher quelque chose.
 ├── Manage.panel/
 │   ├── Materiaux.pushbutton/                 ← voir, éditer, remplacer, renommer
 │   └── Manage{Filtre,Sheet,View}.pushbutton/ ← scaffolds (BÊTA)
+├── OpenArchi.panel/Chat.pushbutton/          ← ouvre le panneau de chat (BÊTA)
 ├── Tools.panel/
 │   ├── ImageCrop.pushbutton/
 │   ├── SvgImport.pushbutton/
+│   ├── RampeParking.pushbutton/              ← contraintes NF P91-100 (BÊTA)
 │   └── col1.stack/
 │       ├── duplicate_sheets.pushbutton/
 │       ├── views_duplicate.pushbutton/
@@ -165,15 +272,19 @@ n'importe quel bouton.
 lib/
 ├── core/   AppPaths, UserConfig, sanitize, transaction, selection, align,
 │           bulk_edit, list_selection, text_filter, token_expander,
-│           rename_service
+│           rename_service, et pour le harnais : chat_syntaxe, chat_cli,
+│           chat_openai, chat_oauth, prompt, journal, api418, routes418,
+│           revit_outils, markdown_simple, attente
 └── ui/
     ├── base/     BaseViewModel, BaseWindow, RailWindow,
     │             SelectionPageVM, SelectionItemVM, SheetPreviewGroupVM
-    ├── helpers/  UIResourceLoader, RelayCommand, DarkMode, wpf_runtime
+    ├── helpers/  UIResourceLoader, RelayCommand, DarkMode, wpf_runtime,
+    │             FlowMarkdown
+    ├── OpenArchiPanel · OpenArchiChatVM · OpenArchiConfig
     └── GUI/
         ├── resources/  Colors/Styles + variantes Dark (SEULE copie des thèmes)
         │                et Icons.xaml (SEULE copie du jeu d'icônes)
-        └── pages/      SelectionPage.xaml
+        └── pages/      SelectionPage.xaml, OpenArchiPanel.xaml
 ```
 
 **La logique partagée va ici, pas dans un bouton.** Tout ce qui est dupliqué
@@ -188,8 +299,8 @@ couches basses — elles n'en créent jamais.
 **UserConfig** : `lib/core/UserConfig.py`, unique implémentation. Persiste en
 JSON dans `418.extension/data/<namespace>.json` (indépendant de
 `pyrevit.userconfig`, qui ne persiste rien en mode admin). Clés insensibles à
-la casse. Namespaces en service : `'batch_export'`, `'audit'`. Le VM crée UNE
-instance et l'injecte à tous les services.
+la casse. Namespaces en service : `'batch_export'`, `'audit'`, `'openarchi'`.
+Le VM crée UNE instance et l'injecte à tous les services.
 
 **`UserConfig` est un magasin de chaînes** : il sérialise `None` en `"None"`,
 qui repasserait ensuite pour une valeur légitime. Écrire `''` pour « pas de
@@ -293,6 +404,5 @@ aujourd'hui sur `test/reperage-coupes` et n'est pas encore dans cette branche.
 
 ## Hors de cette branche
 
-Un harnais LLM (clients de modèle interchangeables, panneau de chat ancrable,
-pont MCP vers la maquette) est en cours sur `feat/mcp`. Rien n'en est fusionné
-ici : ne pas le décrire comme acquis, ne pas s'appuyer dessus.
+Le repérage des coupes vit sur `test/reperage-coupes` : décrit dans
+`CONTEXT.md`, absent du code ici. Ne pas s'appuyer dessus.

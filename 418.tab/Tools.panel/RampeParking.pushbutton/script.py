@@ -7,6 +7,7 @@ __doc__ = ("Lit les contraintes d'une rampe de parking dans la maquette et "
            "les envoie au calculateur NF P91-100 de la toolbox.")
 __author__ = 'Aliae'
 __min_revit_ver__ = 2026
+__beta__ = True
 
 try:
     uidoc = __revit__.ActiveUIDocument  # type: ignore

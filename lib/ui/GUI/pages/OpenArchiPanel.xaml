@@ -1,0 +1,304 @@
+<Page xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Background="{DynamicResource WindowBackgroundBrush}">
+
+  <!--
+    Panneau ancrable OpenArchi (lib/ui/OpenArchiPanel.py)
+
+    - Les dictionnaires de thème sont fusionnés dans Page.Resources AVANT le
+      parse : DynamicResource partout, aucun StaticResource.
+    - x:Name="Conversation" : le panneau y câble le défilement automatique
+      à l'arrivée d'un message.
+  -->
+
+  <Grid Margin="10,10,10,6">
+    <!-- Déclaré ici et non dans Page.Resources : y écrire écraserait le
+         dictionnaire de thème fusionné avant le parse. -->
+    <Grid.Resources>
+      <BooleanToVisibilityConverter x:Key="BoolVersVisibilite"/>
+
+      <!--
+        Le texte des bulles doit pouvoir se sélectionner et se copier : un
+        TextBlock ne le permet pas sous WPF, d'où un TextBox en lecture seule.
+        Style nommé, donc le style implicite de TextBox (bordure, fond,
+        Height=35 du champ de saisie) ne s'applique pas ici.
+      -->
+      <Style x:Key="BulleTexte" TargetType="TextBox">
+        <Setter Property="IsReadOnly" Value="True"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Cursor" Value="IBeam"/>
+        <!-- Hors du parcours de tabulation : Tab appartient à la saisie. -->
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
+      </Style>
+
+      <!--
+        PAS de gabarit riche ici, et ce n'est pas un oubli.
+
+        Trois tentatives, trois plantages de Revit — XamlParseException
+        depuis RevitAPIUI, à la construction du volet puis à l'envoi d'un
+        message. La dernière bâtissait pourtant le FlowDocument AVANT la
+        liaison, dans un try/except, avec un rendu validé hors Revit
+        (tableau compris). Revit est tombé quand même.
+
+        Ce qui est établi : le banc d'essai PowerShell ne reproduit PAS les
+        conditions de pyRevit (IronPython 2.7 + hôte Revit). Tant qu'on n'a
+        pas de quoi reproduire un plantage HORS de la machine de production,
+        on ne remet pas de FlowDocument dans ce volet.
+
+        Le code d'analyse et de rendu reste écrit et testé — core/
+        markdown_simple.py et ui/helpers/FlowMarkdown.py — mais débranché.
+        Les bulles affichent TexteAffiche, marques Markdown retirées.
+      -->
+    </Grid.Resources>
+
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <!--
+      Alerte : le lien avec la maquette est rompu. En tête, au-dessus de la
+      conversation — c'est ce qui explique que le modèle réponde sans jamais
+      regarder le projet. Texte sélectionnable, donc collable dans un rapport.
+    -->
+    <Border Grid.Row="0" Margin="0,0,0,8" Padding="9,7" CornerRadius="8"
+            Background="{DynamicResource CardBackgroundBrush}"
+            BorderThickness="1"
+            Visibility="{Binding AlerteVisible, Converter={StaticResource BoolVersVisibilite}}">
+      <Border.Style>
+        <!-- Un état (« aucun document ouvert ») et un échec d'outil
+             (« AttributeError ») ne se lisent pas pareil : le premier
+             décrit, le second vient de se produire. D'où le rouge. -->
+        <Style TargetType="Border">
+          <Setter Property="BorderBrush" Value="{DynamicResource WarningBrush}"/>
+          <Style.Triggers>
+            <DataTrigger Binding="{Binding AlerteGrave}" Value="True">
+              <Setter Property="BorderBrush" Value="{DynamicResource ErrorBrush}"/>
+            </DataTrigger>
+          </Style.Triggers>
+        </Style>
+      </Border.Style>
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Text="!" FontSize="13" FontWeight="Bold"
+                   Margin="2,0,9,0" VerticalAlignment="Top">
+          <TextBlock.Style>
+            <Style TargetType="TextBlock">
+              <Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding AlerteGrave}" Value="True">
+                  <Setter Property="Foreground" Value="{DynamicResource ErrorBrush}"/>
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBlock.Style>
+        </TextBlock>
+        <TextBox Text="{Binding Alerte, Mode=OneWay}" MaxWidth="310"
+                 Style="{StaticResource BulleTexte}"/>
+      </StackPanel>
+    </Border>
+
+    <!-- Conversation -->
+    <ScrollViewer x:Name="Conversation" Grid.Row="1"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Padding="0,0,4,0">
+      <StackPanel>
+      <ItemsControl ItemsSource="{Binding Messages}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <StackPanel Margin="0,0,0,10" HorizontalAlignment="{Binding Alignement}">
+              <!-- Plus d'étiquette d'auteur : la couleur et l'alignement
+                   disent déjà qui parle, et « OpenArchi » répété à chaque
+                   bulle n'apprenait rien. -->
+              <Border Padding="10,8" CornerRadius="10" MaxWidth="340"
+                      BorderBrush="{DynamicResource ControlBorderBrush}"
+                      BorderThickness="1">
+                <Border.Style>
+                  <Style TargetType="Border">
+                    <!-- Réponses du modèle : bleu clair. -->
+                    <Setter Property="Background"
+                            Value="{DynamicResource BulleReponseBrush}"/>
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding DeUtilisateur}" Value="True">
+                        <Setter Property="Background"
+                                Value="{DynamicResource CardBackgroundBrush}"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </Border.Style>
+                <!-- Bulle en texte nu. Le gabarit riche est écrit et testé
+                     (BulleRiche), mais il reste débranché : le construire
+                     PENDANT l'inflation du DataTemplate fait remonter la
+                     moindre erreur en XamlParseException, et Revit tombe à
+                     l'ouverture d'un projet. Le rebrancher demande de bâtir
+                     le document AVANT la liaison, pas pendant. -->
+                <TextBox Text="{Binding TexteAffiche, Mode=OneWay}"
+                         Style="{StaticResource BulleTexte}"/>
+              </Border>
+              <!-- Temps de réflexion, sous la bulle. Absent des messages qui
+                   n'ont rien coûté (commandes locales, message d'accueil). -->
+              <TextBlock Text="{Binding Duree}" FontSize="9"
+                         Margin="4,3,4,0"
+                         HorizontalAlignment="{Binding Alignement}"
+                         Visibility="{Binding DureeVisible,
+                                      Converter={StaticResource BoolVersVisibilite}}"
+                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <!--
+        Attente : à la suite des messages, exactement là où la réponse va
+        s'afficher. Le Storyboard bat en continu depuis le chargement et
+        c'est la bulle qui se montre ou se cache — rien à piloter depuis le
+        ViewModel, donc rien à arrêter.
+      -->
+      <StackPanel Margin="0,0,0,10" HorizontalAlignment="Left"
+                  Visibility="{Binding EnAttente, Converter={StaticResource BoolVersVisibilite}}">
+        <TextBlock Text="OpenArchi" FontSize="10" Margin="4,0,4,3"
+                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+        <Border Padding="10,8" CornerRadius="10"
+                Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource ControlBorderBrush}"
+                BorderThickness="1">
+          <StackPanel Orientation="Horizontal">
+            <Path Data="{DynamicResource IconChat}"
+                  Width="14" Height="14" Stretch="Uniform"
+                  StrokeThickness="2"
+                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                  StrokeLineJoin="Round"
+                  Stroke="{DynamicResource AccentBrush}">
+              <Path.Triggers>
+                <EventTrigger RoutedEvent="Loaded">
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                       From="0.25" To="1" Duration="0:0:0.7"
+                                       AutoReverse="True"
+                                       RepeatBehavior="Forever"/>
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+              </Path.Triggers>
+            </Path>
+            <TextBlock Text="{Binding TexteAttente}" FontSize="12"
+                       Margin="8,0,0,0" VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
+
+    <!--
+      Liste en place au-dessus du champ plutôt qu'un Popup — pas de vol de
+      focus ni de souci de z-order dans un volet ancré, et la conversation se
+      réduit d'autant. Elle sert l'autocomplétion des commandes ET le choix du
+      fournisseur après /connect : aucune fenêtre modale dans cet outil.
+    -->
+    <Border Grid.Row="2" Margin="0,10,0,0" Padding="4" CornerRadius="8"
+            Background="{DynamicResource CardBackgroundBrush}"
+            BorderBrush="{DynamicResource ControlBorderBrush}"
+            BorderThickness="1"
+            Visibility="{Binding SuggestionsVisibles, Converter={StaticResource BoolVersVisibilite}}">
+      <ItemsControl ItemsSource="{Binding Suggestions}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <!-- Actif=False : fournisseur listé mais pas encore branché. -->
+            <Button HorizontalContentAlignment="Stretch"
+                    Padding="8,6" Cursor="Hand"
+                    IsEnabled="{Binding Actif}"
+                    BorderThickness="0"
+                    Background="{DynamicResource TransparentBrush}"
+                    Command="{Binding DataContext.ChoisirSuggestionCommand,
+                                      RelativeSource={RelativeSource AncestorType={x:Type ItemsControl}}}"
+                    CommandParameter="{Binding}">
+              <Button.Template>
+                <ControlTemplate TargetType="Button">
+                  <Border x:Name="fond" CornerRadius="6" Padding="{TemplateBinding Padding}"
+                          Background="{TemplateBinding Background}">
+                    <ContentPresenter HorizontalAlignment="Stretch"/>
+                  </Border>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Setter TargetName="fond" Property="Background"
+                              Value="{DynamicResource ControlFillHoverBrush}"/>
+                    </Trigger>
+                    <Trigger Property="IsEnabled" Value="False">
+                      <Setter TargetName="fond" Property="Opacity" Value="0.35"/>
+                    </Trigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </Button.Template>
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding Libelle}" FontSize="12" FontWeight="SemiBold"
+                           Foreground="{DynamicResource AccentBrush}"/>
+                <TextBlock Text="{Binding Description}" FontSize="11"
+                           Margin="8,0,0,0" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Border>
+
+    <!-- Saisie : champ + bouton icône -->
+    <Grid Grid.Row="3" Margin="0,10,0,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+
+      <!-- x:Name : le panneau y remet le curseur en fin de ligne après un
+           rappel d'historique, sinon WPF le repose au début. -->
+      <TextBox x:Name="Saisie" Grid.Column="0" Padding="10,0"
+               ToolTip="/commande pour une commande, #{Élément} pour citer la maquette&#10;Haut / Bas : rappeler un message envoyé"
+               Text="{Binding Saisie, UpdateSourceTrigger=PropertyChanged}">
+        <TextBox.InputBindings>
+          <KeyBinding Key="Return" Command="{Binding EnvoyerCommand}"/>
+          <!-- Tab complète sur la première proposition, comme un shell. -->
+          <KeyBinding Key="Tab" Command="{Binding CompleterCommand}"/>
+          <!-- Échap remonte d'une étape de /connect, sinon ferme la liste. -->
+          <KeyBinding Key="Escape" Command="{Binding RetourCommand}"/>
+          <!-- Haut / Bas : historique des messages envoyés, comme un
+               terminal. Le champ tient sur une ligne, les flèches n'ont
+               donc rien d'autre à y faire. -->
+          <KeyBinding Key="Up" Command="{Binding PrecedentCommand}"/>
+          <KeyBinding Key="Down" Command="{Binding SuivantCommand}"/>
+        </TextBox.InputBindings>
+      </TextBox>
+
+      <Button Grid.Column="1" Margin="8,0,0,0" Padding="10,8"
+              Width="35" Height="35"
+              Style="{DynamicResource PrimaryButtonStyle}"
+              Command="{Binding EnvoyerCommand}"
+              ToolTip="Envoyer (Entrée)">
+        <Path Data="{DynamicResource IconEnvoyer}"
+              Width="16" Height="16" Stretch="Uniform"
+              StrokeThickness="2"
+              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+              StrokeLineJoin="Round"
+              Stroke="{DynamicResource TextOnAccentBrush}"/>
+      </Button>
+    </Grid>
+
+    <!-- Pied : fournisseur · modèle · projet. Réservé aux infos d'état. -->
+    <TextBlock Grid.Row="4" Text="{Binding Statut}"
+               Margin="4,8,4,2" FontSize="10"
+               TextTrimming="CharacterEllipsis"
+               ToolTip="{Binding Statut}"
+               Foreground="{DynamicResource TextSecondaryBrush}"/>
+  </Grid>
+</Page>

@@ -4,6 +4,7 @@
     <!-- Fluent UI Palette - Dark Mode -->
     <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#23272F"/>
     <SolidColorBrush x:Key="CardBackgroundBrush" Color="#2C313A"/>
+    <SolidColorBrush x:Key="BulleReponseBrush" Color="#25364B"/>
     <SolidColorBrush x:Key="LayerFillColorDefaultBrush" Color="#23272F"/>
     <SolidColorBrush x:Key="MicaBackgroundBrush" Color="#23272F"/>
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F3F3F3"/>

@@ -1,0 +1,69 @@
+<!doctype html>
+<!--
+  Page rendue au navigateur au retour du flux OAuth ChatGPT (lib/core/chat_oauth.py).
+
+  ÉDITABLE À CHAUD : relue à chaque rendu, donc modifier ce fichier puis
+  rafraîchir l'onglet suffit — pas de Reload pyRevit.
+
+  Quatre jetons, remplacés par str.replace dans chat_oauth.page(). Notés ici
+  SANS leurs deux blancs soulignés de part et d'autre, justement parce qu'un
+  remplacement les atteindrait aussi — LOGO écrit en toutes lettres dans ce
+  commentaire y collerait un second data URI de 19 Ko :
+    TITRE   titre de l'onglet et de la carte
+    SOUS    phrase sous le titre
+    ETAT    '' en succès, 'rate' en échec (classe CSS sur <main>)
+    LOGO    le logo entier en url(data:…), ou '' s'il manque
+  Ni format() ni % : les accolades du CSS et les pourcentages des keyframes
+  les feraient exploser. Tout jeton laissé ici sans contrepartie dans page()
+  fait tomber test_tous_les_jetons_sont_remplaces.
+
+  AUTONOME PAR CONSTRUCTION : aucune ressource externe. La boucle locale
+  referme sa socket dès le code reçu, donc tout src/href (image, police, CSS)
+  partirait dans le vide — la page s'affiche après que le serveur a rendu la
+  main. C'est pour ça que le logo arrive en data: URI.
+
+  Couleurs reprises de GUI/resources/Colors.xaml — même bleu que la DA.
+-->
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>418 — __TITRE__</title>
+<style>
+  :root{--fond:#F9F9F9;--carte:#FFFFFF;--texte:#1A1A1A;--doux:#5D5D5D;
+        --bord:#E0E0E0;--a:#0078D4;--ombre:rgba(0,0,0,.10)}
+  @media (prefers-color-scheme:dark){
+    :root{--fond:#1A1A1A;--carte:#23272F;--texte:#FFFFFF;--doux:#A9B0BD;
+          --bord:#2C313A;--ombre:rgba(0,0,0,.45)}}
+  .rate{--a:#D13438}
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;display:grid;place-items:center;background:var(--fond);
+       color:var(--texte);font:16px/1.6 "Segoe UI",system-ui,sans-serif;
+       padding:24px}
+  .carte{max-width:460px;width:100%;text-align:center;background:var(--carte);
+         border:1px solid var(--bord);border-radius:18px;padding:44px 36px 40px;
+         box-shadow:0 12px 32px var(--ombre);animation:monte .5s ease-out both}
+  @keyframes monte{from{opacity:0;transform:translateY(12px)}}
+  /* Le PNG du logo sert de masque : son alpha découpe la théière, la couleur
+     vient de la DA. Un filter sur l'image ne donnerait jamais la teinte juste. */
+  .theiere{width:136px;height:136px;margin:0 auto 18px;background:var(--a);
+           -webkit-mask-image:var(--logo);mask-image:var(--logo);
+           -webkit-mask-size:contain;mask-size:contain;
+           -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+           -webkit-mask-position:center;mask-position:center;
+           animation:fremit 4s ease-in-out infinite}
+  @keyframes fremit{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+  .rate .theiere{animation:none;opacity:.75}
+  h1{margin:0 0 10px;font-size:1.6rem;font-weight:600;letter-spacing:-.01em}
+  p{margin:0;color:var(--doux)}
+  .code{display:inline-block;margin-top:26px;padding:6px 14px;font-size:.78rem;
+        letter-spacing:.08em;text-transform:uppercase;color:var(--doux);
+        border:1px solid var(--bord);border-radius:999px}
+  .code b{color:var(--a);font-weight:700}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style></head>
+<body><main class="carte __ETAT__">
+  <div class="theiere" role="img" aria-label="Théière" style="--logo:__LOGO__"></div>
+  <h1>__TITRE__</h1>
+  <p>__SOUS__</p>
+  <span class="code">HTTP <b>418</b> · I'm a teapot</span>
+</main></body></html>
