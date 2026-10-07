@@ -54,7 +54,14 @@ champ.
 | `/logout` | fermer la session du fournisseur courant |
 | `/journal` | afficher la fin de `data/418.log`, texte sélectionnable |
 | `/journal vider` | remettre le journal à zéro |
+| `/vider` | repartir d'une conversation neuve — et décrocher ses pièces jointes |
+| `/routes` | cocher « Routes » dans les réglages pyRevit (redémarrage requis) |
 | `/aide` | lister les commandes |
+
+`/vider` est la seule porte de sortie de trois impasses : la pièce lâchée de
+travers qui repart dans **chaque** requête, la facture qui monte à mesure que
+l'historique s'allonge, et le « maximum context length » qui finit par tout
+bloquer. L'API est sans mémoire : seul ce qu'on lui renvoie existe.
 
 `/model <nom>` existe parce que le backend ChatGPT n'expose aucun catalogue
 de modèles. Il n'y a pas de liste en dur : elle vieillirait en silence.
@@ -63,12 +70,19 @@ de modèles. Il n'y a pas de liste en dur : elle vieillirait en silence.
 
 ## Les fournisseurs
 
-| fournisseur | connexion | ce qu'il faut |
-|---|---|---|
-| OpenAI | **Navigateur** | un abonnement ChatGPT. 418 déroule OAuth lui-même, rien à installer. **Le seul qui a les outils.** |
-| OpenAI | Navigateur (codex) | le CLI `codex` déjà connecté. Pas d'outils. |
-| OpenAI | Clé API | `OPENAI_API_KEY` en variable d'environnement. Pas d'outils. |
-| Anthropic · Ollama | — | listés, grisés, pas encore branchés |
+| fournisseur | connexion | ce qu'il faut | outils | pièces jointes |
+|---|---|---|---|---|
+| OpenAI | **Navigateur** | un abonnement ChatGPT. 418 déroule OAuth lui-même, rien à installer. | oui | texte |
+| OpenAI | Navigateur (codex) | le CLI `codex` déjà connecté. | non | texte |
+| OpenAI | Clé API | `OPENAI_API_KEY` en variable d'environnement. | oui | texte, PDF, images |
+| Anthropic · Ollama | — | listés, grisés, pas encore branchés | — | — |
+
+Un PDF ou une image ne passent que par **Clé API** : le backend ChatGPT des
+deux connexions « Navigateur » est un chemin texte, et rien dans l'ordre des
+blocs n'y changera quoi que ce soit. Un refus y est annoncé, jamais silencieux.
+Une pièce repart à **chaque** message tant qu'elle est dans la conversation —
+c'est le protocole, pas un oubli, et c'est ce qui justifie les plafonds
+(200 ko en texte, 4 Mo en image, 8 Mo en PDF). `/vider` la décroche.
 
 Le jeton OAuth vit dans `%LOCALAPPDATA%\418.extension\auth.json`, hors du
 dépôt : une copie de l'extension n'emporte pas votre session.
@@ -112,11 +126,14 @@ ligne dans `/journal`.
 | `revit_open_document` | ouvre un autre projet, change la cible de tout |
 | `revit_close_document` | ferme le projet courant |
 
-Ces cinq-là ne posent aucune transaction : `Ctrl+Z` n'y peut rien. La consigne
-système interdit au modèle de les appeler sans demande explicite dans votre
-dernier message — un « vas-y » ne suffit pas, il doit décrire l'appel et
-attendre. **C'est une consigne, pas un verrou.** Chaque appel est journalisé
-en `IRRÉVERSIBLE` avec ses arguments.
+Ces cinq-là ne posent aucune transaction : `Ctrl+Z` n'y peut rien. **Le
+panneau vous demande votre accord avant chacun d'eux** — la liste en place
+propose *Refuser* (en tête : Tab complète sur la première entrée) et
+*Accorder*, Échap refuse. Sans réponse au bout de cinq minutes, c'est un
+refus ; sans interface pour demander, c'est un refus aussi. La consigne
+système reste, mais elle n'est plus seule : une consigne décrit ce que le
+modèle devrait faire, le verrou décide ce qu'il peut faire. Chaque appel est
+journalisé en `IRRÉVERSIBLE` avec ses arguments.
 
 ### Bornes
 

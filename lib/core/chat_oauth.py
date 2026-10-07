@@ -41,12 +41,9 @@ except Exception:
     from lib.core.prompt import systeme
 
 try:
-    from core import revit_outils
+    from core import chat_boucle
 except Exception:
-    try:
-        from lib.core import revit_outils
-    except Exception:
-        revit_outils = None            # sans lui, le chat reste sans outils
+    from lib.core import chat_boucle
 
 _log = journal('oauth')
 
@@ -310,63 +307,40 @@ def deconnecter():
     return 'Session fermée. /connect pour rouvrir le navigateur.'
 
 
-def repondre(messages, modele=None, timeout=180, outils=None, **_kwargs):
+def repondre(messages, modele=None, timeout=180, outils=None, avancement=None,
+             confirmer=None, **_kwargs):
     """Renvoie le texte de la réponse, ou lève ``ErreurOAuth``.
 
-    Boucle d'outils : tant que le modèle demande un outil, on l'exécute sur la
-    maquette et on lui rend la main. ``outils`` à ``None`` laisse le catalogue
-    se décider seul ; une liste vide désactive les outils (ce que font les
-    tests, qui n'ont pas de Revit sous la main).
+    La boucle elle-même vit dans ``chat_boucle`` : ici on ne décrit que ce qui
+    appartient au protocole Responses — un tour, et la façon d'y ranger un
+    appel d'outil.
     """
     if not _lire().get('access_token'):
         raise ErreurOAuth(ABSENT)
-    catalogue = _catalogue() if outils is None else list(outils)
+    catalogue = chat_boucle.catalogue(outils)
     entree = items(messages)
 
-    tours = revit_outils.TOURS_MAX if revit_outils is not None else 5
-    for _tour in range(tours):
-        brut = _echange(corps(entree, modele, catalogue), timeout)
+    def tour(avec_outils):
+        brut = _echange(
+            corps(entree, modele, catalogue if avec_outils else None), timeout)
         demandes = appels(brut)
         if not demandes:
-            return _texte_final(brut)
+            return _texte_final(brut), 0
         for appel in demandes:
             # L'item d'origine PUIS son résultat : le backend ne garde rien
             # d'un appel à l'autre (store=false), il faut lui rendre les deux.
             entree.append(appel)
-            entree.append(_resultat(appel))
+            entree.append(_resultat(appel, avancement, confirmer))
+        return None, len(demandes)
 
-    # Plafond atteint : on redemande sans outils plutôt que de lever. Le
-    # modèle a déjà tout lu, il lui reste à le dire — une erreur ici laisserait
-    # l'architecte avec une bulle vide après dix secondes d'attente.
-    _log.warning('plafond de %s tours d\'outils atteint', tours)
-    return _texte_final(_echange(corps(entree, modele, None), timeout))
+    return chat_boucle.boucler(tour, avancement)
 
 
-def _catalogue():
-    """Les outils disponibles, ou rien si la maquette n'est pas joignable.
-
-    Ne rien envoyer vaut mieux qu'annoncer des outils inexécutables : un
-    modèle à qui l'on promet des yeux répond « je regarde » et ne regarde rien.
-    """
-    if revit_outils is None:
-        return []
-    utilisable, _raison = revit_outils.disponible()
-    return revit_outils.outils() if utilisable else []
-
-
-def _resultat(appel):
+def _resultat(appel, avancement=None, confirmer=None):
     """Item de retour d'un appel d'outil, prêt à repartir dans ``input``."""
-    nom = appel.get('name') or ''
-    try:
-        arguments = json.loads(appel.get('arguments') or '{}')
-    except ValueError:
-        arguments = {}
-    if revit_outils is None:
-        sortie = json.dumps({'erreur': 'outils indisponibles'},
-                            ensure_ascii=False)
-    else:
-        sortie = revit_outils.executer(nom, arguments)
-    _log.info('outil %s(%s) -> %s octets', nom, arguments, len(sortie))
+    sortie = chat_boucle.executer(appel.get('name') or '',
+                                  chat_boucle.arguments(appel.get('arguments')),
+                                  avancement, confirmer)
     return {'type': 'function_call_output',
             'call_id': appel.get('call_id'),
             'output': sortie}

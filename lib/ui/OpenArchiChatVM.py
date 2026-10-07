@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 import base64
 import json
 import os
+import threading
 
 try:
     from ui.base.BaseViewModel import BaseViewModel
@@ -39,6 +40,14 @@ except Exception:
         revit_outils = None            # hors Revit : pas de bandeau d'alerte
 
 try:
+    from core import routes418
+except Exception:
+    try:
+        from lib.core import routes418
+    except Exception:
+        routes418 = None               # hors Revit : /routes n'a rien à cocher
+
+try:
     from core.markdown_simple import texte_nu as _md_nu
 except Exception:
     try:
@@ -68,6 +77,21 @@ def _texte_nu(texte):
     except Exception:
         _log.exception('nettoyage markdown')
         return texte
+
+def _proteger(travail):
+    """Exécute en avalant tout. OBLIGATOIRE sur le fil d'interface.
+
+    Ce qui s'exécute là touche des propriétés liées et ``Messages`` : une
+    exception qui s'en échappe part non rattrapée sur le fil d'interface de
+    Revit, et Revit meurt. C'est arrivé — PresentationCore,
+    InvalidOperationException. Une bulle d'erreur vaut mieux qu'une session
+    perdue.
+    """
+    try:
+        return travail()
+    except Exception:
+        _log.exception('sur le fil d\'interface')
+
 
 def _poids(octets):
     """« 2,1 Mo » / « 340 ko ». Virgule décimale : on écrit en français."""
@@ -254,9 +278,23 @@ class OpenArchiChatVM(BaseViewModel):
     # jetons de texte, plus bas qu'il n'y paraît parce qu'il repart dans
     # CHAQUE requête tant qu'il est dans la conversation.
     PDF_MAX = 8 * 1024 * 1024
+    # Une image coûte des jetons à la hauteur de sa définition, pas de son
+    # poids : au-delà, le fournisseur la réduit lui-même et on aura payé le
+    # transfert pour rien.
+    IMAGE_MAX = 4 * 1024 * 1024
+    # Ce qu'un modèle sait regarder. Le format décide du bloc envoyé, pas
+    # l'octet nul : un PNG est « binaire » et parfaitement lisible.
+    IMAGES = {'.png': 'image/png', '.jpg': 'image/jpeg',
+              '.jpeg': 'image/jpeg', '.gif': 'image/gif',
+              '.webp': 'image/webp'}
     # Assez pour lire une erreur technique, assez peu pour ne pas rester en
     # travers du volet une fois la question suivante posée.
     DUREE_TOAST = 15
+    # Au-delà, on considère que personne ne répondra — un panneau refermé
+    # sans un clic laisserait sinon le fil de fond suspendu pour toujours.
+    # Une expiration vaut un refus : on n'écrit pas dans la maquette parce
+    # que l'architecte est parti déjeuner.
+    DELAI_ACCORD = 300
 
     def __init__(self, config=None, client=None):
         try:
@@ -300,6 +338,10 @@ class OpenArchiChatVM(BaseViewModel):
                        self._commande_logout),
             'journal': ('afficher les dernières lignes du journal',
                         self._commande_journal),
+            'vider': ('repartir d\'une conversation neuve',
+                      self._commande_vider),
+            'routes': ('cocher « Routes » dans les réglages pyRevit',
+                       self._commande_routes),
             'aide': ('lister les commandes disponibles', self._commande_aide),
         }
         self.Suggestions = self._nouvelle_liste()
@@ -310,6 +352,9 @@ class OpenArchiChatVM(BaseViewModel):
         # DWG lâché, en attente de confirmation. Un seul à la fois : le
         # suivant remplace, comme une question qui chasse la précédente.
         self._depot = None
+        # Accord demandé pour un outil irréversible : (réponse, signal). Le
+        # fil de fond attend dessus, cf. _confirmer.
+        self._question = None
         self.EnvoyerCommand = (RelayCommand(self._envoyer, self._peut_envoyer)
                                if RelayCommand else None)
         self.ChoisirSuggestionCommand = (RelayCommand(self._choisir)
@@ -615,6 +660,14 @@ class OpenArchiChatVM(BaseViewModel):
         self.notify_property('SuggestionsVisibles')
 
     def _entrees(self, etape):
+        if etape == 'accord':
+            # « Refuser » en tête, et ce n'est pas cosmétique : Tab complète
+            # sur la PREMIÈRE entrée retenable. Une frappe distraite ne doit
+            # pas pousser une synchronisation sur le central.
+            return [SuggestionVM('refuser', 'ne rien écrire dans la maquette',
+                                 libelle='Refuser'),
+                    SuggestionVM('accorder', 'laisser l\'outil s\'exécuter',
+                                 libelle='Accorder')]
         if etape == 'depot':
             # Confirmation d'un DWG lâché. Elle réutilise la liste en place
             # plutôt qu'un bouton dans la bulle : même mécanique que
@@ -651,10 +704,12 @@ class OpenArchiChatVM(BaseViewModel):
         """Échap : remonte d'une étape, ou referme la liste."""
         if self._etape is None:
             return
-        # 'depot' n'est pas une étape de /connect : Échap y annule, il ne
-        # remonte nulle part.
+        # 'depot' et 'accord' ne sont pas des étapes de /connect : Échap y
+        # refuse, il ne remonte nulle part.
         if self._etape == 'depot':
             return self._annuler_depot()
+        if self._etape == 'accord':
+            return self._repondre_accord(False)
         rang = self.ETAPES.index(self._etape)
         if rang == 0:
             self._fermer_liste()
@@ -667,6 +722,8 @@ class OpenArchiChatVM(BaseViewModel):
         # Le XAML désactive déjà le bouton ; Tab passe par ici sans lui.
         if not suggestion.Actif:
             return
+        if self._etape == 'accord':
+            return self._repondre_accord(suggestion.Nom == 'accorder')
         if self._etape == 'depot':
             return (self._lier_depot() if suggestion.Nom == 'lier'
                     else self._annuler_depot())
@@ -786,8 +843,9 @@ class OpenArchiChatVM(BaseViewModel):
           ouvrir ce fichier ici, c'est Revit : on propose de le lier, et ce
           sont les outils ``rvt`` qui le décriront ensuite. Écrit dans la
           maquette, donc on demande d'abord.
-        - **PDF** — part en base64 au fournisseur, ce que seule la connexion
-          « Clé API » accepte. Ailleurs : refus annoncé, pas un silence.
+        - **PDF et images** — partent en base64 au fournisseur, ce que seule
+          la connexion « Clé API » accepte. Ailleurs : refus annoncé, pas un
+          silence.
         - **le reste** — s'il se lit en texte, il se lit en texte.
 
         Aucune de ces voies n'envoie de message : le dépôt se pose dans la
@@ -810,7 +868,11 @@ class OpenArchiChatVM(BaseViewModel):
         if extension == '.dwg':
             return self._proposer_dwg(chemin)
         if extension == '.pdf':
-            return self._joindre_pdf(chemin)
+            return self._joindre_binaire(chemin, 'application/pdf',
+                                         self.PDF_MAX, 'PDF')
+        if extension in self.IMAGES:
+            return self._joindre_binaire(chemin, self.IMAGES[extension],
+                                         self.IMAGE_MAX, 'image')
         return self._joindre_texte(chemin)
 
     # --- texte -----------------------------------------------------------
@@ -828,36 +890,38 @@ class OpenArchiChatVM(BaseViewModel):
             # source. Du texte, ça s'affiche partout.
             affiche='Pièce jointe : {0} — {1}'.format(nom, ennui)))
 
-    # --- PDF ---------------------------------------------------------------
+    # --- PDF et images -----------------------------------------------------
 
-    def _joindre_pdf(self, chemin):
-        """Le PDF part tel quel au fournisseur, en base64.
+    def _joindre_binaire(self, chemin, media, plafond, genre):
+        """Le fichier part tel quel au fournisseur, en base64.
 
         Pas d'extraction locale : pyRevit tourne sur un CPython stdlib seul,
         et un extracteur écrit à la main rend n'importe quoi sur un PDF
         d'architecte (polices sous-ensemblées, CMap). Mieux vaut ne pas
-        joindre que joindre du charabia.
+        joindre que joindre du charabia — et une image, de toute façon, ne
+        s'extrait pas : elle se regarde.
         """
         nom = os.path.basename(chemin)
         if self._config.connexion != CLE_API:
             return self._dire(
-                '{0} : un PDF ne passe que par la connexion « {1} ». '
-                '« {2} » n\'accepte que du texte — /connect pour changer, '
+                '{0} : un fichier {1} ne passe que par la connexion « {2} ». '
+                '« {3} » n\'accepte que du texte — /connect pour changer, '
                 'ou lâchez plutôt un export texte.'.format(
-                    nom, CLE_API, self._config.connexion or 'celle en cours'))
+                    nom, genre, CLE_API,
+                    self._config.connexion or 'celle en cours'))
         taille = os.path.getsize(chemin)
-        if taille > self.PDF_MAX:
+        if taille > plafond:
             return self._dire(
-                '{0} : {1}, au-delà du plafond de {2}. Un PDF repart au '
+                '{0} : {1}, au-delà du plafond de {2}. Une pièce repart au '
                 'fournisseur à CHAQUE message : au-delà, la facture grimpe '
                 'sans prévenir.'.format(nom, _poids(taille),
-                                        _poids(self.PDF_MAX)))
+                                        _poids(plafond)))
         with open(chemin, 'rb') as fichier:
             brut = fichier.read()
         self.Messages.Add(MessageVM(
-            'Moi', 'Pièce jointe « {0} » (PDF).'.format(nom), True,
+            'Moi', 'Pièce jointe « {0} » ({1}).'.format(nom, genre), True,
             affiche='Pièce jointe : {0} — {1}'.format(nom, _poids(taille)),
-            piece={'nom': nom, 'media': 'application/pdf',
+            piece={'nom': nom, 'media': media,
                    'b64': base64.b64encode(brut).decode('ascii')}))
 
     def _pieces(self):
@@ -915,7 +979,8 @@ class OpenArchiChatVM(BaseViewModel):
         Détection du binaire à l'octet nul, comme git : pas de liste
         d'extensions à tenir à jour, et un .md sans extension passe quand
         même. Un .docx y est vu binaire — c'est juste, on ne sait pas
-        l'extraire.
+        l'extraire. Les PDF et les images, eux, n'arrivent jamais ici :
+        ``_deposer_un`` les a aiguillés avant, sur leur extension.
         """
         nom = os.path.basename(chemin)
         if os.path.isdir(chemin):
@@ -924,8 +989,8 @@ class OpenArchiChatVM(BaseViewModel):
             brut = fichier.read(self.PIECE_MAX + 1)
         if b'\x00' in brut:
             return (nom, None,
-                    'format binaire — seules les pièces en texte passent '
-                    'pour l\'instant (images et PDF : pas encore).')
+                    'format binaire, et on ne sait pas l\'extraire — du '
+                    'texte, un PDF ou une image passeraient.')
         tronque = len(brut) > self.PIECE_MAX
         texte = brut[:self.PIECE_MAX].decode('utf-8', 'replace')
         if tronque:
@@ -946,25 +1011,28 @@ class OpenArchiChatVM(BaseViewModel):
         # pas rester périmé, dans un sens comme dans l'autre.
         self._rafraichir_alerte()
 
+    def _sur_interface(self, travail):
+        """Exécute ``travail`` sur le fil d'interface, d'où qu'on l'appelle.
+
+        Hors .NET, sur place : le VM reste synchrone et se teste sans rien
+        simuler.
+        """
+        if Action is None or self._dispatcher is None:
+            return _proteger(travail)
+        try:
+            self._dispatcher.Invoke(Action(lambda: _proteger(travail)))
+        except Exception:
+            _log.exception('retour sur le fil d\'interface')
+
     def _en_arriere_plan(self, travail, suite):
         """``travail`` hors du fil d'interface, ``suite`` de retour dessus.
 
         Sans .NET (tests hors Revit), tout s'exécute sur place : le VM reste
         synchrone et se teste sans rien simuler.
         """
-        def _sur_le_fil(resultat):
-            # ENVELOPPE OBLIGATOIRE. Ce qui s'exécute ici touche des
-            # propriétés liées et Messages : une exception qui s'en échappe
-            # part non rattrapée sur le fil d'interface de Revit, et Revit
-            # meurt. C'est arrivé — PresentationCore, InvalidOperationException.
-            # Une bulle d'erreur vaut mieux qu'une session perdue.
-            try:
-                suite(resultat)
-            except Exception:
-                _log.exception('suite() sur le fil d\'interface')
-
         if Thread is None or self._dispatcher is None:
-            return _sur_le_fil(travail())
+            resultat = travail()
+            return _proteger(lambda: suite(resultat))
 
         def _courir():
             try:
@@ -972,15 +1040,69 @@ class OpenArchiChatVM(BaseViewModel):
             except Exception as e:                # ceinture : _conversation
                 _log.exception('travail de fond')  # attrape déjà tout
                 resultat = '{0}'.format(e)
-            try:
-                self._dispatcher.Invoke(Action(lambda: _sur_le_fil(resultat)))
-            except Exception:
-                _log.exception('retour sur le fil d\'interface')
+            self._sur_interface(lambda: suite(resultat))
 
         fil = Thread(ThreadStart(_courir))
         # Sans cela, un appel en cours retiendrait la fermeture de Revit.
         fil.IsBackground = True
         fil.Start()
+
+    # --- ce que le fil de fond a le droit de dire -------------------------
+
+    def _avancement(self, phrase):
+        """Remplace la blague d'attente par ce qui se passe vraiment.
+
+        Appelé depuis la boucle d'outils, donc d'un fil de fond : toucher
+        ``TexteAttente`` d'ici notifierait une liaison hors du fil
+        d'interface, et c'est ce qui fait tomber Revit.
+        """
+        self._sur_interface(lambda: setattr(self, 'TexteAttente', phrase))
+
+    def _confirmer(self, nom, donnees):
+        """Demande l'accord de l'architecte avant un outil irréversible.
+
+        Appelé depuis le fil de fond pendant la boucle d'outils : on pose la
+        question sur le fil d'interface, et on attend ICI. Bloquer ce fil-là
+        est sans danger — c'est celui de l'appel au modèle, pas celui de
+        Revit, qui reste rendu à la main.
+
+        Le délai n'est pas une politesse : sans lui, un panneau refermé sans
+        répondre laisserait un fil suspendu pour toujours.
+        """
+        signal = threading.Event()
+        reponse = {}
+        self._sur_interface(
+            lambda: self._poser_question(nom, donnees, reponse, signal))
+        if Thread is None or self._dispatcher is None:
+            # Hors .NET, `_sur_interface` s'exécute SUR PLACE : la question
+            # vient d'être posée sur le fil même qui attendrait la réponse.
+            # Personne ne peut cliquer — attendre serait cinq minutes
+            # d'interblocage, alors on referme sur un refus.
+            self._repondre_accord(False)
+        else:
+            signal.wait(self.DELAI_ACCORD)
+        # On lit le dictionnaire, pas le retour de wait() : une expiration
+        # vaut un refus, et c'est le même chemin.
+        return bool(reponse.get('oui'))
+
+    def _poser_question(self, nom, donnees, reponse, signal):
+        self._question = (reponse, signal)
+        self._dire('{0} est IRRÉVERSIBLE : aucun Ctrl+Z ne le défait. '
+                   'Arguments : {1}'.format(nom, donnees or 'aucun'))
+        self.TexteAttente = 'j\'attends votre accord…'
+        self._ouvrir('accord')
+
+    def _repondre_accord(self, oui):
+        question, self._question = self._question, None
+        self._fermer_liste()
+        if question is None:
+            return
+        reponse, signal = question
+        reponse['oui'] = bool(oui)
+        self._dire('Accordé.' if oui else 'Refusé — rien n\'a été écrit.')
+        # None : les phrases d'attente repartent, le modèle reprend la main.
+        self.TexteAttente = None
+        signal.set()
 
     def repondre(self, texte):
         analyse = analyser(texte)
@@ -1002,12 +1124,15 @@ class OpenArchiChatVM(BaseViewModel):
             return ('{0} : pas encore branché. /connect pour en choisir un '
                     'autre.'.format(self._config.provider))
         try:
-            # pieces= est facultatif dans le contrat : les clients qui ne
-            # savent pas porter de fichier l'avalent par leur **_kwargs, et
-            # _joindre_pdf a déjà refusé le dépôt chez eux.
+            # pieces=, avancement= et confirmer= sont facultatifs dans le
+            # contrat : les clients qui n'en font rien les avalent par leur
+            # **_kwargs, et _joindre_binaire a déjà refusé le dépôt chez ceux
+            # qui ne portent pas de fichier.
             return client.repondre(self._historique(analyse.texte),
                                    modele=self._config.modele,
-                                   pieces=self._pieces())
+                                   pieces=self._pieces(),
+                                   avancement=self._avancement,
+                                   confirmer=self._confirmer)
         except Exception as e:
             _log.exception('repondre() a échoué')
             return '{0} : {1}'.format(self._config.provider, e)
@@ -1030,6 +1155,32 @@ class OpenArchiChatVM(BaseViewModel):
         for nom in sorted(self.COMMANDES):
             lignes.append('  /{0} — {1}'.format(nom, self.COMMANDES[nom][0]))
         return '\n'.join(lignes)
+
+    def _commande_vider(self, _arguments):
+        """Efface la conversation — et avec elle ses pièces jointes.
+
+        C'est la seule porte de sortie de trois impasses : la pièce lâchée de
+        travers qui repart dans CHAQUE requête, la facture qui monte à mesure
+        que l'historique s'allonge, et le « maximum context length » qui finit
+        par tout bloquer. L'API est sans mémoire : seul ce qu'on lui renvoie
+        existe, donc oublier est une opération locale et immédiate.
+        """
+        pieces = len(self._pieces())
+        self.Messages.Clear()
+        self.Messages.Add(MessageVM('OpenArchi', self.ACCUEIL, False))
+        if pieces:
+            return ('Conversation vidée — {0} pièce(s) jointe(s) '
+                    'décrochée(s).'.format(pieces))
+        return 'Conversation vidée.'
+
+    def _commande_routes(self, _arguments):
+        """Coche « Routes » dans pyRevit, au lieu de décrire où cliquer."""
+        if routes418 is None:
+            return 'Hors Revit : rien à cocher.'
+        if routes418.base():
+            return 'Le serveur de routes répond déjà : {0}'.format(
+                routes418.base())
+        return routes418.activer()
 
     def _commande_connect(self, _arguments):
         # Pas de fenêtre : on réutilise la liste en place au-dessus du champ,

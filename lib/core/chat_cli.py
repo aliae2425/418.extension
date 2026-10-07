@@ -54,13 +54,6 @@ class ErreurCLI(Exception):
     """Échec d'appel : CLI absent, non connecté, ou sortie illisible."""
 
 
-class _JamaisLevee(Exception):
-    """Repli de branche ``except`` sous Python 2, où rien ne la lève."""
-
-
-_EXPIRATION = getattr(subprocess, 'TimeoutExpired', _JamaisLevee)
-
-
 def chemin(nom=None):
     """Chemin complet de l'exécutable, ``None`` s'il est introuvable.
 
@@ -241,7 +234,15 @@ def invite(messages):
 
 
 def repondre(messages, modele=None, timeout=180, **_kwargs):
-    """Renvoie le texte de la réponse, ou lève ``ErreurCLI``."""
+    """Renvoie le texte de la réponse, ou lève ``ErreurCLI``.
+
+    Trois FICHIERS, pas trois tuyaux. ``communicate(timeout=)`` n'existe pas
+    sous IronPython 2.7 — le moteur du panneau — et l'ancien repli relançait
+    ``communicate()`` SANS échéance : un codex qui pendait faisait tourner le
+    sablier jusqu'à la fermeture de Revit. Pour surveiller le processus
+    soi-même il faut cesser d'être collé à deux tuyaux qui, pleins, bloquent
+    le fils à jamais ; un fichier, lui, ne se remplit pas.
+    """
     executable = chemin()
     if not executable:
         raise ErreurCLI(ABSENT)
@@ -249,39 +250,78 @@ def repondre(messages, modele=None, timeout=180, **_kwargs):
 
     # -o : le CLI écrit la réponse finale seule, ce qui évite d'avoir à
     # démêler sa trace de progression sur stdout.
-    descripteur, sortie = tempfile.mkstemp(prefix='openarchi_', suffix='.txt')
-    os.close(descripteur)
+    sortie = _fichier('.txt')
+    trace, erreurs = _fichier('.out'), _fichier('.err')
     try:
-        processus = subprocess.Popen(
-            [executable] + arguments + ['-o', sortie, '-'],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, **_options())
-        entree = invite(messages).encode('utf-8')
-        try:
-            _, erreur = processus.communicate(entree, timeout=timeout)
-        except TypeError:              # Python 2 : communicate() sans timeout
-            _, erreur = processus.communicate(entree)
-        except _EXPIRATION:
-            processus.kill()
-            raise ErreurCLI('pas de réponse après {0} s'.format(timeout))
-
+        with open(trace, 'wb') as flux_sortie:
+            with open(erreurs, 'wb') as flux_erreurs:
+                processus = subprocess.Popen(
+                    [executable] + arguments + ['-o', sortie, '-'],
+                    stdin=subprocess.PIPE, stdout=flux_sortie,
+                    stderr=flux_erreurs, **_options())
+                _poser_invite(processus, invite(messages).encode('utf-8'))
+                if not _attendre(processus, timeout):
+                    processus.kill()
+                    raise ErreurCLI(
+                        'pas de réponse après {0} s'.format(timeout))
+        erreur = _contenu(erreurs)
         _log.debug('exec rc=%s modele=%s', processus.returncode, modele)
         if processus.returncode != 0:
-            _log.error('exec a échoué : %s', _texte(erreur)[-600:])
+            _log.error('exec a échoué : %s', erreur[-600:])
             raise ErreurCLI(_fin(erreur) or
                             'codex a échoué (code {0})'.format(
                                 processus.returncode))
-        with open(sortie, 'rb') as fichier:
-            reponse = fichier.read().decode('utf-8').strip()
+        reponse = _contenu(sortie).strip()
     finally:
-        try:
-            os.remove(sortie)
-        except OSError:
-            pass
+        for fichier in (sortie, trace, erreurs):
+            _effacer(fichier)
 
     if not reponse:
         raise ErreurCLI('réponse vide — vérifier « codex login »')
     return reponse
+
+
+def _poser_invite(processus, entree):
+    """Pousse l'invite puis FERME stdin : sans ça, codex attend la suite."""
+    try:
+        processus.stdin.write(entree)
+    finally:
+        try:
+            processus.stdin.close()
+        except Exception:
+            pass
+
+
+def _attendre(processus, timeout, pas=0.25):
+    """Vrai si le processus a fini avant l'échéance, faux s'il la dépasse."""
+    limite = time.time() + timeout
+    while processus.poll() is None:
+        if time.time() >= limite:
+            return False
+        time.sleep(pas)
+    return True
+
+
+def _fichier(suffixe):
+    descripteur, chemin_ = tempfile.mkstemp(prefix='openarchi_',
+                                            suffix=suffixe)
+    os.close(descripteur)
+    return chemin_
+
+
+def _effacer(chemin_):
+    try:
+        os.remove(chemin_)
+    except OSError:
+        pass
+
+
+def _contenu(chemin_):
+    try:
+        with open(chemin_, 'rb') as fichier:
+            return fichier.read().decode('utf-8', 'replace')
+    except (IOError, OSError):
+        return ''
 
 
 def _options():

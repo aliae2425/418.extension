@@ -18,6 +18,7 @@ _SHARED_LIB = os.path.abspath(os.path.join(_HERE, '..', '..'))  # -> lib
 if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
 
+from core import chat_boucle
 from core import chat_oauth
 
 try:                                   # CPython 3
@@ -501,15 +502,17 @@ class TestBoucleOutils(unittest.TestCase):
         self.envois = []
         self.executes = []
         self._vrais = (chat_oauth._lire, chat_oauth._doit_rafraichir,
-                       chat_oauth._poster, chat_oauth.revit_outils)
+                       chat_oauth._poster, chat_boucle.revit_outils)
         chat_oauth._lire = lambda: {'access_token': 'jeton'}
         chat_oauth._doit_rafraichir = lambda _j: False
         chat_oauth._poster = self._poster
-        chat_oauth.revit_outils = self
+        # La boucle d'outils est partagée : c'est elle qui parle à la
+        # maquette, plus chat_oauth.
+        chat_boucle.revit_outils = self
 
     def tearDown(self):
         (chat_oauth._lire, chat_oauth._doit_rafraichir,
-         chat_oauth._poster, chat_oauth.revit_outils) = self._vrais
+         chat_oauth._poster, chat_boucle.revit_outils) = self._vrais
 
     # --- double de revit_outils ---
     TOURS_MAX = 3
@@ -520,6 +523,9 @@ class TestBoucleOutils(unittest.TestCase):
     def outils(self):
         return [{'nom': 'revit_status', 'description': 'état',
                  'parametres': {'type': 'object', 'properties': {}}}]
+
+    def irreversibles(self):
+        return ('revit_synchroniser',)
 
     def executer(self, nom, arguments=None):
         self.executes.append((nom, arguments))
@@ -575,6 +581,67 @@ class TestBoucleOutils(unittest.TestCase):
         self.reponses = [_flux_texte('ok')]
         chat_oauth.repondre([('user', 'x')], outils=[])
         self.assertNotIn('tools', self.envois[0])
+
+    def test_l_avancement_nomme_l_outil_en_cours(self):
+        # Sans ça, la bulle d'attente raconte une blague pendant qu'un outil
+        # tourne : c'est le seul signe de vie dont dispose l'architecte.
+        dits = []
+        self.reponses = [_flux_appel(), _flux_texte('voilà')]
+        chat_oauth.repondre([('user', 'x')], avancement=dits.append)
+        self.assertIn('revit_status', ' '.join(dits))
+
+    def test_un_avancement_qui_casse_ne_casse_pas_la_reponse(self):
+        def _casse(_phrase):
+            raise RuntimeError('boum')
+        self.reponses = [_flux_appel(), _flux_texte('voilà')]
+        self.assertEqual(chat_oauth.repondre([('user', 'x')],
+                                             avancement=_casse), 'voilà')
+
+
+class TestOutilsIrreversibles(TestBoucleOutils):
+    """Aucun Ctrl+Z ne les défait : l'accord ne peut pas être une consigne."""
+
+    def _demande(self, **kwargs):
+        self.reponses = [_flux_appel(nom='revit_synchroniser', **kwargs),
+                         _flux_texte('fini')]
+
+    def test_sans_accord_l_outil_ne_part_pas(self):
+        self._demande()
+        chat_oauth.repondre([('user', 'synchronise')],
+                            confirmer=lambda _n, _a: False)
+        self.assertEqual(self.executes, [])
+        self.assertIn('refusé', self.envois[1]['input'][2]['output'])
+
+    def test_avec_accord_l_outil_part(self):
+        self._demande()
+        chat_oauth.repondre([('user', 'synchronise')],
+                            confirmer=lambda _n, _a: True)
+        self.assertEqual(self.executes, [('revit_synchroniser', {})])
+
+    def test_sans_interface_c_est_un_refus_pas_un_laissez_passer(self):
+        # Le défaut sûr : personne pour répondre = personne n'a dit oui.
+        self._demande()
+        chat_oauth.repondre([('user', 'synchronise')])
+        self.assertEqual(self.executes, [])
+
+    def test_une_confirmation_qui_leve_vaut_un_refus(self):
+        def _casse(_nom, _args):
+            raise RuntimeError('panneau fermé')
+        self._demande()
+        chat_oauth.repondre([('user', 'x')], confirmer=_casse)
+        self.assertEqual(self.executes, [])
+
+    def test_un_outil_de_lecture_ne_demande_rien(self):
+        self.reponses = [_flux_appel(), _flux_texte('voilà')]
+        demandes = []
+
+        def _noter(nom, _args):
+            demandes.append(nom)
+            return True
+
+        chat_oauth.repondre([('user', 'x')], confirmer=_noter)
+        self.assertEqual(demandes, [])
+        self.assertEqual(self.executes, [('revit_status', {})])
 
 
 if __name__ == '__main__':

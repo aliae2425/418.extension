@@ -157,7 +157,24 @@ trois membres, rien de plus :
 | `deconnecter()` | ferme la session, `None` s'il n'y en a pas |
 | `modeles()` | noms disponibles, `()` si le client n'en expose pas |
 | `attendre_connexion()` | *facultatif* — bloque jusqu'à la fin du flux navigateur |
-| `repondre(messages, modele=None)` | `messages` = couples `(role, texte)` → texte |
+| `repondre(messages, modele=None, **_kwargs)` | `messages` = couples `(role, texte)` → texte |
+
+`repondre` reçoit en plus quatre arguments **facultatifs** — un client qui
+n'en fait rien les avale par son `**_kwargs`, et le VM a déjà refusé en amont
+ce qu'il ne sait pas porter :
+
+| argument | rôle |
+|---|---|
+| `pieces` | fichiers joints `{'nom','media','b64'}` — PDF et images |
+| `outils` | catalogue imposé ; `[]` désactive, `None` laisse décider |
+| `avancement(phrase)` | dit ce qui se passe pendant l'attente, depuis le fil de fond |
+| `confirmer(nom, args)` | demande l'accord avant un outil irréversible → booléen |
+
+**La boucle d'outils est partagée** (`lib/core/chat_boucle.py`) : catalogue,
+exécution, accord et règle du dernier tour y vivent une fois. Chaque client ne
+décrit que son protocole — un tour, et la façon d'y ranger un appel. Elle a
+vécu enfermée dans `chat_oauth`, ce qui faisait de la connexion « Clé API »
+(la seule à porter des PDF) la seule aveugle à la maquette.
 
 Deux voies d'authentification, volontairement :
 
@@ -202,16 +219,17 @@ les deux :
 - *dans Revit* — panneau ancrable OpenArchi (`lib/ui/OpenArchiPanel.py`),
   enregistré par le `startup.py` racine. Syntaxe : `/commande` et
   `#{Référence}`, analysées par `lib/core/chat_syntaxe.py`.
-- *hors Revit* — serveur MCP vendorisé, pour les clients déjà installés chez
-  l'utilisateur (Claude Code, Codex, Claude Desktop…).
+- *hors Revit* — les routes `routes.API('418')` de `lib/rvt/`, que n'importe
+  quel client HTTP atteint (`GET /418/outils/`, `POST /418/outil/<nom>`).
 
 **Ce qui n'est pas encore branché** — à ne pas décrire comme acquis :
 
 - les `#références` sont analysées mais ne résolvent aucun élément Revit ;
-- le modèle ne peut appeler aucun des outils de `418.tab` (pas de boucle
-  d'outils) ;
-- pas de surcouche `routes.API('418')` : seules les routes vendorisées
-  existent.
+- aucun streaming : le flux SSE est lu d'un bloc, la bulle apparaît d'un coup.
+  `avancement` nomme l'outil en cours, c'est tout ce qui comble l'attente ;
+- les bulles affichent du TEXTE NU. Le rendu riche est écrit et testé
+  (`markdown_simple`, `FlowMarkdown`) mais débranché — trois plantages de
+  Revit, cf. l'en-tête de `OpenArchiPanel.xaml`.
 
 **Fil d'exécution.** L'appel au modèle part sur un `Thread` de fond et revient
 par `Dispatcher.Invoke` — Revit reste rendu à la main, `EnAttente` pilote

@@ -126,6 +126,36 @@ class TestStderr(unittest.TestCase):
         self.assertEqual(chat_cli._fin(None), '')
 
 
+class TestEcheance(unittest.TestCase):
+    """``communicate(timeout=)`` n'existe pas sous IronPython 2.7, et
+    l'ancien repli relançait SANS échéance : un codex qui pendait faisait
+    tourner le sablier jusqu'à la fermeture de Revit."""
+
+    class _Pendu(object):
+        @staticmethod
+        def poll():
+            return None
+
+    class _Fini(object):
+        def __init__(self, tours=2):
+            self._tours = tours
+
+        def poll(self):
+            self._tours -= 1
+            return 0 if self._tours <= 0 else None
+
+    def test_un_processus_qui_pend_rend_la_main_a_l_echeance(self):
+        self.assertFalse(chat_cli._attendre(self._Pendu(), 0.05, pas=0.01))
+
+    def test_un_processus_qui_finit_est_bien_attendu(self):
+        self.assertTrue(chat_cli._attendre(self._Fini(), 5, pas=0.01))
+
+    def test_un_fichier_absent_se_lit_comme_vide(self):
+        # La branche `finally` efface les trois fichiers : les relire après
+        # une erreur ne doit pas lever par-dessus l'erreur d'origine.
+        self.assertEqual(chat_cli._contenu('nexiste-pas-du-tout.err'), '')
+
+
 class TestArguments(unittest.TestCase):
     def test_bac_a_sable_en_lecture_seule(self):
         # Le chat ne doit jamais laisser le modèle écrire sur le disque.

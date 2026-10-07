@@ -62,3 +62,30 @@ def base():
     # `host` vaut '' quand pyRevit écoute sur toutes les interfaces : on
     # s'adresse à la boucle locale dans tous les cas, on est dans le process.
     return 'http://127.0.0.1:{0}'.format(actif.port)
+
+
+def activer():
+    """Coche « Routes » dans les réglages pyRevit, pour le prochain lancement.
+
+    On ne démarre toujours rien nous-même (cf. l'en-tête) : on pose le réglage
+    que l'utilisateur devrait sinon aller chercher dans une fenêtre qu'il ne
+    connaît pas, et Revit le lira au redémarrage. C'est la seule part du
+    problème qu'on puisse honnêtement prendre à sa place.
+    """
+    try:
+        from pyrevit.userconfig import user_config
+    except Exception:
+        _log.exception('réglages pyRevit injoignables')
+        return 'Réglages pyRevit injoignables. ' + ABSENT
+    try:
+        if user_config.routes_server:
+            return ('« Routes » est déjà coché. Si les outils restent muets, '
+                    'redémarrer Revit suffit en général.')
+        user_config.routes_server = True
+        user_config.save_changes()
+    except Exception as e:
+        _log.exception('écriture du réglage routes_server')
+        return 'Réglage impossible ({0}). {1}'.format(e, ABSENT)
+    _log.info('routes_server coché')
+    return ('« Routes » coché dans les réglages pyRevit. Redémarrez Revit '
+            'pour que le serveur démarre — un Reload ne suffit pas.')

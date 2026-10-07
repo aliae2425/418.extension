@@ -62,6 +62,9 @@ class _ClientFactice(object):
         self.recus = None
         self.modele_recu = None
         self.pieces_recues = None
+        # Le reste du contrat est facultatif : un client qui n'en fait rien
+        # l'avale par ses **_kwargs. On le retient pour pouvoir le vérifier.
+        self.kwargs = {}
         self.connexions_ouvertes = 0
         self.fermetures = 0
 
@@ -88,6 +91,7 @@ class _ClientFactice(object):
         self.recus = messages
         self.modele_recu = modele
         self.pieces_recues = pieces
+        self.kwargs = _kwargs
         if self.erreur is not None:
             raise self.erreur
         return self.reponse
@@ -176,7 +180,7 @@ class TestAutocomplete(unittest.TestCase):
         self.assertTrue(self.vm.SuggestionsVisibles)
         self.assertEqual(self._libelles(),
                          ['/aide', '/connect', '/journal', '/logout',
-                          '/model'])
+                          '/model', '/routes', '/vider'])
 
     def test_filtre_sur_le_prefixe(self):
         self.vm.Saisie = '/co'
@@ -826,8 +830,10 @@ class TestPiecesJointes(unittest.TestCase):
         envoye = '\n'.join(texte for _role, texte in self.client.recus)
         self.assertIn('surface utile 42', envoye)
 
-    def test_un_binaire_est_refuse_sans_bulle_utilisateur(self):
-        self.vm.deposer([self._ecrire('photo.png', b'\x89PNG\x00\x1a\n')])
+    def test_un_binaire_inconnu_est_refuse_sans_bulle_utilisateur(self):
+        # Un .docx est bien binaire et on ne sait pas l'extraire — contrairement
+        # à un PNG, que le modèle sait regarder (cf. TestImages).
+        self.vm.deposer([self._ecrire('note.docx', b'PK\x03\x04\x00 zip')])
         dernier = self.vm.Messages[-1]
         self.assertFalse(dernier.DeUtilisateur)
         self.assertIn('binaire', dernier.Texte)
@@ -891,6 +897,134 @@ class TestPdf(TestPiecesJointes):
         self.vm._config.appliquer_connexion(NAVIGATEUR)
         self.vm.deposer([self._pdf()])
         self.assertNotIn('binaire', self.vm.Messages[-1].Texte)
+
+
+class TestImages(TestPiecesJointes):
+    """Un PNG n'est pas un binaire illisible : le modèle sait le regarder."""
+
+    def _png(self, octets=b'\x89PNG\r\n\x1a\n faux mais binaire'):
+        return self._ecrire('facade.png', octets)
+
+    def test_sur_cle_api_l_image_voyage_en_base64(self):
+        self.vm._config.appliquer_connexion(CLE_API)
+        self.vm.deposer([self._png(b'\x89PNG corps')])
+        piece = self.vm._pieces()[0]
+        self.assertEqual(piece['media'], 'image/png')
+        self.assertEqual(base64.b64decode(piece['b64']), b'\x89PNG corps')
+
+    def test_hors_cle_api_c_est_un_refus_annonce(self):
+        self.vm._config.appliquer_connexion(NAVIGATEUR)
+        self.vm.deposer([self._png()])
+        self.assertIn(CLE_API, self.vm.Messages[-1].Texte)
+        self.assertEqual(self.vm._pieces(), [])
+
+    def test_le_jpeg_porte_le_bon_type(self):
+        self.vm._config.appliquer_connexion(CLE_API)
+        self.vm.deposer([self._ecrire('coupe.jpg', b'\xff\xd8\xff corps')])
+        self.assertEqual(self.vm._pieces()[0]['media'], 'image/jpeg')
+
+    def test_au_dela_du_plafond_rien_n_est_joint(self):
+        self.vm._config.appliquer_connexion(CLE_API)
+        self.vm.IMAGE_MAX = 32
+        self.vm.deposer([self._png(b'\x89PNG' + b'x' * 500)])
+        self.assertEqual(self.vm._pieces(), [])
+        self.assertIn('plafond', self.vm.Messages[-1].Texte)
+
+
+class TestVider(unittest.TestCase):
+    """La seule porte de sortie d'un historique qui enfle, et d'une pièce
+    jointe qui repart dans chaque requête."""
+
+    def setUp(self):
+        self.client = _ClientFactice()
+        self.vm = OpenArchiChatVM(config=OpenArchiConfig(_StoreMemoire()),
+                                  client=self.client)
+        self.dossier = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.dossier, ignore_errors=True)
+
+    def test_la_conversation_repart_de_l_accueil(self):
+        self.vm.Saisie = 'bonjour'
+        self.vm._envoyer()
+        self.vm.Saisie = '/vider'
+        self.vm._envoyer()
+        # L'accueil, puis le compte rendu de /vider : rien d'avant.
+        self.assertEqual(len(self.vm.Messages), 2)
+        self.assertIn('vidée', self.vm.Messages[-1].Texte)
+
+    def test_l_historique_envoye_ne_porte_plus_rien(self):
+        self.vm.Saisie = 'retiens ce chiffre : 1789'
+        self.vm._envoyer()
+        self.vm.repondre('/vider')
+        self.vm.Saisie = 'et donc ?'
+        self.vm._envoyer()
+        self.assertNotIn('1789', '\n'.join(t for _r, t in self.client.recus))
+
+    def test_routes_hors_revit_le_dit_au_lieu_de_lever(self):
+        # La commande touche les réglages pyRevit, absents en test : elle doit
+        # rendre une phrase, pas une trace.
+        self.assertIn('pyRevit', self.vm.repondre('/routes'))
+
+    def test_la_piece_jointe_est_decrochee(self):
+        chemin = os.path.join(self.dossier, 'notice.pdf')
+        with open(chemin, 'wb') as fichier:
+            fichier.write(b'%PDF-1.7 corps')
+        self.vm._config.appliquer_connexion(CLE_API)
+        self.vm.deposer([chemin])
+        self.assertEqual(len(self.vm._pieces()), 1)
+        self.assertIn('1 pièce', self.vm.repondre('/vider'))
+        self.assertEqual(self.vm._pieces(), [])
+
+
+class TestAccordIrreversible(unittest.TestCase):
+    """Une consigne d'invite n'est pas un garde-fou : l'interface, si."""
+
+    def setUp(self):
+        self.vm = OpenArchiChatVM(config=OpenArchiConfig(_StoreMemoire()),
+                                  client=_ClientFactice())
+
+    def test_sans_dispatcher_la_demande_se_referme_sur_un_refus(self):
+        # Hors .NET, la question est posée sur le fil qui attendrait la
+        # réponse : attendre serait un interblocage de cinq minutes.
+        self.assertFalse(self.vm._confirmer('revit_synchroniser', {}))
+        self.assertFalse(self.vm.SuggestionsVisibles)
+        self.assertIn('IRRÉVERSIBLE', self.vm.Messages[-2].Texte)
+        self.assertIn('Refusé', self.vm.Messages[-1].Texte)
+
+    def test_refuser_est_la_premiere_entree(self):
+        # Tab complète sur la première retenable : une frappe distraite ne
+        # doit pas pousser une synchronisation sur le central.
+        self.vm._ouvrir('accord')
+        self.assertEqual([s.Nom for s in self.vm.Suggestions],
+                         ['refuser', 'accorder'])
+
+    def test_accorder_debloque_le_fil_de_fond(self):
+        import threading
+        signal = threading.Event()
+        reponse = {}
+        self.vm._poser_question('revit_exporter', {'format': 'pdf'},
+                                reponse, signal)
+        self.vm._choisir(self.vm.Suggestions[1])
+        self.assertTrue(reponse['oui'])
+        self.assertTrue(signal.is_set())
+
+    def test_echap_refuse_au_lieu_de_remonter(self):
+        import threading
+        signal = threading.Event()
+        reponse = {}
+        self.vm._poser_question('revit_synchroniser', {}, reponse, signal)
+        self.vm._retour()
+        self.assertFalse(reponse['oui'])
+        self.assertTrue(signal.is_set())
+        self.assertFalse(self.vm.SuggestionsVisibles)
+
+    def test_le_client_recoit_de_quoi_demander(self):
+        # Sans ces deux rappels, la boucle d'outils n'a ni voix ni frein.
+        self.vm.Saisie = 'synchronise'
+        self.vm._envoyer()
+        self.assertTrue(callable(self.vm._client.kwargs['confirmer']))
+        self.assertTrue(callable(self.vm._client.kwargs['avancement']))
 
 
 class TestDwg(TestPiecesJointes):

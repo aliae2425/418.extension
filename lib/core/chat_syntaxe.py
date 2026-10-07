@@ -61,7 +61,22 @@ def detail_http(erreur):
                (erreur_ if _est_texte(erreur_)
                 else (erreur_ or {}).get('message')) or
                (corps.get('detail') if _est_texte(corps.get('detail')) else ''))
-    return 'HTTP {0} — {1}'.format(code, message or 'sans détail')
+    return 'HTTP {0} — {1}'.format(code, _issue(message) or 'sans détail')
+
+
+def _issue(message):
+    """Ajoute la porte de sortie quand la conversation est devenue trop longue.
+
+    « maximum context length » ne se corrige pas côté fournisseur : c'est
+    l'historique qu'il faut raccourcir, et l'architecte ne peut pas deviner
+    qu'une commande existe pour ça.
+    """
+    if not message:
+        return message
+    plat = message.lower()
+    if 'context length' in plat or 'context_length' in plat:
+        return message + '\n→ /vider pour repartir d\'une conversation neuve.'
+    return message
 
 
 def _est_texte(valeur):
