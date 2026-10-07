@@ -60,10 +60,14 @@ class ApercuPageVM(BaseViewModel):
             dernier = len(jeu.feuilles) - 1
             for index, feuille in enumerate(jeu.feuilles):
                 dessin = u'   └──' if index == dernier else u'   ├──'
+                # Le nom de la vue vit ICI et nulle part ailleurs : savoir
+                # laquelle des trois coupes atterrit sur PC3.2 est utile à
+                # la relecture, mais la feuille, elle, garde son titre
+                # contractuel.
                 yield LigneVM(dessin,
                               u'{0} — {1}'.format(feuille.numero, feuille.nom),
-                              detail=(u'' if feuille.vue is None
-                                      else u'vue posée dessus'),
+                              detail=(u'← {0}'.format(feuille.vue_nom)
+                                      if feuille.vue_nom else u''),
                               existe=feuille.existe)
 
     @property

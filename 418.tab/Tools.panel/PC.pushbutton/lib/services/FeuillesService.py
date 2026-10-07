@@ -33,9 +33,11 @@ except Exception:
 
 
 # `vue` : l'identifiant opaque d'une vue à poser (un ElementId en vrai), ou
-# None quand la pièce n'est alimentée par aucune vue. `existe` : une feuille
-# porte déjà ce numéro — on n'y touchera pas.
-Feuille = collections.namedtuple('Feuille', 'numero nom vue existe')
+# None quand la pièce n'est alimentée par aucune vue. `vue_nom` ne sert QU'À
+# l'aperçu — savoir laquelle des trois coupes atterrit sur PC3.2 — et ne
+# touche jamais le nom de la feuille. `existe` : une feuille porte déjà ce
+# numéro, on n'y touchera pas.
+Feuille = collections.namedtuple('Feuille', 'numero nom vue vue_nom existe')
 Jeu = collections.namedtuple('Jeu', 'nom feuilles existe')
 Plan = collections.namedtuple('Plan', 'jeux')
 
@@ -58,6 +60,13 @@ def planifier(attributions, numeros_existants=(), jeux_existants=()):
     Le numéro suit le besoin : une seule feuille porte le code nu (« PC3 »),
     plusieurs se suffixent (« PC3.1 »). Une pièce sans vue reçoit quand même
     SA feuille — une notice se dépose sur une feuille comme le reste.
+
+    **Le NOM d'une feuille est toujours l'intitulé de la pièce**, jamais
+    celui de la vue posée dessus. C'est un titre contractuel : l'instructeur
+    cherche « Plan en coupe du terrain et de la construction », pas
+    « Coupe AA ». Trois feuilles de PC3 portent donc le même nom et se
+    distinguent par leur numéro — ce qui est exactement la lecture du
+    bordereau.
     """
     numeros = set(numeros_existants or ())
     jeux = set(jeux_existants or ())
@@ -72,16 +81,16 @@ def planifier(attributions, numeros_existants=(), jeux_existants=()):
 def _feuilles(piece, vues, numeros):
     vues = list(vues or [])
     if not vues:
-        # Aucune vue ne l'alimente : une feuille nue, nommée par la pièce.
-        yield _feuille(piece.code, piece.libelle, None, numeros)
+        # Aucune vue ne l'alimente : une feuille nue, à remplir à la main.
+        yield _feuille(piece.code, piece.libelle, None, u'', numeros)
         return
     unique = len(vues) == 1
     for rang, (vue, nom_vue) in enumerate(vues, start=1):
         numero = piece.code if unique else u'{0}.{1}'.format(piece.code, rang)
-        yield _feuille(numero, nom_vue or piece.libelle, vue, numeros)
+        yield _feuille(numero, piece.libelle, vue, nom_vue, numeros)
 
 
-def _feuille(numero, nom, vue, numeros):
+def _feuille(numero, nom, vue, vue_nom, numeros):
     numero = sanitize_revit_name(numero)
     # Le numéro de feuille est unique dans Revit : s'il est pris, on ne
     # touche pas à l'existant — on le signale, et l'aperçu le dira.
@@ -89,7 +98,7 @@ def _feuille(numero, nom, vue, numeros):
     if not existe:
         numeros.add(numero)
     return Feuille(numero=numero, nom=sanitize_revit_name(nom), vue=vue,
-                   existe=existe)
+                   vue_nom=vue_nom or u'', existe=existe)
 
 
 def a_creer(plan):

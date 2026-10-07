@@ -50,7 +50,6 @@ class TestPlanifier(unittest.TestCase):
         plan = service.planifier([(COUPE, [(1, u'Coupe AA')])])
         feuille = plan.jeux[0].feuilles[0]
         self.assertEqual(feuille.numero, u'PC3')
-        self.assertEqual(feuille.nom, u'Coupe AA')
         self.assertEqual(feuille.vue, 1)
 
     def test_plusieurs_vues_se_suffixent(self):
@@ -59,10 +58,24 @@ class TestPlanifier(unittest.TestCase):
         numeros = [f.numero for f in plan.jeux[0].feuilles]
         self.assertEqual(numeros, [u'PC3.1', u'PC3.2', u'PC3.3'])
 
-    def test_chaque_feuille_porte_le_nom_de_sa_vue(self):
+    def test_la_feuille_porte_le_titre_contractuel_pas_le_nom_de_la_vue(self):
+        # L'instructeur cherche « Plan en coupe », pas « Coupe AA ». Trois
+        # feuilles de PC3 portent le même nom et se distinguent par leur
+        # numéro — c'est la lecture du bordereau.
         plan = service.planifier([(COUPE, [(1, u'Coupe AA'), (2, u'Coupe BB')])])
         noms = [f.nom for f in plan.jeux[0].feuilles]
-        self.assertEqual(noms, [u'Coupe AA', u'Coupe BB'])
+        self.assertEqual(noms, [u'Plan en coupe', u'Plan en coupe'])
+
+    def test_le_nom_de_la_vue_reste_disponible_pour_l_apercu(self):
+        # Utile à la relecture — laquelle des coupes va sur PC3.2 — mais il
+        # ne doit jamais atterrir dans le nom de la feuille.
+        plan = service.planifier([(COUPE, [(1, u'Coupe AA'), (2, u'Coupe BB')])])
+        self.assertEqual([f.vue_nom for f in plan.jeux[0].feuilles],
+                         [u'Coupe AA', u'Coupe BB'])
+
+    def test_une_piece_sans_vue_n_annonce_aucune_vue(self):
+        plan = service.planifier([(NOTICE, [])])
+        self.assertEqual(plan.jeux[0].feuilles[0].vue_nom, u'')
 
     def test_un_jeu_par_piece(self):
         plan = service.planifier([(COUPE, [(1, u'AA')]), (NOTICE, [])])
