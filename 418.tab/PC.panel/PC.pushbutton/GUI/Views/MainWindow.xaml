@@ -1,0 +1,49 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding Titre}"
+        Width="700" Height="500"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResizeWithGrip"
+        Background="{DynamicResource WindowBackgroundBrush}">
+
+    <!--
+      Scaffold PC. Les dictionnaires de thème sont fusionnés par BaseWindow
+      AVANT le parse : DynamicResource partout, aucune couleur en dur — sinon
+      la fenêtre reste blanche dans un Revit en mode sombre, et on ne s'en
+      aperçoit qu'une fois le contenu écrit.
+    -->
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+            <Path Data="{DynamicResource IconPC}"
+                  Width="22" Height="22" Stretch="Uniform"
+                  StrokeThickness="2"
+                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                  StrokeLineJoin="Round"
+                  VerticalAlignment="Center"
+                  Stroke="{DynamicResource AccentBrush}"/>
+            <TextBlock Text="{Binding Titre}"
+                       FontSize="20" FontWeight="Bold"
+                       Margin="10,0,0,0"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource ControlBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+            <TextBlock Text="— Scaffold PC — à implémenter —"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       FontSize="14"
+                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+        </Border>
+    </Grid>
+</Window>
