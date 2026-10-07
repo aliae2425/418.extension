@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Page « Pièces » : ce qu'on dépose, et le jeu de feuilles qui le nourrit."""
+"""Page « Pièces » : ce qu'on dépose, et ce que le projet a déjà pour ça."""
 from __future__ import unicode_literals
 
 try:
@@ -20,9 +20,6 @@ except Exception:
     ObservableCollection = None
 
 
-AUCUN_JEU = u'— aucun —'
-
-
 class _Liste(list):
     """Liste Python exposant l'API d'ObservableCollection (tests hors .NET)."""
     Add = list.append
@@ -37,20 +34,19 @@ def _nouvelle_liste():
 
 
 class PieceVM(BaseViewModel):
-    """Une ligne : la case, le code, l'intitulé, et le jeu retenu.
+    """Une ligne : la case, le code, l'intitulé, et ce que l'analyse a trouvé.
 
-    ``Jeu`` est le NOM du jeu de feuilles, pas l'élément Revit : le VM reste
-    sérialisable et testable, et c'est le script qui retrouvera l'élément au
-    moment d'exporter. Une pièce qui n'a pas de feuilles (une notice, une
-    photo) garde ``AUCUN_JEU`` — c'est un cas normal, pas un oubli.
+    ``vues`` sont les vues du projet qui alimentent cette pièce et n'ont pas
+    encore de feuille. C'est « le besoin » : trois coupes sans feuille, trois
+    feuilles à créer pour PC3. Une pièce qu'aucune vue n'alimente en reçoit
+    une seule, à remplir à la main — une notice se dépose aussi.
     """
 
-    def __init__(self, piece, jeux=None):
+    def __init__(self, piece, vues=None):
         super(PieceVM, self).__init__()
         self._piece = piece
         self._coche = bool(piece.obligatoire)
-        self._jeu = AUCUN_JEU
-        self.Jeux = list(jeux or [AUCUN_JEU])
+        self.Vues = list(vues or [])
 
     @property
     def Code(self):
@@ -65,9 +61,20 @@ class PieceVM(BaseViewModel):
         return bool(self._piece.obligatoire)
 
     @property
+    def Feuilles(self):
+        """Combien de feuilles cette pièce demande. Jamais zéro."""
+        return len(self.Vues) or 1
+
+    @property
     def Mention(self):
-        """Ce qui se lit à droite de l'intitulé."""
-        return u'exigée' if self.Obligatoire else u'selon le projet'
+        """Ce que l'analyse a conclu, en clair. C'est la colonne qui justifie
+        le nombre de feuilles — sans elle, le compte paraît arbitraire."""
+        exigee = u'exigée' if self.Obligatoire else u'selon le projet'
+        if not self._piece.vues:
+            return u'{0} · 1 feuille à remplir'.format(exigee)
+        if not self.Vues:
+            return u'{0} · aucune vue libre, 1 feuille'.format(exigee)
+        return u'{0} · {1} vue(s) sans feuille'.format(exigee, len(self.Vues))
 
     @property
     def Coche(self):
@@ -78,30 +85,21 @@ class PieceVM(BaseViewModel):
         self._coche = bool(valeur)
         self.notify_property('Coche')
 
-    @property
-    def Jeu(self):
-        return self._jeu
-
-    @Jeu.setter
-    def Jeu(self, valeur):
-        self._jeu = valeur or AUCUN_JEU
-        self.notify_property('Jeu')
-
-    @property
-    def JeuRetenu(self):
-        """Le nom du jeu, ou '' quand la pièce n'en porte pas."""
-        return u'' if self._jeu == AUCUN_JEU else self._jeu
-
     def piece(self):
         return self._piece
 
+    def attribution(self):
+        """``(piece, [(vue, nom)])`` — ce que le plan attend."""
+        return (self._piece, list(self.Vues))
+
 
 class PiecesPageVM(BaseViewModel):
-    def __init__(self, jeux=None):
+
+    def __init__(self, analyser=None):
         super(PiecesPageVM, self).__init__()
-        # AUCUN_JEU en tête : c'est le défaut, et la majorité des pièces d'un
-        # dossier d'urbanisme ne sortent pas de la maquette.
-        self._jeux = [AUCUN_JEU] + list(jeux or [])
+        # Injectée : le VM ne connaît pas Revit, c'est le script qui sait
+        # interroger la maquette. Les tests passent un double.
+        self._analyser = analyser or (lambda _piece: [])
         self.Pieces = _nouvelle_liste()
         self._type = None
 
@@ -110,23 +108,25 @@ class PiecesPageVM(BaseViewModel):
         return self._type
 
     def charger(self, type_dossier):
-        """Remplit la liste pour ce type. Sans effet si le type n'a pas changé.
+        """Remplit la liste pour ce type, en analysant le projet au passage.
 
-        C'est ce qui permet de revenir sur l'onglet sans perdre ses cases :
-        la navigation ne doit jamais effacer un choix.
+        Sans effet si le type n'a pas changé : revenir sur l'onglet ne doit
+        jamais effacer les cases cochées.
         """
         if type_dossier == self._type:
             return
         self._type = type_dossier
         self.Pieces.Clear()
         for piece in catalogue.pieces(type_dossier):
-            self.Pieces.Add(PieceVM(piece, self._jeux))
+            self.Pieces.Add(PieceVM(piece, self._analyser(piece)))
         self.notify_property('Pieces')
         self.notify_property('Resume')
 
     def retenues(self):
-        """Les PieceVM cochées, dans l'ordre du bordereau."""
         return [p for p in list(self.Pieces) if p.Coche]
+
+    def attributions(self):
+        return [p.attribution() for p in self.retenues()]
 
     def tout_cocher(self, _=None):
         for p in list(self.Pieces):
@@ -142,5 +142,7 @@ class PiecesPageVM(BaseViewModel):
 
     @property
     def Resume(self):
-        total = len(list(self.Pieces))
-        return u'{0} pièce(s) sur {1}'.format(len(self.retenues()), total)
+        retenues = self.retenues()
+        feuilles = sum(p.Feuilles for p in retenues)
+        return u'{0} pièce(s) sur {1} · {2} feuille(s)'.format(
+            len(retenues), len(list(self.Pieces)), feuilles)

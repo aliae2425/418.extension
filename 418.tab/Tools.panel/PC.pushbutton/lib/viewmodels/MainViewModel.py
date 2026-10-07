@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """VM racine du parcours : Dossier -> Pièces -> Aperçu.
 
-Il ne fait rien lui-même. Il tient les trois VM de page, propage ce qui
-dépend d'une autre étape (changer de type recharge les pièces, entrer dans
-l'aperçu le recalcule), et lance le service au bout. Les services sont
-instanciés ici et INJECTÉS — les couches basses n'en créent jamais.
+Il ne touche jamais Revit. L'analyse du projet et l'écriture dans la maquette
+lui sont INJECTÉES par le script — ce qui le rend testable sans rien simuler,
+et garde la transaction là où elle doit être : au-dessus, chez l'appelant.
 """
 from __future__ import unicode_literals
 
@@ -23,25 +22,30 @@ except Exception:
     from viewmodels.ApercuPageVM import ApercuPageVM
 
 try:
-    from lib.services import ArborescenceService as arbo
+    from lib.services import FeuillesService as service
 except Exception:
-    from services import ArborescenceService as arbo
+    from services import FeuillesService as service
 
 
 class MainViewModel(BaseViewModel):
 
     MODES = (u'dossier', u'pieces', u'apercu')
 
-    def __init__(self, doc=None, uidoc=None, config=None, infos=None,
-                 jeux=None, choisir_dossier=None):
+    def __init__(self, doc=None, uidoc=None, config=None, cartouches=None,
+                 analyser=None, numeros_existants=(), jeux_existants=(),
+                 creer=None):
         super(MainViewModel, self).__init__()
         self._doc = doc
         self._uidoc = uidoc
         self._mode = u'dossier'
-        self.DossierVM = DossierPageVM(config=config, infos=infos,
-                                       on_change=self._sur_changement_type,
-                                       choisir_dossier=choisir_dossier)
-        self.PiecesVM = PiecesPageVM(jeux=jeux)
+        self._numeros = tuple(numeros_existants or ())
+        self._jeux = tuple(jeux_existants or ())
+        # `creer(plan, cartouche)` : c'est l'appelant qui tient la
+        # transaction, et les tests qui passent un double.
+        self._creer = creer
+        self.DossierVM = DossierPageVM(config=config, cartouches=cartouches,
+                                       on_change=self._sur_changement_type)
+        self.PiecesVM = PiecesPageVM(analyser=analyser)
         self.ApercuVM = ApercuPageVM()
         self.PiecesVM.charger(self.DossierVM.Type)
 
@@ -73,7 +77,7 @@ class MainViewModel(BaseViewModel):
         self._mode = mode
         # Entrer dans une étape, c'est la remettre à jour : l'aperçu ne doit
         # jamais montrer l'état d'avant, c'est le seul endroit où l'architecte
-        # vérifie ce qui va s'écrire.
+        # vérifie ce qui va s'écrire dans son projet.
         if mode == u'pieces':
             self.PiecesVM.charger(self.DossierVM.Type)
         elif mode == u'apercu':
@@ -81,9 +85,12 @@ class MainViewModel(BaseViewModel):
         for nom in ('Mode', 'IsDossier', 'IsPieces', 'IsApercu'):
             self.notify_property(nom)
 
+    def planifier(self):
+        return service.planifier(self.PiecesVM.attributions(),
+                                 self._numeros, self._jeux)
+
     def rafraichir_apercu(self):
-        self.ApercuVM.rafraichir(self.DossierVM.Racine,
-                                 self.PiecesVM.retenues())
+        self.ApercuVM.rafraichir(self.planifier())
 
     def _sur_changement_type(self):
         """Le type a changé : les pièces ne sont plus les mêmes."""
@@ -92,20 +99,19 @@ class MainViewModel(BaseViewModel):
     # --- action -----------------------------------------------------------
 
     def lancer(self, _cible=None):
-        """Écrit l'arborescence. Rend la phrase à montrer, jamais une exception.
+        """Crée les feuilles et les jeux. Rend la phrase à montrer.
 
-        La fenêtre se referme juste après (RailWindow) : ce qui est rendu ici
-        est la seule chose que l'architecte lira.
-
-        On recalcule AVANT d'écrire. L'aperçu se rafraîchit déjà en entrant
+        On replanifie AVANT d'écrire. L'aperçu se rafraîchit déjà en entrant
         dans son onglet, mais faire dépendre ce qui s'écrit d'un passage par
         la bonne page, c'est confier la justesse à l'ordre des clics.
         """
         self.rafraichir_apercu()
-        if not self.ApercuVM.PeutGenerer:
+        if not self.ApercuVM.PeutCreer:
             return self.ApercuVM.Avertissement
-        racine = self.DossierVM.Racine
-        retenues = [vm.piece() for vm in self.PiecesVM.retenues()]
-        crees, existants, echecs = arbo.creer(racine, retenues)
-        return u'{0}\n{1}'.format(racine,
-                                  arbo.resume(crees, existants, echecs))
+        if self._creer is None:
+            return u'Hors Revit : rien n\'a été créé.'
+        plan = self.ApercuVM.plan()
+        feuilles, jeux, echecs = self._creer(plan,
+                                             self.DossierVM.cartouche_id())
+        ignores = len([f for j in plan.jeux for f in j.feuilles if f.existe])
+        return service.resume(feuilles, ignores, jeux, echecs)

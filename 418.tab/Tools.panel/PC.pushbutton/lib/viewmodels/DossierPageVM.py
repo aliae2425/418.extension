@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-"""Page « Dossier » : le type, le motif de nommage, la destination."""
+"""Page « Dossier » : le type d'autorisation, et le cartouche des feuilles."""
 from __future__ import unicode_literals
-import os
 
 try:
     from ui.base.BaseViewModel import BaseViewModel
@@ -9,34 +8,12 @@ except Exception:
     from lib.ui.base.BaseViewModel import BaseViewModel
 
 try:
-    from ui.helpers.RelayCommand import RelayCommand
-except Exception:
-    try:
-        from lib.ui.helpers.RelayCommand import RelayCommand
-    except Exception:
-        RelayCommand = None
-
-try:
     from lib.models import pieces as catalogue
 except Exception:
     from models import pieces as catalogue
 
-try:
-    from lib.services.NomRacineService import MOTIF_DEFAUT, resoudre
-except Exception:
-    from services.NomRacineService import MOTIF_DEFAUT, resoudre
 
-
-def _choisir_dossier_revit():
-    """Sélecteur de dossier de pyRevit. ``None`` hors Revit, ou si annulé."""
-    try:
-        from pyrevit import forms
-    except Exception:
-        return None
-    try:
-        return forms.pick_folder(title='Où déposer le dossier d\'urbanisme ?')
-    except Exception:
-        return None
+AUCUN_CARTOUCHE = u'— aucun —'
 
 
 class DossierPageVM(BaseViewModel):
@@ -48,20 +25,18 @@ class DossierPageVM(BaseViewModel):
     le chip s'allume sans qu'on touche à cette classe.
     """
 
-    def __init__(self, config=None, infos=None, on_change=None,
-                 choisir_dossier=None):
+    def __init__(self, config=None, cartouches=None, on_change=None):
         super(DossierPageVM, self).__init__()
         self._config = config
-        self._infos = infos or {}
         self._on_change = on_change
-        self._choisir = choisir_dossier or _choisir_dossier_revit
+        # (identifiant, libellé) — l'identifiant est un ElementId en vrai,
+        # mais le VM ne le regarde jamais : il le transporte, c'est tout, et
+        # il reste testable hors Revit.
+        self._cartouches = list(cartouches or [])
         self._type = self._lire('type', catalogue.premier_actif()) or u''
         if not catalogue.actif(self._type):
             self._type = catalogue.premier_actif() or u''
-        self._motif = self._lire('motif', MOTIF_DEFAUT) or MOTIF_DEFAUT
-        self._destination = self._lire('destination', u'') or u''
-        self.ParcourirCommand = (RelayCommand(self._parcourir)
-                                 if RelayCommand else None)
+        self._cartouche = self._choix_initial()
 
     # --- persistance ------------------------------------------------------
 
@@ -98,8 +73,7 @@ class DossierPageVM(BaseViewModel):
         self._type = valeur
         self._ecrire('type', valeur)
         self.notify_property('Type')
-        self.notify_property('NomRacine')
-        self.notify_property('Racine')
+        self.notify_property('TypeLibelle')
         if self._on_change is not None:
             self._on_change()
 
@@ -131,51 +105,45 @@ class DossierPageVM(BaseViewModel):
     def PDActif(self):
         return catalogue.actif(u'PD')
 
-    # --- nommage ----------------------------------------------------------
+    # --- le cartouche -----------------------------------------------------
+
+    def _choix_initial(self):
+        """Le cartouche retenu la dernière fois, sinon le premier chargé.
+
+        Un projet qui n'a aucun cartouche chargé n'est pas une erreur : on
+        crée alors des feuilles nues, et la liste le dit.
+        """
+        garde = self._lire('cartouche', u'')
+        noms = [nom for _id, nom in self._cartouches]
+        if garde in noms:
+            return garde
+        return noms[0] if noms else AUCUN_CARTOUCHE
 
     @property
-    def Motif(self):
-        return self._motif
-
-    @Motif.setter
-    def Motif(self, valeur):
-        self._motif = valeur or u''
-        self._ecrire('motif', self._motif)
-        self.notify_property('Motif')
-        self.notify_property('NomRacine')
-        self.notify_property('Racine')
+    def Cartouches(self):
+        return [AUCUN_CARTOUCHE] + [nom for _id, nom in self._cartouches]
 
     @property
-    def NomRacine(self):
-        """Le nom résolu, affiché sous le champ : on voit avant d'écrire."""
-        return resoudre(self._motif, self._type, self._infos)
+    def Cartouche(self):
+        return self._cartouche
 
-    # --- destination ------------------------------------------------------
+    @Cartouche.setter
+    def Cartouche(self, valeur):
+        self._cartouche = valeur or AUCUN_CARTOUCHE
+        self._ecrire('cartouche',
+                     u'' if self._cartouche == AUCUN_CARTOUCHE
+                     else self._cartouche)
+        self.notify_property('Cartouche')
 
-    @property
-    def Destination(self):
-        return self._destination
-
-    @Destination.setter
-    def Destination(self, valeur):
-        self._destination = valeur or u''
-        self._ecrire('destination', self._destination)
-        self.notify_property('Destination')
-        self.notify_property('Racine')
-        self.notify_property('DestinationValide')
-
-    @property
-    def DestinationValide(self):
-        return bool(self._destination) and os.path.isdir(self._destination)
+    def cartouche_id(self):
+        """L'identifiant du cartouche retenu, ``None`` pour « aucun »."""
+        for identifiant, nom in self._cartouches:
+            if nom == self._cartouche:
+                return identifiant
+        return None
 
     @property
-    def Racine(self):
-        """Le dossier qui sera créé, chemin complet. '' sans destination."""
-        if not self._destination:
-            return u''
-        return os.path.join(self._destination, self.NomRacine)
-
-    def _parcourir(self, _=None):
-        choisi = self._choisir()
-        if choisi:
-            self.Destination = choisi
+    def CartoucheMention(self):
+        if self._cartouche == AUCUN_CARTOUCHE:
+            return u'Feuilles créées nues — le cartouche sera à poser à la main.'
+        return u'Posé sur chaque feuille créée.'

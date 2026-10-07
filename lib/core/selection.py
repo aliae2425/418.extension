@@ -4,13 +4,16 @@ import re as _re
 
 try:
     from Autodesk.Revit.DB import (ViewSheet, View, ViewType, Material,
-                                   ViewSheetSet, FilteredElementCollector)
+                                   ViewSheetSet, Viewport, BuiltInCategory,
+                                   FilteredElementCollector)
 except Exception:
     ViewSheet = None
     View = None
     ViewType = None
     Material = None
     ViewSheetSet = None
+    Viewport = None
+    BuiltInCategory = None
     FilteredElementCollector = None
 
 
@@ -91,6 +94,79 @@ def all_sheets(doc):
                   .WhereElementIsNotElementType()
                   .ToElements())
     return sorted(sheets, key=lambda s: cle_naturelle(s.SheetNumber))
+
+
+def cartouches(doc):
+    """Les TYPES de cartouche chargés dans le projet, triés par nom.
+
+    Ce sont des `FamilySymbol` : c'est leur `Id` que `ViewSheet.Create`
+    attend, pas une instance.
+    """
+    if FilteredElementCollector is None or BuiltInCategory is None:
+        return []
+    types = list(FilteredElementCollector(doc)
+                 .OfCategory(BuiltInCategory.OST_TitleBlocks)
+                 .WhereElementIsElementType()
+                 .ToElements())
+    return sorted(types, key=lambda t: cle_naturelle(nom_de_type(t)))
+
+
+def nom_de_type(symbole):
+    """« Famille : Type », le libellé qu'un architecte reconnaît.
+
+    `FamilySymbol.Name` ne rend que le type ; deux familles de cartouche
+    peuvent avoir un type « A1 », et la liste deviendrait ambiguë.
+    """
+    try:
+        return u'{0} : {1}'.format(symbole.FamilyName, symbole.Name)
+    except Exception:
+        try:
+            return symbole.Name
+        except Exception:
+            return u''
+
+
+def vues_par_type(doc, types):
+    """Les vues duplicables dont le `ViewType` porte un de ces NOMS.
+
+    Les noms (« Section », « Elevation », « ThreeD ») plutôt que les membres
+    de l'énumération : l'appelant reste importable hors Revit, où
+    `DB.ViewType` n'existe pas.
+    """
+    if ViewType is None or not types:
+        return []
+    voulus = set()
+    for nom in types:
+        membre = getattr(ViewType, nom, None)
+        if membre is not None:
+            voulus.add(membre)
+    if not voulus:
+        return []
+    return [v for v in all_views(doc) if getattr(v, 'ViewType', None) in voulus]
+
+
+def vues_placees(doc):
+    """Les `ElementId` des vues déjà posées sur une feuille.
+
+    Lu sur les `Viewport` du document : c'est le fait, pas une déduction.
+    Les nomenclatures font exception (elles passent par
+    `ScheduleSheetInstance`), mais aucune des vues qui nous intéressent ici
+    n'en est une.
+    """
+    if FilteredElementCollector is None or Viewport is None:
+        return set()
+    return set(vp.ViewId for vp in FilteredElementCollector(doc)
+               .OfClass(Viewport).ToElements())
+
+
+def vues_sans_feuille(doc, vues):
+    """Celles qui n'ont pas encore de feuille.
+
+    Revit refuse de poser deux fois la même vue : ce sont donc exactement
+    les vues auxquelles il manque une feuille — « le besoin » du projet.
+    """
+    placees = vues_placees(doc)
+    return [v for v in vues if v.Id not in placees]
 
 
 def jeux_de_feuilles(doc):

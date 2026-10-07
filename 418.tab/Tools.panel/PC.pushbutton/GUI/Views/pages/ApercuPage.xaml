@@ -4,9 +4,10 @@
   <!--
     Page Aperçu — DataContext = ApercuPageVM.
 
-    Ce qui s'affiche ici est exactement ce que le service va créer : même
-    fonction, mêmes chemins. Un aperçu qui diverge de l'action ne vaut rien,
-    et c'est tout l'engagement de l'extension — on relit avant d'appliquer.
+    L'outil ÉCRIT dans le projet : des feuilles et des jeux que personne n'a
+    demandés sont plus longs à retirer qu'à créer. Ce qui s'affiche ici vient
+    du même planifier() que ce qui s'exécute — pas deux calculs qui se
+    ressemblent, le même plan.
   -->
 
   <UserControl.Resources>
@@ -45,21 +46,34 @@
 
                 <TextBlock Grid.Column="1" Text="{Binding Nom}"
                            FontFamily="Consolas" FontSize="12"
-                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                           Foreground="{DynamicResource TextPrimaryBrush}">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <Style.Triggers>
+                        <!-- Le jeu porte la ligne, les feuilles s'y rangent. -->
+                        <DataTrigger Binding="{Binding EstJeu}" Value="True">
+                          <Setter Property="FontWeight" Value="SemiBold"/>
+                          <Setter Property="Foreground"
+                                  Value="{DynamicResource AccentBrush}"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
 
-                <!-- « existe déjà » n'est pas une erreur : on ne touche pas
-                     à ce qui est là, et l'outil se rejoue sans rien perdre. -->
+                <!-- « existe déjà » n'est pas une erreur : on n'y touche
+                     pas, et l'outil se rejoue sans rien écraser. -->
                 <TextBlock Grid.Column="2" Text="  (existe déjà)"
                            FontSize="11" VerticalAlignment="Center"
                            Visibility="{Binding Existe, Converter={StaticResource BoolVersVisibilite}}"
                            Foreground="{DynamicResource TextSecondaryBrush}"/>
 
-                <TextBlock Grid.Column="3" Text="{Binding Jeu}"
+                <TextBlock Grid.Column="3" Text="{Binding Detail}"
                            FontSize="11" VerticalAlignment="Center"
                            Margin="12,0,0,0"
                            TextTrimming="CharacterEllipsis"
-                           Visibility="{Binding JeuVisible, Converter={StaticResource BoolVersVisibilite}}"
-                           Foreground="{DynamicResource AccentBrush}"/>
+                           Visibility="{Binding DetailVisible, Converter={StaticResource BoolVersVisibilite}}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
               </Grid>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
@@ -73,8 +87,8 @@
                  Visibility="{Binding AvertissementVisible, Converter={StaticResource BoolVersVisibilite}}"
                  Foreground="{DynamicResource WarningBrush}"/>
       <Button x:Name="RunButton"
-              Content="Générer l'arborescence"
-              IsEnabled="{Binding PeutGenerer}"
+              Content="Créer dans la maquette"
+              IsEnabled="{Binding PeutCreer}"
               Style="{DynamicResource PrimaryActionButtonStyle}"
               HorizontalAlignment="Right"/>
     </Grid>

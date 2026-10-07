@@ -5,8 +5,8 @@
     Page Pièces — DataContext = PiecesPageVM.
 
     Pas la page Sélection du socle, et ce n'est pas un oubli : celle-ci porte
-    une colonne de plus, le jeu de feuilles associé à la pièce. SelectionItemVM
-    ne connaît qu'un identifiant et un nom — l'y forcer aurait tordu un VM
+    une colonne de plus, le verdict de l'analyse du projet. SelectionItemVM ne
+    connaît qu'un identifiant et un nom — l'y forcer aurait tordu un VM
     partagé par six outils pour un besoin qui n'appartient qu'à celui-ci.
   -->
 
@@ -70,11 +70,17 @@
                                Foreground="{DynamicResource TextSecondaryBrush}"/>
                   </StackPanel>
 
-                  <ComboBox Grid.Column="3" Width="190"
-                            VerticalAlignment="Center"
-                            ToolTip="Jeu de feuilles qui alimente cette pièce"
-                            ItemsSource="{Binding Jeux}"
-                            SelectedItem="{Binding Jeu, Mode=TwoWay}"/>
+                  <!-- Le compte vient du projet, pas d'un réglage : c'est
+                       la colonne qui le justifie. -->
+                  <Border Grid.Column="3" VerticalAlignment="Center"
+                          CornerRadius="10" Padding="9,3"
+                          Background="{DynamicResource ControlFillBrush}">
+                    <TextBlock FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextSecondaryBrush}">
+                      <Run Text="{Binding Feuilles, Mode=OneWay}"/>
+                      <Run Text=" feuille(s)"/>
+                    </TextBlock>
+                  </Border>
                 </Grid>
               </Border>
             </DataTemplate>

@@ -93,48 +93,27 @@
         </StackPanel>
       </Border>
 
-      <!-- Nommage du dossier racine -->
+      <!-- Cartouche posé sur les feuilles créées -->
       <Border Style="{DynamicResource CardStyle}" Padding="12,10">
         <StackPanel Orientation="Vertical">
-          <TextBlock Text="Nom du dossier"
+          <TextBlock Text="Cartouche"
                      Style="{DynamicResource SubHeaderTextBlockStyle}"
                      Margin="0,0,0,8"/>
-          <TextBox Text="{Binding Motif, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                   ToolTip="Jetons : {projet_numero} {projet_nom} {type} {date} {annee}"/>
-          <TextBlock Margin="2,8,0,0" FontSize="12"
-                     TextTrimming="CharacterEllipsis"
-                     Foreground="{DynamicResource TextSecondaryBrush}">
-            <Run Text="→ "/>
-            <Run Text="{Binding NomRacine, Mode=OneWay}"
-                 Foreground="{DynamicResource TextPrimaryBrush}"/>
-          </TextBlock>
+          <ComboBox ItemsSource="{Binding Cartouches}"
+                    SelectedItem="{Binding Cartouche, Mode=TwoWay}"
+                    ToolTip="Les cartouches chargés dans ce projet"/>
+          <TextBlock Text="{Binding CartoucheMention}"
+                     Margin="2,8,0,0" FontSize="12"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource TextSecondaryBrush}"/>
         </StackPanel>
       </Border>
 
-      <!-- Destination -->
+      <!-- Ce que l'outil fera, dit avant d'entrer dans le détail -->
       <Border Style="{DynamicResource CardStyle}" Padding="12,10">
-        <StackPanel Orientation="Vertical">
-          <TextBlock Text="Où le déposer"
-                     Style="{DynamicResource SubHeaderTextBlockStyle}"
-                     Margin="0,0,0,8"/>
-          <Grid>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <TextBox Grid.Column="0"
-                     Text="{Binding Destination, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-            <Button Grid.Column="1" Content="Parcourir…"
-                    Margin="8,0,0,0"
-                    Command="{Binding ParcourirCommand}"
-                    Style="{DynamicResource SecondaryActionButtonStyle}"/>
-          </Grid>
-          <TextBlock Margin="2,8,0,0" FontSize="12"
-                     TextTrimming="CharacterEllipsis"
-                     ToolTip="{Binding Racine}"
-                     Text="{Binding Racine, Mode=OneWay}"
-                     Foreground="{DynamicResource TextSecondaryBrush}"/>
-        </StackPanel>
+        <TextBlock TextWrapping="Wrap" FontSize="12"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   Text="L'outil crée, pour chaque pièce retenue, un jeu de feuilles et les feuilles qui lui manquent. Le nombre de feuilles vient du projet : une par vue qui n'est pas encore posée. Rien n'est écrasé, et un seul Ctrl+Z défait tout."/>
       </Border>
 
       <Button x:Name="NextToPiecesButton"

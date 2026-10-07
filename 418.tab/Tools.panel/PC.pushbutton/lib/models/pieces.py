@@ -24,12 +24,36 @@ import collections
 
 # `obligatoire` = exigée dans tous les cas par la fiche. Les autres dépendent
 # du projet : elles sont proposées décochées, à l'architecte de juger.
-Piece = collections.namedtuple('Piece', 'code libelle obligatoire')
+#
+# `vues` = les NOMS de ViewType qui alimentent la pièce. C'est ce qui permet
+# d'analyser le projet au lieu de demander un nombre : trois coupes dans la
+# maquette, trois feuilles pour PC3. Des noms et pas des membres
+# d'énumération — ce fichier doit rester importable hors Revit, où
+# `DB.ViewType` n'existe pas.
+#
+# Tuple vide = aucune vue ne l'alimente (une notice, une photo). La pièce
+# reçoit alors UNE feuille, à remplir à la main.
+Piece = collections.namedtuple('Piece', 'code libelle obligatoire vues')
 Dossier = collections.namedtuple('Dossier', 'code libelle pieces')
 
 
-def _p(code, libelle, obligatoire=False):
-    return Piece(code, libelle, obligatoire)
+def _p(code, libelle, obligatoire=False, vues=()):
+    return Piece(code, libelle, obligatoire, tuple(vues))
+
+
+# Les familles de vues, nommées une fois. Trois seulement sont lisibles sans
+# se tromper : une coupe est une coupe, une façade est une élévation, une
+# perspective est une 3D. Le plan de situation et le plan de masse, eux, sont
+# des plans d'étage comme les autres — rien dans le modèle ne les distingue
+# d'un plan de niveau, et deviner sur le nom de la vue serait un piège.
+COUPES = ('Section',)
+FACADES = ('Elevation',)
+PERSPECTIVES = ('ThreeD',)
+
+# Pas de constante pour les plans, et c'est délibéré : le plan de situation
+# et le plan de masse sont des plans d'étage comme les autres. Les y rattacher
+# ferait remonter TOUS les niveaux du projet dans une pièce qui en attend un.
+# Ils reçoivent donc une feuille, et l'architecte y pose la bonne vue.
 
 
 # --- Déclaration préalable (F17578) --------------------------------------
@@ -38,10 +62,12 @@ def _p(code, libelle, obligatoire=False):
 DP = (
     _p('DP1', 'Plan de situation du terrain', obligatoire=True),
     _p('DP2', 'Plan de masse des constructions à édifier ou à modifier'),
-    _p('DP3', 'Plan en coupe du terrain et de la construction'),
-    _p('DP4', 'Plan des façades et des toitures'),
-    _p('DP5', 'Représentation de l\'aspect extérieur de la construction'),
-    _p('DP6', 'Document graphique d\'insertion dans l\'environnement'),
+    _p('DP3', 'Plan en coupe du terrain et de la construction', vues=COUPES),
+    _p('DP4', 'Plan des façades et des toitures', vues=FACADES),
+    _p('DP5', 'Représentation de l\'aspect extérieur de la construction',
+       vues=PERSPECTIVES),
+    _p('DP6', 'Document graphique d\'insertion dans l\'environnement',
+       vues=PERSPECTIVES),
     _p('DP7', 'Photographie situant le terrain dans l\'environnement proche'),
     _p('DP8', 'Photographie situant le terrain dans le paysage lointain'),
     _p('DP11', 'Notice décrivant le terrain et présentant le projet'),
@@ -55,12 +81,13 @@ PC = (
     _p('PC2', 'Plan de masse des constructions à édifier ou à modifier',
        obligatoire=True),
     _p('PC3', 'Plan en coupe du terrain et de la construction',
-       obligatoire=True),
+       obligatoire=True, vues=COUPES),
     _p('PC4', 'Notice décrivant le terrain et présentant le projet',
        obligatoire=True),
-    _p('PC5', 'Plan des façades et des toitures', obligatoire=True),
+    _p('PC5', 'Plan des façades et des toitures', obligatoire=True,
+       vues=FACADES),
     _p('PC6', 'Document graphique d\'insertion dans l\'environnement',
-       obligatoire=True),
+       obligatoire=True, vues=PERSPECTIVES),
     _p('PC7', 'Photographie situant le terrain dans l\'environnement proche',
        obligatoire=True),
     _p('PC8', 'Photographie situant le terrain dans le paysage lointain',

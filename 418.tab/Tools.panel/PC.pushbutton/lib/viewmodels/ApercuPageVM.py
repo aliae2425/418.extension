@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Page « Aperçu » : l'arborescence telle qu'elle sera écrite, avant de l'écrire.
+"""Page « Aperçu » : ce qui sera créé dans la maquette, avant de l'y créer.
 
-L'aperçu n'est pas une courtoisie. C'est la règle du dépôt : un export doit
-donner deux fois le même résultat, un renommage doit se relire avant d'être
-appliqué. Ici, ce qui s'affiche est exactement ce que ``ArborescenceService``
-va créer — même fonction, mêmes chemins.
+L'aperçu n'est pas une courtoisie. L'outil ÉCRIT dans le projet — des
+feuilles et des jeux que personne n'a demandés sont plus longs à retirer
+qu'à créer. Ce qui s'affiche ici vient du même ``planifier()`` que ce qui
+s'exécute : pas deux calculs qui se ressemblent, le même plan.
 """
 from __future__ import unicode_literals
-import os
 
 try:
     from ui.base.BaseViewModel import BaseViewModel
@@ -15,83 +14,79 @@ except Exception:
     from lib.ui.base.BaseViewModel import BaseViewModel
 
 try:
-    from lib.services import ArborescenceService as arbo
+    from lib.services import FeuillesService as service
 except Exception:
-    from services import ArborescenceService as arbo
+    from services import FeuillesService as service
 
 
 class LigneVM(BaseViewModel):
-    """Une ligne de l'arbre : son dessin, son nom, et ce qui l'alimente."""
+    """Une ligne de l'arbre : un jeu, ou une feuille sous son jeu."""
 
-    def __init__(self, dessin, nom, jeu=u'', existe=False):
+    def __init__(self, dessin, nom, detail=u'', existe=False, jeu=False):
         super(LigneVM, self).__init__()
         self.Dessin = dessin
         self.Nom = nom
-        self.Jeu = jeu
-        self.JeuVisible = bool(jeu)
-        # Un dossier déjà là n'est pas une erreur : on le dit, et on n'y
-        # touchera pas. C'est ce qui rend l'outil rejouable sur un dossier
-        # en cours de montage.
+        self.Detail = detail
+        self.DetailVisible = bool(detail)
+        # « existe déjà » n'est pas une erreur : on n'y touche pas, et
+        # l'outil se rejoue sur un dossier en cours sans rien écraser.
         self.Existe = bool(existe)
+        self.EstJeu = bool(jeu)
 
 
 class ApercuPageVM(BaseViewModel):
+
     def __init__(self):
         super(ApercuPageVM, self).__init__()
         self.Lignes = []
-        self._racine = u''
-        self._retenues = []
+        self._plan = None
 
-    def rafraichir(self, racine, retenues):
-        """Recalcule l'arbre. ``retenues`` : des ``PieceVM`` cochés."""
-        self._racine = racine or u''
-        self._retenues = list(retenues or [])
+    def rafraichir(self, plan):
+        self._plan = plan
         self.Lignes = list(self._lignes())
-        self.notify_property('Lignes')
-        self.notify_property('Resume')
-        self.NotifierEtat()
+        for nom in ('Lignes', 'Resume', 'PeutCreer', 'Avertissement',
+                    'AvertissementVisible'):
+            self.notify_property(nom)
 
-    def NotifierEtat(self):
-        self.notify_property('PeutGenerer')
-        self.notify_property('Avertissement')
-        self.notify_property('AvertissementVisible')
+    def plan(self):
+        return self._plan
 
     def _lignes(self):
-        if not self._racine:
+        if self._plan is None:
             return
-        yield LigneVM(u'', self._racine, existe=os.path.isdir(self._racine))
-        dernier = len(self._retenues) - 1
-        for index, vm in enumerate(self._retenues):
-            dessin = u'└──' if index == dernier else u'├──'
-            chemin = os.path.join(self._racine,
-                                  arbo.nom_dossier(vm.piece()))
-            yield LigneVM(dessin, arbo.nom_dossier(vm.piece()),
-                          jeu=vm.JeuRetenu, existe=os.path.isdir(chemin))
-
-    def chemins(self):
-        return arbo.chemins(self._racine,
-                            [vm.piece() for vm in self._retenues])
+        for jeu in self._plan.jeux:
+            yield LigneVM(u'▸', jeu.nom, existe=jeu.existe, jeu=True,
+                          detail=u'jeu de feuilles')
+            dernier = len(jeu.feuilles) - 1
+            for index, feuille in enumerate(jeu.feuilles):
+                dessin = u'   └──' if index == dernier else u'   ├──'
+                yield LigneVM(dessin,
+                              u'{0} — {1}'.format(feuille.numero, feuille.nom),
+                              detail=(u'' if feuille.vue is None
+                                      else u'vue posée dessus'),
+                              existe=feuille.existe)
 
     @property
     def Resume(self):
-        if not self._racine:
-            return u'Choisir un dossier de destination.'
-        if not self._retenues:
-            return u'Aucune pièce retenue.'
-        return u'{0} dossier(s) à créer dans {1}'.format(
-            len(self._retenues), os.path.dirname(self._racine) or u'…')
+        if self._plan is None:
+            return u''
+        feuilles = len(service.a_creer(self._plan))
+        jeux = len([j for j in self._plan.jeux if not j.existe])
+        if not feuilles:
+            return u'Rien à créer : tout est déjà dans la maquette.'
+        return u'{0} feuille(s) et {1} jeu(x) à créer'.format(feuilles, jeux)
 
     @property
-    def PeutGenerer(self):
-        return bool(self._racine and self._retenues)
+    def PeutCreer(self):
+        return bool(self._plan is not None and service.a_creer(self._plan))
 
     @property
     def Avertissement(self):
-        """Ce qui empêche de générer, dit avant le clic plutôt qu'après."""
-        if not self._racine:
-            return u'Pas de dossier de destination : onglet Dossier.'
-        if not self._retenues:
+        """Ce qui empêche de créer, dit avant le clic plutôt qu'après."""
+        if self._plan is None or not self._plan.jeux:
             return u'Aucune pièce cochée : onglet Pièces.'
+        if not service.a_creer(self._plan):
+            return u'Les feuilles de ces pièces existent déjà.'
         return u''
 
     @property

@@ -72,6 +72,25 @@ class TestCatalogue(unittest.TestCase):
             self.assertTrue(
                 set(catalogue.obligatoires(dossier.code)).issubset(codes))
 
+    def test_les_vues_declarees_sont_des_noms_de_viewtype(self):
+        # Des NOMS, pas des membres d'énumération : ce fichier doit rester
+        # importable hors Revit. On garde la forme, pas la liste.
+        connus = {u'Section', u'Elevation', u'ThreeD', u'FloorPlan',
+                  u'CeilingPlan', u'DraftingView', u'AreaPlan', u'Detail'}
+        for dossier in catalogue.CATALOGUE:
+            for piece in dossier.pieces:
+                for nom in piece.vues:
+                    self.assertIn(nom, connus,
+                                  u'{0} : {1}'.format(piece.code, nom))
+
+    def test_aucune_piece_ne_reclame_les_plans_d_etage(self):
+        # Le plan de situation et le plan de masse SONT des plans d'étage :
+        # les y rattacher ferait remonter tous les niveaux du projet dans une
+        # pièce qui en attend un. Ce test garde la décision.
+        for dossier in catalogue.CATALOGUE:
+            for piece in dossier.pieces:
+                self.assertNotIn(u'FloorPlan', piece.vues, piece.code)
+
     def test_un_type_inconnu_ne_leve_pas(self):
         self.assertEqual(catalogue.pieces(u'XX'), ())
         self.assertEqual(catalogue.obligatoires(u'XX'), ())
