@@ -4,12 +4,13 @@ import re as _re
 
 try:
     from Autodesk.Revit.DB import (ViewSheet, View, ViewType, Material,
-                                   FilteredElementCollector)
+                                   ViewSheetSet, FilteredElementCollector)
 except Exception:
     ViewSheet = None
     View = None
     ViewType = None
     Material = None
+    ViewSheetSet = None
     FilteredElementCollector = None
 
 
@@ -90,3 +91,19 @@ def all_sheets(doc):
                   .WhereElementIsNotElementType()
                   .ToElements())
     return sorted(sheets, key=lambda s: cle_naturelle(s.SheetNumber))
+
+
+def jeux_de_feuilles(doc):
+    """Tous les `ViewSheetSet` du document, triés par nom en ordre naturel.
+
+    Le « jeu de feuilles » est du vocabulaire d'agence autant que de Revit :
+    c'est l'unité d'export de BatchExport, et celle à laquelle PC rattache
+    une pièce de dossier d'urbanisme. Deux outils le lisent, il vit donc
+    ici — pas dans l'un d'eux.
+    """
+    if FilteredElementCollector is None or ViewSheetSet is None:
+        return []
+    jeux = list(FilteredElementCollector(doc)
+                .OfClass(ViewSheetSet)
+                .ToElements())
+    return sorted(jeux, key=lambda j: cle_naturelle(j.Name))

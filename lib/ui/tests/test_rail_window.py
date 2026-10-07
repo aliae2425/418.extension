@@ -27,6 +27,7 @@ BOUTONS = [
     os.path.join('418.tab', 'Tools.panel', 'col1.stack', 'Rename.pulldown',
                  'FindReplace - Views.pushbutton'),
     os.path.join('418.tab', 'Manage.panel', 'Materiaux.pushbutton'),
+    os.path.join('418.tab', 'Tools.panel', 'PC.pushbutton'),
 ]
 
 

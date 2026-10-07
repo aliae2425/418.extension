@@ -1,0 +1,148 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Page Dossier — DataContext = DossierPageVM.
+    XamlReader.Load, pas de x:Class. Tout brush/style en DynamicResource.
+
+    Les chips de type portent un Tag : c'est lui que RailWindow pose dans
+    `Type` (contrat RADIOS). Leur IsEnabled est lié au catalogue — un type
+    sans pièce reste visible mais refuse le clic, il annonce ce qui arrive.
+  -->
+
+  <UserControl.Resources>
+
+    <Style x:Key="RadioChipStyle" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontFamily" Value="Segoe UI"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Margin" Value="0,0,6,0"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="border"
+                    Background="{DynamicResource ControlFillBrush}"
+                    BorderBrush="{DynamicResource ControlBorderBrush}"
+                    BorderThickness="1" CornerRadius="14" Padding="14,6">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="border" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextOnAccentBrush}"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="border" Property="Opacity" Value="0.35"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+              </Trigger>
+              <MultiTrigger>
+                <MultiTrigger.Conditions>
+                  <Condition Property="IsMouseOver" Value="True"/>
+                  <Condition Property="IsChecked" Value="False"/>
+                  <Condition Property="IsEnabled" Value="True"/>
+                </MultiTrigger.Conditions>
+                <Setter TargetName="border" Property="Background" Value="{DynamicResource ControlFillHoverBrush}"/>
+                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource ControlBorderHoverBrush}"/>
+              </MultiTrigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+  </UserControl.Resources>
+
+  <ScrollViewer VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                Padding="14">
+    <StackPanel Orientation="Vertical">
+
+      <!-- Type de dossier -->
+      <Border Style="{DynamicResource CardStyle}" Padding="12,10">
+        <StackPanel Orientation="Vertical">
+          <TextBlock Text="Type de dossier"
+                     Style="{DynamicResource SubHeaderTextBlockStyle}"
+                     Margin="0,0,0,8"/>
+          <WrapPanel Orientation="Horizontal">
+            <RadioButton x:Name="RadioDP" GroupName="type" Tag="DP"
+                         Content="DP" ToolTip="Déclaration préalable"
+                         IsEnabled="{Binding DPActif}"
+                         Style="{StaticResource RadioChipStyle}"/>
+            <RadioButton x:Name="RadioPCMI" GroupName="type" Tag="PCMI"
+                         Content="PCMI" ToolTip="Permis de construire maison individuelle — catalogue à écrire"
+                         IsEnabled="{Binding PCMIActif}"
+                         Style="{StaticResource RadioChipStyle}"/>
+            <RadioButton x:Name="RadioPC" GroupName="type" Tag="PC"
+                         Content="PC" ToolTip="Permis de construire"
+                         IsEnabled="{Binding PCActif}"
+                         Style="{StaticResource RadioChipStyle}"/>
+            <RadioButton x:Name="RadioPA" GroupName="type" Tag="PA"
+                         Content="PA" ToolTip="Permis d'aménager — catalogue à écrire"
+                         IsEnabled="{Binding PAActif}"
+                         Style="{StaticResource RadioChipStyle}"/>
+            <RadioButton x:Name="RadioPD" GroupName="type" Tag="PD"
+                         Content="PD" ToolTip="Permis de démolir"
+                         IsEnabled="{Binding PDActif}"
+                         Style="{StaticResource RadioChipStyle}"/>
+          </WrapPanel>
+          <TextBlock Text="{Binding TypeLibelle}"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     FontSize="12" Margin="2,8,0,0"/>
+        </StackPanel>
+      </Border>
+
+      <!-- Nommage du dossier racine -->
+      <Border Style="{DynamicResource CardStyle}" Padding="12,10">
+        <StackPanel Orientation="Vertical">
+          <TextBlock Text="Nom du dossier"
+                     Style="{DynamicResource SubHeaderTextBlockStyle}"
+                     Margin="0,0,0,8"/>
+          <TextBox Text="{Binding Motif, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                   ToolTip="Jetons : {projet_numero} {projet_nom} {type} {date} {annee}"/>
+          <TextBlock Margin="2,8,0,0" FontSize="12"
+                     TextTrimming="CharacterEllipsis"
+                     Foreground="{DynamicResource TextSecondaryBrush}">
+            <Run Text="→ "/>
+            <Run Text="{Binding NomRacine, Mode=OneWay}"
+                 Foreground="{DynamicResource TextPrimaryBrush}"/>
+          </TextBlock>
+        </StackPanel>
+      </Border>
+
+      <!-- Destination -->
+      <Border Style="{DynamicResource CardStyle}" Padding="12,10">
+        <StackPanel Orientation="Vertical">
+          <TextBlock Text="Où le déposer"
+                     Style="{DynamicResource SubHeaderTextBlockStyle}"
+                     Margin="0,0,0,8"/>
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox Grid.Column="0"
+                     Text="{Binding Destination, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+            <Button Grid.Column="1" Content="Parcourir…"
+                    Margin="8,0,0,0"
+                    Command="{Binding ParcourirCommand}"
+                    Style="{DynamicResource SecondaryActionButtonStyle}"/>
+          </Grid>
+          <TextBlock Margin="2,8,0,0" FontSize="12"
+                     TextTrimming="CharacterEllipsis"
+                     ToolTip="{Binding Racine}"
+                     Text="{Binding Racine, Mode=OneWay}"
+                     Foreground="{DynamicResource TextSecondaryBrush}"/>
+        </StackPanel>
+      </Border>
+
+      <Button x:Name="NextToPiecesButton"
+              Content="Suivant ›"
+              Style="{DynamicResource PrimaryActionButtonStyle}"
+              HorizontalAlignment="Right"
+              Margin="0,4,0,0"/>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

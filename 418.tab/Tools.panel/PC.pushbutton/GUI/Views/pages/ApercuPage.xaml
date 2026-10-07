@@ -1,0 +1,82 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    Page Aperçu — DataContext = ApercuPageVM.
+
+    Ce qui s'affiche ici est exactement ce que le service va créer : même
+    fonction, mêmes chemins. Un aperçu qui diverge de l'action ne vaut rien,
+    et c'est tout l'engagement de l'extension — on relit avant d'appliquer.
+  -->
+
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolVersVisibilite"/>
+  </UserControl.Resources>
+
+  <Grid Margin="14">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <TextBlock Grid.Row="0" Text="{Binding Resume}" Margin="0,0,0,10"
+               Foreground="{DynamicResource TextSecondaryBrush}"
+               FontSize="12"/>
+
+    <Border Grid.Row="1" Style="{DynamicResource CardStyle}" Padding="12,10">
+      <ScrollViewer VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollBarVisibility="Auto">
+        <ItemsControl ItemsSource="{Binding Lignes}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Grid Margin="0,2">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="{Binding Dessin}"
+                           FontFamily="Consolas" FontSize="12"
+                           Margin="0,0,6,0"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+
+                <TextBlock Grid.Column="1" Text="{Binding Nom}"
+                           FontFamily="Consolas" FontSize="12"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+
+                <!-- « existe déjà » n'est pas une erreur : on ne touche pas
+                     à ce qui est là, et l'outil se rejoue sans rien perdre. -->
+                <TextBlock Grid.Column="2" Text="  (existe déjà)"
+                           FontSize="11" VerticalAlignment="Center"
+                           Visibility="{Binding Existe, Converter={StaticResource BoolVersVisibilite}}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+
+                <TextBlock Grid.Column="3" Text="{Binding Jeu}"
+                           FontSize="11" VerticalAlignment="Center"
+                           Margin="12,0,0,0"
+                           TextTrimming="CharacterEllipsis"
+                           Visibility="{Binding JeuVisible, Converter={StaticResource BoolVersVisibilite}}"
+                           Foreground="{DynamicResource AccentBrush}"/>
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Border>
+
+    <Grid Grid.Row="2" Margin="0,10,0,0">
+      <TextBlock Text="{Binding Avertissement}" VerticalAlignment="Center"
+                 FontSize="12"
+                 Visibility="{Binding AvertissementVisible, Converter={StaticResource BoolVersVisibilite}}"
+                 Foreground="{DynamicResource WarningBrush}"/>
+      <Button x:Name="RunButton"
+              Content="Générer l'arborescence"
+              IsEnabled="{Binding PeutGenerer}"
+              Style="{DynamicResource PrimaryActionButtonStyle}"
+              HorizontalAlignment="Right"/>
+    </Grid>
+  </Grid>
+</UserControl>

@@ -136,6 +136,13 @@
            .\tools\icones.ps1 -Cle <clé> -Destination "418.tab\...\X.pushbutton"
          =================================================================== -->
 
+    <!-- lucide: folder-tree — l'arborescence qu'un outil s'apprête à écrire -->
+    <PathGeometry x:Key="IconArborescence"
+                  Figures="M20 10 a1 1 0 0 0 1 -1 V6 a1 1 0 0 0 -1 -1 h-2.5 a1 1 0 0 1 -0.8 -0.4 l-0.9 -1.2 A1 1 0 0 0 15 3 h-2 a1 1 0 0 0 -1 1 v5 a1 1 0 0 0 1 1 Z
+                           M20 21 a1 1 0 0 0 1 -1 v-3 a1 1 0 0 0 -1 -1 h-2.9 a1 1 0 0 1 -0.88 -0.55 l-0.42 -0.85 a1 1 0 0 0 -0.92 -0.6 H13 a1 1 0 0 0 -1 1 v5 a1 1 0 0 0 1 1 Z
+                           M3 5 a2 2 0 0 0 2 2 h3
+                           M3 3 v13 a2 2 0 0 0 2 2 h3"/>
+
     <!-- lucide: paper-bag — ruban PC (permis de construire) -->
     <PathGeometry x:Key="IconPC"
                   Figures="M5.364 3.848 C4 6 3 9.652 3 12.652 V19 a2 2 0 0 0 2 2 h14 a2 2 0 0 0 2 -2 v-5 c0 -2.334 -1.816 -4.668 -2.622 -7.002
