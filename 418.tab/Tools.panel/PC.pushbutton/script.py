@@ -7,6 +7,7 @@ __doc__ = ("SCAFFOLD — ossature du dossier de permis de construire. La "
            "branchée.")
 __author__ = 'Aliae'
 __min_revit_ver__ = 2026
+__beta__ = True
 
 try:
     uidoc = __revit__.ActiveUIDocument  # type: ignore # noqa: F821

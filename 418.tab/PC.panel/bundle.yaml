@@ -1,5 +1,0 @@
-# Scaffold : l'ossature MVVM est posee, la fenetre s'ouvre et ne fait rien.
-# pyRevit ne construit pas le panneau tant que « Load Beta Tools » est decoche
-# dans ses reglages (uimaker.py:1092). Retirer cette ligne le jour ou l'outil
-# fait quelque chose — pas avant, et surtout pas en amputant une branche.
-is_beta: true
