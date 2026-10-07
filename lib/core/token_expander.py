@@ -1,32 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import datetime as _datetime
-import re as _re
 
 try:
     _str = unicode
 except NameError:
     _str = str
-
-_RESTES = _re.compile(r'\{[^{}]*\}')
-
-
-def sans_jetons_restants(texte):
-    """Retire les ``{jetons}`` qu'aucune valeur n'a résolus, et resserre.
-
-    ``expand()`` les laisse tels quels — c'est voulu pour les gabarits de
-    renommage, où voir le jeton aide à corriger sa faute de frappe. Mais un
-    NOM DE FICHIER ou de dossier ne doit jamais porter de « {…} » brut : un
-    jeton vide disparaît, et les séparateurs devenus orphelins avec lui.
-    """
-    if not texte:
-        return texte
-    sortie = _RESTES.sub(u'', texte)
-    # « 2431 -  - PC » après disparition du nom : recoller les séparateurs
-    # plutôt que laisser la trace de ce qui manquait.
-    sortie = _re.sub(r'\s*[-_·]\s*([-_·]\s*)+', u' - ', sortie)
-    sortie = _re.sub(r'\s{2,}', u' ', sortie)
-    return sortie.strip(u' -_·')
 
 
 class TokenExpander(object):
