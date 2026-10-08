@@ -24,9 +24,9 @@ from __future__ import unicode_literals
 import time
 
 try:
-    from core import chat_parts as cp
+    from harnais import parts as cp
 except Exception:
-    from lib.core import chat_parts as cp
+    from lib.harnais import parts as cp
 
 # Un mot toutes les 25 ms : assez lent pour qu'on VOIE le flux, assez rapide
 # pour ne pas rendre l'essai pénible. Le vrai modèle est plus irrégulier.

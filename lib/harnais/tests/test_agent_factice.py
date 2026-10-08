@@ -15,8 +15,8 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))))
 
-from core import chat_parts as cp                              # noqa: E402
-from core.proto_agent import ProtoAgent, Interrompu            # noqa: E402
+from harnais import parts as cp                              # noqa: E402
+from harnais.agent_factice import ProtoAgent, Interrompu            # noqa: E402
 
 
 def _flux():

@@ -25,6 +25,11 @@ class AppPaths(object):
         # Pages XAML partagées par plusieurs outils (ex. SelectionPage.xaml).
         return os.path.join(_lib_dir, 'ui', 'GUI', 'pages')
 
+    def web_dir(self):
+        # Racine servie au WebView2 (origine https://418.local/). Hors de
+        # ui/GUI/ : `ui/` est le thème WPF, le JS a le sien.
+        return os.path.join(_lib_dir, 'web')
+
     def data_dir(self):
         # Dossier de données commun à TOUTES les features (persistance des
         # réglages, caches, etc.) : 418.extension/data/. Créé si absent.

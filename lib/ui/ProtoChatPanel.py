@@ -33,13 +33,13 @@ from pyrevit import forms
 try:
     from core.AppPaths import AppPaths
     from core.journal import journal
-    from core import chat_parts as cp
-    from core.proto_agent import ProtoAgent
+    from harnais import parts as cp
+    from harnais.agent_factice import ProtoAgent
 except Exception:
     from lib.core.AppPaths import AppPaths
     from lib.core.journal import journal
-    from lib.core import chat_parts as cp
-    from lib.core.proto_agent import ProtoAgent
+    from lib.harnais import parts as cp
+    from lib.harnais.agent_factice import ProtoAgent
 
 try:
     from ui.helpers.UIResourceLoader import UIResourceLoader
@@ -59,7 +59,12 @@ DELAI_ACCORD = 300
 
 
 def _dossier_web():
-    return os.path.join(AppPaths().ui_gui_dir(), 'web', 'chat')
+    """La racine servie, pas le sous-dossier de la vue.
+
+    UNE seule origine pour `vue/` et `harnais/` : deux mappings virtuels
+    feraient deux origines, donc des imports ES bloqués entre les deux.
+    """
+    return AppPaths().web_dir()
 
 
 class ProtoChatPanel(forms.WPFPanel):
@@ -117,7 +122,7 @@ class ProtoChatPanel(forms.WPFPanel):
             coeur.SetVirtualHostNameToFolderMapping(
                 HOTE, _dossier_web(), CoreWebView2HostResourceAccessKind.Allow)
             coeur.WebMessageReceived += self._sur_message
-            coeur.Navigate('https://{0}/index.html'.format(HOTE))
+            coeur.Navigate('https://{0}/vue/index.html'.format(HOTE))
             _log.info('prototype monté')
         except Exception:
             _log.exception('initialisation du prototype')

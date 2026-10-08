@@ -16,7 +16,7 @@ _SHARED_LIB = os.path.abspath(os.path.join(_HERE, '..', '..'))  # -> lib
 if _SHARED_LIB not in sys.path:
     sys.path.insert(0, _SHARED_LIB)
 
-from core import revit_outils
+from harnais import outils as revit_outils
 
 CATALOGUE = {'outils': [
     {'nom': 'revit_etat', 'description': 'état', 'ecrit': False,
