@@ -1,0 +1,28 @@
+<Page xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Background="{DynamicResource WindowBackgroundBrush}">
+
+  <!--
+    Prototype de chat (lib/ui/ProtoChatPanel.py).
+
+    Ce XAML est volontairement VIDE de tout ce qui fait un chat : pas de bulle,
+    pas de liste, pas de gabarit. Toute l'interface vit dans
+    lib/ui/GUI/web/chat/, et c'est le propos — on sort de la classe de panne
+    qui a tué Revit quatre fois (FlowDocument lié depuis un DataTemplate,
+    XamlParseException remontée de RevitAPIUI).
+
+    Le WebView2 n'est PAS déclaré ici : XamlReader devrait résoudre le
+    namespace clr au parse, ce qui échoue tant que l'assembly n'est pas
+    référencée. Il est instancié en Python et injecté dans `Hote` par `.Child`.
+  -->
+
+  <Border x:Name="Hote"
+          Background="{DynamicResource CardBackgroundBrush}">
+    <TextBlock Text="Interface non chargée — le volet doit être affiché."
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               TextWrapping="Wrap"
+               Margin="16"
+               Foreground="{DynamicResource TextSecondaryBrush}"/>
+  </Border>
+</Page>

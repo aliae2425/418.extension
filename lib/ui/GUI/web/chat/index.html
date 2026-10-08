@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>OpenArchi — prototype</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<!-- Filet AVANT le module : un `try` placé DANS le module ne peut pas
+     attraper l'échec de son propre `import`. Sans ça, un module qui ne charge
+     pas laisse un volet muet, et ça se lit « WebView2 ne marche pas ». -->
+<script>
+window.addEventListener('error', function (e) {
+  var pied = document.getElementById('pied');
+  if (pied) pied.textContent = 'interface cassée : ' + (e.message || e.type);
+  try {
+    window.chrome.webview.postMessage(JSON.stringify({
+      ordre: 'erreur', message: String(e.message || e.type)
+    }));
+  } catch (_) { /* l'hôte verra l'absence de `pret` */ }
+});
+</script>
+
+<div id="fil">
+  <div class="tour">
+    <div class="bulle lui">
+      <p><strong>Prototype</strong> — agent fictif. Aucun modèle n'est appelé,
+      la maquette n'est pas touchée.</p>
+      <p>Quatre scénarios, selon ce que vous écrivez :</p>
+      <ul>
+        <li><code>bonjour</code> — réponse simple, en flux</li>
+        <li><code>liste mes vues</code> — deux appels d'outils enchaînés</li>
+        <li><code>synchronise le projet</code> — accord sur un irréversible</li>
+        <li><code>fais une erreur</code> — un outil qui échoue</li>
+      </ul>
+      <p><em>Stop</em> interrompt en cours de route.</p>
+    </div>
+  </div>
+</div>
+
+<div id="barre">
+  <textarea id="saisie" rows="1" placeholder="Écrivez…"></textarea>
+  <button id="action">Envoyer</button>
+</div>
+<div id="pied">agent fictif — rien n'est envoyé, rien n'est modifié</div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>

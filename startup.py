@@ -116,6 +116,20 @@ def _volet_spike():
     return 'enregistré'
 
 
+def _volet_proto():
+    """Prototype de chat en interface web — jetable lui aussi.
+
+    Volet distinct du banc et d'OpenArchi : trois `panel_id`, trois étapes,
+    aucune ne peut emporter les autres.
+    """
+    from pyrevit import forms
+    from ui.ProtoChatPanel import ProtoChatPanel
+    if forms.is_registered_dockable_panel(ProtoChatPanel):
+        return 'déjà enregistré'
+    forms.register_dockable_panel(ProtoChatPanel, default_visible=False)
+    return 'enregistré'
+
+
 def _routes():
     """Les outils Revit de 418, servis sur ``routes.API('418')``.
 
@@ -138,4 +152,5 @@ if _log is not None:
 if _etape('réglages pyRevit', _beta):
     _etape('volet OpenArchi', _volet)
     _etape('volet banc WebView2', _volet_spike)
+    _etape('volet prototype chat', _volet_proto)
 _etape('routes 418', _routes)
