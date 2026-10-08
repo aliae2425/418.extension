@@ -14,7 +14,7 @@
                script-src 'self';
                style-src 'self';
                img-src 'self' data:;
-               connect-src 'self';
+               connect-src 'self' https://api.openai.com;
                base-uri 'none';
                form-action 'none'">
 <!-- Deux feuilles, et l'ordre compte : les jetons d'abord, la mise en forme
@@ -31,10 +31,11 @@
 <div id="fil">
   <div class="tour">
     <div class="bulle lui">
-      <p><strong>OpenArchi</strong> — le moteur tourne, le <strong>modèle est
-      fictif</strong>. Aucun modèle n'est appelé, la maquette n'est pas
-      touchée.</p>
-      <p>Quatre scénarios, selon ce que vous écrivez :</p>
+      <p><strong>OpenArchi</strong> — le modèle est réel dès que
+      <code>OPENAI_API_KEY</code> est posée ; le pied de page dit lequel
+      répond. <strong>Les outils, eux, restent fictifs</strong> : la maquette
+      n'est pas touchée.</p>
+      <p>Sans clé, quatre scénarios joués d'avance :</p>
       <ul>
         <li><code>bonjour</code> — réponse simple, en flux</li>
         <li><code>liste mes vues</code> — deux appels d'outils enchaînés</li>

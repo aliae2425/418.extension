@@ -52,6 +52,30 @@ _log = journal('volet')
 HOTE = '418.local'
 PROFIL = 'webview2-proto'
 
+# Ce que la page envoie en `Authorization`, et que l'hôte remplace. La clé
+# ne traverse jamais la frontière : une XSS dans une bulle ne trouve rien.
+#
+# Pourquoi une sentinelle plutôt qu'un en-tête ajouté de rien : sans
+# `Authorization` au départ, le navigateur ne l'annonce pas dans son préflight
+# CORS, et on dépendrait de l'ordre entre son contrôle et notre interception.
+# Avec, le préflight est exact et on ne fait que substituer une valeur.
+SENTINELLE = 'Bearer 418-hote'
+
+# Seule origine dont on signe les requêtes. Un filtre large signerait aussi
+# ce que la page demande ailleurs — elle n'a rien à demander ailleurs, mais
+# c'est le genre de porte qu'on laisse fermée.
+API_OPENAI = 'https://api.openai.com/*'
+
+
+def _cle():
+    """La clé API, ``''`` s'il n'y en a pas.
+
+    En variable d'environnement, jamais dans ``data/`` — qui finit poussé.
+    Relue à chaque appel plutôt que mise en cache : poser la variable et
+    rouvrir le volet doit suffire, sans redémarrer Revit.
+    """
+    return os.environ.get('OPENAI_API_KEY') or ''
+
 
 def _dossier_web():
     """La racine servie, pas le sous-dossier de la vue.
@@ -112,10 +136,41 @@ class ProtoChatPanel(forms.WPFPanel):
             coeur.SetVirtualHostNameToFolderMapping(
                 HOTE, _dossier_web(), CoreWebView2HostResourceAccessKind.Allow)
             coeur.WebMessageReceived += self._sur_message
+            self._signer(coeur)
             coeur.Navigate('https://{0}/vue/index.html'.format(HOTE))
             _log.info('volet monté')
         except Exception:
             _log.exception('initialisation du volet')
+
+    def _signer(self, coeur):
+        """Pose l'interception qui remplace la sentinelle par la vraie clé.
+
+        Si ça échoue, le volet marche quand même : la page retombera sur le
+        modèle fictif, puisque `_cle()` sera annoncée absente.
+        """
+        if not _cle():
+            return _log.info('OPENAI_API_KEY absente — modèle fictif')
+        try:
+            from Microsoft.Web.WebView2.Core import CoreWebView2WebResourceContext
+            coeur.AddWebResourceRequestedFilter(
+                API_OPENAI, CoreWebView2WebResourceContext.All)
+            coeur.WebResourceRequested += self._sur_requete
+            _log.info('signature des appels à %s en place', API_OPENAI)
+        except Exception:
+            _log.exception('interception impossible — la clé ne sera pas posée')
+
+    def _sur_requete(self, sender, args):
+        """Sur le fil d'interface. Ne lève JAMAIS : Revit tomberait."""
+        try:
+            entetes = args.Request.Headers
+            # On ne signe QUE ce qui porte la sentinelle. Un en-tête absent
+            # ou différent part tel quel et prend un 401 — un refus franc
+            # vaut mieux qu'un appel anonyme qu'on aurait signé par hasard.
+            if entetes.GetHeader('Authorization') != SENTINELLE:
+                return
+            entetes.SetHeader('Authorization', 'Bearer ' + _cle())
+        except Exception:
+            _log.exception('signature de la requête')
 
     # --- ce que la page demande -------------------------------------------
 
@@ -137,6 +192,9 @@ class ProtoChatPanel(forms.WPFPanel):
             # `prefers-color-scheme` lirait.
             self._poster('theme',
                          {'valeur': 'sombre' if is_dark() else 'clair'})
+            # On dit SI une clé existe, jamais laquelle. La page choisit son
+            # fournisseur là-dessus et n'en saura pas plus.
+            self._poster('config', {'cle': bool(_cle())})
         elif ordre == 'erreur':
             # Un volet ancré n'a aucune fenêtre de sortie pyRevit : sans ce
             # relais, une interface cassée reste muette.
