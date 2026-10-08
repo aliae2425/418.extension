@@ -141,7 +141,12 @@ amputée pour cacher quelque chose.
 
 **Le drapeau ne couvre que le ruban.** `startup.py` est exécuté par pyRevit au
 lancement, bêta ou non : tout ce qui n'est pas prêt y est gardé derrière
-`user_config.core.load_beta` à la main. C'est le cas du panneau ancrable
+`user_config.load_beta` à la main — **la propriété, jamais
+`user_config.core.load_beta`**. La seconde forme tombe sur
+`configparser.__getattr__` et LÈVE quand la case n'a jamais été touchée : la
+clé du fichier s'appelle `loadbeta`, sans underscore. La propriété, elle,
+passe par `get_option(..., default_value=)` et rend `False`. L'erreur a coûté
+les deux volets ancrables, en silence. C'est le cas du panneau ancrable
 OpenArchi et du serveur MCP.
 
 ## Le harnais

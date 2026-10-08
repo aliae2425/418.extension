@@ -68,9 +68,21 @@ def _etape(nom, travail):
 
 
 def _beta():
-    """« Load Beta Tools » est-il coché dans les réglages pyRevit ?"""
+    """« Load Beta Tools » est-il coché dans les réglages pyRevit ?
+
+    `user_config.load_beta`, PAS `user_config.core.load_beta`. La propriété
+    vit sur `PyRevitConfig` et passe par `core.get_option(..., default_value=)`
+    — donc elle rend `False` quand la case n'a jamais été touchée. Lire la
+    section brute, c'est tomber sur `configparser.__getattr__`, qui LÈVE : la
+    clé du fichier s'appelle `loadbeta`, sans underscore.
+
+    Ça n'a l'air de rien, et ça a coûté les deux volets. `_etape` avalait
+    l'exception, le `if` voyait `None`, et plus rien ne s'enregistrait —
+    sans qu'un seul message ne parle de bêta. C'est exactement le genre de
+    panne que ce journal existe pour attraper.
+    """
     from pyrevit.userconfig import user_config
-    return bool(user_config.core.load_beta)
+    return bool(user_config.load_beta)
 
 
 def _volet():
@@ -87,6 +99,20 @@ def _volet():
     # Un « Reload » pyRevit rejoue ce script hors OnStartup : Revit refuse
     # alors l'enregistrement. Un redémarrage de Revit suffit.
     forms.register_dockable_panel(OpenArchiPanel, default_visible=False)
+    return 'enregistré'
+
+
+def _volet_spike():
+    """Banc d'essai WebView2 — jetable, à retirer avec son bouton.
+
+    Volet distinct, `panel_id` distinct : un échec ici ne peut rien faire au
+    volet OpenArchi, et `_etape` garantit qu'il ne l'emporte pas non plus.
+    """
+    from pyrevit import forms
+    from ui.SpikeWebPanel import SpikeWebPanel
+    if forms.is_registered_dockable_panel(SpikeWebPanel):
+        return 'déjà enregistré'
+    forms.register_dockable_panel(SpikeWebPanel, default_visible=False)
     return 'enregistré'
 
 
@@ -111,4 +137,5 @@ if _log is not None:
 
 if _etape('réglages pyRevit', _beta):
     _etape('volet OpenArchi', _volet)
+    _etape('volet banc WebView2', _volet_spike)
 _etape('routes 418', _routes)
