@@ -22,7 +22,10 @@ apparaît partout tout seul.
 fonction dans le routeur global de pyRevit, rien de plus.
 """
 from __future__ import unicode_literals
+import binascii
+import hmac
 import json
+import os
 
 try:
     from core.journal import journal
@@ -44,6 +47,11 @@ except Exception:                      # hors Revit : module importable, inerte
 _log = journal('rvt')
 
 NOM = '418'
+
+# Tiré une fois, gardé en mémoire de process. Une liste plutôt qu'une globale
+# réassignée : le module peut être réimporté par un Reload pyRevit sans que le
+# jeton change sous les pieds d'un appelant.
+_JETON = []
 
 
 def charger_outils():
@@ -113,6 +121,9 @@ def enregistrer():
         contexte = {'doc': doc, 'uidoc': uidoc, 'request': request}
         arguments = _charge(request)
         if cible.irreversible:
+            refus = _barrage(request, complet, arguments)
+            if refus is not None:
+                return refus
             # La seule trace qui restera pour comprendre ce qui a été fait,
             # une fois que c'est fait.
             _log.warning('IRRÉVERSIBLE %s %s', complet, arguments)
@@ -135,6 +146,49 @@ def enregistrer():
     _log.info('routes 418 en place | %d outils, familles : %s',
               len(registre.OUTILS), ', '.join(charges))
     return api
+
+
+def jeton():
+    """Le laissez-passer des outils irréversibles, tiré une fois par session.
+
+    Tiré au démarrage, jamais écrit sur disque, jamais servi par une route :
+    seul un appelant qui tourne DANS ce process peut l'avoir. C'est
+    exactement la frontière qu'on veut — le volet l'a, le reste du réseau non.
+    """
+    if not _JETON:
+        _JETON.append(binascii.hexlify(os.urandom(24)).decode('ascii'))
+    return _JETON[0]
+
+
+def _barrage(request, nom, arguments):
+    """``None`` si l'outil peut partir, sinon la réponse de refus.
+
+    Le serveur de routes pyRevit écoute sur ``0.0.0.0`` et n'authentifie
+    rien. Sans ce barrage, n'importe quelle page web ouverte dans un onglet
+    POSTe ``revit_executer_code`` en requête simple — pas de préflight, donc
+    pas de CORS pour l'arrêter — et exécute du code arbitraire dans Revit.
+    La réponse lui serait illisible ; le code aurait déjà tourné.
+
+    Le garde-fou vivait côté client (la boucle d'outils demandait l'accord).
+    Un garde-fou qu'on peut contourner en ne passant pas par le client n'en
+    est pas un : il descend ici, chez celui qui exécute.
+    """
+    presente = ''
+    try:
+        entetes = getattr(request, 'headers', None) or {}
+        presente = (entetes.get('X-418-Jeton') or
+                    entetes.get('x-418-jeton') or '')
+    except Exception:
+        presente = ''
+    # Comparaison à temps constant : un `==` sur une chaîne sort au premier
+    # octet qui diffère, ce qui se mesure et se remonte octet par octet.
+    if presente and hmac.compare_digest('{0}'.format(presente), jeton()):
+        return None
+    _log.error('IRRÉVERSIBLE %s REFUSÉ — appel sans jeton de session %s',
+               nom, arguments)
+    return routes.make_response(
+        data={'erreur': 'outil irréversible : jeton de session requis'},
+        status=403)
 
 
 def _charge(request):
