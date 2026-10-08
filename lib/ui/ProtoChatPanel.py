@@ -36,9 +36,11 @@ from pyrevit import forms
 try:
     from core.AppPaths import AppPaths
     from core.journal import journal
+    from harnais import outils
 except Exception:
     from lib.core.AppPaths import AppPaths
     from lib.core.journal import journal
+    from lib.harnais import outils
 
 try:
     from ui.helpers.UIResourceLoader import UIResourceLoader
@@ -195,12 +197,47 @@ class ProtoChatPanel(forms.WPFPanel):
             # On dit SI une clé existe, jamais laquelle. La page choisit son
             # fournisseur là-dessus et n'en saura pas plus.
             self._poster('config', {'cle': bool(_cle())})
+        elif ordre == 'outils':
+            self._en_fond(message, lambda: outils.outils())
+        elif ordre == 'outil':
+            self._en_fond(message, lambda: outils.executer(
+                message.get('nom') or '', message.get('arguments')))
         elif ordre == 'erreur':
             # Un volet ancré n'a aucune fenêtre de sortie pyRevit : sans ce
             # relais, une interface cassée reste muette.
             _log.error('interface : %s', message.get('message'))
         else:
             _log.warning('ordre inconnu : %s', ordre)
+
+    # --- la maquette ------------------------------------------------------
+
+    def _en_fond(self, message, travail):
+        """Fait le travail HORS du fil d'interface, puis répond.
+
+        `outils.executer` fait un aller-retour HTTP bloquant vers le serveur
+        de routes pyRevit — c'est lui qui marshale vers le fil API de Revit.
+        Le tenir sur le fil d'interface gèlerait Revit pendant tout l'appel.
+
+        La réponse part depuis le fil de fond, sans Dispatcher : le banc a
+        mesuré que `PostWebMessageAsJson` l'accepte.
+        """
+        from System.Threading import Thread, ThreadStart
+        ref = message.get('ref')
+
+        def _courir():
+            try:
+                self._poster('reponse', {'ref': ref, 'sortie': travail()})
+            except Exception as e:
+                # Jamais de silence : une promesse sans réponse laisse le
+                # tour pendu jusqu'au délai du pont.
+                _log.exception('ordre %s', message.get('ordre'))
+                self._poster('reponse', {'ref': ref,
+                                         'erreur': '{0}'.format(e)})
+
+        fil = Thread(ThreadStart(_courir))
+        # Sans cela, un appel en cours retiendrait la fermeture de Revit.
+        fil.IsBackground = True
+        fil.Start()
 
     def _poster(self, evenement, charge):
         if self._coeur is None:
