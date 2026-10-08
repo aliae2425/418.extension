@@ -1,0 +1,6 @@
+{
+  "name": "418-web",
+  "private": true,
+  "type": "module",
+  "description": "Marqueur de modules ES pour node --test. AUCUNE dependance, jamais : ne pas lancer npm install ici. Le navigateur ignore ce fichier."
+}

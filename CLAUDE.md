@@ -50,18 +50,31 @@ Ni build, ni compilateur, ni linter :
 Pour tester un seul bouton sans tout recharger : clic droit sur le bouton →
 **Run script**.
 
-**Tests** : scripts `unittest` nus sous les `tests/` de chaque bouton, plus
-`lib/core/tests/` et `lib/ui/tests/`. Ils amorcent leur `sys.path` eux-mêmes —
-`python tests/test_x.py` suffit. Aucun runner, aucun framework, aucune fixture.
-Les imports Revit sont sous `try/except` pour que la logique pure tourne hors
-Revit ; un test ne doit jamais toucher le réseau, la maquette, ni lancer un CLI
-(injecter un double, cf. `_ClientFactice`).
+**Tests Python** : scripts `unittest` nus sous les `tests/` de chaque bouton,
+plus `lib/core/tests/`, `lib/harnais/tests/`, `lib/rvt/tests/`, `lib/ui/tests/`.
+Ils amorcent leur `sys.path` eux-mêmes — `python tests/test_x.py` suffit.
+Aucun runner, aucun framework, aucune fixture. Les imports Revit sont sous
+`try/except` pour que la logique pure tourne hors Revit ; un test ne doit
+jamais toucher le réseau, la maquette, ni lancer un CLI (injecter un double).
+
+**Tests JS** (`lib/web/`) : `node:test`, intégré depuis Node 18 — même
+doctrine, aucun runner, aucune dépendance. Fichiers `*.test.js` à côté du
+code qu'ils éprouvent.
 
 Tout passer en une fois :
 
 ```bash
 for t in $(git ls-files '*/tests/test_*.py'); do python "$t" >/dev/null || echo "ECHEC $t"; done
+node --test "lib/web/**/tests/*.test.js"
 ```
+
+**Le motif entre guillemets n'est pas une coquetterie** : passer un dossier à
+`node --test` le fait charger comme un module et échouer en
+`MODULE_NOT_FOUND`. C'est le glob qui déclenche la découverte.
+
+`lib/web/package.json` ne déclare **que** `"type": "module"` — sans lui, Node
+lit les `.js` en CommonJS et refuse les `import`. **Ce n'est pas un manifeste
+de dépendances : rien ne s'installe ici, jamais.** Le navigateur l'ignore.
 
 ## Branches
 
