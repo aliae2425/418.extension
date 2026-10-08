@@ -1,28 +1,31 @@
 # -*- coding: utf-8 -*-
-"""Prototype de chat : moteur Python, interface web, aucun modèle derrière.
+"""Le volet OpenArchi : un hôte, et rien de plus.
 
-Le banc d'essai a répondu aux questions de faisabilité — il a été retiré, ses
-mesures sont dans le message de `08e3335`. Celui-ci répond à la seule qui
-restait : **est-ce que ça fait un bon chat ?** Il monte le chemin complet,
-en vrai —
+Depuis J4, **le moteur tourne dans la page**. Ce module ne sait plus ce qu'est
+un tour de conversation, une part ou un accord : il monte le WebView2, sert
+`lib/web/` sur une origine locale, dit quel thème Revit affiche, et encaisse
+le journal. C'est tout, et c'est le but.
 
-    ProtoAgent (fil de fond) → Flux → parts JSON
-        → PostWebMessageAsJson → app.js → DOM
+Ce qui a disparu avec le moteur : le `Thread` de fond, le `Flux`, l'agent
+factice, l'attente bloquante sur l'accord, le `PostWebMessageAsJson` par
+jeton. Le streaming ne traverse plus aucune frontière — il n'en a plus à
+traverser.
 
-— et ce chemin est exactement celui qu'un vrai client prendrait. Seul l'agent
-est faux : rien n'appelle de modèle, rien ne touche la maquette.
+Ce que Python gardera : les capacités système que JS n'a pas. L'égress vers
+un fournisseur qui refuse CORS (J7), la danse OAuth qui écoute sur une socket
+(J7), et l'exécution des outils sur le fil API de Revit (J6). Rien d'autre
+n'a de raison de remonter ici.
 
-Trois choses que le volet WPF actuel ne sait pas faire, et qu'on vient voir ici :
+Pièges déjà payés, à ne pas redécouvrir :
 
-- le texte arrive **mot à mot** au lieu d'une bulle après 60 s ;
-- le Markdown est **rendu** (gras, tableaux, code) au lieu d'être nettoyé —
-  sans FlowDocument, donc hors de la classe de panne qui a tué Revit quatre fois ;
-- l'accord sur un irréversible se demande **dans le fil**, pas dans une modale
-  qui cacherait ce sur quoi on se prononce.
-
-**Le fil de fond poste directement**, sans `Dispatcher` : le banc a mesuré que
-`PostWebMessageAsJson` l'accepte hors du fil d'interface — on attendait
-l'inverse, et c'est ce qui dispense d'un tampon par jeton.
+- le WebView2 n'est PAS déclaré dans le XAML — `XamlReader` devrait résoudre
+  le namespace clr au parse, ce qui échoue tant que l'assembly n'est pas
+  référencée. Il est injecté par `.Child` ;
+- `EnsureCoreWebView2Async()` n'aboutit pas tant que le contrôle est
+  invisible, et le volet naît `default_visible=False` : d'où l'init
+  paresseuse sur `IsVisibleChanged` ;
+- la `Task` est jetée, jamais attendue : `.Result` sur le fil d'interface
+  interbloque, la Task ne se complétant que par la pompe de messages.
 """
 from __future__ import unicode_literals
 import json
@@ -33,13 +36,9 @@ from pyrevit import forms
 try:
     from core.AppPaths import AppPaths
     from core.journal import journal
-    from harnais import parts as cp
-    from harnais.agent_factice import ProtoAgent
 except Exception:
     from lib.core.AppPaths import AppPaths
     from lib.core.journal import journal
-    from lib.harnais import parts as cp
-    from lib.harnais.agent_factice import ProtoAgent
 
 try:
     from ui.helpers.UIResourceLoader import UIResourceLoader
@@ -48,14 +47,10 @@ except Exception:
     from lib.ui.helpers.UIResourceLoader import UIResourceLoader
     from lib.ui.helpers.DarkMode import is_dark
 
-_log = journal('proto')
+_log = journal('volet')
 
 HOTE = '418.local'
 PROFIL = 'webview2-proto'
-
-# Sans réponse, un irréversible est REFUSÉ. Le silence ne vaut pas accord —
-# c'est la règle du volet actuel, et elle ne se négocie pas.
-DELAI_ACCORD = 300
 
 
 def _dossier_web():
@@ -78,16 +73,12 @@ class ProtoChatPanel(forms.WPFPanel):
             UIResourceLoader(self, dark=is_dark()).merge_theme()
             forms.WPFPanel.__init__(self)
         except Exception:
-            _log.exception('construction du prototype impossible')
+            # Revit avale les exceptions de construction d'un volet ancré :
+            # sans cette trace, le panneau reste vide sans un mot.
+            _log.exception('construction du volet impossible')
             raise
         self._vue = None
         self._coeur = None
-        self._coupe = False
-        self._flux = None
-        self._accords = {}                 # id de part → (Event, [réponse])
-        # Même init paresseuse que le banc : `EnsureCoreWebView2Async`
-        # n'aboutit pas tant que le contrôle n'est pas visible, et le volet
-        # naît `default_visible=False`.
         self.IsVisibleChanged += self._sur_visibilite
         self.Loaded += self._sur_visibilite
 
@@ -98,10 +89,9 @@ class ProtoChatPanel(forms.WPFPanel):
             if self._vue is None:
                 self._creer()
         except Exception:
-            _log.exception('montage du prototype')
+            _log.exception('montage du volet')
 
     def _creer(self):
-        from System import Uri                                    # noqa: F401
         vue = _controle(os.path.join(AppPaths().data_dir(), PROFIL))
         self.Hote.Child = vue
         self._vue = vue
@@ -123,9 +113,9 @@ class ProtoChatPanel(forms.WPFPanel):
                 HOTE, _dossier_web(), CoreWebView2HostResourceAccessKind.Allow)
             coeur.WebMessageReceived += self._sur_message
             coeur.Navigate('https://{0}/vue/index.html'.format(HOTE))
-            _log.info('prototype monté')
+            _log.info('volet monté')
         except Exception:
-            _log.exception('initialisation du prototype')
+            _log.exception('initialisation du volet')
 
     # --- ce que la page demande -------------------------------------------
 
@@ -143,90 +133,37 @@ class ProtoChatPanel(forms.WPFPanel):
     def _ordre(self, message):
         ordre = message.get('ordre')
         if ordre == 'pret':
+            # Revit est la source de vérité du thème — pas Windows, que
+            # `prefers-color-scheme` lirait.
             self._poster('theme',
                          {'valeur': 'sombre' if is_dark() else 'clair'})
-        elif ordre == 'envoyer':
-            self._lancer(message.get('texte') or '')
-        elif ordre == 'interrompre':
-            # Lu entre deux morceaux par le fil de fond, jamais pendant.
-            self._coupe = True
-        elif ordre == 'accord':
-            self._repondre_accord(message.get('id'), bool(message.get('oui')))
         elif ordre == 'erreur':
+            # Un volet ancré n'a aucune fenêtre de sortie pyRevit : sans ce
+            # relais, une interface cassée reste muette.
             _log.error('interface : %s', message.get('message'))
-
-    # --- le tour ----------------------------------------------------------
-
-    def _lancer(self, texte):
-        from System.Threading import Thread, ThreadStart
-        self._coupe = False
-        flux = cp.Flux(self._poster)
-        self._flux = flux
-        agent = ProtoAgent(flux, accord=self._demander_accord,
-                           coupe=lambda: self._coupe)
-
-        def _courir():
-            # `repondre` ne lève jamais et finit toujours par `tour.fini` :
-            # sans ça l'interface resterait bloquée sur « réfléchit… ».
-            agent.repondre(texte)
-
-        fil = Thread(ThreadStart(_courir))
-        # Sans cela, un tour en cours retiendrait la fermeture de Revit.
-        fil.IsBackground = True
-        fil.Start()
+        else:
+            _log.warning('ordre inconnu : %s', ordre)
 
     def _poster(self, evenement, charge):
-        """Du fil de fond vers la page, SANS Dispatcher.
-
-        Le banc l'a mesuré (cf. `08e3335`) : `PostWebMessageAsJson` accepte un
-        appel hors du fil d'interface, et le message arrive. Passer par le
-        Dispatcher coûterait un marshal bloquant par jeton.
-        """
         if self._coeur is None:
             return
         try:
-            self._coeur.PostWebMessageAsJson(cp.encoder(evenement, charge))
+            # ensure_ascii=False : sous IronPython 2.7, laisser json échapper
+            # les accents lui-même lève. On encode explicitement derrière.
+            self._coeur.PostWebMessageAsJson(json.dumps(
+                {'evenement': evenement, 'charge': charge},
+                ensure_ascii=False))
         except Exception:
             _log.exception('envoi de %s', evenement)
 
-    # --- l'accord ---------------------------------------------------------
-
-    def _demander_accord(self, nom, arguments):
-        """Appelé DEPUIS le fil de fond, et il a le droit de bloquer.
-
-        La page a déjà dessiné les boutons : la part `outil` est née en
-        `attente_accord`. On attend sa réponse, et l'absence de réponse est un
-        refus — jamais un laissez-passer.
-        """
-        from System.Threading import ManualResetEventSlim
-        # La part `outil` vient de naître en `attente_accord` : c'est elle que
-        # la page a dessinée avec ses boutons, donc c'est son id qui reviendra.
-        # ponytail: vrai tant qu'un tour ne demande qu'un accord à la fois. Le
-        # jour où deux partent en parallèle, c'est l'agent qui doit passer l'id.
-        identifiant = self._flux.dernier_id()
-        signal = ManualResetEventSlim(False)
-        reponse = [False]
-        self._accords[identifiant] = (signal, reponse)
-        _log.warning('IRRÉVERSIBLE %s %s — accord demandé', nom, arguments)
-        try:
-            signal.Wait(DELAI_ACCORD * 1000)
-        finally:
-            self._accords.pop(identifiant, None)
-        if not reponse[0]:
-            _log.warning('IRRÉVERSIBLE %s refusé', nom)
-        return reponse[0]
-
-    def _repondre_accord(self, identifiant, oui):
-        attente = self._accords.get(identifiant)
-        if attente is None:
-            return _log.warning('accord sans demande en cours : %s', identifiant)
-        signal, reponse = attente
-        reponse[0] = oui
-        signal.Set()
-
 
 def _controle(dossier_profil):
-    """Identique au banc : les assemblies sont livrées avec Revit 2026."""
+    """Un WebView2 prêt à initialiser.
+
+    Les assemblies `Microsoft.Web.WebView2.*` sont livrées AVEC Revit 2026 et
+    déjà chargées dans le process : rien à embarquer, et vendoriser une autre
+    version serait un conflit (CoreCLR 2026, plus de binding redirect).
+    """
     import clr
     try:
         clr.AddReference('Microsoft.Web.WebView2.Wpf')
@@ -240,6 +177,8 @@ def _controle(dossier_profil):
     from Microsoft.Web.WebView2.Wpf import (WebView2,
                                             CoreWebView2CreationProperties)
     proprietes = CoreWebView2CreationProperties()
+    # Sans dossier explicite, WebView2 écrit à côté de Revit.exe — non
+    # inscriptible pour un utilisateur standard, et l'init échoue sans message.
     proprietes.UserDataFolder = dossier_profil
     vue = WebView2()
     vue.CreationProperties = proprietes

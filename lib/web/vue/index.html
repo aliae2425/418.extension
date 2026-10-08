@@ -2,35 +2,38 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>OpenArchi — prototype</title>
+<title>OpenArchi</title>
+<!-- Le moteur tourne DANS cette page, et du texte produit par un modèle y est
+     rendu en HTML. Donc : aucun script en ligne, aucun `eval`, aucune origine
+     extérieure. `'self'` suffit — `vue/` et `harnais/` partagent la même.
+
+     Pas de `'unsafe-inline'` ni de hash : le filet d'erreur a son propre
+     fichier, ce qui évite un hash à recalculer à chaque édition. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none';
+               script-src 'self';
+               style-src 'self';
+               img-src 'self' data:;
+               connect-src 'self';
+               base-uri 'none';
+               form-action 'none'">
 <!-- Deux feuilles, et l'ordre compte : les jetons d'abord, la mise en forme
      ensuite. `tokens.css` ne contient QUE des variables reprises du thème
      418 — c'est là qu'on ira brancher un générateur depuis Colors.xaml. -->
 <link rel="stylesheet" href="./tokens.css">
 <link rel="stylesheet" href="./chat.css">
+<!-- Classique et non différé : il doit tourner AVANT le module, pour
+     attraper l'échec de son `import`. Cf. l'en-tête du fichier. -->
+<script src="./filet.js"></script>
 </head>
 <body>
-
-<!-- Filet AVANT le module : un `try` placé DANS le module ne peut pas
-     attraper l'échec de son propre `import`. Sans ça, un module qui ne charge
-     pas laisse un volet muet, et ça se lit « WebView2 ne marche pas ». -->
-<script>
-window.addEventListener('error', function (e) {
-  var pied = document.getElementById('pied');
-  if (pied) pied.textContent = 'interface cassée : ' + (e.message || e.type);
-  try {
-    window.chrome.webview.postMessage(JSON.stringify({
-      ordre: 'erreur', message: String(e.message || e.type)
-    }));
-  } catch (_) { /* l'hôte verra l'absence de `pret` */ }
-});
-</script>
 
 <div id="fil">
   <div class="tour">
     <div class="bulle lui">
-      <p><strong>Prototype</strong> — agent fictif. Aucun modèle n'est appelé,
-      la maquette n'est pas touchée.</p>
+      <p><strong>OpenArchi</strong> — le moteur tourne, le <strong>modèle est
+      fictif</strong>. Aucun modèle n'est appelé, la maquette n'est pas
+      touchée.</p>
       <p>Quatre scénarios, selon ce que vous écrivez :</p>
       <ul>
         <li><code>bonjour</code> — réponse simple, en flux</li>
