@@ -1,0 +1,117 @@
+/* Les jetons du thème 418, et RIEN d'autre.
+ *
+ * Valeurs reprises une à une de `lib/ui/GUI/resources/Colors.xaml` et
+ * `ColorsDark.xaml`. C'est une DEUXIÈME COPIE des thèmes, et CLAUDE.md dit
+ * qu'il ne doit y en avoir qu'une — la dette est donc ici, isolée dans un
+ * fichier qui ne contient que ça, pour qu'elle soit générable le jour venu
+ * (`tools/themecss.ps1`, sur le modèle de `tools/icones.ps1`).
+ * ponytail: copie à la main. Générer dès qu'une couleur diverge.
+ *
+ * Toute valeur de style du chat doit venir d'ici. Une couleur écrite en dur
+ * dans `chat.css` est un bug : elle ne suivra pas le thème de Revit.
+ *
+ * Le thème est POUSSÉ par l'hôte (`body.sombre`), jamais deviné :
+ * `prefers-color-scheme` lit Windows, qui n'est pas Revit.
+ */
+
+:root {
+  /* --- surfaces (Colors.xaml) --- */
+  --fond:            #F3F3F3;   /* WindowBackgroundBrush */
+  --carte:           #FFFFFF;   /* CardBackgroundBrush */
+  --bulle-reponse:   #EAF2FC;   /* BulleReponseBrush — déjà prévu pour ça */
+  --champ:           #FFFFFF;   /* ControlFillBrush */
+  --champ-survol:    #F9F9F9;   /* ControlFillHoverBrush */
+
+  /* --- texte --- */
+  --texte:           #1A1A1A;   /* TextPrimaryBrush */
+  --texte-faible:    #5D5D5D;   /* TextSecondaryBrush */
+  --texte-eteint:    #9D9D9D;   /* TextDisabledBrush */
+  --texte-accent:    #FFFFFF;   /* TextOnAccentBrush */
+
+  /* --- traits --- */
+  --trait:           #E0E0E0;   /* ControlBorderBrush */
+  --trait-survol:    #C0C0C0;   /* ControlBorderHoverBrush */
+
+  /* --- accents et états --- */
+  --accent:          #0078D4;   /* AccentBrush */
+  --accent-survol:   #006CC1;   /* AccentHoverBrush */
+  --succes:          #2E9E4F;   /* SuccessBrush */
+  --erreur:          #D13438;   /* ErrorBrush */
+  --alerte:          #B8860B;   /* WarningBrush */
+
+  /* --- voiles --- */
+  /* Un gris translucide plutôt qu'une couleur figée : il se pose aussi bien
+     sur une bulle claire que sur une bulle foncée, donc une seule valeur
+     suffit pour les deux thèmes. */
+  --voile:           rgba(127, 127, 127, .14);
+  --voile-fort:      rgba(127, 127, 127, .24);
+
+  /* --- échelle d'espacement : 4 px, et on s'y tient --- */
+  --e1: 4px;
+  --e2: 8px;
+  --e3: 12px;
+  --e4: 16px;
+  --e5: 24px;
+
+  /* --- rayons --- */
+  --r-petit:  6px;
+  --r-moyen:  10px;
+  --r-grand:  14px;
+
+  /* --- typographie --- */
+  /* Segoe UI Variable d'abord : c'est la police de Revit 2026 sous Win11,
+     donc le volet se fond dans l'hôte au lieu de détonner. */
+  --police: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --police-fixe: "Cascadia Mono", Consolas, "Courier New", monospace;
+  --t-petit:  11px;
+  --t-base:   13px;
+  --t-grand:  15px;
+  --interligne: 1.55;
+
+  /* --- profondeur --- */
+  --ombre: 0 1px 2px rgba(0, 0, 0, .07), 0 2px 8px rgba(0, 0, 0, .05);
+
+  /* --- mouvement --- */
+  --vif:  .12s ease-out;
+  --doux: .22s ease-out;
+}
+
+body.sombre {
+  --fond:            #23272F;
+  --carte:           #2C313A;
+  --bulle-reponse:   #25364B;
+  --champ:           #23272F;
+  --champ-survol:    #2C313A;
+
+  --texte:           #F3F3F3;
+  --texte-faible:    #B0B0B0;
+  --texte-eteint:    #5D5D5D;
+  --texte-accent:    #FFFFFF;   /* PAS #23272F : sur un bouton bleu plein,
+                                   TextOnAccentBrush sombre serait illisible */
+
+  --trait:           #444A57;
+  --trait-survol:    #0078D4;
+
+  --accent:          #0078D4;
+  --accent-survol:   #3399FF;
+  --succes:          #56C271;
+  --erreur:          #D13438;
+  --alerte:          #E5A93B;
+
+  --ombre: 0 1px 2px rgba(0, 0, 0, .35), 0 2px 10px rgba(0, 0, 0, .28);
+}
+
+/* Revit s'ouvre sur un thème, et le volet est monté avant que l'hôte ait
+   poussé le sien : sans ça, un éclair blanc à chaque ouverture en sombre. */
+@media (prefers-color-scheme: dark) {
+  body:not(.clair):not(.sombre) { background: #23272F; color: #F3F3F3; }
+}
+
+/* Respecte le réglage système : nos animations sont du confort, pas du sens. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}

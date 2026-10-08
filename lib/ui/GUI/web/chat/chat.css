@@ -1,0 +1,368 @@
+/* La mise en forme du chat. Toute valeur vient de `tokens.css` — une couleur
+ * écrite en dur ici ne suivrait pas le thème de Revit.
+ *
+ * Contrainte de départ, et elle décide de presque tout : le volet est ANCRÉ.
+ * Il fait souvent 340 px de large, parfois 2500 quand on l'ancre en bas. La
+ * mise en page doit tenir aux deux bouts, donc : une seule colonne, rien de
+ * fixe en largeur, et des bulles bornées en `ch` plutôt qu'en pourcentage —
+ * une ligne de 200 caractères ne se lit pas, même s'il y a la place.
+ */
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--fond);
+  color: var(--texte);
+  font-family: var(--police);
+  font-size: var(--t-base);
+  line-height: var(--interligne);
+  /* Le texte d'un chat se relit et se copie : c'est la seule chose que les
+     bulles WPF savaient faire et qu'on n'a pas le droit de perdre. */
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* ------------------------------------------------------------------ le fil */
+
+#fil {
+  flex: 1;
+  min-height: 0;                 /* sans ça, un flex enfant refuse de défiler */
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--e4) var(--e3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  scrollbar-width: thin;
+  scrollbar-color: var(--trait-survol) transparent;
+}
+#fil::-webkit-scrollbar { width: 10px; }
+#fil::-webkit-scrollbar-thumb {
+  background: var(--trait);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 99px;
+}
+#fil::-webkit-scrollbar-thumb:hover { background-color: var(--trait-survol); }
+
+.tour { display: flex; flex-direction: column; gap: var(--e2); }
+
+/* ---------------------------------------------------------------- les bulles */
+
+.bulle {
+  padding: var(--e2) var(--e3);
+  border-radius: var(--r-moyen);
+  /* 68ch : au-delà, l'œil perd la ligne suivante. Le `min()` garde la borne
+     utile quand le volet est étroit. */
+  max-width: min(68ch, 92%);
+  overflow-wrap: anywhere;
+  animation: apparait var(--doux);
+}
+
+@keyframes apparait {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.bulle.moi {
+  align-self: flex-end;
+  background: var(--accent);
+  color: var(--texte-accent);
+  /* Le coin coupé côté expéditeur : ça dit qui parle sans écrire un nom. */
+  border-bottom-right-radius: var(--r-petit);
+}
+.bulle.moi code { background: rgba(255, 255, 255, .22); }
+
+.bulle.lui {
+  align-self: flex-start;
+  background: var(--bulle-reponse);
+  border-bottom-left-radius: var(--r-petit);
+}
+
+/* Le curseur de frappe ne vit que pendant le flux : c'est lui qui distingue
+   « ça arrive » de « c'est fini, et c'était court ». */
+.bulle.ecrit::after {
+  content: "";
+  display: inline-block;
+  width: .5em;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: currentColor;
+  opacity: .65;
+  animation: clignote 1.1s steps(2) infinite;
+}
+@keyframes clignote { 50% { opacity: 0; } }
+
+/* ------------------------------------------------------- le raisonnement */
+
+details.raisonnement {
+  align-self: flex-start;
+  max-width: min(68ch, 92%);
+  font-size: var(--t-petit);
+  color: var(--texte-faible);
+  border-left: 2px solid var(--trait);
+  padding-left: var(--e3);
+}
+details.raisonnement > summary {
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  color: var(--texte-eteint);
+  padding: 2px 0;
+}
+details.raisonnement > summary::-webkit-details-marker { display: none; }
+details.raisonnement > summary::before {
+  content: "▸ ";
+  display: inline-block;
+  transition: transform var(--vif);
+}
+details.raisonnement[open] > summary::before { transform: rotate(90deg); }
+details.raisonnement > summary:hover { color: var(--texte-faible); }
+details.raisonnement .corps { padding-bottom: var(--e1); }
+
+/* --------------------------------------------------------- appels d'outils */
+
+.outil {
+  align-self: stretch;
+  border: 1px solid var(--trait);
+  border-radius: var(--r-petit);
+  background: var(--carte);
+  font-size: var(--t-petit);
+  overflow: hidden;
+  transition: border-color var(--doux);
+}
+
+.outil > .tete {
+  display: flex;
+  align-items: baseline;
+  gap: var(--e2);
+  padding: var(--e2) var(--e3);
+  /* Le volet peut être très étroit : les arguments cèdent avant le nom. */
+  min-width: 0;
+}
+.outil .nom {
+  font-family: var(--police-fixe);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.outil .args {
+  flex: 1;
+  min-width: 0;
+  color: var(--texte-eteint);
+  font-family: var(--police-fixe);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.outil .etat { white-space: nowrap; color: var(--texte-faible); }
+
+/* Une pastille plutôt qu'un mot de plus : à 11 px, la couleur se lit avant
+   le texte, et elle tient quand le volet est étroit. */
+.outil .etat::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: var(--e1);
+  border-radius: 99px;
+  background: currentColor;
+  vertical-align: middle;
+}
+.outil[data-etat="en_cours"] .etat { color: var(--accent); }
+.outil[data-etat="en_cours"] .etat::before { animation: pulse 1.2s infinite; }
+.outil[data-etat="fait"]  .etat { color: var(--succes); }
+.outil[data-etat="echec"] .etat,
+.outil[data-etat="refuse"] .etat { color: var(--erreur); }
+.outil[data-etat="attente_accord"] .etat { color: var(--alerte); }
+.outil[data-etat="attente_accord"] {
+  border-color: var(--alerte);
+  box-shadow: var(--ombre);
+}
+@keyframes pulse { 50% { opacity: .25; } }
+
+.outil pre {
+  margin: 0;
+  padding: var(--e2) var(--e3);
+  border-top: 1px solid var(--trait);
+  background: var(--voile);
+  font-family: var(--police-fixe);
+  font-size: var(--t-petit);
+  color: var(--texte-faible);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* Une sortie d'outil peut faire 6 000 caractères : on la borne, elle
+     défile, et elle ne noie pas la conversation. */
+  max-height: 11em;
+  overflow-y: auto;
+}
+
+/* ------------------------------------------------------------- l'accord */
+
+/* La demande vit DANS le fil, jamais dans une modale : une modale cacherait
+   précisément ce sur quoi on se prononce. */
+.accord {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2);
+  align-items: center;
+  padding: var(--e2) var(--e3) var(--e3);
+  border-top: 1px solid var(--trait);
+}
+.accord .avertit {
+  flex: 1 1 14ch;
+  color: var(--alerte);
+  font-size: var(--t-petit);
+}
+.accord button {
+  padding: var(--e1) var(--e3);
+  border-radius: var(--r-petit);
+  border: 1px solid var(--trait);
+  background: var(--champ);
+  color: var(--texte);
+  font: inherit;
+  font-size: var(--t-petit);
+  cursor: pointer;
+  transition: background var(--vif), border-color var(--vif);
+}
+.accord button:hover { background: var(--champ-survol); }
+.accord button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+/* Refuser est premier dans le DOM — donc premier au Tab — et porte la couleur
+   d'alerte sans être rempli : le geste sûr doit être le plus facile, et le
+   geste coûteux ne doit pas être le plus attirant. */
+.accord button.refuser { border-color: var(--erreur); color: var(--erreur); }
+.accord button.accorder { border-color: var(--succes); color: var(--succes); }
+
+/* --------------------------------------------------- étapes et erreurs */
+
+.etape {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  font-size: var(--t-petit);
+  color: var(--texte-eteint);
+  font-style: italic;
+}
+.etape::before {
+  content: "";
+  width: 14px;
+  height: 1px;
+  background: var(--trait-survol);
+}
+
+.erreur {
+  align-self: stretch;
+  padding: var(--e2) var(--e3);
+  border-radius: var(--r-petit);
+  border: 1px solid var(--erreur);
+  background: var(--voile);
+  color: var(--erreur);
+  font-size: var(--t-petit);
+}
+
+/* ------------------------------------------------ markdown dans les bulles */
+
+.bulle > :first-child { margin-top: 0; }
+.bulle > :last-child { margin-bottom: 0; }
+.bulle p { margin: 0 0 var(--e2); }
+.bulle h3, .bulle h4, .bulle h5, .bulle h6 {
+  margin: var(--e3) 0 var(--e2);
+  font-size: var(--t-grand);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.bulle h5, .bulle h6 { font-size: var(--t-base); }
+.bulle ul, .bulle ol { margin: 0 0 var(--e2); padding-left: var(--e5); }
+.bulle li { margin-bottom: var(--e1); }
+
+.bulle code {
+  font-family: var(--police-fixe);
+  font-size: .92em;
+  background: var(--voile);
+  padding: 1px 5px;
+  border-radius: var(--r-petit);
+}
+
+/* Un tableau peut dépasser un volet de 340 px : il défile DANS son coin,
+   jamais la page. C'est la règle qui évite la barre horizontale générale. */
+.bulle .tableau {
+  overflow-x: auto;
+  margin: 0 0 var(--e2);
+  scrollbar-width: thin;
+}
+.bulle table {
+  border-collapse: collapse;
+  font-size: var(--t-petit);
+  min-width: 100%;
+}
+.bulle th, .bulle td {
+  border: 1px solid var(--trait);
+  padding: var(--e1) var(--e2);
+  text-align: left;
+  white-space: nowrap;
+}
+.bulle th { background: var(--voile); font-weight: 600; }
+
+/* ------------------------------------------------------------- la saisie */
+
+#barre {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--e2);
+  padding: var(--e2) var(--e3);
+  border-top: 1px solid var(--trait);
+  background: var(--fond);
+}
+
+#saisie {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  max-height: 7.5em;
+  padding: var(--e2) var(--e3);
+  border: 1px solid var(--trait);
+  border-radius: var(--r-moyen);
+  background: var(--champ);
+  color: var(--texte);
+  font: inherit;
+  transition: border-color var(--vif);
+}
+#saisie::placeholder { color: var(--texte-eteint); }
+#saisie:hover { border-color: var(--trait-survol); }
+#saisie:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+#action {
+  flex: 0 0 auto;
+  padding: var(--e2) var(--e4);
+  border: 1px solid transparent;
+  border-radius: var(--r-moyen);
+  background: var(--accent);
+  color: var(--texte-accent);
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--vif);
+}
+#action:hover { background: var(--accent-survol); }
+#action:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#action.stop { background: var(--erreur); }
+#action:disabled { background: var(--texte-eteint); cursor: default; }
+
+#pied {
+  padding: 0 var(--e3) var(--e2);
+  font-size: var(--t-petit);
+  color: var(--texte-eteint);
+  background: var(--fond);
+  min-height: 1.5em;
+}

@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """Prototype de chat : moteur Python, interface web, aucun modèle derrière.
 
-Le banc (`SpikeWebPanel`) a répondu aux questions de faisabilité. Celui-ci
-répond à la seule qui restait : **est-ce que ça fait un bon chat ?** Il monte
-donc le chemin complet, en vrai —
+Le banc d'essai a répondu aux questions de faisabilité — il a été retiré, ses
+mesures sont dans le message de `08e3335`. Celui-ci répond à la seule qui
+restait : **est-ce que ça fait un bon chat ?** Il monte le chemin complet,
+en vrai —
 
     ProtoAgent (fil de fond) → Flux → parts JSON
         → PostWebMessageAsJson → app.js → DOM
@@ -20,8 +21,8 @@ Trois choses que le volet WPF actuel ne sait pas faire, et qu'on vient voir ici 
   qui cacherait ce sur quoi on se prononce.
 
 **Le fil de fond poste directement**, sans `Dispatcher` : le banc a mesuré que
-`PostWebMessageAsJson` l'accepte (point [8]) — on attendait l'inverse, et c'est
-ce qui dispense d'un tampon par jeton.
+`PostWebMessageAsJson` l'accepte hors du fil d'interface — on attendait
+l'inverse, et c'est ce qui dispense d'un tampon par jeton.
 """
 from __future__ import unicode_literals
 import json
@@ -65,7 +66,7 @@ class ProtoChatPanel(forms.WPFPanel):
 
     panel_id = 'c9a41f27-6d8b-4e32-91af-7b04e5c2d6a3'
     panel_source = os.path.join(AppPaths().pages_dir(), 'ProtoChatPanel.xaml')
-    panel_title = 'OpenArchi (proto)'
+    panel_title = 'OpenArchi'
 
     def __init__(self):
         try:
@@ -172,7 +173,7 @@ class ProtoChatPanel(forms.WPFPanel):
     def _poster(self, evenement, charge):
         """Du fil de fond vers la page, SANS Dispatcher.
 
-        Le banc l'a mesuré (point [8]) : `PostWebMessageAsJson` accepte un
+        Le banc l'a mesuré (cf. `08e3335`) : `PostWebMessageAsJson` accepte un
         appel hors du fil d'interface, et le message arrive. Passer par le
         Dispatcher coûterait un marshal bloquant par jeton.
         """

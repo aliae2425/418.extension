@@ -86,46 +86,23 @@ def _beta():
 
 
 def _volet():
-    """Volet ancrable OpenArchi.
+    """Volet ancrable OpenArchi — l'interface web.
 
     C'est l'étape fragile : elle est la seule à toucher WPF, et elle exige
     un moteur IronPython — sous CPython, ``pyrevit.forms`` n'est qu'une
     doublure qui lève sur ``WPFPanel``.
-    """
-    from pyrevit import forms
-    from ui.OpenArchiPanel import OpenArchiPanel
-    if forms.is_registered_dockable_panel(OpenArchiPanel):
-        return 'déjà enregistré'
-    # Un « Reload » pyRevit rejoue ce script hors OnStartup : Revit refuse
-    # alors l'enregistrement. Un redémarrage de Revit suffit.
-    forms.register_dockable_panel(OpenArchiPanel, default_visible=False)
-    return 'enregistré'
 
-
-def _volet_spike():
-    """Banc d'essai WebView2 — jetable, à retirer avec son bouton.
-
-    Volet distinct, `panel_id` distinct : un échec ici ne peut rien faire au
-    volet OpenArchi, et `_etape` garantit qu'il ne l'emporte pas non plus.
-    """
-    from pyrevit import forms
-    from ui.SpikeWebPanel import SpikeWebPanel
-    if forms.is_registered_dockable_panel(SpikeWebPanel):
-        return 'déjà enregistré'
-    forms.register_dockable_panel(SpikeWebPanel, default_visible=False)
-    return 'enregistré'
-
-
-def _volet_proto():
-    """Prototype de chat en interface web — jetable lui aussi.
-
-    Volet distinct du banc et d'OpenArchi : trois `panel_id`, trois étapes,
-    aucune ne peut emporter les autres.
+    L'ancien volet WPF (``ui.OpenArchiPanel``) n'est plus enregistré. Ses
+    modules restent dans le dépôt : ils portent l'OAuth, les trois clients et
+    la boucle d'outils, que l'interface web n'a pas encore. On enlève la
+    porte, pas la pièce.
     """
     from pyrevit import forms
     from ui.ProtoChatPanel import ProtoChatPanel
     if forms.is_registered_dockable_panel(ProtoChatPanel):
         return 'déjà enregistré'
+    # Un « Reload » pyRevit rejoue ce script hors OnStartup : Revit refuse
+    # alors l'enregistrement. Un redémarrage de Revit suffit.
     forms.register_dockable_panel(ProtoChatPanel, default_visible=False)
     return 'enregistré'
 
@@ -151,6 +128,4 @@ if _log is not None:
 
 if _etape('réglages pyRevit', _beta):
     _etape('volet OpenArchi', _volet)
-    _etape('volet banc WebView2', _volet_spike)
-    _etape('volet prototype chat', _volet_proto)
 _etape('routes 418', _routes)
