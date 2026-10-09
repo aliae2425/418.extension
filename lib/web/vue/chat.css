@@ -281,14 +281,17 @@ details.raisonnement .corps { padding-bottom: var(--e1); }
 .attente {
   align-self: flex-start;
   display: flex;
-  align-items: baseline;
-  gap: var(--e2);
+  /* Empilés : le chronomètre SOUS le mot, pas à côté. En ligne, le chiffre
+     tire l'œil autant que l'état lui-même alors qu'il n'est qu'un repère. */
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
   padding: var(--e2) var(--e3);
   border-radius: var(--r-moyen);
   border-bottom-left-radius: var(--r-petit);
   background: var(--bulle-reponse);
   color: var(--texte-faible);
-  font-size: var(--t-petit);
+  font-size: var(--t-base);
   animation: apparait var(--doux);
 }
 
@@ -305,9 +308,11 @@ details.raisonnement .corps { padding-bottom: var(--e1); }
 @keyframes points { to { clip-path: inset(0 0 0 0); } }
 
 /* Chiffres à chasse fixe : sans ça la bulle sautille à chaque seconde, le 1
-   étant plus étroit que le 8. */
+   étant plus étroit que le 8. Plus petit et plus pâle que le mot : c'est un
+   repère, pas l'information. */
 .attente .duree {
   font-variant-numeric: tabular-nums;
+  font-size: var(--t-petit);
   color: var(--texte-eteint);
 }
 
