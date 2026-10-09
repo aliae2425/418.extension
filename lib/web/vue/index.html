@@ -49,8 +49,13 @@
   </div>
 </div>
 
+<!-- Au-dessus de la saisie, pas dessous : la liste pousserait sinon le champ
+     hors de l'écran à mesure qu'elle se remplit. -->
+<div id="suggestions" hidden></div>
+
 <div id="barre">
-  <textarea id="saisie" rows="1" placeholder="Écrivez…"></textarea>
+  <textarea id="saisie" rows="1" placeholder="Écrivez… ou / pour les commandes"
+            autocomplete="off" spellcheck="false"></textarea>
   <button id="action">Envoyer</button>
 </div>
 <div id="pied">agent fictif — rien n'est envoyé, rien n'est modifié</div>

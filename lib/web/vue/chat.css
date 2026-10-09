@@ -427,6 +427,65 @@ details.raisonnement .corps { padding-bottom: var(--e1); }
 
 /* ------------------------------------------------------------- la saisie */
 
+/* ----------------------------------------------- propositions de commandes */
+
+/* Au-dessus de la saisie, dans le flux : en superposition elle masquerait la
+   dernière réponse, qu'on relit justement en tapant la commande suivante. */
+#suggestions {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--trait);
+  background: var(--carte);
+  max-height: 40vh;
+  overflow-y: auto;
+}
+#suggestions[hidden] { display: none; }
+
+.choix {
+  display: flex;
+  align-items: baseline;
+  gap: var(--e2);
+  width: 100%;
+  padding: var(--e2) var(--e3);
+  border: none;
+  background: none;
+  color: var(--texte);
+  font: inherit;
+  font-size: var(--t-petit);
+  text-align: left;
+  cursor: pointer;
+}
+.choix:hover { background: var(--voile); }
+
+/* Le choix courant porte une barre à gauche, pas seulement un fond : au
+   clavier on suit un repère de position, et un simple gris se confond avec
+   le survol de la souris. */
+.choix.actif {
+  background: var(--voile);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.choix .nom {
+  font-family: var(--police-fixe);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.choix .args {
+  font-family: var(--police-fixe);
+  color: var(--texte-eteint);
+  white-space: nowrap;
+}
+/* L'aide cède la première quand le volet est étroit : le nom doit rester
+   entier, c'est lui qu'on complète. */
+.choix .aide {
+  flex: 1;
+  min-width: 0;
+  color: var(--texte-faible);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 #barre {
   display: flex;
   align-items: flex-end;
