@@ -41,12 +41,10 @@ class TestRangement(_Bac):
 
     def test_sans_rien_la_cle_est_vide(self):
         self.assertEqual('', secrets.cle())
-        self.assertEqual('', secrets.source())
 
     def test_poser_puis_relire(self):
         self.assertTrue(secrets.poser_cle('sk-essai'))
         self.assertEqual('sk-essai', secrets.cle())
-        self.assertEqual('reglage', secrets.source())
 
     def test_les_espaces_sont_rognes(self):
         # Une clé collée depuis un navigateur traîne souvent un retour ligne.
@@ -71,7 +69,6 @@ class TestPrecedence(_Bac):
     def test_lenvironnement_sert_de_repli(self):
         os.environ['OPENAI_API_KEY'] = 'sk-env'
         self.assertEqual('sk-env', secrets.cle())
-        self.assertEqual('environnement', secrets.source())
 
     def test_le_reglage_gagne_sur_lenvironnement(self):
         # Taper /connect et ne rien voir changer parce qu'une variable
@@ -79,14 +76,12 @@ class TestPrecedence(_Bac):
         os.environ['OPENAI_API_KEY'] = 'sk-env'
         secrets.poser_cle('sk-reglage')
         self.assertEqual('sk-reglage', secrets.cle())
-        self.assertEqual('reglage', secrets.source())
 
     def test_oublier_retombe_sur_lenvironnement(self):
         os.environ['OPENAI_API_KEY'] = 'sk-env'
         secrets.poser_cle('sk-reglage')
         self.assertTrue(secrets.oublier_cle())
         self.assertEqual('sk-env', secrets.cle())
-        self.assertEqual('environnement', secrets.source())
 
     def test_oublier_ne_touche_pas_a_lenvironnement(self):
         # On n'a pas le droit d'effacer un réglage posé par l'IT.

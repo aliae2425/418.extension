@@ -52,14 +52,6 @@ DELAI = 30
 # tape le même serveur en parallèle rouvre la course.
 _VERROU = threading.Lock()
 
-# Dernier verdict de `disponible()`, relu par le bandeau du panneau sans
-# refaire d'appel : une requête de plus, c'était une occasion de collision.
-_dernier = {'ok': True, 'raison': ''}
-
-# Dernier outil qui a échoué. Le modèle reçoit l'erreur et en fait ce qu'il
-# veut — parfois rien. L'architecte, lui, doit la voir.
-_echec = {'texte': ''}
-
 # Catalogue servi par /418/outils/, lu une fois par session : il ne change
 # pas sans un Reload pyRevit, qui rejoue le processus de toute façon.
 _catalogue = []
@@ -80,42 +72,8 @@ def outils():
 
 
 def oublier_catalogue():
+    """Pour les tests seulement : un cache de module se garde d'un test à l'autre."""
     del _catalogue[:]
-
-
-def irreversibles():
-    """Les outils qu'aucun Ctrl+Z ne défait, d'après le serveur."""
-    return tuple(o['nom'] for o in outils() if o.get('irreversible'))
-
-
-def derniere_raison():
-    """Ce qu'a conclu le dernier ``disponible()``. Aucun appel réseau."""
-    return _dernier['raison']
-
-
-def disponible():
-    """``(utilisable, raison)`` — la raison n'a de sens que si c'est faux."""
-    ok, raison = _verdict()
-    _dernier['ok'], _dernier['raison'] = ok, raison
-    return ok, raison
-
-
-def _verdict():
-    if not routes418.base():
-        return False, routes418.ABSENT
-    try:
-        brut = _appeler('/418/etat/', 'GET', None, timeout=5)
-    except Exception as e:
-        _log.warning('maquette injoignable : %s', e)
-        return False, ('Maquette injoignable : le serveur de routes pyRevit '
-                       'ne répond pas. /journal pour le détail.')
-    try:
-        etat = json.loads(brut)
-    except ValueError:
-        return False, 'Maquette injoignable : réponse illisible de Revit.'
-    if not etat.get('revit_disponible'):
-        return False, 'Aucun document Revit ouvert : les outils resteront muets.'
-    return True, ''
 
 
 def executer(nom, arguments=None):
@@ -146,7 +104,6 @@ def executer(nom, arguments=None):
     souci = _erreur_dans_le_corps(brut)
     if souci:
         _log.error('%s : %s', nom, souci)
-        _echec['texte'] = '{0} — {1}'.format(nom, souci)
     _log.debug('%s -> %s octets', nom, len(brut))
     return _tronquer(brut, bool(fiche['parametres'].get('properties')))
 
@@ -239,14 +196,11 @@ def _tronquer(texte, filtrable=True):
 
 
 def _echoue(nom, message):
-    """Journalise, retient pour le panneau, et rend l'erreur au modèle."""
+    """Journalise, et rend l'erreur au modèle.
+
+    Elle lui revient en JSON plutôt qu'en exception : il peut la dire ou
+    corriger sa demande, là qu'une exception ferait échouer le tour entier.
+    L'interface, elle, la lit dans la part `outil` passée en échec.
+    """
     _log.error('%s : %s', nom, message)
-    _echec['texte'] = '{0} — {1}'.format(nom, message)
     return json.dumps({'erreur': message}, ensure_ascii=False)
-
-
-def dernier_echec():
-    """Le dernier échec d'outil, UNE seule fois. '' s'il n'y en a pas eu."""
-    texte = _echec['texte']
-    _echec['texte'] = ''
-    return texte

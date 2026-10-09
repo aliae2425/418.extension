@@ -85,15 +85,6 @@ def cle(variable='OPENAI_API_KEY'):
     return (os.environ.get(variable) or '').strip()
 
 
-def source(variable='OPENAI_API_KEY'):
-    """D'où vient la clé : ``'reglage'``, ``'environnement'`` ou ``''``."""
-    if (_lire().get('cle') or '').strip():
-        return 'reglage'
-    if (os.environ.get(variable) or '').strip():
-        return 'environnement'
-    return ''
-
-
 def poser_cle(valeur):
     """Range la clé. ``True`` si c'est écrit.
 

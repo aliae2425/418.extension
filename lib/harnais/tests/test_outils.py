@@ -48,7 +48,6 @@ class _Pont(unittest.TestCase):
         revit_outils._appeler = self._vrai
         revit_outils.routes418.base = self._base
         revit_outils.oublier_catalogue()
-        revit_outils._echec['texte'] = ''
 
     def _faux(self, route, methode, corps, timeout=None):
         self.appels.append((route, methode, corps))
@@ -69,9 +68,12 @@ class TestCatalogueServi(_Pont):
         revit_outils.outils()
         self.assertEqual(self.appels.count(('/418/outils/', 'GET', None)), 1)
 
-    def test_les_irreversibles_viennent_du_serveur(self):
-        self.assertEqual(revit_outils.irreversibles(),
-                         ('revit_executer_code',))
+    def test_le_drapeau_irreversible_traverse_le_pont(self):
+        # C'est lui qui déclenche la demande d'accord côté page. Le perdre en
+        # route ferait partir un `revit_executer_code` sans rien demander.
+        par_nom = dict((o['nom'], o) for o in revit_outils.outils())
+        self.assertTrue(par_nom['revit_executer_code']['irreversible'])
+        self.assertFalse(par_nom['revit_etat']['irreversible'])
 
     def test_un_serveur_muet_donne_un_catalogue_vide(self):
         # Pas de tools envoyés = le chat marche comme avant, sans outils.
@@ -109,19 +111,15 @@ class TestExecution(_Pont):
         sortie = json.loads(revit_outils.executer('revit_etat'))
         self.assertIn('socket fermée', sortie['erreur'])
 
-    def test_un_echec_cache_dans_un_200_est_retenu(self):
-        # Plusieurs routes rendent {"erreur": …} sans toucher au code HTTP :
-        # sans ce contrôle, l'architecte ne voyait jamais ces échecs-là.
+    def test_un_echec_cache_dans_un_200_repart_au_modele(self):
+        # Plusieurs routes rendent {"erreur": …} sans toucher au code HTTP.
+        # La sortie part telle quelle : côté page, `outils_revit.js` la relève
+        # et la boucle marque la part en échec. L'architecte la voit là.
         revit_outils.outils()
         revit_outils._appeler = lambda *a, **k: json.dumps(
             {'erreur': 'aucune vue active'})
-        revit_outils.executer('revit_etat')
-        self.assertIn('aucune vue active', revit_outils.dernier_echec())
-
-    def test_l_echec_ne_se_lit_qu_une_fois(self):
-        revit_outils._echec['texte'] = 'x'
-        self.assertEqual(revit_outils.dernier_echec(), 'x')
-        self.assertEqual(revit_outils.dernier_echec(), '')
+        sortie = revit_outils.executer('revit_etat')
+        self.assertIn('aucune vue active', sortie)
 
 
 class TestTroncature(unittest.TestCase):
@@ -141,48 +139,6 @@ class TestTroncature(unittest.TestCase):
         long = 'x' * (revit_outils.LIMITE_SORTIE + 500)
         self.assertIn('aucun filtre', revit_outils._tronquer(long, False))
         self.assertIn('restreindre', revit_outils._tronquer(long, True))
-
-
-class TestDisponible(_Pont):
-    def _repond(self, charge):
-        revit_outils._appeler = lambda *a, **k: charge
-
-    def test_sans_serveur_pyrevit_on_dit_quoi_faire(self):
-        # Pas d'erreur réseau : il n'y a rien à joindre, et la sortie est une
-        # case à cocher dans pyRevit — l'utilisateur doit pouvoir la trouver.
-        revit_outils.routes418.base = lambda: ''
-        ouvert, raison = revit_outils.disponible()
-        self.assertFalse(ouvert)
-        self.assertIn('Routes', raison)
-
-    def test_le_controle_interroge_la_route_d_etat(self):
-        revit_outils.disponible()
-        self.assertEqual(self.appels[-1][0], '/418/etat/')
-
-    def test_document_ouvert(self):
-        self._repond(json.dumps({'revit_disponible': True}))
-        self.assertEqual(revit_outils.disponible(), (True, ''))
-
-    def test_revit_sans_document(self):
-        self._repond(json.dumps({'revit_disponible': False}))
-        ouvert, raison = revit_outils.disponible()
-        self.assertFalse(ouvert)
-        self.assertIn('document', raison.lower())
-
-    def test_serveur_muet(self):
-        def casse(*_a, **_k):
-            raise ValueError('connexion refusée')
-        revit_outils._appeler = casse
-        ouvert, raison = revit_outils.disponible()
-        self.assertFalse(ouvert)
-        self.assertIn('injoignable', raison.lower())
-
-    def test_reponse_illisible(self):
-        self._repond('<html>pas du json</html>')
-        ouvert, raison = revit_outils.disponible()
-        self.assertFalse(ouvert)
-        self.assertTrue(raison)
-
 
 if __name__ == '__main__':
     unittest.main()

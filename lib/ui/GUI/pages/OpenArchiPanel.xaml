@@ -3,7 +3,7 @@
       Background="{DynamicResource WindowBackgroundBrush}">
 
   <!--
-    Prototype de chat (lib/ui/ProtoChatPanel.py).
+    Volet OpenArchi (lib/ui/OpenArchiPanel.py).
 
     Ce XAML est volontairement VIDE de tout ce qui fait un chat : pas de bulle,
     pas de liste, pas de gabarit. Toute l'interface vit dans

@@ -52,7 +52,7 @@ except Exception:
 _log = journal('volet')
 
 HOTE = '418.local'
-PROFIL = 'webview2-proto'
+PROFIL = 'webview2'
 
 # Ce que la page envoie en `Authorization`, et que l'hôte remplace. La clé
 # ne traverse jamais la frontière : une XSS dans une bulle ne trouve rien.
@@ -78,10 +78,10 @@ def _dossier_web():
     return AppPaths().web_dir()
 
 
-class ProtoChatPanel(forms.WPFPanel):
+class OpenArchiPanel(forms.WPFPanel):
 
     panel_id = 'c9a41f27-6d8b-4e32-91af-7b04e5c2d6a3'
-    panel_source = os.path.join(AppPaths().pages_dir(), 'ProtoChatPanel.xaml')
+    panel_source = os.path.join(AppPaths().pages_dir(), 'OpenArchiPanel.xaml')
     panel_title = 'OpenArchi'
 
     def __init__(self):

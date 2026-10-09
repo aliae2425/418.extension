@@ -29,23 +29,14 @@
 <body>
 
 <div id="fil">
-  <div class="tour">
-    <div class="bulle lui">
-      <p><strong>OpenArchi</strong> — le pied de page dit qui répond et sur
-      quels outils. Le modèle est réel dès que <code>OPENAI_API_KEY</code> est
-      posée ; les outils sont ceux de la maquette dès que les
-      <strong>routes pyRevit</strong> tournent et qu'un projet est ouvert.</p>
-      <p><code>/connect sk-…</code> pour poser une clé — <code>/aide</code>
-      liste les commandes.</p>
-      <p>Sans clé ni maquette, quatre scénarios joués d'avance :</p>
-      <ul>
-        <li><code>bonjour</code> — réponse simple, en flux</li>
-        <li><code>liste mes vues</code> — deux appels d'outils enchaînés</li>
-        <li><code>synchronise le projet</code> — accord sur un irréversible</li>
-        <li><code>fais une erreur</code> — un outil qui échoue</li>
-      </ul>
-      <p><em>Stop</em> interrompt en cours de route.</p>
-    </div>
+  <!-- Pas une bulle : personne n'a parlé. C'est le volet qui se présente,
+       et il n'a qu'une question à poser. -->
+  <div class="accueil">
+    <!-- La théière, logo du dépôt — HTTP 418, « I'm a teapot ». Les deux
+         variantes sont servies, le CSS choisit selon le thème de Revit. -->
+    <img class="logo clair" src="./logo.png" alt="" width="48" height="48">
+    <img class="logo sombre" src="./logo.dark.png" alt="" width="48" height="48">
+    <p>Qu'est-ce qu'on fait sur la maquette aujourd'hui&nbsp;?</p>
   </div>
 </div>
 
@@ -58,7 +49,7 @@
             autocomplete="off" spellcheck="false"></textarea>
   <button id="action">Envoyer</button>
 </div>
-<div id="pied">agent fictif — rien n'est envoyé, rien n'est modifié</div>
+<div id="pied"></div>
 
 <script type="module" src="./app.js"></script>
 </body>

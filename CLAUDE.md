@@ -9,8 +9,8 @@ outille la **production de documents** : export PDF/DWG en lot, duplication et
 renommage de feuilles et de vues, alignement d'éléments en vue, gestion des
 matériaux, recadrage d'images, import SVG, audit de modèle.
 
-S'y greffe, **en bêta**, un harnais LLM (`lib/core/chat_*`, `lib/ui/OpenArchi*`,
-`vendor/`) : la plomberie qui laisse un modèle travailler sur la maquette. Il
+S'y greffe, **en bêta**, un harnais LLM (`lib/web/`, `lib/harnais/`,
+`lib/rvt/`) : la plomberie qui laisse un modèle travailler sur la maquette. Il
 dépend des outils déterministes, jamais l'inverse — voir « Le harnais » plus
 bas.
 
@@ -159,116 +159,124 @@ lancement, bêta ou non : tout ce qui n'est pas prêt y est gardé derrière
 `configparser.__getattr__` et LÈVE quand la case n'a jamais été touchée : la
 clé du fichier s'appelle `loadbeta`, sans underscore. La propriété, elle,
 passe par `get_option(..., default_value=)` et rend `False`. L'erreur a coûté
-les deux volets ancrables, en silence. C'est le cas du panneau ancrable
-OpenArchi et du serveur MCP.
+les deux volets ancrables, en silence. C'est le cas du volet OpenArchi.
 
 ## Le harnais
 
-**Agnostique du modèle.** Un fournisseur = un module de `lib/core/` qui honore
-trois membres, rien de plus :
+**Le moteur tourne dans la page, pas dans Python.** Le volet OpenArchi héberge
+un WebView2 qui sert `lib/web/` sur l'origine locale `https://418.local/`.
+Toute la logique de conversation — boucle d'outils, permissions, protocole des
+fournisseurs — est en JavaScript. Python n'est plus qu'un **hôte** : il monte
+le contrôle, dit quel thème Revit affiche, et fait les trois choses qu'une
+page ne peut pas faire.
 
-| membre | rôle |
+```
+lib/web/              servi au WebView2, UNE seule origine
+├── vue/                l'interface : app · rendu · markdown · filet · css
+└── harnais/            le moteur : protocole · permissions · boucle
+    └── fournisseurs/   openai (clé) · chatgpt (abonnement)
+lib/harnais/          le Python qui reste : outils · secrets · oauth
+lib/rvt/              57 outils Revit + 3 routes
+```
+
+`vue/` ne dépend jamais de `harnais/`, et l'inverse non plus : ils se parlent
+par **évènements**. C'est la règle de dépendance d'opencode, et elle se
+vérifie à l'import.
+
+**Ce que Python garde, et rien de plus :**
+
+| | pourquoi |
 |---|---|
-| `pret()` | le client est utilisable ici et maintenant |
-| `raison()` | ce qu'il manque quand `pret()` est faux, dit à l'utilisateur |
-| `connecter()` | ouvre le flux navigateur, `None` s'il n'en a pas |
-| `deconnecter()` | ferme la session, `None` s'il n'y en a pas |
-| `modeles()` | noms disponibles, `()` si le client n'en expose pas |
-| `attendre_connexion()` | *facultatif* — bloque jusqu'à la fin du flux navigateur |
-| `repondre(messages, modele=None, **_kwargs)` | `messages` = couples `(role, texte)` → texte |
+| exécuter un outil | l'API Revit n'est joignable que depuis son fil — c'est le serveur de routes pyRevit qui marshale |
+| tenir les secrets | clé et jetons dans `%LOCALAPPDATA%\418.extension\`, jamais dans `data/` qui finit poussé |
+| écouter une socket | le navigateur revient sur `localhost:1455` après l'OAuth |
+| sortir vers ChatGPT | `chatgpt.com/backend-api` ne renvoie aucun `Allow-Origin` — mesuré |
 
-`repondre` reçoit en plus quatre arguments **facultatifs** — un client qui
-n'en fait rien les avale par son `**_kwargs`, et le VM a déjà refusé en amont
-ce qu'il ne sait pas porter :
+### Le protocole : des parts, pas des chaînes
 
-| argument | rôle |
+La leçon d'opencode qu'on retient. **Un message n'est pas une chaîne** : il est
+une suite de parts typées (`texte`, `raisonnement`, `outil`, `etape`, `erreur`)
+et un évènement porte une part, pas un message. Sans ça, pas de rendu
+incrémental — on ne peint pas au fil de l'eau ce qu'on ne reçoit qu'entier.
+
+Trois évènements suffisent : `part.neuve`, `part.delta`, `part.maj`, plus
+`tour.fini`. **Un delta porte le MORCEAU, jamais le cumul** — c'est la
+différence entre un flux et un diaporama.
+
+### Les permissions
+
+Transcrites d'opencode (`core/src/policy.ts`, MIT, cf. `vendor/opencode-LICENSE`) :
+des règles `{motif, effet}`, effet ∈ `autoriser` / `demander` / `refuser`, et
+**la dernière qui correspond gagne**. Un défaut large en tête, chaque exception
+poussée à la fin sans réordonner ce qui précède.
+
+Réponses `une_fois` / `toujours` / `jamais`. `une_fois` ne retient **rien** :
+c'est ce qui distingue « vas-y » de « vas-y et ne me redemande plus ». Toute
+réponse inconnue vaut refus — le silence ne vaut pas accord.
+
+**Le garde-fou est côté serveur, pas côté client.** `lib/rvt` exige un jeton de
+session sur les 4 outils `irreversible` : le serveur de routes pyRevit écoute
+sur `0.0.0.0` et n'authentifie rien, donc un garde-fou qu'on contourne en ne
+passant pas par le client n'en est pas un.
+
+### Ajouter un fournisseur
+
+Un module de `lib/web/harnais/fournisseurs/` qui rend une fonction honorant :
+
+```js
+modele(messages, catalogue, { signal, surTexte, surRaisonnement })
+    → { texte, appels: [{ id, nom, arguments }] }
+```
+
+La boucle ne sait pas à qui elle parle. **Le protocole appartient au
+fournisseur** : `/v1/chat/completions` imbrique les outils sous `function`, le
+backend Responses les pose à plat, et aucune abstraction ne rendra ces deux-là
+identiques sans mentir.
+
+**Les secrets n'entrent jamais dans la page.** Pour une clé API, `fetch` envoie
+une sentinelle `Bearer 418-hote` que l'hôte remplace par `WebResourceRequested`
+— pas un en-tête ajouté de rien, sinon le préflight CORS ne l'annoncerait pas.
+Pour l'abonnement, l'égress entier passe par Python.
+
+**Pas de catalogue de modèles en dur** : il vieillirait sans que rien ne le
+signale. `/model <nom>` suffit, et un nom refusé revient en clair dans l'erreur
+de l'API.
+
+### Zone grise assumée
+
+L'abonnement ChatGPT emprunte le `client_id` public du CLI Codex, comme
+opencode. On ne se fait pas passer pour lui : `originator` dit `418`, là où
+l'ancien code disait `codex_cli_rs`. OpenAI peut fermer ça sans préavis — le
+repli est `/connect <clé>`. **Claude Pro/Max est exclu** : Anthropic l'interdit
+explicitement, et opencode l'a retiré pour cette raison.
+
+### Ce qui n'est pas branché — à ne pas décrire comme acquis
+
+- `lib/rvt` compte **57 outils dont 56 n'ont jamais tourné dans Revit**
+  (`lib/rvt/COUVERTURE.md`). C'est le risque n°1 du produit.
+- pas de session persistée : un rechargement de la page perd la conversation ;
+- pas de pièces jointes — l'ancien volet en avait, le nouveau pas encore ;
+- les `#références` n'existent plus du tout.
+
+### Journal
+
+`lib/core/journal.py` écrit dans `data/418.log`. Un volet ancré n'a aucune
+fenêtre de sortie pyRevit : un `print` s'y perd, et Revit avale les exceptions
+de construction d'un volet. **Côté web, DevTools (F12) est bien plus utile** —
+console, réseau, inspecteur.
+
+### Le cycle de développement du volet
+
+| tu modifies | il faut |
 |---|---|
-| `pieces` | fichiers joints `{'nom','media','b64'}` — PDF et images |
-| `outils` | catalogue imposé ; `[]` désactive, `None` laisse décider |
-| `avancement(phrase)` | dit ce qui se passe pendant l'attente, depuis le fil de fond |
-| `confirmer(nom, args)` | demande l'accord avant un outil irréversible → booléen |
+| `lib/web/**` | **F5 dans le volet** — les fichiers sont servis depuis le disque |
+| un `import`/`export` JS | **Ctrl+Shift+R** — Chromium garde les modules en cache mémoire |
+| `lib/harnais/*.py`, `lib/ui/OpenArchiPanel.py` | **redémarrer Revit** |
 
-**La boucle d'outils est partagée** (`lib/core/chat_boucle.py`) : catalogue,
-exécution, accord et règle du dernier tour y vivent une fois. Chaque client ne
-décrit que son protocole — un tour, et la façon d'y ranger un appel. Elle a
-vécu enfermée dans `chat_oauth`, ce qui faisait de la connexion « Clé API »
-(la seule à porter des PDF) la seule aveugle à la maquette.
-
-Deux voies d'authentification, volontairement :
-
-- `chat_cli.py` — passe par un CLI déjà connecté dans le navigateur
-  (`codex login`), l'abonnement paie. **Aucun jeton n'est lu ni stocké par
-  418** : le CLI garde son OAuth, on lui parle en sous-processus.
-- `chat_openai.py` — clé API en variable d'environnement (`OPENAI_API_KEY`),
-  `urllib` nu. Jamais de secret dans `data/`, qui finit poussé.
-
-`lib/ui/OpenArchiConfig.py` est le catalogue, en arbre **fournisseur →
-connexion → modèle**. **Un client à `None` suffit à griser l'entrée dans
-`/connect`** — c'est le même champ qui décide de l'affichage et de
-l'aiguillage, pas deux ; un fournisseur est grisé quand aucune de ses
-connexions n'a de client. `/connect` déroule les trois étapes dans la liste en
-place (Échap remonte d'un cran), `/model` ouvre directement la troisième.
-Persisté en trois clés : `provider`, `connexion`, `modele`.
-
-**`UserConfig` est un magasin de chaînes** : il sérialise `None` en `"None"`,
-qui repasserait ensuite pour un nom de modèle valide. Écrire `''` pour « pas
-de choix », jamais `None`.
-
-Une entrée de la liste s'exécute au clic — elle ne remplit pas le champ de
-saisie. Le jour où une commande prendra des arguments, il faudra rétablir le
-remplissage pour celle-là.
-
-**Le CLI codex n'expose aucun catalogue de modèles** — ni commande, ni config,
-ni cache ; seul son `app-server` JSON-RPC expérimental le ferait. `modeles()`
-y renvoie donc `()`, et `/model <nom>` permet d'en imposer un à la main. Ne pas
-coder de liste en dur : elle vieillirait sans que rien ne le signale.
-
-**Journal.** `lib/core/journal.py` écrit dans `data/418.log`. Un volet ancré
-n'a aucune fenêtre de sortie pyRevit : un `print` s'y perd, et Revit avale les
-exceptions de construction d'un volet. Tout ce qui doit se relire après coup
-passe par `journal('<nom>')`. `/journal` en affiche la fin dans une bulle —
-sélectionnable, donc collable dans un rapport de bug — et `/journal vider` le
-remet à zéro. Un sous-processus lancé sans être attendu branche ses flux sur
-`journal.flux()`, sinon son échec est muet.
-
-**Surfaces.** Deux façons d'atteindre la maquette, à garder ouvertes toutes
-les deux :
-
-- *dans Revit* — panneau ancrable OpenArchi (`lib/ui/OpenArchiPanel.py`),
-  enregistré par le `startup.py` racine. Syntaxe : `/commande` et
-  `#{Référence}`, analysées par `lib/core/chat_syntaxe.py`.
-- *hors Revit* — les routes `routes.API('418')` de `lib/rvt/`, que n'importe
-  quel client HTTP atteint (`GET /418/outils/`, `POST /418/outil/<nom>`).
-
-**Ce qui n'est pas encore branché** — à ne pas décrire comme acquis :
-
-- les `#références` sont analysées mais ne résolvent aucun élément Revit ;
-- aucun streaming : le flux SSE est lu d'un bloc, la bulle apparaît d'un coup.
-  `avancement` nomme l'outil en cours, c'est tout ce qui comble l'attente ;
-- les bulles affichent du TEXTE NU. Le rendu riche est écrit et testé
-  (`markdown_simple`, `FlowMarkdown`) mais débranché — trois plantages de
-  Revit, cf. l'en-tête de `OpenArchiPanel.xaml`.
-
-**Fil d'exécution.** L'appel au modèle part sur un `Thread` de fond et revient
-par `Dispatcher.Invoke` — Revit reste rendu à la main, `EnAttente` pilote
-l'animation d'attente. Hors .NET (tests), `_en_arriere_plan` exécute sur
-place : le VM reste synchrone et se teste sans rien simuler. **Une commande
-`/x` ne part JAMAIS en fond** : elle touche les listes et les réglages, donc
-elle doit rester sur le fil d'interface.
-
-## Serveur MCP (`vendor/mcp-server-for-revit`)
-
-Miroir git subtree de
-[mcp-servers-for-revit/mcp-server-for-revit-python](https://github.com/mcp-servers-for-revit/mcp-server-for-revit-python)
-(MIT). Moitié « dans Revit » : routes pyRevit sur
-`http://127.0.0.1:48884/revit_mcp`, démarrées par le `startup.py` racine.
-Moitié « hors Revit » : `vendor/.../main.py` (FastMCP, `uv run`).
-
-- **Ne JAMAIS éditer sous `vendor/`.** Toute la surcouche 418 vit ailleurs et
-  s'enregistre sur son propre `routes.API('418')` (`lib/core/api418.py`) —
-  sinon le prochain `git subtree pull` part en conflit.
-- Mise à jour :
-  `git subtree pull --prefix=vendor/mcp-server-for-revit <url> master --squash`
+Le dernier point surprend : `register_dockable_panel` construit **une
+instance** que Revit garde pour la session. Un Reload pyRevit rejoue
+`startup.py`, qui répond « déjà enregistré » — l'objet vivant garde les
+modules importés à sa construction.
 
 ## Arborescence
 
@@ -306,22 +314,29 @@ n'importe quel bouton.
 
 ```
 lib/
-├── core/   AppPaths, UserConfig, sanitize, transaction, selection, align,
-│           bulk_edit, list_selection, text_filter, token_expander,
-│           rename_service, et pour le harnais : chat_syntaxe, chat_cli,
-│           chat_openai, chat_oauth, prompt, journal, api418, routes418,
-│           revit_outils, markdown_simple, attente
-└── ui/
+├── core/      le socle de TOUS les outils — AppPaths, UserConfig, sanitize,
+│              transaction, selection, align, bulk_edit, list_selection,
+│              text_filter, token_expander, rename_service, journal, routes418
+│              ⚠ 15 boutons font `from core.X import Y`. Le renommer casse
+│                BatchExport, Matériaux, Align. Intouchable.
+├── harnais/   le Python du harnais — outils (pont vers lib/rvt), secrets, oauth
+├── rvt/       les 57 outils Revit + les 3 routes `/418/`
+├── web/       tout le JS, servi au WebView2 (voir « Le harnais »)
+└── ui/        WPF seulement
     ├── base/     BaseViewModel, BaseWindow, RailWindow,
     │             SelectionPageVM, SelectionItemVM, SheetPreviewGroupVM
-    ├── helpers/  UIResourceLoader, RelayCommand, DarkMode, wpf_runtime,
-    │             FlowMarkdown
-    ├── OpenArchiPanel · OpenArchiChatVM · OpenArchiConfig
+    ├── helpers/  UIResourceLoader, RelayCommand, DarkMode, wpf_runtime
+    ├── OpenArchiPanel   l'hôte du WebView2, et rien d'autre
     └── GUI/
         ├── resources/  Colors/Styles + variantes Dark (SEULE copie des thèmes)
         │                et Icons.xaml (SEULE copie du jeu d'icônes)
         └── pages/      SelectionPage.xaml, OpenArchiPanel.xaml
 ```
+
+**Une exception au « SEULE copie »**, et elle est isolée pour être générable :
+`lib/web/vue/tokens.css` reprend les couleurs de `Colors.xaml` à la main, et
+`lib/web/vue/logo*.png` recopie la théière d'Infos. Le CSS ne peut pas lire du
+XAML, et le WebView2 ne sert que `lib/web/`. Marqué `ponytail:` sur place.
 
 **La logique partagée va ici, pas dans un bouton.** Tout ce qui est dupliqué
 entre deux outils appartient au socle.

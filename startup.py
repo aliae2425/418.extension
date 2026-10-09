@@ -98,12 +98,12 @@ def _volet():
     porte, pas la pièce.
     """
     from pyrevit import forms
-    from ui.ProtoChatPanel import ProtoChatPanel
-    if forms.is_registered_dockable_panel(ProtoChatPanel):
+    from ui.OpenArchiPanel import OpenArchiPanel
+    if forms.is_registered_dockable_panel(OpenArchiPanel):
         return 'déjà enregistré'
     # Un « Reload » pyRevit rejoue ce script hors OnStartup : Revit refuse
     # alors l'enregistrement. Un redémarrage de Revit suffit.
-    forms.register_dockable_panel(ProtoChatPanel, default_visible=False)
+    forms.register_dockable_panel(OpenArchiPanel, default_visible=False)
     return 'enregistré'
 
 
