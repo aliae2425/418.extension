@@ -121,3 +121,30 @@ def oublier_cle():
     _ecrire(charge)
     _log.info('clé effacée')
     return True
+
+
+# --- jetons OAuth ---------------------------------------------------------
+
+def jetons():
+    """Les jetons de session, ``{}`` s'il n'y en a pas."""
+    lus = _lire().get('jetons')
+    return lus if isinstance(lus, dict) else {}
+
+
+def poser_jetons(valeurs):
+    charge = _lire()
+    charge['jetons'] = valeurs or {}
+    pose = _ecrire(charge)
+    # Jamais la valeur au journal, même tronquée.
+    _log.info('jetons posés : %s', 'oui' if pose else 'échec')
+    return pose
+
+
+def oublier_jetons():
+    charge = _lire()
+    if 'jetons' not in charge:
+        return False
+    del charge['jetons']
+    _ecrire(charge)
+    _log.info('jetons effacés')
+    return True

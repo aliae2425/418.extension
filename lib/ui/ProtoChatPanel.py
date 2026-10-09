@@ -36,11 +36,11 @@ from pyrevit import forms
 try:
     from core.AppPaths import AppPaths
     from core.journal import journal
-    from harnais import outils, secrets
+    from harnais import outils, secrets, oauth
 except Exception:
     from lib.core.AppPaths import AppPaths
     from lib.core.journal import journal
-    from lib.harnais import outils, secrets
+    from lib.harnais import outils, secrets, oauth
 
 try:
     from ui.helpers.UIResourceLoader import UIResourceLoader
@@ -197,11 +197,8 @@ class ProtoChatPanel(forms.WPFPanel):
                          {'valeur': 'sombre' if is_dark() else 'clair'})
             # On dit SI une clé existe, jamais laquelle. La page choisit son
             # fournisseur là-dessus et n'en saura pas plus.
-            self._poster('config', {'cle': bool(secrets.cle())})
-        elif ordre == 'source':
-            # D'où vient la clé, jamais sa valeur.
-            self._poster('reponse', {'ref': message.get('ref'),
-                                     'sortie': secrets.source()})
+            self._poster('config', {'cle': bool(secrets.cle()),
+                                    'oauth': bool(oauth.pret())})
         elif ordre == 'connecter':
             pose = secrets.poser_cle(message.get('cle') or '')
             if pose:
@@ -212,6 +209,15 @@ class ProtoChatPanel(forms.WPFPanel):
         elif ordre == 'deconnecter':
             self._poster('reponse', {'ref': message.get('ref'),
                                      'sortie': secrets.oublier_cle()})
+        elif ordre == 'oauth':
+            # Le navigateur s'ouvre tout de suite, l'attente part en fond :
+            # cinq minutes sur le fil d'interface gèleraient Revit.
+            self._en_fond(message, self._oauth)
+        elif ordre == 'oauth_logout':
+            self._poster('reponse', {'ref': message.get('ref'),
+                                     'sortie': bool(oauth.deconnecter())})
+        elif ordre == 'diffuser':
+            self._en_fond(message, lambda: self._diffuser(message))
         elif ordre == 'outils':
             self._en_fond(message, lambda: outils.outils())
         elif ordre == 'outil':
@@ -223,6 +229,26 @@ class ProtoChatPanel(forms.WPFPanel):
             _log.error('interface : %s', message.get('message'))
         else:
             _log.warning('ordre inconnu : %s', ordre)
+
+    # --- l'abonnement ChatGPT ---------------------------------------------
+
+    def _oauth(self):
+        """Ouvre le navigateur, puis attend son retour. Bloque — d'où le fond."""
+        oauth.connecter()
+        return bool(oauth.attendre())
+
+    def _diffuser(self, message):
+        """Poste un corps Responses et repousse chaque ligne au fil de l'eau.
+
+        Les lignes partent par le même `ref` que la demande : le pont les
+        apparie, et la promesse ne se résout qu'à la fin du flux.
+        """
+        ref = message.get('ref')
+
+        def _ligne(texte):
+            self._poster('ligne', {'ref': ref, 'ligne': texte})
+
+        return oauth.diffuser(message.get('corps') or '{}', _ligne)
 
     # --- la maquette ------------------------------------------------------
 
