@@ -191,14 +191,13 @@ class OpenArchiPanel(forms.WPFPanel):
     def _ordre(self, message):
         ordre = message.get('ordre')
         if ordre == 'pret':
-            # Revit est la source de vérité du thème — pas Windows, que
-            # `prefers-color-scheme` lirait.
+            # Le thème part tout de suite : il ne coûte rien et évite un
+            # éclair clair sur un Revit sombre.
             self._poster('theme',
                          {'valeur': 'sombre' if is_dark() else 'clair'})
-            # On dit SI une clé existe, jamais laquelle. La page choisit son
-            # fournisseur là-dessus et n'en saura pas plus.
-            self._poster('config', {'cle': bool(secrets.cle()),
-                                    'oauth': bool(oauth.pret())})
+            # L'état de connexion, lui, peut demander un rafraîchissement de
+            # jeton — donc du réseau, donc le fil de fond.
+            self._verifier_connexion()
         elif ordre == 'connecter':
             pose = secrets.poser_cle(message.get('cle') or '')
             if pose:
@@ -229,6 +228,41 @@ class OpenArchiPanel(forms.WPFPanel):
             _log.error('interface : %s', message.get('message'))
         else:
             _log.warning('ordre inconnu : %s', ordre)
+
+    # --- l'état de la connexion -------------------------------------------
+
+    def _verifier_connexion(self):
+        """Dit à la page ce qui répond, et si ça tient encore.
+
+        « Un jeton existe » et « un jeton marche » sont deux choses. Un
+        `refresh_token` révoqué, ou tourné par un autre client, ne se voit
+        qu'en le présentant — sinon la panne arrive au milieu du premier
+        message, après vingt secondes d'attente, et ressemble à un bug du
+        volet.
+
+        Sur un fil de fond : `verifier()` peut appeler le réseau, et geler le
+        fil d'interface gèlerait Revit.
+        """
+        from System.Threading import Thread, ThreadStart
+
+        def _courir():
+            try:
+                lu = oauth.verifier()
+            except Exception:
+                _log.exception('vérification de la session')
+                lu = {'session': False, 'raison': 'vérification impossible'}
+            # La clé n'est PAS validée : ça coûterait une requête à chaque
+            # ouverture du volet pour une panne que le premier message dira
+            # en clair. On annonce qu'elle est posée, pas qu'elle marche.
+            self._poster('config', {
+                'cle': bool(secrets.cle()),
+                'oauth': bool(lu.get('session')),
+                'raison': lu.get('raison') or '',
+            })
+
+        fil = Thread(ThreadStart(_courir))
+        fil.IsBackground = True
+        fil.Start()
 
     # --- l'abonnement ChatGPT ---------------------------------------------
 

@@ -93,6 +93,50 @@ def pret():
     return not _doit_rafraichir(jetons) or bool(jetons.get('refresh_token'))
 
 
+def etat():
+    """Ce qu'on sait de la session SANS toucher au réseau.
+
+    ``{'session': bool, 'expire': bool, 'raison': str}``. Séparé de
+    ``verifier()`` parce qu'il répond instantanément : l'interface s'en sert
+    pour se dessiner avant que le réseau ait dit quoi que ce soit.
+    """
+    jetons = secrets.jetons()
+    if not jetons.get('access_token'):
+        return {'session': False, 'expire': False, 'raison': ''}
+    if not _doit_rafraichir(jetons):
+        return {'session': True, 'expire': False, 'raison': ''}
+    if not jetons.get('refresh_token'):
+        # Expiré sans de quoi se renouveler : c'est fini, autant le dire
+        # maintenant plutôt qu'au premier message.
+        return {'session': False, 'expire': True,
+                'raison': 'session expirée — /connect pour rouvrir'}
+    return {'session': True, 'expire': True, 'raison': ''}
+
+
+def verifier():
+    """Rafraîchit si besoin et dit si la session TIENT. Peut appeler le réseau.
+
+    C'est la différence entre « un jeton existe » et « un jeton marche ». Un
+    `refresh_token` révoqué ou tourné ailleurs ne se voit qu'ici — sinon la
+    panne arrive au milieu du premier message, après vingt secondes d'attente,
+    et ressemble à un bug du volet.
+
+    À appeler HORS du fil d'interface.
+    """
+    lu = etat()
+    if not lu['session']:
+        return lu
+    if not lu['expire']:
+        return lu
+    try:
+        _rafraichir()
+    except ErreurOAuth as e:
+        # `_rafraichir` a déjà effacé les jetons : la session est morte, et
+        # la laisser paraître vivante ferait échouer le premier message.
+        return {'session': False, 'expire': True, 'raison': '{0}'.format(e)}
+    return {'session': True, 'expire': False, 'raison': ''}
+
+
 def deconnecter():
     _fermer_serveur()
     return secrets.oublier_jetons()
