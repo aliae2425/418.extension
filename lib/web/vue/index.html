@@ -32,10 +32,26 @@
   <!-- Pas une bulle : personne n'a parlé. C'est le volet qui se présente,
        et il n'a qu'une question à poser. -->
   <div class="accueil">
-    <!-- La théière, logo du dépôt — HTTP 418, « I'm a teapot ». Les deux
-         variantes sont servies, le CSS choisit selon le thème de Revit. -->
-    <img class="logo clair" src="./logo.png" alt="" width="48" height="48">
-    <img class="logo sombre" src="./logo.dark.png" alt="" width="48" height="48">
+    <!-- lucide: bot-message-square — la MÊME géométrie que `IconChat` dans
+         `lib/ui/GUI/resources/Icons.xaml`, d'où sort l'icône du ruban. Le
+         volet et son bouton montrent donc le même dessin.
+
+         ponytail: transcrite à la main. Le CSS ne lit pas du XAML, et le
+         WebView2 ne sert que `lib/web/`. Si `IconChat` change, changer ici
+         aussi — `tools/icones.ps1 -Verifier` ne couvre pas ce fichier.
+
+         `currentColor` : une seule copie suit le thème, là où deux PNG
+         demandaient une variante claire et une sombre. -->
+    <svg class="logo" viewBox="0 0 24 24" width="44" height="44" fill="none"
+         stroke="currentColor" stroke-width="1.5"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 6V2H8"/>
+      <path d="M15 11v2"/>
+      <path d="M2 12h2"/>
+      <path d="M20 12h2"/>
+      <path d="M9 11v2"/>
+      <path d="M20 16a2 2 0 0 1-2 2H8.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 4 20.286V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/>
+    </svg>
     <p>Qu'est-ce qu'on fait sur la maquette aujourd'hui&nbsp;?</p>
   </div>
 </div>

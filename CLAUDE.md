@@ -333,10 +333,12 @@ lib/
         └── pages/      SelectionPage.xaml, OpenArchiPanel.xaml
 ```
 
-**Une exception au « SEULE copie »**, et elle est isolée pour être générable :
-`lib/web/vue/tokens.css` reprend les couleurs de `Colors.xaml` à la main, et
-`lib/web/vue/logo*.png` recopie la théière d'Infos. Le CSS ne peut pas lire du
-XAML, et le WebView2 ne sert que `lib/web/`. Marqué `ponytail:` sur place.
+**Deux exceptions au « SEULE copie »**, isolées et marquées `ponytail:` sur
+place : `lib/web/vue/tokens.css` reprend les couleurs de `Colors.xaml` à la
+main, et l'accueil de `index.html` transcrit la géométrie de `IconChat` en
+SVG. Le CSS ne lit pas du XAML, et le WebView2 ne sert que `lib/web/`.
+`tools/icones.ps1 -Verifier` ne couvre ni l'un ni l'autre — si `Colors.xaml`
+ou `IconChat` changent, il faut les suivre à la main.
 
 **La logique partagée va ici, pas dans un bouton.** Tout ce qui est dupliqué
 entre deux outils appartient au socle.

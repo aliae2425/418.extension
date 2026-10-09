@@ -92,12 +92,9 @@ body {
 }
 .accueil p { margin: 0; max-width: 32ch; }
 
-/* Les deux variantes sont servies, le CSS choisit — le thème vient de Revit
-   par une classe sur `body`, pas de `prefers-color-scheme`. */
-.accueil .logo { opacity: .8; }
-.accueil .logo.sombre { display: none; }
-body.sombre .accueil .logo.clair { display: none; }
-body.sombre .accueil .logo.sombre { display: block; }
+/* `currentColor` hérite de la couleur du bloc : le thème s'applique sans
+   seconde variante ni règle de bascule. */
+.accueil .logo { color: var(--texte-eteint); }
 
 /* ---------------------------------------------------------------- les bulles */
 
