@@ -29,6 +29,40 @@ body {
 
 /* ------------------------------------------------------------------ le fil */
 
+/* Une seule barre de défilement pour tout le volet. Celle de Windows est
+   large, grise et carrée : elle datait le panneau à elle seule. */
+#fil, #saisie, .outil pre, .bulle .tableau {
+  scrollbar-width: thin;
+  scrollbar-color: var(--trait-survol) transparent;
+}
+#fil::-webkit-scrollbar,
+#saisie::-webkit-scrollbar,
+.outil pre::-webkit-scrollbar,
+.bulle .tableau::-webkit-scrollbar { width: 10px; height: 10px; }
+
+/* Le pouce est peint DANS la boîte de contenu, bordure transparente : c'est
+   ce qui lui donne sa marge sans réserver de gouttière séparée. */
+#fil::-webkit-scrollbar-thumb,
+#saisie::-webkit-scrollbar-thumb,
+.outil pre::-webkit-scrollbar-thumb,
+.bulle .tableau::-webkit-scrollbar-thumb {
+  background: var(--trait-survol);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 99px;
+}
+#fil::-webkit-scrollbar-thumb:hover,
+#saisie::-webkit-scrollbar-thumb:hover,
+.outil pre::-webkit-scrollbar-thumb:hover,
+.bulle .tableau::-webkit-scrollbar-thumb:hover {
+  background-color: var(--texte-eteint);
+}
+/* Pas de flèches : elles ajoutent deux boutons gris que personne ne clique. */
+#fil::-webkit-scrollbar-button,
+#saisie::-webkit-scrollbar-button,
+.outil pre::-webkit-scrollbar-button,
+.bulle .tableau::-webkit-scrollbar-button { display: none; }
+
 #fil {
   flex: 1;
   min-height: 0;                 /* sans ça, un flex enfant refuse de défiler */
@@ -38,17 +72,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--e3);
-  scrollbar-width: thin;
-  scrollbar-color: var(--trait-survol) transparent;
 }
-#fil::-webkit-scrollbar { width: 10px; }
-#fil::-webkit-scrollbar-thumb {
-  background: var(--trait);
-  border: 3px solid transparent;
-  background-clip: content-box;
-  border-radius: 99px;
-}
-#fil::-webkit-scrollbar-thumb:hover { background-color: var(--trait-survol); }
 
 .tour { display: flex; flex-direction: column; gap: var(--e2); }
 
@@ -387,7 +411,6 @@ details.raisonnement .corps { padding-bottom: var(--e1); }
 .bulle .tableau {
   overflow-x: auto;
   margin: 0 0 var(--e2);
-  scrollbar-width: thin;
 }
 .bulle table {
   border-collapse: collapse;
@@ -417,7 +440,13 @@ details.raisonnement .corps { padding-bottom: var(--e1); }
   flex: 1;
   min-width: 0;
   resize: none;
-  max-height: 7.5em;
+  /* Cinq lignes, puis ça défile. `lh` dit « hauteur de ligne » — l'écrire en
+     em obligerait à refaire le calcul à chaque changement d'interligne. */
+  max-height: calc(5lh + var(--e2) * 2 + 2px);
+  /* Caché TANT QUE le champ grandit : une barre qui apparaît sur deux lignes
+     de texte, alors qu'il reste de la place, donne l'impression d'être à
+     l'étroit. Le JS la rallume quand la hauteur est vraiment atteinte. */
+  overflow-y: hidden;
   padding: var(--e2) var(--e3);
   border: 1px solid var(--trait);
   border-radius: var(--r-moyen);
@@ -426,6 +455,8 @@ details.raisonnement .corps { padding-bottom: var(--e1); }
   font: inherit;
   transition: border-color var(--vif);
 }
+
+#saisie.deborde { overflow-y: auto; }
 #saisie::placeholder { color: var(--texte-eteint); }
 #saisie:hover { border-color: var(--trait-survol); }
 #saisie:focus {
