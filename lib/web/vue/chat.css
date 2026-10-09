@@ -138,6 +138,8 @@ details.raisonnement .corps { padding-bottom: var(--e1); }
   transition: border-color var(--doux);
 }
 
+/* Repliée par défaut : une conversation de dix appels devient illisible si
+   chacun déroule sa sortie. L'intéressant est le nom et l'état. */
 .outil > .tete {
   display: flex;
   align-items: baseline;
@@ -145,7 +147,28 @@ details.raisonnement .corps { padding-bottom: var(--e1); }
   padding: var(--e2) var(--e3);
   /* Le volet peut être très étroit : les arguments cèdent avant le nom. */
   min-width: 0;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
 }
+.outil > .tete::-webkit-details-marker { display: none; }
+
+/* Le chevron en tête, et pas le marqueur natif : il se place mal et ne se
+   colore pas. */
+.outil > .tete::before {
+  content: "▸";
+  color: var(--texte-eteint);
+  transition: transform var(--vif);
+  display: inline-block;
+  flex: 0 0 auto;
+}
+.outil[open] > .tete::before { transform: rotate(90deg); }
+.outil > .tete:hover { background: var(--voile); }
+
+/* Une carte sans sortie n'a rien à déplier : le chevron mentirait. */
+.outil:not(:has(pre)) > .tete { cursor: default; }
+.outil:not(:has(pre)) > .tete::before { visibility: hidden; }
+.outil:not(:has(pre)) > .tete:hover { background: none; }
 .outil .nom {
   font-family: var(--police-fixe);
   font-weight: 600;
@@ -204,6 +227,15 @@ details.raisonnement .corps { padding-bottom: var(--e1); }
 
 /* ------------------------------------------------------------- l'accord */
 
+/* Tant qu'un accord est demandé, la carte ne se referme pas : replier
+   cacherait les boutons, et l'architecte attendrait une question qu'il ne
+   voit plus. */
+.outil[data-etat="attente_accord"] > .tete {
+  cursor: default;
+  pointer-events: none;
+}
+.outil[data-etat="attente_accord"] > .tete::before { visibility: hidden; }
+
 /* La demande vit DANS le fil, jamais dans une modale : une modale cacherait
    précisément ce sur quoi on se prononce. */
 .accord {
@@ -240,6 +272,44 @@ details.raisonnement .corps { padding-bottom: var(--e1); }
    geste coûteux ne doit pas être le plus attirant. */
 .accord button.refuser { border-color: var(--erreur); color: var(--erreur); }
 .accord button.accorder { border-color: var(--succes); color: var(--succes); }
+
+/* ------------------------------------------------------------ l'attente */
+
+/* Elle reste SOUS ce qui arrive : elle dit « ça continue », pas « ça a
+   commencé ». Un tour avec outils dure vingt à soixante secondes, et un
+   volet muet pendant ce temps-là passe pour figé. */
+.attente {
+  align-self: flex-start;
+  display: flex;
+  align-items: baseline;
+  gap: var(--e2);
+  padding: var(--e2) var(--e3);
+  border-radius: var(--r-moyen);
+  border-bottom-left-radius: var(--r-petit);
+  background: var(--bulle-reponse);
+  color: var(--texte-faible);
+  font-size: var(--t-petit);
+  animation: apparait var(--doux);
+}
+
+.attente .pulse { animation: respire 1.8s ease-in-out infinite; }
+@keyframes respire { 50% { opacity: .45; } }
+
+/* Trois points qui suivent le mot, en CSS plutôt qu'en JS : une animation de
+   plus à arrêter serait une de trop. */
+.attente .pulse::after {
+  content: "…";
+  animation: points 1.8s steps(4) infinite;
+  clip-path: inset(0 100% 0 0);
+}
+@keyframes points { to { clip-path: inset(0 0 0 0); } }
+
+/* Chiffres à chasse fixe : sans ça la bulle sautille à chaque seconde, le 1
+   étant plus étroit que le 8. */
+.attente .duree {
+  font-variant-numeric: tabular-nums;
+  color: var(--texte-eteint);
+}
 
 /* --------------------------------------------------- étapes et erreurs */
 
