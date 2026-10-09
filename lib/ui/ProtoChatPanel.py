@@ -36,11 +36,11 @@ from pyrevit import forms
 try:
     from core.AppPaths import AppPaths
     from core.journal import journal
-    from harnais import outils
+    from harnais import outils, secrets
 except Exception:
     from lib.core.AppPaths import AppPaths
     from lib.core.journal import journal
-    from lib.harnais import outils
+    from lib.harnais import outils, secrets
 
 try:
     from ui.helpers.UIResourceLoader import UIResourceLoader
@@ -69,16 +69,6 @@ SENTINELLE = 'Bearer 418-hote'
 API_OPENAI = 'https://api.openai.com/*'
 
 
-def _cle():
-    """La clé API, ``''`` s'il n'y en a pas.
-
-    En variable d'environnement, jamais dans ``data/`` — qui finit poussé.
-    Relue à chaque appel plutôt que mise en cache : poser la variable et
-    rouvrir le volet doit suffire, sans redémarrer Revit.
-    """
-    return os.environ.get('OPENAI_API_KEY') or ''
-
-
 def _dossier_web():
     """La racine servie, pas le sous-dossier de la vue.
 
@@ -105,6 +95,7 @@ class ProtoChatPanel(forms.WPFPanel):
             raise
         self._vue = None
         self._coeur = None
+        self._signe = False
         self.IsVisibleChanged += self._sur_visibilite
         self.Loaded += self._sur_visibilite
 
@@ -147,16 +138,23 @@ class ProtoChatPanel(forms.WPFPanel):
     def _signer(self, coeur):
         """Pose l'interception qui remplace la sentinelle par la vraie clé.
 
+        Appelée au montage ET après un `/connect` : la page a pu démarrer
+        sans clé, auquel cas rien n'était armé. Idempotente — un second
+        abonnement enverrait l'évènement deux fois et signerait deux fois.
+
         Si ça échoue, le volet marche quand même : la page retombera sur le
-        modèle fictif, puisque `_cle()` sera annoncée absente.
+        modèle fictif, puisque la clé sera annoncée absente.
         """
-        if not _cle():
-            return _log.info('OPENAI_API_KEY absente — modèle fictif')
+        if coeur is None or self._signe:
+            return None
+        if not secrets.cle():
+            return _log.info('aucune clé — modèle fictif')
         try:
             from Microsoft.Web.WebView2.Core import CoreWebView2WebResourceContext
             coeur.AddWebResourceRequestedFilter(
                 API_OPENAI, CoreWebView2WebResourceContext.All)
             coeur.WebResourceRequested += self._sur_requete
+            self._signe = True
             _log.info('signature des appels à %s en place', API_OPENAI)
         except Exception:
             _log.exception('interception impossible — la clé ne sera pas posée')
@@ -170,7 +168,10 @@ class ProtoChatPanel(forms.WPFPanel):
             # vaut mieux qu'un appel anonyme qu'on aurait signé par hasard.
             if entetes.GetHeader('Authorization') != SENTINELLE:
                 return
-            entetes.SetHeader('Authorization', 'Bearer ' + _cle())
+            valeur = secrets.cle()
+            if not valeur:
+                return                     # /logout est passé par là
+            entetes.SetHeader('Authorization', 'Bearer ' + valeur)
         except Exception:
             _log.exception('signature de la requête')
 
@@ -196,7 +197,21 @@ class ProtoChatPanel(forms.WPFPanel):
                          {'valeur': 'sombre' if is_dark() else 'clair'})
             # On dit SI une clé existe, jamais laquelle. La page choisit son
             # fournisseur là-dessus et n'en saura pas plus.
-            self._poster('config', {'cle': bool(_cle())})
+            self._poster('config', {'cle': bool(secrets.cle())})
+        elif ordre == 'source':
+            # D'où vient la clé, jamais sa valeur.
+            self._poster('reponse', {'ref': message.get('ref'),
+                                     'sortie': secrets.source()})
+        elif ordre == 'connecter':
+            pose = secrets.poser_cle(message.get('cle') or '')
+            if pose:
+                # La page a pu démarrer sans clé : l'interception n'était
+                # alors pas armée. Elle l'est maintenant, sans redémarrage.
+                self._signer(self._coeur)
+            self._poster('reponse', {'ref': message.get('ref'), 'sortie': pose})
+        elif ordre == 'deconnecter':
+            self._poster('reponse', {'ref': message.get('ref'),
+                                     'sortie': secrets.oublier_cle()})
         elif ordre == 'outils':
             self._en_fond(message, lambda: outils.outils())
         elif ordre == 'outil':
