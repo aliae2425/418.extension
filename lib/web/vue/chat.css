@@ -477,6 +477,12 @@ details.raisonnement .corps { padding-bottom: var(--e1); }
 }
 .choix:hover { background: var(--voile); }
 
+/* Un MENU est un choix qu'on a demandé, pas une aide à la frappe : il porte
+   un liseré d'accent en tête pour qu'on voie d'un coup d'œil qu'on est en
+   train de choisir, et non en train de taper. */
+#suggestions.menu { border-top-color: var(--accent); }
+#suggestions.menu .choix .nom { font-family: var(--police); }
+
 /* Le choix courant porte une barre à gauche, pas seulement un fond : au
    clavier on suit un repère de position, et un simple gris se confond avec
    le survol de la souris. */

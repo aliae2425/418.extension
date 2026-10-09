@@ -35,15 +35,21 @@ Tapez `/` : la liste s'ouvre et se filtre à la frappe. **Tab** complète.
 
 | commande | effet |
 |---|---|
-| `/connect` | se connecter à **ChatGPT** dans le navigateur — votre abonnement |
-| `/connect <clé>` | poser une clé OpenAI, facturée au jeton |
-| `/model <nom>` | changer de modèle |
-| `/model` | dire lequel répond |
+| `/connect` | **ouvre le choix du fournisseur** — abonnement ChatGPT ou clé API |
+| `/connect <clé>` | poser une clé OpenAI directement |
+| `/model` | **ouvre la liste des modèles** que la connexion expose |
+| `/model <nom>` | imposer un modèle à la main |
 | `/logout` | fermer la session et effacer la clé |
 | `/aide` | lister les commandes |
 
 **Entrée** envoie · **Maj+Entrée** saute une ligne · **↑ ↓** rappellent ce qui
 a déjà été envoyé · **Échap** ferme la liste.
+
+`/connect` et `/model` ouvrent un **menu** au même endroit : ↑ ↓ pour choisir,
+**Entrée** pour prendre, et la frappe le filtre. La liste des modèles est
+demandée au fournisseur — aucune n'est écrite en dur, elle vieillirait en
+silence. L'abonnement ChatGPT, lui, n'expose aucun catalogue : `/model <nom>`
+reste la voie.
 
 Les deux connexions ne se valent pas : l'abonnement ne coûte rien au jeton, la
 clé est facturée à l'usage. Si les deux existent, l'abonnement gagne.
