@@ -46,10 +46,22 @@ Tapez `/` : la liste s'ouvre et se filtre à la frappe. **Tab** complète.
 a déjà été envoyé · **Échap** ferme la liste.
 
 `/connect` et `/model` ouvrent un **menu** au même endroit : ↑ ↓ pour choisir,
-**Entrée** pour prendre, et la frappe le filtre. La liste des modèles est
-demandée au fournisseur — aucune n'est écrite en dur, elle vieillirait en
-silence. L'abonnement ChatGPT, lui, n'expose aucun catalogue : `/model <nom>`
-reste la voie.
+**Entrée** pour prendre, et la frappe le filtre.
+
+Ce qu'on y voit vient de **[418.cloud](https://cloud.418.archi/api.json)**, le
+catalogue des fournisseurs et modèles qu'on sait employer. Y ajouter une
+entrée suffit à la voir apparaître ici ; l'en retirer suffit à la faire
+disparaître — rien à redéployer côté volet.
+
+Il est lu dans cet ordre : **cache local**, puis **instantané embarqué**
+(`lib/web/catalogue.json`), puis le **service**, tiré en fond et jamais
+attendu. D'où un `/connect` qui marche au premier lancement et sur un poste
+sans Internet.
+
+Sur une **clé**, `/model` demande la liste à l'API : elle sait ce que *cette*
+clé peut appeler, là où le catalogue décrit ce qui existe. Sur l'**abonnement**,
+le catalogue est la seule source — le backend Codex n'expose ni route, ni
+config, ni cache.
 
 Les deux connexions ne se valent pas : l'abonnement ne coûte rien au jeton, la
 clé est facturée à l'usage. Si les deux existent, l'abonnement gagne.
