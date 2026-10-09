@@ -278,21 +278,27 @@ details.raisonnement .corps { padding-bottom: var(--e1); }
 /* Elle reste SOUS ce qui arrive : elle dit « ça continue », pas « ça a
    commencé ». Un tour avec outils dure vingt à soixante secondes, et un
    volet muet pendant ce temps-là passe pour figé. */
+/* Un CONTENEUR, pas une bulle : la bulle est dedans, le chronomètre est
+   dessous, hors d'elle. Un chiffre enfermé dans la bulle se lit comme une
+   partie du message ; dehors, il se lit comme ce qu'il est — une mesure. */
 .attente {
   align-self: flex-start;
   display: flex;
-  /* Empilés : le chronomètre SOUS le mot, pas à côté. En ligne, le chiffre
-     tire l'œil autant que l'état lui-même alors qu'il n'est qu'un repère. */
   flex-direction: column;
   align-items: flex-start;
-  gap: 1px;
+  gap: var(--e1);
+  max-width: min(68ch, 92%);
+  animation: apparait var(--doux);
+}
+
+/* La bulle d'attente a la même forme qu'une bulle de réponse : c'est la
+   place que la réponse prendra, annoncée. */
+.attente .pense {
   padding: var(--e2) var(--e3);
   border-radius: var(--r-moyen);
   border-bottom-left-radius: var(--r-petit);
   background: var(--bulle-reponse);
   color: var(--texte-faible);
-  font-size: var(--t-base);
-  animation: apparait var(--doux);
 }
 
 .attente .pulse { animation: respire 1.8s ease-in-out infinite; }
@@ -307,14 +313,23 @@ details.raisonnement .corps { padding-bottom: var(--e1); }
 }
 @keyframes points { to { clip-path: inset(0 0 0 0); } }
 
-/* Chiffres à chasse fixe : sans ça la bulle sautille à chaque seconde, le 1
+/* Chiffres à chasse fixe : sans ça la ligne sautille à chaque seconde, le 1
    étant plus étroit que le 8. Plus petit et plus pâle que le mot : c'est un
-   repère, pas l'information. */
+   repère, pas l'information.
+
+   Aligné sur le texte de la bulle, pas sur son bord : la ligne pend sinon
+   sous le coin arrondi et paraît décrochée. */
 .attente .duree {
+  padding-left: var(--e3);
   font-variant-numeric: tabular-nums;
   font-size: var(--t-petit);
   color: var(--texte-eteint);
 }
+
+/* Une fois le tour fini, le temps RESTE — mais discrètement : on le relit
+   quand on se demande si un outil traîne, pas le reste du temps. */
+.attente.fige { gap: 0; margin-top: calc(var(--e1) * -1); }
+.attente.fige .duree { font-style: italic; }
 
 /* --------------------------------------------------- étapes et erreurs */
 
