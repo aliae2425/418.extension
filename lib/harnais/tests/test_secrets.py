@@ -143,5 +143,71 @@ class TestEffacementCible(_Bac):
         self.assertEqual('sk-ant-bbb', secrets.cle('anthropic'))
 
 
+class TestMaisonParPrefixe(_Bac):
+    """Une clé mal adressée part au mauvais serveur, qui répond 401 sans
+    dire pourquoi. Le préfixe, lui, est sans appel."""
+
+    def setUp(self):
+        _Bac.setUp(self)
+        os.environ.pop('ANTHROPIC_API_KEY', None)
+
+    def test_poser_rend_le_fournisseur_retenu(self):
+        self.assertEqual('openai', secrets.poser_cle('sk-zzz'))
+        self.assertEqual('anthropic',
+                         secrets.poser_cle('sk-ant-zzz', 'anthropic'))
+
+    def test_une_cle_ant_demandee_chez_openai_va_chez_anthropic(self):
+        # Le défaut vécu : le volet n'envoyait pas de fournisseur, donc tout
+        # atterrissait dans la case OpenAI.
+        self.assertEqual('anthropic', secrets.poser_cle('sk-ant-zzz', 'openai'))
+        self.assertEqual('', secrets.cle('openai'))
+        self.assertEqual('sk-ant-zzz', secrets.cle('anthropic'))
+
+    def test_une_cle_openai_n_est_PAS_deplacee(self):
+        # `sk-` tout court ne prouve rien : beaucoup de maisons l'emploient.
+        self.assertEqual('openai', secrets.poser_cle('sk-proj-zzz', 'openai'))
+        self.assertEqual('sk-proj-zzz', secrets.cle('openai'))
+
+    def test_une_valeur_vide_ne_range_rien(self):
+        self.assertEqual('', secrets.poser_cle('  '))
+
+
+class TestReparer(_Bac):
+    """Les clés déjà mal rangées se remettent seules en place."""
+
+    def setUp(self):
+        _Bac.setUp(self)
+        os.environ.pop('ANTHROPIC_API_KEY', None)
+
+    def _ecrire_brut(self, charge):
+        # On contourne `poser_cle` exprès : on reproduit le fichier tel que
+        # l'ancienne version l'a laissé sur les postes.
+        secrets._ecrire(charge)
+
+    def test_une_cle_ant_dans_la_case_openai_est_deplacee(self):
+        self._ecrire_brut({'cle': 'sk-ant-zzz'})
+        self.assertEqual(['openai -> anthropic'], secrets.reparer())
+        self.assertEqual('', secrets.cle('openai'))
+        self.assertEqual('sk-ant-zzz', secrets.cle('anthropic'))
+
+    def test_rien_a_faire_ne_touche_a_rien(self):
+        self._ecrire_brut({'cle': 'sk-zzz', 'cle_anthropic': 'sk-ant-zzz'})
+        self.assertEqual([], secrets.reparer())
+        self.assertEqual('sk-zzz', secrets.cle('openai'))
+        self.assertEqual('sk-ant-zzz', secrets.cle('anthropic'))
+
+    def test_une_cle_anthropic_deja_posee_n_est_PAS_ecrasee(self):
+        # Celle-là a été posée exprès ; la mal rangée reste où elle est
+        # plutôt que de détruire une clé valide.
+        self._ecrire_brut({'cle': 'sk-ant-vieille',
+                           'cle_anthropic': 'sk-ant-bonne'})
+        self.assertEqual([], secrets.reparer())
+        self.assertEqual('sk-ant-bonne', secrets.cle('anthropic'))
+
+    def test_un_fichier_vide_ne_leve_pas(self):
+        self.assertEqual([], secrets.reparer())
+
+
+
 if __name__ == '__main__':
     unittest.main()

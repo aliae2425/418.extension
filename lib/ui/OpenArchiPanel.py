@@ -218,13 +218,17 @@ class OpenArchiPanel(forms.WPFPanel):
             # jeton — donc du réseau, donc le fil de fond.
             self._verifier_connexion()
         elif ordre == 'connecter':
-            pose = secrets.poser_cle(message.get('cle') or '',
+            chez = secrets.poser_cle(message.get('cle') or '',
                                      message.get('fournisseur') or 'openai')
-            if pose:
+            if chez:
                 # La page a pu démarrer sans clé : l'interception n'était
                 # alors pas armée. Elle l'est maintenant, sans redémarrage.
                 self._signer(self._coeur)
-            self._poster('reponse', {'ref': message.get('ref'), 'sortie': pose})
+            # On rend le fournisseur RETENU, pas celui demandé : un préfixe
+            # sans ambiguïté l'emporte, et le volet doit afficher où la clé
+            # est réellement allée.
+            self._poster('reponse', {'ref': message.get('ref'),
+                                     'sortie': chez})
         elif ordre == 'deconnecter':
             # Sans fournisseur, on efface TOUT : « me déconnecter » qui
             # laisserait une clé derrière serait une déconnexion qui n'en est
@@ -270,6 +274,14 @@ class OpenArchiPanel(forms.WPFPanel):
         from System.Threading import Thread, ThreadStart
 
         def _courir():
+            try:
+                # Avant de dire ce qui est branché, remettre d'aplomb ce qui
+                # ne l'est pas : une clé Anthropic rangée dans la case OpenAI
+                # se présenterait chez OpenAI, qui répond 401 sans dire
+                # pourquoi. Sans ça il faudrait un `/logout` à l'aveugle.
+                secrets.reparer()
+            except Exception:
+                _log.exception('remise en place des clés')
             try:
                 lu = oauth.verifier()
             except Exception:

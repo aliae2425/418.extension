@@ -82,12 +82,67 @@ def _ecrire(charge):
 # d'environnement de repli diffère aussi.
 FOURNISSEURS = {
     'openai': {'champ': 'cle', 'variable': 'OPENAI_API_KEY'},
-    'anthropic': {'champ': 'cle_anthropic', 'variable': 'ANTHROPIC_API_KEY'},
+    'anthropic': {'champ': 'cle_anthropic', 'variable': 'ANTHROPIC_API_KEY',
+                  'prefixe': 'sk-ant-'},
 }
+
+# Les préfixes qui désignent leur maison SANS ambiguïté. `sk-ant-` est le
+# format documenté d'Anthropic ; `sk-` tout court ne prouve rien, beaucoup de
+# fournisseurs l'emploient — il n'est donc PAS ici.
+_PREFIXES = [(f['prefixe'], nom) for nom, f in FOURNISSEURS.items()
+             if f.get('prefixe')]
+
+
+def _maison(valeur, demande):
+    """Chez qui ranger cette clé. Le préfixe l'emporte sur ce qu'on demande.
+
+    Une clé rangée dans la mauvaise case part au mauvais serveur, qui répond
+    401 sans dire pourquoi — et rien, côté volet, ne montre l'erreur. Le
+    préfixe, lui, est sans appel.
+    """
+    for prefixe, nom in _PREFIXES:
+        if valeur.startswith(prefixe) and nom != demande:
+            _log.warning('clé en « %s » demandée chez %s : rangée chez %s',
+                         prefixe, demande, nom)
+            return nom
+    return demande
 
 
 def _fiche(fournisseur):
     return FOURNISSEURS.get(fournisseur or 'openai') or FOURNISSEURS['openai']
+
+
+def reparer():
+    """Remet d'aplomb une clé rangée dans la mauvaise case.
+
+    `poser_cle` a longtemps ignoré le fournisseur : toute clé partait dans la
+    case OpenAI. Une clé Anthropic s'y retrouvait muette — le volet la croyait
+    OpenAI, l'envoyait chez OpenAI, et le 401 ne disait rien de ça.
+
+    Rien à faire à la main : on la remet où elle va, au montage du volet.
+    """
+    charge = _lire()
+    bouge = []
+    for nom, fiche in FOURNISSEURS.items():
+        valeur = (charge.get(fiche['champ']) or '').strip()
+        if not valeur:
+            continue
+        vraie = _maison(valeur, nom)
+        if vraie == nom:
+            continue
+        # On n'écrase pas une clé déjà en place : elle a été posée exprès.
+        cible = FOURNISSEURS[vraie]['champ']
+        if (charge.get(cible) or '').strip():
+            _log.warning('clé %s mal rangée, mais %s en a déjà une : laissée',
+                         vraie, vraie)
+            continue
+        charge[cible] = valeur
+        del charge[fiche['champ']]
+        bouge.append('%s -> %s' % (nom, vraie))
+    if bouge:
+        _ecrire(charge)
+        _log.info('clés remises en place : %s', ', '.join(bouge))
+    return bouge
 
 
 def cle(fournisseur='openai'):
@@ -100,21 +155,27 @@ def cle(fournisseur='openai'):
 
 
 def poser_cle(valeur, fournisseur='openai'):
-    """Range la clé. ``True`` si c'est écrit.
+    """Range la clé. Rend le fournisseur employé, ``''`` si rien n'est écrit.
 
     Aucune validation de forme : les préfixes changent au gré des
     fournisseurs, et refuser une clé valide parce qu'elle ne commence pas par
     ``sk-`` serait pire que de laisser l'API répondre 401.
+
+    Un préfixe SANS AMBIGUÏTÉ, lui, fait foi — une clé ``sk-ant-`` va chez
+    Anthropic même si on la demande ailleurs. Et c'est le fournisseur retenu
+    qui est rendu, pas celui demandé : le volet doit afficher où elle est
+    réellement allée, pas où il croyait l'envoyer.
     """
     valeur = (valeur or '').strip()
     if not valeur:
-        return False
+        return ''
+    chez = _maison(valeur, fournisseur if fournisseur in FOURNISSEURS else 'openai')
     charge = _lire()
-    charge[_fiche(fournisseur)['champ']] = valeur
+    charge[FOURNISSEURS[chez]['champ']] = valeur
     pose = _ecrire(charge)
     # Jamais la valeur au journal, même tronquée.
-    _log.info('clé %s posée : %s', fournisseur, 'oui' if pose else 'échec')
-    return pose
+    _log.info('clé %s posée : %s', chez, 'oui' if pose else 'échec')
+    return chez if pose else ''
 
 
 def oublier_cle(fournisseur=None):
