@@ -122,9 +122,16 @@ def oublier_cle(fournisseur=None):
 
     Sans argument, efface TOUT : c'est ce que `/logout` veut dire, et laisser
     une clé derrière ferait croire à une déconnexion qui n'en est pas une.
+
+    Un fournisseur inconnu n'efface RIEN. `_fiche()` retombe sur OpenAI, ce qui
+    est sans danger pour une lecture et désastreux ici : `/logout anthropc`
+    effacerait la clé OpenAI sans rien dire.
     """
+    if fournisseur and fournisseur not in FOURNISSEURS:
+        _log.warning('fournisseur inconnu, rien effacé : %s', fournisseur)
+        return False
     charge = _lire()
-    champs = ([_fiche(fournisseur)['champ']] if fournisseur
+    champs = ([FOURNISSEURS[fournisseur]['champ']] if fournisseur
               else [f['champ'] for f in FOURNISSEURS.values()])
     efface = False
     for champ in champs:

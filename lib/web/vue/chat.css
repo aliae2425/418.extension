@@ -491,6 +491,13 @@ details.raisonnement .corps { padding-bottom: var(--e1); }
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
+/* L'arbre de `/model` : un en-tête de connexion, ses modèles en retrait.
+   Le retrait est une MARGE, pas des espaces dans le libellé — `nowrap` les
+   replierait en un seul. */
+.choix.groupe .nom { font-weight: 700; }
+.choix.groupe .aide { color: var(--texte-eteint); }
+.choix.sous .nom { padding-left: var(--e4); font-weight: 500; }
+
 .choix .nom {
   font-family: var(--police-fixe);
   font-weight: 600;

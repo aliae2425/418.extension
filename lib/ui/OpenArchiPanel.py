@@ -226,8 +226,12 @@ class OpenArchiPanel(forms.WPFPanel):
                 self._signer(self._coeur)
             self._poster('reponse', {'ref': message.get('ref'), 'sortie': pose})
         elif ordre == 'deconnecter':
-            self._poster('reponse', {'ref': message.get('ref'),
-                                     'sortie': secrets.oublier_cle()})
+            # Sans fournisseur, on efface TOUT : « me déconnecter » qui
+            # laisserait une clé derrière serait une déconnexion qui n'en est
+            # pas une. Avec, on n'en débranche qu'un — les autres tiennent.
+            self._poster('reponse', {
+                'ref': message.get('ref'),
+                'sortie': secrets.oublier_cle(message.get('fournisseur'))})
         elif ordre == 'oauth':
             # Le navigateur s'ouvre tout de suite, l'attente part en fond :
             # cinq minutes sur le fil d'interface gèleraient Revit.

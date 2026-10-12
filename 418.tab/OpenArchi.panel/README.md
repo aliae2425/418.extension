@@ -36,10 +36,11 @@ Tapez `/` : la liste s'ouvre et se filtre à la frappe. **Tab** complète.
 | commande | effet |
 |---|---|
 | `/connect` | **ouvre le choix du fournisseur** — abonnement ChatGPT ou clé API |
-| `/connect <clé>` | poser une clé OpenAI directement |
-| `/model` | **ouvre la liste des modèles** que la connexion expose |
-| `/model <nom>` | imposer un modèle à la main |
-| `/logout` | fermer la session et effacer la clé |
+| `/connect <clé>` | poser une clé directement (`sk-ant-…` va chez Anthropic) |
+| `/model` | **l'arbre des connexions ouvertes** et de leurs modèles |
+| `/model <nom>` | imposer un modèle à la main, sur la connexion active |
+| `/logout` | tout fermer : session **et** clés |
+| `/logout <fournisseur>` | n'en fermer qu'une — les autres tiennent |
 | `/aide` | lister les commandes |
 
 **Entrée** envoie · **Maj+Entrée** saute une ligne · **↑ ↓** rappellent ce qui
@@ -47,6 +48,31 @@ a déjà été envoyé · **Échap** ferme la liste.
 
 `/connect` et `/model` ouvrent un **menu** au même endroit : ↑ ↓ pour choisir,
 **Entrée** pour prendre, et la frappe le filtre.
+
+## Plusieurs fournisseurs à la fois
+
+Rien ne vous oblige à choisir. Poser une clé Anthropic **n'éteint pas** la
+session ChatGPT : les deux restent ouvertes, et `/model` est l'aiguillage.
+
+```
+/model
+  ▸ Anthropic · Clé API                      10 modèles
+  ▾ OpenAI · ChatGPT Plus / Pro   en cours    3 modèles
+      GPT-5.6                     en cours
+      …
+```
+
+**→** déplie, **←** replie, **↑ ↓** parcourent, **Entrée** prend. Choisir un
+modèle d'une autre maison y bascule — sans rien fermer, et sans redemander de
+clé.
+
+Dès que vous **tapez**, l'arbre s'aplatit et chaque ligne dit d'où elle vient :
+un en-tête ne porte aucun des mots qu'on cherche, le laisser replié cacherait
+la réponse.
+
+Deux choses sont retenues d'une session à l'autre : **la connexion active** et
+**le modèle de chaque connexion**. Un modèle est propre à sa connexion — passer
+chez Anthropic en gardant `gpt-5.6` ferait répondre un 404.
 
 Ce qu'on y voit vient de **[418.cloud](https://cloud.418.archi/api.json)**, le
 catalogue des fournisseurs et modèles qu'on sait employer. Y ajouter une

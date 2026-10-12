@@ -115,5 +115,33 @@ class TestRobustesse(_Bac):
         self.assertEqual('a-garder', secrets._lire().get('jeton'))
 
 
+class TestEffacementCible(_Bac):
+    """Effacer une clé ne doit jamais en effacer une autre."""
+
+    def setUp(self):
+        _Bac.setUp(self)
+        os.environ.pop('ANTHROPIC_API_KEY', None)
+        secrets.poser_cle('sk-aaa', 'openai')
+        secrets.poser_cle('sk-ant-bbb', 'anthropic')
+
+    def test_un_seul_fournisseur(self):
+        self.assertTrue(secrets.oublier_cle('anthropic'))
+        self.assertEqual('', secrets.cle('anthropic'))
+        # L'autre tient : on peut rester branché à plusieurs maisons.
+        self.assertEqual('sk-aaa', secrets.cle('openai'))
+
+    def test_sans_argument_efface_tout(self):
+        self.assertTrue(secrets.oublier_cle())
+        self.assertEqual('', secrets.cle('openai'))
+        self.assertEqual('', secrets.cle('anthropic'))
+
+    def test_un_fournisseur_inconnu_n_efface_rien(self):
+        # `_fiche()` retomberait sur OpenAI : une coquille effacerait la
+        # mauvaise clé, sans rien dire.
+        self.assertFalse(secrets.oublier_cle('anthropc'))
+        self.assertEqual('sk-aaa', secrets.cle('openai'))
+        self.assertEqual('sk-ant-bbb', secrets.cle('anthropic'))
+
+
 if __name__ == '__main__':
     unittest.main()
