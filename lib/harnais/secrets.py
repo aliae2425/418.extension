@@ -77,18 +77,32 @@ def _ecrire(charge):
         return False
 
 
-def cle(variable='OPENAI_API_KEY'):
+# Une clé par fournisseur : ils n'ont ni le même format, ni la même
+# facturation, et en poser une ne doit pas effacer l'autre. La variable
+# d'environnement de repli diffère aussi.
+FOURNISSEURS = {
+    'openai': {'champ': 'cle', 'variable': 'OPENAI_API_KEY'},
+    'anthropic': {'champ': 'cle_anthropic', 'variable': 'ANTHROPIC_API_KEY'},
+}
+
+
+def _fiche(fournisseur):
+    return FOURNISSEURS.get(fournisseur or 'openai') or FOURNISSEURS['openai']
+
+
+def cle(fournisseur='openai'):
     """La clé à employer, ``''`` s'il n'y en a aucune. Le fichier d'abord."""
-    posee = (_lire().get('cle') or '').strip()
+    fiche = _fiche(fournisseur)
+    posee = (_lire().get(fiche['champ']) or '').strip()
     if posee:
         return posee
-    return (os.environ.get(variable) or '').strip()
+    return (os.environ.get(fiche['variable']) or '').strip()
 
 
-def poser_cle(valeur):
+def poser_cle(valeur, fournisseur='openai'):
     """Range la clé. ``True`` si c'est écrit.
 
-    Aucune validation de forme : les préfixes de clés changent au gré des
+    Aucune validation de forme : les préfixes changent au gré des
     fournisseurs, et refuser une clé valide parce qu'elle ne commence pas par
     ``sk-`` serait pire que de laisser l'API répondre 401.
     """
@@ -96,22 +110,31 @@ def poser_cle(valeur):
     if not valeur:
         return False
     charge = _lire()
-    charge['cle'] = valeur
+    charge[_fiche(fournisseur)['champ']] = valeur
     pose = _ecrire(charge)
     # Jamais la valeur au journal, même tronquée.
-    _log.info('clé posée : %s', 'oui' if pose else 'échec')
+    _log.info('clé %s posée : %s', fournisseur, 'oui' if pose else 'échec')
     return pose
 
 
-def oublier_cle():
-    """Efface la clé rangée. Ne touche PAS à la variable d'environnement."""
+def oublier_cle(fournisseur=None):
+    """Efface la ou les clés rangées. Ne touche PAS aux variables d'environnement.
+
+    Sans argument, efface TOUT : c'est ce que `/logout` veut dire, et laisser
+    une clé derrière ferait croire à une déconnexion qui n'en est pas une.
+    """
     charge = _lire()
-    if 'cle' not in charge:
-        return False
-    del charge['cle']
-    _ecrire(charge)
-    _log.info('clé effacée')
-    return True
+    champs = ([_fiche(fournisseur)['champ']] if fournisseur
+              else [f['champ'] for f in FOURNISSEURS.values()])
+    efface = False
+    for champ in champs:
+        if champ in charge:
+            del charge[champ]
+            efface = True
+    if efface:
+        _ecrire(charge)
+        _log.info('clé(s) effacée(s) : %s', ', '.join(champs))
+    return efface
 
 
 # --- jetons OAuth ---------------------------------------------------------

@@ -54,19 +54,30 @@ _log = journal('volet')
 HOTE = '418.local'
 PROFIL = 'webview2'
 
-# Ce que la page envoie en `Authorization`, et que l'hôte remplace. La clé
-# ne traverse jamais la frontière : une XSS dans une bulle ne trouve rien.
+# Ce que la page envoie, et que l'hôte remplace. La clé ne traverse jamais
+# la frontière : une XSS dans une bulle ne trouve rien.
 #
-# Pourquoi une sentinelle plutôt qu'un en-tête ajouté de rien : sans
-# `Authorization` au départ, le navigateur ne l'annonce pas dans son préflight
-# CORS, et on dépendrait de l'ordre entre son contrôle et notre interception.
-# Avec, le préflight est exact et on ne fait que substituer une valeur.
-SENTINELLE = 'Bearer 418-hote'
-
-# Seule origine dont on signe les requêtes. Un filtre large signerait aussi
-# ce que la page demande ailleurs — elle n'a rien à demander ailleurs, mais
-# c'est le genre de porte qu'on laisse fermée.
-API_OPENAI = 'https://api.openai.com/*'
+# Pourquoi une sentinelle plutôt qu'un en-tête ajouté de rien : sans l'en-tête
+# au départ, le navigateur ne l'annonce pas dans son préflight CORS, et on
+# dépendrait de l'ordre entre son contrôle et notre interception. Avec, le
+# préflight est exact et on ne fait que substituer une valeur.
+#
+# Chaque fournisseur a SON en-tête — `Authorization: Bearer` chez OpenAI,
+# `x-api-key` nu chez Anthropic — et donc sa propre sentinelle. Les filtres
+# restent étroits : la page n'a rien à demander ailleurs, mais c'est le genre
+# de porte qu'on laisse fermée.
+SIGNATURES = (
+    {'fournisseur': 'openai',
+     'filtre': 'https://api.openai.com/*',
+     'entete': 'Authorization',
+     'sentinelle': 'Bearer 418-hote',
+     'valeur': lambda cle: 'Bearer ' + cle},
+    {'fournisseur': 'anthropic',
+     'filtre': 'https://api.anthropic.com/*',
+     'entete': 'x-api-key',
+     'sentinelle': '418-hote',
+     'valeur': lambda cle: cle},
+)
 
 
 def _dossier_web():
@@ -136,26 +147,32 @@ class OpenArchiPanel(forms.WPFPanel):
             _log.exception('initialisation du volet')
 
     def _signer(self, coeur):
-        """Pose l'interception qui remplace la sentinelle par la vraie clé.
+        """Pose les interceptions qui remplacent la sentinelle par la vraie clé.
 
         Appelée au montage ET après un `/connect` : la page a pu démarrer
         sans clé, auquel cas rien n'était armé. Idempotente — un second
-        abonnement enverrait l'évènement deux fois et signerait deux fois.
+        abonnement poserait deux fois le même en-tête.
 
-        Si ça échoue, le volet marche quand même : la page retombera sur le
-        modèle fictif, puisque la clé sera annoncée absente.
+        On arme TOUS les fournisseurs dès qu'une clé existe, quelle qu'elle
+        soit : armer au cas par cas obligerait à ré-armer à chaque /connect,
+        et un filtre sans clé ne fait rien de toute façon.
+
+        Si ça échoue, le volet marche quand même : la page le verra à
+        l'absence de clé annoncée.
         """
         if coeur is None or self._signe:
             return None
-        if not secrets.cle():
-            return _log.info('aucune clé — modèle fictif')
+        if not any(secrets.cle(s['fournisseur']) for s in SIGNATURES):
+            return _log.info('aucune clé — aucune signature armée')
         try:
             from Microsoft.Web.WebView2.Core import CoreWebView2WebResourceContext
-            coeur.AddWebResourceRequestedFilter(
-                API_OPENAI, CoreWebView2WebResourceContext.All)
+            for signature in SIGNATURES:
+                coeur.AddWebResourceRequestedFilter(
+                    signature['filtre'], CoreWebView2WebResourceContext.All)
             coeur.WebResourceRequested += self._sur_requete
             self._signe = True
-            _log.info('signature des appels à %s en place', API_OPENAI)
+            _log.info('signature armée pour %s',
+                      ', '.join(s['fournisseur'] for s in SIGNATURES))
         except Exception:
             _log.exception('interception impossible — la clé ne sera pas posée')
 
@@ -163,15 +180,17 @@ class OpenArchiPanel(forms.WPFPanel):
         """Sur le fil d'interface. Ne lève JAMAIS : Revit tomberait."""
         try:
             entetes = args.Request.Headers
-            # On ne signe QUE ce qui porte la sentinelle. Un en-tête absent
-            # ou différent part tel quel et prend un 401 — un refus franc
-            # vaut mieux qu'un appel anonyme qu'on aurait signé par hasard.
-            if entetes.GetHeader('Authorization') != SENTINELLE:
+            for signature in SIGNATURES:
+                # On ne signe QUE ce qui porte la sentinelle. Un en-tête
+                # absent ou différent part tel quel et prend un 401 — un refus
+                # franc vaut mieux qu'un appel anonyme signé par hasard.
+                if entetes.GetHeader(signature['entete']) != signature['sentinelle']:
+                    continue
+                valeur = secrets.cle(signature['fournisseur'])
+                if not valeur:
+                    return                 # /logout est passé par là
+                entetes.SetHeader(signature['entete'], signature['valeur'](valeur))
                 return
-            valeur = secrets.cle()
-            if not valeur:
-                return                     # /logout est passé par là
-            entetes.SetHeader('Authorization', 'Bearer ' + valeur)
         except Exception:
             _log.exception('signature de la requête')
 
@@ -199,7 +218,8 @@ class OpenArchiPanel(forms.WPFPanel):
             # jeton — donc du réseau, donc le fil de fond.
             self._verifier_connexion()
         elif ordre == 'connecter':
-            pose = secrets.poser_cle(message.get('cle') or '')
+            pose = secrets.poser_cle(message.get('cle') or '',
+                                     message.get('fournisseur') or 'openai')
             if pose:
                 # La page a pu démarrer sans clé : l'interception n'était
                 # alors pas armée. Elle l'est maintenant, sans redémarrage.
@@ -254,8 +274,12 @@ class OpenArchiPanel(forms.WPFPanel):
             # La clé n'est PAS validée : ça coûterait une requête à chaque
             # ouverture du volet pour une panne que le premier message dira
             # en clair. On annonce qu'elle est posée, pas qu'elle marche.
+            # Quelles clés existent, jamais leur valeur. La page choisit
+            # son fournisseur là-dessus et n'en saura pas plus.
             self._poster('config', {
-                'cle': bool(secrets.cle()),
+                'cles': dict((s['fournisseur'],
+                              bool(secrets.cle(s['fournisseur'])))
+                             for s in SIGNATURES),
                 'oauth': bool(lu.get('session')),
                 'raison': lu.get('raison') or '',
             })

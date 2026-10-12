@@ -63,8 +63,23 @@ clé peut appeler, là où le catalogue décrit ce qui existe. Sur l'**abonnemen
 le catalogue est la seule source — le backend Codex n'expose ni route, ni
 config, ni cache.
 
-Les deux connexions ne se valent pas : l'abonnement ne coûte rien au jeton, la
-clé est facturée à l'usage. Si les deux existent, l'abonnement gagne.
+Trois voies aujourd'hui :
+
+| | |
+|---|---|
+| **OpenAI · ChatGPT Plus / Pro** | votre abonnement — ne coûte rien au jeton |
+| **OpenAI · Clé API** | facturée à l'usage |
+| **Anthropic · Clé API** | facturée à l'usage |
+
+Si l'abonnement et une clé existent, l'abonnement gagne : il ne coûte rien.
+
+**Anthropic en clé seulement.** L'abonnement Claude Pro/Max n'est pas proposé :
+Anthropic l'interdit explicitement, et opencode a retiré ses greffons pour
+cette raison. On ne bâtit pas sur une porte que l'éditeur a écrit qu'il
+fermerait.
+
+`/connect sk-ant-…` va chez Anthropic, `/connect sk-…` chez OpenAI — mais le
+préfixe n'est qu'une heuristique : passer par l'assistant est la voie sûre.
 
 **Ni la clé ni le jeton n'entrent dans la page.** Ils vivent dans
 `%LOCALAPPDATA%\418.extension\auth.json`, hors du dépôt : une copie de
