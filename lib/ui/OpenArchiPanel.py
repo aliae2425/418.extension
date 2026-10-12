@@ -36,11 +36,11 @@ from pyrevit import forms
 try:
     from core.AppPaths import AppPaths
     from core.journal import journal
-    from harnais import outils, secrets, oauth
+    from harnais import outils, secrets, oauth, signature
 except Exception:
     from lib.core.AppPaths import AppPaths
     from lib.core.journal import journal
-    from lib.harnais import outils, secrets, oauth
+    from lib.harnais import outils, secrets, oauth, signature
 
 try:
     from ui.helpers.UIResourceLoader import UIResourceLoader
@@ -54,30 +54,12 @@ _log = journal('volet')
 HOTE = '418.local'
 PROFIL = 'webview2'
 
-# Ce que la page envoie, et que l'hôte remplace. La clé ne traverse jamais
-# la frontière : une XSS dans une bulle ne trouve rien.
+# La clé ne traverse jamais la frontière : la page envoie une sentinelle que
+# l'hôte remplace, donc une XSS dans une bulle ne trouve rien.
 #
-# Pourquoi une sentinelle plutôt qu'un en-tête ajouté de rien : sans l'en-tête
-# au départ, le navigateur ne l'annonce pas dans son préflight CORS, et on
-# dépendrait de l'ordre entre son contrôle et notre interception. Avec, le
-# préflight est exact et on ne fait que substituer une valeur.
-#
-# Chaque fournisseur a SON en-tête — `Authorization: Bearer` chez OpenAI,
-# `x-api-key` nu chez Anthropic — et donc sa propre sentinelle. Les filtres
-# restent étroits : la page n'a rien à demander ailleurs, mais c'est le genre
-# de porte qu'on laisse fermée.
-SIGNATURES = (
-    {'fournisseur': 'openai',
-     'filtre': 'https://api.openai.com/*',
-     'entete': 'Authorization',
-     'sentinelle': 'Bearer 418-hote',
-     'valeur': lambda cle: 'Bearer ' + cle},
-    {'fournisseur': 'anthropic',
-     'filtre': 'https://api.anthropic.com/*',
-     'entete': 'x-api-key',
-     'sentinelle': '418-hote',
-     'valeur': lambda cle: cle},
-)
+# La table des signatures et la substitution elle-même vivent dans
+# `harnais/signature.py` : elles décident si la clé atteint l'API, et ne
+# s'éprouvent pas dans Revit. Ici on ne garde que la plomberie WebView2.
 
 
 def _dossier_web():
@@ -162,35 +144,24 @@ class OpenArchiPanel(forms.WPFPanel):
         """
         if coeur is None or self._signe:
             return None
-        if not any(secrets.cle(s['fournisseur']) for s in SIGNATURES):
+        if not any(secrets.cle(s['fournisseur']) for s in signature.SIGNATURES):
             return _log.info('aucune clé — aucune signature armée')
         try:
             from Microsoft.Web.WebView2.Core import CoreWebView2WebResourceContext
-            for signature in SIGNATURES:
+            for fiche in signature.SIGNATURES:
                 coeur.AddWebResourceRequestedFilter(
-                    signature['filtre'], CoreWebView2WebResourceContext.All)
+                    fiche['filtre'], CoreWebView2WebResourceContext.All)
             coeur.WebResourceRequested += self._sur_requete
             self._signe = True
             _log.info('signature armée pour %s',
-                      ', '.join(s['fournisseur'] for s in SIGNATURES))
+                      ', '.join(s['fournisseur'] for s in signature.SIGNATURES))
         except Exception:
             _log.exception('interception impossible — la clé ne sera pas posée')
 
     def _sur_requete(self, sender, args):
         """Sur le fil d'interface. Ne lève JAMAIS : Revit tomberait."""
         try:
-            entetes = args.Request.Headers
-            for signature in SIGNATURES:
-                # On ne signe QUE ce qui porte la sentinelle. Un en-tête
-                # absent ou différent part tel quel et prend un 401 — un refus
-                # franc vaut mieux qu'un appel anonyme signé par hasard.
-                if entetes.GetHeader(signature['entete']) != signature['sentinelle']:
-                    continue
-                valeur = secrets.cle(signature['fournisseur'])
-                if not valeur:
-                    return                 # /logout est passé par là
-                entetes.SetHeader(signature['entete'], signature['valeur'](valeur))
-                return
+            signature.signer(args.Request.Headers, secrets.cle)
         except Exception:
             _log.exception('signature de la requête')
 
@@ -295,7 +266,7 @@ class OpenArchiPanel(forms.WPFPanel):
             self._poster('config', {
                 'cles': dict((s['fournisseur'],
                               bool(secrets.cle(s['fournisseur'])))
-                             for s in SIGNATURES),
+                             for s in signature.SIGNATURES),
                 'oauth': bool(lu.get('session')),
                 'raison': lu.get('raison') or '',
             })
