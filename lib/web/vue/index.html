@@ -67,6 +67,27 @@
 </div>
 <div id="pied"></div>
 
+<!-- Une clé ne se tape pas dans le fil. Elle y resterait affichée en clair,
+     et `↑` la rappellerait. `<dialog>` est natif : modale, piège à focus et
+     Échap compris, sans une ligne de JS pour ça. `method="dialog"` fait que
+     chaque bouton ferme en rendant son `value`. -->
+<dialog id="modale-cle">
+  <form method="dialog">
+    <h2 id="cle-titre">Clé API</h2>
+    <p id="cle-aide"></p>
+    <!-- `password` : la clé ne doit pas rester lisible à l'écran. -->
+    <input id="cle-valeur" type="password" autocomplete="off"
+           spellcheck="false" placeholder="sk-…">
+    <menu>
+      <!-- `type="button"` : sans lui, Annuler serait le PREMIER bouton de
+           soumission du formulaire, donc celui qu'Entrée déclenche. Taper sa
+           clé et valider au clavier l'aurait annulée. -->
+      <button id="cle-non" type="button">Annuler</button>
+      <button id="cle-ok" value="ok">Connecter</button>
+    </menu>
+  </form>
+</dialog>
+
 <script type="module" src="./app.js"></script>
 </body>
 </html>

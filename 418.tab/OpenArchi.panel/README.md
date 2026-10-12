@@ -36,7 +36,7 @@ Tapez `/` : la liste s'ouvre et se filtre à la frappe. **Tab** complète.
 | commande | effet |
 |---|---|
 | `/connect` | **ouvre le choix du fournisseur** — abonnement ChatGPT ou clé API |
-| `/connect <clé>` | poser une clé directement (`sk-ant-…` va chez Anthropic) |
+| `/connect <clé>` | poser une clé sans l'assistant (`sk-ant-…` va chez Anthropic) |
 | `/model` | **l'arbre des connexions ouvertes** et de leurs modèles |
 | `/model <nom>` | imposer un modèle à la main, sur la connexion active |
 | `/logout` | tout fermer : session **et** clés |
@@ -48,6 +48,11 @@ a déjà été envoyé · **Échap** ferme la liste.
 
 `/connect` et `/model` ouvrent un **menu** au même endroit : ↑ ↓ pour choisir,
 **Entrée** pour prendre, et la frappe le filtre.
+
+La clé se tape dans une **modale**, pas dans le fil : affichée en clair elle
+y resterait, et `↑` la rappellerait. Si vous tapez quand même
+`/connect sk-…` à la main, elle est masquée à l'écran et tenue hors de
+l'historique.
 
 ## Plusieurs fournisseurs à la fois
 

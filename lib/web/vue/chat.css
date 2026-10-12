@@ -579,3 +579,84 @@ details.raisonnement .corps { padding-bottom: var(--e1); }
   background: var(--fond);
   min-height: 1.5em;
 }
+
+/* --- la modale de clé -------------------------------------------------------
+   `<dialog>` natif : le fond inerte, le focus piégé et Échap viennent du
+   navigateur. On ne pose ici que l'apparence. */
+
+#modale-cle {
+  /* Le volet est étroit — une largeur fixe déborderait. */
+  width: min(92vw, 26rem);
+  padding: 0;
+  border: 1px solid var(--trait);
+  border-radius: var(--r-moyen);
+  background: var(--carte);
+  color: var(--texte);
+  box-shadow: var(--ombre);
+}
+#modale-cle::backdrop { background: rgba(0, 0, 0, .45); }
+
+#modale-cle form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+  padding: var(--e4);
+}
+#modale-cle h2 {
+  margin: 0;
+  font-size: var(--t-grand);
+  font-weight: 600;
+}
+#cle-aide {
+  margin: 0;
+  color: var(--texte-faible);
+  font-size: var(--t-petit);
+  line-height: var(--interligne);
+  /* Une URL de documentation n'a pas d'espace où se couper. */
+  overflow-wrap: anywhere;
+}
+#cle-valeur {
+  padding: var(--e2) var(--e3);
+  border: 1px solid var(--trait);
+  border-radius: var(--r-petit);
+  background: var(--champ);
+  color: var(--texte);
+  font-family: var(--police-fixe);
+  font-size: var(--t-base);
+}
+#cle-valeur:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+#modale-cle menu {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--e2);
+  margin: 0;
+  padding: 0;
+}
+#modale-cle menu button {
+  padding: var(--e2) var(--e4);
+  border: 1px solid var(--trait);
+  border-radius: var(--r-petit);
+  background: var(--champ);
+  color: var(--texte);
+  font: inherit;
+  font-size: var(--t-base);
+  cursor: pointer;
+  transition: background var(--vif), border-color var(--vif);
+}
+#modale-cle menu button:hover {
+  border-color: var(--trait-survol);
+  background: var(--champ-survol);
+}
+#cle-ok {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--texte-accent);
+}
+#cle-ok:hover {
+  border-color: var(--accent-survol);
+  background: var(--accent-survol);
+}
