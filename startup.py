@@ -70,19 +70,30 @@ def _etape(nom, travail):
 def _beta():
     """« Load Beta Tools » est-il coché dans les réglages pyRevit ?
 
-    `user_config.load_beta`, PAS `user_config.core.load_beta`. La propriété
-    vit sur `PyRevitConfig` et passe par `core.get_option(..., default_value=)`
-    — donc elle rend `False` quand la case n'a jamais été touchée. Lire la
-    section brute, c'est tomber sur `configparser.__getattr__`, qui LÈVE : la
-    clé du fichier s'appelle `loadbeta`, sans underscore.
+    Toujours `user_config.load_beta`, JAMAIS la section brute. Mais ce que
+    fait cette propriété a changé avec pyRevit 7.0, et dans le mauvais sens :
 
-    Ça n'a l'air de rien, et ça a coûté les deux volets. `_etape` avalait
-    l'exception, le `if` voyait `None`, et plus rien ne s'enregistrait —
-    sans qu'un seul message ne parle de bêta. C'est exactement le genre de
-    panne que ce journal existe pour attraper.
+    - en 6.x elle passait par `core.get_option(..., default_value=False)`,
+      donc une case jamais touchée rendait `False` sans bruit ;
+    - en 7.0 c'est `return self.core.LoadBeta`, NU. La réécriture du service
+      de configuration a renommé la clé (`loadbeta` → `LoadBeta`) et retiré
+      le repli. Une clé absente remonte donc à `ConfigSection.__getattr__`,
+      qui LÈVE `AttributeError`.
+
+    D'où ce garde : « illisible » vaut « non coché ». Sans lui, `_etape`
+    avale l'exception, le `if` voit `None`, et plus rien ne s'enregistre —
+    sans qu'un seul message ne parle de bêta. C'est exactement la panne qui a
+    coûté les deux volets, et 7.0 rouvrait la porte par l'autre côté.
     """
     from pyrevit.userconfig import user_config
-    return bool(user_config.load_beta)
+    try:
+        return bool(user_config.load_beta)
+    except Exception:
+        # On le DIT : « non coché » et « illisible » mènent au même endroit,
+        # mais pas au même geste.
+        if _log is not None:
+            _log.warning('load_beta illisible — bêta traité comme décoché')
+        return False
 
 
 def _volet():

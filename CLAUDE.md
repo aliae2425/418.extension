@@ -154,12 +154,24 @@ amputée pour cacher quelque chose.
 
 **Le drapeau ne couvre que le ruban.** `startup.py` est exécuté par pyRevit au
 lancement, bêta ou non : tout ce qui n'est pas prêt y est gardé derrière
-`user_config.load_beta` à la main — **la propriété, jamais
-`user_config.core.load_beta`**. La seconde forme tombe sur
-`configparser.__getattr__` et LÈVE quand la case n'a jamais été touchée : la
-clé du fichier s'appelle `loadbeta`, sans underscore. La propriété, elle,
-passe par `get_option(..., default_value=)` et rend `False`. L'erreur a coûté
-les deux volets ancrables, en silence. C'est le cas du volet OpenArchi.
+`user_config.load_beta` à la main — **la propriété, jamais la section brute**.
+C'est le cas du volet OpenArchi.
+
+**Et depuis pyRevit 7.0, la propriété elle-même peut lever.** La réécriture
+du service de configuration a renommé la clé (`loadbeta` → `LoadBeta`) et
+transformé `load_beta` en `return self.core.LoadBeta` nu, sans le
+`get_option(..., default_value=)` qui absorbait l'absence en 6.x. Une clé
+jamais écrite remonte donc à `ConfigSection.__getattr__`, qui LÈVE
+`AttributeError`. `_beta()` garde les deux cas et traite « illisible » comme
+« non coché », en le journalisant. Sans ce garde, `_etape` avale l'exception,
+le `if` voit `None`, et plus rien ne s'enregistre sans qu'un message ne parle
+de bêta — la panne qui a déjà coûté les deux volets ancrables, rouverte par
+l'autre côté.
+
+**La migration vers 7.0 remet la case à zéro.** `[core]` du
+`pyRevit_config.ini` ressort avec `config_version = 1` et rien d'autre : tout
+ce qui est bêta disparaît du ruban, et le volet OpenArchi avec. À recocher
+dans **pyRevit → Settings → Development → Load Beta Tools**, puis Reload.
 
 ## Le harnais
 
@@ -278,27 +290,7 @@ instance** que Revit garde pour la session. Un Reload pyRevit rejoue
 `startup.py`, qui répond « déjà enregistré » — l'objet vivant garde les
 modules importés à sa construction.
 
-## Arborescence
-
-```
-418.tab/
-├── 418.panel/Infos.pushbutton/               ← modale « À propos »
-├── Audit.panel/Audit.pushbutton/             ← santé du modèle (BÊTA)
-├── Export.panel/BatchExport.pushbutton/      ← export PDF/DWG en lot (principal)
-├── Manage.panel/
-│   ├── Materiaux.pushbutton/                 ← voir, éditer, remplacer, renommer
-│   └── Manage{Filtre,Sheet,View}.pushbutton/ ← scaffolds (BÊTA)
-├── OpenArchi.panel/Chat.pushbutton/          ← ouvre le panneau de chat (BÊTA)
-├── Tools.panel/
-│   ├── ImageCrop.pushbutton/
-│   ├── SvgImport.pushbutton/
-│   ├── RampeParking.pushbutton/              ← contraintes NF P91-100 (BÊTA)
-│   └── col1.stack/
-│       ├── duplicate_sheets.pushbutton/
-│       ├── views_duplicate.pushbutton/
-│       └── Rename.pulldown/{FindReplace_Sheets, FindReplace - Views}.pushbutton/
-└── Align.panel/col{1,2,3}.stack/             ← 8 boutons aligner/centrer/répartir
-```
+## Structure d'un bouton
 
 Chaque bouton est autonome : `script.py` en point d'entrée, `GUI/` pour le
 XAML, `lib/` pour la logique découpée `services/` (métier) · `viewmodels/` ·
