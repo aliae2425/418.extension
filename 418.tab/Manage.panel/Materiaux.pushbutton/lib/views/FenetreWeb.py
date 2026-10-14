@@ -59,6 +59,12 @@ PROFIL = 'webview2'
 #: légitime.
 AUTRE = object()
 
+#: `DWMWA_WINDOW_CORNER_PREFERENCE` et `DWMWCP_ROUND` (dwmapi.h, Windows 11).
+#: Le rayon est celui du système — on demande des coins arrondis, pas une
+#: valeur en pixels : c'est Windows qui tient la charte, pas nous.
+DWMWA_COINS = 33
+DWMWCP_ARRONDI = 2
+
 
 class FenetreWeb(BaseWindow):
     """Fenêtre borderless dont tout le contenu est une page de `lib/web/`."""
@@ -120,6 +126,10 @@ class FenetreWeb(BaseWindow):
 
     def _habiller(self):
         fenetre = self._window
+        # Les coins se posent quand le HWND existe — donc pas maintenant, et
+        # surtout pas par `EnsureHandle()` : créer la poignée avant l'affichage
+        # fait rater son placement à la fenêtre (centrée écran ou propriétaire).
+        fenetre.SourceInitialized += self._sur_poignee
         fenetre.Title = self.TITRE
         fenetre.Width, fenetre.Height = self.TAILLE
         fenetre.MinWidth, fenetre.MinHeight = self.TAILLE_MINI
@@ -139,6 +149,34 @@ class FenetreWeb(BaseWindow):
             fenetre.Owner = self._proprietaire
             fenetre.WindowStartupLocation = WindowStartupLocation.CenterOwner
             fenetre.ShowInTaskbar = False
+
+    def _sur_poignee(self, sender, args):
+        """Demande à DWM d'arrondir les coins de la fenêtre.
+
+        `WindowStyle="None"` prive WPF du cadre que Windows arrondit tout
+        seul, et la parade habituelle — `AllowsTransparency` plus un `Border`
+        à `CornerRadius` — est justement celle qui fait disparaître WebView2.
+        On passe donc par l'attribut DWM : c'est le système qui découpe la
+        fenêtre, enfants HWND compris, et c'est lui qui tient le rayon.
+
+        Si ça échoue, la fenêtre reste carrée et tout le reste marche — d'où
+        le silence de ce `except`, une trace dans le journal et rien de plus.
+
+        ponytail: `ctypes` plutôt qu'un vrai P/Invoke. Sous IronPython il
+        porte quelques verrues, mais l'appel est de la forme la plus simple
+        qui soit (un entier par référence). S'il venait à manquer, le repli
+        est `DefinePInvokeMethod` via Reflection.Emit, vingt lignes de plus.
+        """
+        try:
+            import ctypes
+            from System.Windows.Interop import WindowInteropHelper
+            poignee = WindowInteropHelper(self._window).Handle
+            prefere = ctypes.c_int(DWMWCP_ARRONDI)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                ctypes.c_void_p(poignee.ToInt64()), DWMWA_COINS,
+                ctypes.byref(prefere), ctypes.sizeof(prefere))
+        except Exception as erreur:
+            log(u'coins arrondis refusés par DWM : {}', erreur)
 
     def _monter(self):
         hote = self._window.FindName('WebHost')
