@@ -249,31 +249,29 @@ button:disabled { opacity: .6; cursor: default; }
 
 /* ───────────────────── onglet 1 : les cartes ───────────────────── */
 
-/* Bascules d'affichage, dans l'en-tête. Le segment actif prend le fond de
-   FENÊTRE : c'est la seule teinte qui tranche sur la surface de page dans
-   les deux thèmes — même geste que l'onglet actif du rail. */
-.bascules { margin-left: auto; display: flex; gap: var(--e2); }
-.segments {
-  display: flex;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--trait);
-  border-radius: var(--r-bouton);
-}
+/* Bascules d'affichage, dans l'en-tête : quatre icônes nues, sans cadre. Le
+   segment actif se dit par l'accent et un voile, pas par un filet — c'est le
+   geste du rail, en plus petit. Le titre de chaque bouton nomme le mode. */
+.bascules { margin-left: auto; display: flex; gap: var(--e4); }
+.segments { display: flex; gap: 2px; }
 .segment {
-  padding: 4px 14px;
+  width: 30px; height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--r-case);
   background: transparent;
   color: var(--texte-faible);
-  font-size: var(--t-bouton);
   cursor: pointer;
+  transition: background var(--vif), color var(--vif);
 }
-.segment:hover { color: var(--texte); }
-.segment.actif {
-  background: var(--fond);
-  color: var(--accent);
-  font-weight: 600;
+.segment:hover { background: var(--voile); color: var(--texte); }
+.segment.actif { background: var(--voile-fort); color: var(--accent); }
+.segment svg {
+  width: 17px; height: 17px;
+  fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
 }
 
 .cartes {
@@ -386,11 +384,43 @@ button:disabled { opacity: .6; cursor: default; }
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .14);
 }
 
-.motifs-carte { gap: var(--e2); align-items: center; }
-.motif-carte { margin: 0; text-align: center; }
-.motif-carte figcaption {
-  font-size: 10px; color: var(--texte-faible); margin-top: 3px;
+/* Le mode Dessin prend TOUT le haut de la carte, bord à bord : les marges
+   intérieures sont reprises en négatif, et l'arrondi suit celui de la carte
+   (moins son filet d'un pixel). */
+.cartes.dessin .apercu {
+  height: 120px;
+  margin: calc(-1 * var(--e4)) calc(-1 * var(--e4)) var(--e3);
+  border-radius: calc(var(--r-carte) - 1px) calc(var(--r-carte) - 1px) 0 0;
+  overflow: hidden;
 }
+
+/* La séparation en biais : les deux triangles sont découpés d'un coin à
+   l'autre, et chacun recule de 1,4 px le long de la diagonale. Le fond du
+   bloc apparaît dans l'écart — un filet exactement diagonal, que ne donnerait
+   pas un dégradé (sa ligne n'est perpendiculaire à sa direction, donc elle ne
+   suit la diagonale que sur un carré). */
+.motifs-carte {
+  position: relative;
+  width: 100%; height: 100%;
+  background: var(--trait);
+}
+.pan { position: absolute; inset: 0; }
+.pan svg { display: block; width: 100%; height: 100%; }
+.pan.surface { clip-path: polygon(0 0, calc(100% - 1.4px) 0, 0 calc(100% - 1.4px)); }
+.pan.coupe { clip-path: polygon(100% 1.4px, 100% 100%, 1.4px 100%); }
+
+/* Par-dessus la hachure : le papier est blanc dans les deux thèmes, la
+   pastille l'est donc aussi, et son texte sombre. */
+.legende {
+  position: absolute;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, .78);
+  color: #1A1A1A;
+  font-size: 10px;
+}
+.pan.surface .legende { top: 6px; left: 8px; }
+.pan.coupe .legende { bottom: 6px; right: 8px; }
 
 /* --- disposition en LISTE : la même carte, couchée --- */
 
@@ -410,10 +440,31 @@ button:disabled { opacity: .6; cursor: default; }
   padding: var(--e2) var(--e3);
   box-shadow: none;
 }
-.cartes.liste .apercu { height: 44px; margin: 0; }
+.cartes.liste .apercu {
+  height: 44px;
+  margin: 0;
+  border-radius: 0;
+  overflow: visible;
+}
 .cartes.liste .sphere { width: 36px; height: 36px; background-size: 7px 7px; }
-.cartes.liste .vignette.grande { width: 64px; height: 28px; }
-.cartes.liste .motif-carte figcaption { display: none; }
+/* En ligne, pas de biais : une diagonale sur 28 px de haut ne se lit pas.
+   Les deux motifs reprennent leur place côte à côte, à leur taille des
+   tableaux. */
+.cartes.liste .motifs-carte {
+  width: auto;
+  background: transparent;
+  display: flex;
+  gap: var(--e2);
+}
+.cartes.liste .pan {
+  position: static;
+  clip-path: none;
+  width: 64px; height: 28px;
+  border: 1px solid var(--trait);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.cartes.liste .legende { display: none; }
 /* La place du crayon, qui flotte au-dessus de la fin de ligne. */
 .cartes.liste .usages { text-align: right; padding-right: 32px; }
 .cartes.liste .editer-carte { top: 50%; margin-top: -14px; }
@@ -524,11 +575,10 @@ button:disabled { opacity: .6; cursor: default; }
 }
 .vignette svg { display: block; width: 100%; height: 100%; }
 .vignette.rendu { width: 40px; height: 24px; }
+/* La tuile d'un matériau est rendue en 256×112 : affichée ici au quart, le
+   motif retrouve exactement son échelle papier. C'est `slice` qui l'y aide —
+   elle couvre et rogne, elle ne déforme pas. */
 .vignette.motif { width: 64px; height: 26px; }
-/* Exactement 1,5× la tuile rendue (64×28) : un multiple entier de l'une et
-   l'autre dimension, donc un agrandissement et jamais une déformation —
-   `preserveAspectRatio="none"` ne pardonne pas un rapport bancal. */
-.vignette.grande { width: 96px; height: 42px; }
 
 /* ──────────── fenêtres filles : éditeur et choix de motif ──────── */
 

@@ -54,9 +54,17 @@ NOIR = (0, 0, 0)
 #: donc de part et d'autre du pont, sans entrée spéciale.
 AUCUN = -1
 
-# Vignette d'une carte, et vignette d'une entrée de catalogue. La seconde est
-# plus large : un appareillage de brique ne se reconnaît pas sur deux rangs.
+# Vignette d'une entrée de catalogue. Plus large que celle des tableaux : un
+# appareillage de brique ne se reconnaît pas sur deux rangs.
 APERCU_MOTIF = (120.0, 26.0)
+
+#: La tuile d'un matériau, et son grossissement. 256×112 à zoom 4, c'est
+#: EXACTEMENT 64×28 à zoom 1 — même nombre de segments, donc même poids dans
+#: le message. Une seule tuile sert les deux usages : la carte l'agrandit,
+#: les tableaux la réduisent d'autant, et comme elle est en `slice` aucun des
+#: deux ne la déforme.
+TUILE_MATERIAU = (256.0, 112.0)
+ZOOM_MATERIAU = 4.0
 
 # Tuile de l'aperçu comparatif de l'éditeur. Assez grande pour montrer un
 # appareillage entier.
@@ -439,8 +447,10 @@ def _nom_de_motif(couches):
 
 def _face(materiau, face, couleur, catalogue):
     couches = _couches_de_face(materiau, face, couleur, catalogue)
+    largeur, hauteur = TUILE_MATERIAU
     return {'nom': _nom_de_motif(couches),
-            'svg': hatch_svg.vignette(couches)}
+            'svg': hatch_svg.vignette(couches, largeur, hauteur,
+                                      zoom=ZOOM_MATERIAU)}
 
 
 def _apparence(doc, materiau):

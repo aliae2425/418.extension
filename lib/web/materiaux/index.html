@@ -61,18 +61,33 @@
              des cartes ne change pas d'un mode à l'autre.
              `data-classe` est la classe posée sur la grille quand le second
              segment est choisi ; le premier est l'état par défaut. -->
+        <!-- Quatre icônes, et le titre dit tout : les tracés viennent un à un
+             d'`Icons.xaml` (IconMateriauxRuban, IconDessin, IconMateriaux,
+             IconListe), qui reste la source du jeu — Lucide, et Lucide seul. -->
         <div class="bascules">
           <!-- Les deux lectures d'un matériau, celles de Revit : ce qu'il
                REND (la sphère) et ce qu'il DESSINE (ses deux motifs). -->
           <div class="segments" data-classe="dessin" role="group"
                aria-label="Aperçu des cartes">
-            <button class="segment actif" data-valeur="rendu">Rendu</button>
-            <button class="segment" data-valeur="dessin">Dessin</button>
+            <button class="segment actif" data-valeur="rendu"
+                    title="Rendu" aria-label="Rendu">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12a10 10 0 1 1 20 0 10 10 0 1 1-20 0M12 2a7 7 0 1 0 10 10"/></svg>
+            </button>
+            <button class="segment" data-valeur="dessin"
+                    title="Dessin" aria-label="Dessin">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>
+            </button>
           </div>
           <div class="segments" data-classe="liste" role="group"
                aria-label="Disposition">
-            <button class="segment actif" data-valeur="cartes">Cartes</button>
-            <button class="segment" data-valeur="liste">Liste</button>
+            <button class="segment actif" data-valeur="cartes"
+                    title="Cartes" aria-label="Cartes">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3H9A1 1 0 0 1 10 4V9A1 1 0 0 1 9 10H4A1 1 0 0 1 3 9V4A1 1 0 0 1 4 3ZM15 3H20A1 1 0 0 1 21 4V9A1 1 0 0 1 20 10H15A1 1 0 0 1 14 9V4A1 1 0 0 1 15 3ZM15 14H20A1 1 0 0 1 21 15V20A1 1 0 0 1 20 21H15A1 1 0 0 1 14 20V15A1 1 0 0 1 15 14ZM4 14H9A1 1 0 0 1 10 15V20A1 1 0 0 1 9 21H4A1 1 0 0 1 3 20V15A1 1 0 0 1 4 14Z"/></svg>
+            </button>
+            <button class="segment" data-valeur="liste"
+                    title="Liste" aria-label="Liste">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+            </button>
           </div>
         </div>
       </header>

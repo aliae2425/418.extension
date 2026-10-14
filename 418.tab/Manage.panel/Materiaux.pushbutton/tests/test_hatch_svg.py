@@ -93,6 +93,34 @@ class TestTraits(unittest.TestCase):
                          hatch_svg.vignette([dessin], echelle_vue=200))
 
 
+class TestZoom(unittest.TestCase):
+    """Le zoom est ce qui permet à la carte de montrer un GRAND aperçu sans
+    alourdir le message d'un octet."""
+
+    def _couche(self):
+        return hatch.Couche(grilles=[hatch.Grille(angle=0.4, offset=0.02)],
+                            rgb=(0, 0, 0))
+
+    def test_quatre_fois_plus_grande_pour_le_meme_poids(self):
+        # 256×112 à zoom 4, c'est 64×28 à zoom 1 : l'aire est multipliée par
+        # 16, l'écartement par 4, le nombre de segments ne bouge pas.
+        petite = hatch_svg.vignette([self._couche()], 64.0, 28.0)
+        grande = hatch_svg.vignette([self._couche()], 256.0, 112.0, zoom=4.0)
+        self.assertEqual(petite.count(u'M'), grande.count(u'M'))
+
+    def test_le_trait_grossit_avec_le_motif(self):
+        # Sinon la hachure agrandie serait dessinée au crayon fin : c'est le
+        # RAPPORT trait/écartement qui fait la densité à l'œil, et il doit
+        # survivre au zoom — c'est aussi ce qui rend la tuile réutilisable en
+        # petit dans les tableaux.
+        grande = hatch_svg.vignette([self._couche()], 256.0, 112.0, zoom=4.0)
+        self.assertIn(u'stroke-width="3.2"', grande)
+
+    def test_sans_zoom_rien_ne_change(self):
+        self.assertIn(u'stroke-width="0.8"',
+                      hatch_svg.vignette([self._couche()]))
+
+
 class TestNombres(unittest.TestCase):
     def test_les_decimales_inutiles_sautent(self):
         # Une vignette de brique compte quelques centaines de segments, et il

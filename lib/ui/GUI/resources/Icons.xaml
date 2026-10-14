@@ -74,6 +74,22 @@
                            M6 10 V5 A2 2 0 0 1 8 3 H10
                            M4 14 H9 A1 1 0 0 1 10 15 V20 A1 1 0 0 1 9 21 H4 A1 1 0 0 1 3 20 V15 A1 1 0 0 1 4 14 Z"/>
 
+    <!-- lucide: hash — les motifs de remplissage, le DESSIN d'un matériau -->
+    <PathGeometry x:Key="IconDessin"
+                  Figures="M4 9 H20
+                           M4 15 H20
+                           M10 3 L8 21
+                           M16 3 L14 21"/>
+
+    <!-- lucide: list — une liste de lignes, par opposition à une grille -->
+    <PathGeometry x:Key="IconListe"
+                  Figures="M8 6 H21
+                           M8 12 H21
+                           M8 18 H21
+                           M3 6 H3.01
+                           M3 12 H3.01
+                           M3 18 H3.01"/>
+
     <!-- lucide: pencil — éditer l'élément sous le curseur -->
     <PathGeometry x:Key="IconEditer"
                   Figures="M21.174 6.812 A 1 1 0 0 0 17.188 2.825
