@@ -195,83 +195,10 @@
   </main>
 </div>
 
-<!-- ╔════════════════════════ Éditeur d'un matériau ════════════════════╗ -->
-<div id="modale-editeur" class="voile" hidden>
-  <div class="modale grande" role="dialog" aria-modal="true" aria-labelledby="titre-editeur">
-    <header class="entete-modale">
-      <h2 id="titre-editeur">Éditer le matériau</h2>
-      <button class="fermer" data-ferme="editeur" title="Fermer">✕</button>
-    </header>
-
-    <div class="corps-modale">
-      <section class="carte-section">
-        <h3>Identité</h3>
-        <div class="duo">
-          <label class="large">Nom<input type="text" id="e-nom" autocomplete="off"></label>
-          <label>Classe<input type="text" id="e-classe" autocomplete="off"></label>
-        </div>
-      </section>
-
-      <section class="carte-section">
-        <h3>Apparence en rendu</h3>
-        <label>Asset d'apparence<select id="e-apparence"></select></label>
-        <div class="duo apparence">
-          <label>Couleur graphique
-            <span class="couleur">
-              <input type="color" id="e-couleur-pastille" title="Choisir une couleur">
-              <input type="text" id="e-couleur" class="hex" autocomplete="off" spellcheck="false">
-            </span>
-          </label>
-          <div class="curseurs">
-            <label>Transparence
-              <input type="range" id="e-transparence" min="0" max="100" step="1">
-              <output for="e-transparence">0</output>
-            </label>
-            <label>Brillance
-              <input type="range" id="e-brillance" min="0" max="128" step="1">
-              <output for="e-brillance">0</output>
-            </label>
-            <label>Lissage
-              <input type="range" id="e-lissage" min="0" max="100" step="1">
-              <output for="e-lissage">0</output>
-            </label>
-          </div>
-        </div>
-      </section>
-
-      <!-- Les deux faces, bâties par editeur.js sur le même gabarit. -->
-      <div id="faces"></div>
-    </div>
-
-    <footer class="pied-modale">
-      <p id="statut-editeur" class="alerte"></p>
-      <button class="secondaire" data-ferme="editeur">Annuler</button>
-      <button id="enregistrer" class="principal">Enregistrer</button>
-    </footer>
-  </div>
-</div>
-
-<!-- ╔═══════════════════ Choisir un motif de remplissage ═══════════════╗ -->
-<!-- Une liste déroulante ne montre qu'une ligne à la fois et se referme à
-     chaque frappe. Une maquette compte des dizaines de motifs qui se
-     ressemblent par le nom : il faut les voir côte à côte. -->
-<div id="modale-motif" class="voile" hidden>
-  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="titre-motif">
-    <header class="entete-modale">
-      <h2 id="titre-motif">Choisir un motif</h2>
-      <button class="fermer" data-ferme="motif" title="Fermer">✕</button>
-    </header>
-    <div class="corps-modale">
-      <p id="contrainte-motif" class="note" hidden></p>
-      <input type="search" id="recherche-motif" placeholder="Rechercher un motif…" autocomplete="off">
-      <div id="motifs" class="motifs"></div>
-    </div>
-    <footer class="pied-modale">
-      <button class="secondaire" data-ferme="motif">Annuler</button>
-      <button id="choisir-motif" class="principal">Choisir</button>
-    </footer>
-  </div>
-</div>
+<!-- L'éditeur et le sélecteur de motif ne sont PAS ici : chacun est une
+     fenêtre à lui (`editeur.html`, `motif.html`), ouverte par l'hôte. On les
+     déplace pour voir la maquette derrière, exactement comme les fenêtres
+     WPF qu'ils remplacent. -->
 
 <script type="module" src="./app.js"></script>
 </body>

@@ -76,15 +76,25 @@ class FakeService(object):
         return self._rapport
 
 
+#: Un catalogue de motifs minimal : un « Aucun », un motif de dessin, un
+#: motif de MODÈLE — c'est ce dernier qui fait toute la différence entre les
+#: quatre emplacements.
+MOTIFS = [
+    {'id': -1, 'nom': u'Aucun', 'modele': False, 'type': u''},
+    {'id': 1001, 'nom': u'Diagonale', 'modele': False, 'type': u'dessin'},
+    {'id': 1002, 'nom': u'Briques', 'modele': True, 'type': u'modèle'},
+]
+
+
 class FakeCatalogue(object):
-    """Les deux seules choses que `Ordres` demande au catalogue : la liste
-    des catégories, et la traduction entier -> identifiant Revit."""
+    """Ce que `Ordres` demande au catalogue : les catégories, les motifs, et
+    la traduction entier -> identifiant Revit."""
 
     def __init__(self, categories=()):
         self.categories = [{'id': i, 'nom': nom}
                            for (i, nom) in categories]
-        self.motifs = []
-        self.apparences = []
+        self.motifs = list(MOTIFS)
+        self.apparences = [{'id': -1, 'nom': u'Aucune'}]
 
     def element_id(self, identifiant):
         return u'eid:%s' % identifiant
@@ -216,6 +226,42 @@ class TestRemplacement(unittest.TestCase):
         ordres.traiter({'ordre': 'analyser', 'sources': [1, 999],
                         'categories': [10, 11]})
         self.assertEqual(service.appels[0][1], [1])
+
+
+class TestSelecteurDeMotif(unittest.TestCase):
+    """La règle des motifs offerts vit ici, pas dans la page : c'est elle qui
+    évite un « refusé par Revit » que plus rien n'explique à l'écriture."""
+
+    def _motifs(self, face, couche, courant=-1):
+        ordres, _ = _ordres()
+        return ordres.traiter({'ordre': 'selecteur', 'face': face,
+                               'couche': couche, 'motif': courant})
+
+    def test_le_premier_plan_de_surface_accepte_tout(self):
+        sortie = self._motifs(u'Surface', u'Foreground')
+        self.assertEqual([m['id'] for m in sortie['motifs']], [-1, 1001, 1002])
+        self.assertEqual(sortie['contrainte'], u'')
+
+    def test_les_trois_autres_emplacements_excluent_le_modele(self):
+        for face, couche in ((u'Cut', u'Foreground'), (u'Cut', u'Background'),
+                             (u'Surface', u'Background')):
+            sortie = self._motifs(face, couche)
+            self.assertEqual([m['id'] for m in sortie['motifs']], [-1, 1001],
+                             u'%s.%s' % (face, couche))
+            self.assertTrue(sortie['contrainte'])
+
+    def test_un_motif_interdit_deja_en_place_reste_propose(self):
+        # Matériau hérité d'un vieux gabarit ou d'un fichier lié : sans ça la
+        # fenêtre s'ouvre sur du vide et le premier changement de couleur
+        # effacerait le motif sans le dire.
+        sortie = self._motifs(u'Cut', u'Foreground', courant=1002)
+        self.assertEqual([m['id'] for m in sortie['motifs']],
+                         [1002, -1, 1001])
+        self.assertEqual(sortie['courant'], 1002)
+
+    def test_le_titre_situe_l_emplacement(self):
+        self.assertEqual(self._motifs(u'Cut', u'Foreground')['titre'],
+                         u'Coupe · premier plan')
 
 
 class TestEtat(unittest.TestCase):

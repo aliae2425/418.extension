@@ -331,6 +331,36 @@ def accepte_modele(face, couche):
     return face == u'Surface' and couche == u'Foreground'
 
 
+def titre_emplacement(face, couche):
+    """« Coupe · premier plan » — le titre de la fenêtre de choix."""
+    return u'%s · %s' % (dict(LIBELLES_FACE).get(face, face),
+                         LIBELLES_COUCHE.get(couche, couche).lower())
+
+
+def proposables(catalogue, face, couche, courant=None):
+    """Les motifs que CET emplacement a le droit d'offrir.
+
+    Filtrer en amont plutôt que laisser choisir puis récolter un « refusé par
+    Revit » à l'enregistrement, où plus rien ne dit pourquoi.
+
+    Le motif DÉJÀ en place reste proposé même s'il enfreint la règle
+    (matériau hérité d'un vieux gabarit, fichier lié) : sinon la fenêtre
+    s'ouvre sur du vide et le premier changement de couleur effacerait
+    silencieusement le motif.
+    """
+    motifs = list(catalogue.motifs if catalogue is not None else [])
+    if accepte_modele(face, couche):
+        return motifs
+    offerts = [motif for motif in motifs if not motif['modele']]
+    courant = entier(courant)
+    if all(motif['id'] != courant for motif in offerts):
+        enfreint = next((motif for motif in motifs
+                         if motif['id'] == courant), None)
+        if enfreint is not None:
+            offerts.insert(0, enfreint)
+    return offerts
+
+
 def contrainte(face, couche):
     """Phrase affichée dans le sélecteur quand le modèle est exclu."""
     if accepte_modele(face, couche):
@@ -491,8 +521,7 @@ def editeur(doc, materiau, catalogue):
             'face': face,
             'couche': couche,
             'libelle': LIBELLES_COUCHE[couche],
-            'titre': u'%s · %s' % (dict(LIBELLES_FACE)[face],
-                                   LIBELLES_COUCHE[couche].lower()),
+            'titre': titre_emplacement(face, couche),
             'motif': valeurs[attribut(face, couche, u'Id')],
             'couleur': valeurs[attribut(face, couche, u'Color')],
             'accepte_modele': accepte_modele(face, couche),

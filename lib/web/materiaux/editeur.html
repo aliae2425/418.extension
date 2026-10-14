@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>418 · Éditer le matériau</title>
+
+<!--
+  L'éditeur d'UN matériau. Sa propre FENÊTRE (EditeurWindowView), donc sa
+  propre page : pas de barre de titre ici, c'est le XAML qui la porte, comme
+  pour toutes les fenêtres de l'extension.
+
+  Elle ne partage aucun état avec la fenêtre principale — elle reçoit le sien
+  à son `pret` et rend la carte relue en se fermant.
+-->
+
+<link rel="stylesheet" href="../vue/tokens.css">
+<link rel="stylesheet" href="./materiaux.css">
+</head>
+<body class="fenetre">
+
+<div class="corps">
+
+  <section class="carte-section">
+    <h3>Identité</h3>
+    <div class="duo">
+      <label class="large">Nom<input type="text" id="e-nom" autocomplete="off"></label>
+      <label>Classe<input type="text" id="e-classe" autocomplete="off"></label>
+    </div>
+  </section>
+
+  <section class="carte-section">
+    <h3>Apparence en rendu</h3>
+    <label>Asset d'apparence<select id="e-apparence"></select></label>
+    <div class="duo apparence">
+      <label>Couleur graphique
+        <span class="couleur">
+          <input type="color" id="e-couleur-pastille" title="Choisir une couleur">
+          <input type="text" id="e-couleur" class="hex" autocomplete="off" spellcheck="false">
+        </span>
+      </label>
+      <div class="curseurs">
+        <label>Transparence
+          <input type="range" id="e-transparence" min="0" max="100" step="1">
+          <output for="e-transparence">0</output>
+        </label>
+        <label>Brillance
+          <input type="range" id="e-brillance" min="0" max="128" step="1">
+          <output for="e-brillance">0</output>
+        </label>
+        <label>Lissage
+          <input type="range" id="e-lissage" min="0" max="100" step="1">
+          <output for="e-lissage">0</output>
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <!-- Les deux faces, bâties par editeur.js sur le même gabarit. -->
+  <div id="faces"></div>
+
+</div>
+
+<footer class="pied-fenetre">
+  <p id="statut-editeur" class="alerte"></p>
+  <button id="annuler" class="secondaire">Annuler</button>
+  <button id="enregistrer" class="principal">Enregistrer</button>
+</footer>
+
+<script type="module" src="./editeur.js"></script>
+</body>
+</html>

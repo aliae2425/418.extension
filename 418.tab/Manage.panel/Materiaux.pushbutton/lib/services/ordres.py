@@ -67,6 +67,8 @@ class Ordres(object):
             return self.remplacer(message)
         if ordre == 'editeur':
             return self.editeur(message)
+        if ordre == 'selecteur':
+            return self.selecteur(message)
         if ordre == 'apercu_face':
             return self.apercu_face(message)
         if ordre == 'enregistrer':
@@ -78,8 +80,13 @@ class Ordres(object):
     def etat(self):
         """Tout ce que la page affiche sans rien demander de plus.
 
-        Envoyé d'un bloc : les vignettes sont déjà rendues, les catalogues
-        déjà lus, et une seconde demande ne ferait que retarder l'affichage.
+        Envoyé d'un bloc : les vignettes sont déjà rendues et une seconde
+        demande ne ferait que retarder l'affichage.
+
+        Les catalogues de motifs et d'apparences n'y sont PAS : ils ne
+        servent qu'à l'éditeur, qui est une autre fenêtre et donc une autre
+        page. Les y mettre ferait voyager cinquante vignettes de motif que la
+        fenêtre principale n'affiche jamais.
 
         ponytail: deux SVG par matériau partent dans UN message — compter
         quelques mégaoctets sur un modèle à plusieurs centaines de matériaux
@@ -92,9 +99,6 @@ class Ordres(object):
             'sombre': self._sombre,
             'cartes': self._cartes,
             'categories': self._catalogue.categories if self._catalogue else [],
-            'motifs': self._catalogue.motifs if self._catalogue else [],
-            'apparences': (self._catalogue.apparences
-                           if self._catalogue else []),
             'modifiable': self._modifiable(),
         }
 
@@ -222,10 +226,12 @@ class Ordres(object):
         return self._materiaux.get(presentation.entier(message.get('id')))
 
     def editeur(self, message):
-        """L'état d'édition d'UN matériau, aperçus compris.
+        """L'état d'édition d'UN matériau : tout ce que sa fenêtre affiche.
 
-        Les huit tuiles partent avec : sans elles la fenêtre s'ouvrirait sur
-        deux cadres blancs le temps d'un second aller-retour.
+        Les huit tuiles et les catalogues partent avec : la fenêtre de
+        l'éditeur est une page à elle, elle ne partage rien avec la
+        principale, et sans eux elle s'ouvrirait sur des cadres blancs le
+        temps d'un second aller-retour.
         """
         materiau = self._materiau(message)
         if materiau is None:
@@ -234,7 +240,29 @@ class Ordres(object):
         etat['faces'] = dict(
             (face, self._tuiles(face, etat['emplacements']))
             for face, _ in presentation.LIBELLES_FACE)
+        etat['motifs'] = self._catalogue.motifs if self._catalogue else []
+        etat['apparences'] = (self._catalogue.apparences
+                              if self._catalogue else [])
+        etat['modifiable'] = self._modifiable()
         return etat
+
+    def selecteur(self, message):
+        """Ce que la fenêtre « choisir un motif » affiche.
+
+        La règle de ce qui est offrable est ici et nulle part ailleurs : un
+        seul des quatre emplacements accepte un motif de MODÈLE, et la page
+        n'a pas à le savoir.
+        """
+        face = message.get('face')
+        couche = message.get('couche')
+        courant = presentation.entier(message.get('motif'))
+        return {
+            'titre': presentation.titre_emplacement(face, couche),
+            'contrainte': presentation.contrainte(face, couche),
+            'motifs': presentation.proposables(self._catalogue, face, couche,
+                                               courant),
+            'courant': courant,
+        }
 
     def _tuiles(self, face, emplacements):
         return presentation.tuiles(

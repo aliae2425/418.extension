@@ -389,50 +389,14 @@ button:disabled { opacity: .6; cursor: default; }
 .vignette.motif { width: 64px; height: 26px; }
 .vignette.carte-rendu { width: 64px; height: 28px; }
 
-/* ───────────────────────── modales ─────────────────────────────── */
+/* ──────────── fenêtres filles : éditeur et choix de motif ──────── */
 
-.voile {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* Un noir translucide, pas une couleur de thème : il doit assombrir aussi
-     bien un fond clair qu'un fond sombre (ModalOverlayBrush, #80000000). */
-  background: rgba(0, 0, 0, .5);
-  z-index: 10;
-}
-.voile[hidden] { display: none; }
+/* Pas de voile, pas de boîte flottante : ce sont de vraies fenêtres, et leur
+   barre de titre est en XAML. La page n'a plus qu'à remplir ce qu'on lui
+   laisse — un corps qui défile, un pied qui ne défile pas. */
+body.fenetre { display: flex; flex-direction: column; }
 
-.modale {
-  display: flex;
-  flex-direction: column;
-  width: min(680px, 92vw);
-  max-height: 90vh;
-  border: 1px solid var(--trait);
-  border-radius: var(--r-surface);
-  background: var(--fond);
-  box-shadow: var(--ombre-surface);
-}
-.modale.grande { width: min(980px, 94vw); }
-
-.entete-modale {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--e3) var(--e5);
-  border-bottom: 1px solid var(--trait);
-}
-.fermer {
-  width: 40px; height: 40px;
-  border: 0; border-radius: var(--r-champ);
-  background: transparent; color: var(--texte-faible);
-  cursor: pointer;
-}
-/* CaptionCloseButtonStyle : le rouge de Windows, pas un gris de plus. */
-.fermer:hover { background: #E81123; color: #FFFFFF; }
-
-.corps-modale {
+body.fenetre .corps {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -442,14 +406,14 @@ button:disabled { opacity: .6; cursor: default; }
   gap: var(--e3);
 }
 
-.pied-modale {
+.pied-fenetre {
   display: flex;
   align-items: center;
   gap: var(--e2);
   padding: var(--e3) var(--e5);
   border-top: 1px solid var(--trait);
 }
-.pied-modale .alerte { flex: 1; }
+.pied-fenetre .alerte, .pied-fenetre .espace { flex: 1; }
 
 .carte-section {
   padding: var(--e4);
@@ -532,10 +496,12 @@ label input[type="text"], label select { display: block; width: 100%;
 /* ─────────────── sélecteur de motif : la grille ────────────────── */
 
 .motifs {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: var(--e2);
-  max-height: 46vh;
+  align-content: start;
   overflow-y: auto;
   padding: 2px;
 }

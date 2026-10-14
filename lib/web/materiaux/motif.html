@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>418 · Choisir un motif</title>
+
+<!--
+  Le choix d'un motif de remplissage. Sa propre FENÊTRE (MotifWindowView),
+  ouverte par l'éditeur et centrée sur lui.
+
+  Sa raison d'être n'a pas changé depuis la version WPF : une liste
+  déroulante ne montre qu'une ligne à la fois et se referme à chaque frappe.
+  Une maquette compte des dizaines de motifs qui se ressemblent par le nom —
+  il faut les voir côte à côte, et filtrer sans perdre la liste.
+-->
+
+<link rel="stylesheet" href="../vue/tokens.css">
+<link rel="stylesheet" href="./materiaux.css">
+</head>
+<body class="fenetre">
+
+<div class="corps">
+  <h3 id="titre-motif">Choisir un motif</h3>
+  <!-- Sans cette phrase, l'absence des motifs de modèle passe pour un défaut
+       de l'outil. -->
+  <p id="contrainte-motif" class="note" hidden></p>
+  <input type="search" id="recherche-motif" placeholder="Rechercher un motif…" autocomplete="off">
+  <div id="motifs" class="motifs"></div>
+</div>
+
+<footer class="pied-fenetre">
+  <span class="espace"></span>
+  <button id="annuler" class="secondaire">Annuler</button>
+  <button id="choisir-motif" class="principal">Choisir</button>
+</footer>
+
+<script type="module" src="./motif.js"></script>
+</body>
+</html>

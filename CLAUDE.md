@@ -408,21 +408,29 @@ déposant un `SelectionPage.xaml` dans son propre `GUI/Views/pages/`.
 
 **Interfaces WebView2** : deux outils n'ont plus de XAML de page — le volet
 OpenArchi (`lib/ui/OpenArchiPanel.py`) et **Matériaux**
-(`Materiaux.pushbutton/lib/views/MainWindowView.py`). Le XAML ne porte qu'un
-hôte, l'interface vit dans `lib/web/<outil>/`, et les deux se parlent par le
-pont de `lib/web/vue/pont.js` (un ordre, une référence, une réponse). Trois
-pièges, payés deux fois chacun :
+(`Materiaux.pushbutton/lib/views/FenetreWeb.py`, dont héritent ses trois
+fenêtres). Le XAML ne porte qu'un hôte, l'interface vit dans
+`lib/web/<outil>/`, et les deux se parlent par le pont de
+`lib/web/vue/pont.js` (un ordre, une référence, une réponse). Quatre pièges,
+payés deux fois chacun :
 
-- **jamais de fenêtre transparente.** WebView2 est un contrôle à HWND : sous
-  `AllowsTransparency="True"` il ne s'affiche pas du tout. C'est la barre de
-  titre maison qui saute, pas le navigateur ;
+- **borderless OUI, transparent NON.** WebView2 est un contrôle à HWND :
+  sous `AllowsTransparency="True"` il ne s'affiche pas du tout (airspace).
+  `WindowStyle="None"` + `WindowChrome` garde la barre de titre maison et le
+  redimensionnement ; ce qu'on rend au système, ce sont les coins arrondis,
+  que Windows 11 dessine lui-même ;
 - **le contrôle n'est pas déclaré dans le XAML** — `XamlReader` résoudrait le
   namespace clr au parse, ce qui échoue tant que l'assembly n'est pas
   référencée. Il est injecté en Python par `.Child` ;
 - **le fil décide de tout.** Une fenêtre MODALE (`ShowDialog`) reste dans le
   contexte d'API de la commande : les transactions partent du gestionnaire de
   messages, directement. Un volet ANCRÉ n'y est pas : il lui faut un fil de
-  fond et le serveur de routes.
+  fond et le serveur de routes ;
+- **une fenêtre fille ne se demande pas, elle s'annonce.** Ouvrir une fenêtre
+  BLOQUE le gestionnaire de messages tant qu'elle est là, et un matériau
+  s'édite en plusieurs minutes — bien au-delà du délai du pont. Les ordres
+  `ouvrir_*` sont donc postés sans promesse, et le résultat revient en
+  ÉVÈNEMENT à la fermeture.
 
 **Chargement WPF** : `UIResourceLoader` fusionne les dictionnaires de
 ressources dans la fenêtre avant de charger le XAML. Toujours charger les
