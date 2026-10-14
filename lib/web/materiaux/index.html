@@ -57,13 +57,23 @@
       <header class="entete">
         <h1>Matériaux</h1>
         <p id="avertissement" class="alerte" hidden></p>
-        <!-- Les deux lectures d'un matériau, celles de Revit : ce qu'il REND
-             (la sphère) et ce qu'il DESSINE (ses deux motifs). Le choix porte
-             sur toutes les cartes à la fois. -->
-        <div id="apercu-cartes" class="segments" role="group"
-             aria-label="Aperçu des cartes">
-          <button class="segment actif" data-apercu="rendu">Rendu</button>
-          <button class="segment" data-apercu="dessin">Dessin</button>
+        <!-- Deux bascules, et quatre combinaisons — toutes en CSS : le DOM
+             des cartes ne change pas d'un mode à l'autre.
+             `data-classe` est la classe posée sur la grille quand le second
+             segment est choisi ; le premier est l'état par défaut. -->
+        <div class="bascules">
+          <!-- Les deux lectures d'un matériau, celles de Revit : ce qu'il
+               REND (la sphère) et ce qu'il DESSINE (ses deux motifs). -->
+          <div class="segments" data-classe="dessin" role="group"
+               aria-label="Aperçu des cartes">
+            <button class="segment actif" data-valeur="rendu">Rendu</button>
+            <button class="segment" data-valeur="dessin">Dessin</button>
+          </div>
+          <div class="segments" data-classe="liste" role="group"
+               aria-label="Disposition">
+            <button class="segment actif" data-valeur="cartes">Cartes</button>
+            <button class="segment" data-valeur="liste">Liste</button>
+          </div>
         </div>
       </header>
 

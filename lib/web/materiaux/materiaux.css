@@ -71,6 +71,19 @@ html, body {
 h1 { font-size: var(--t-titre); font-weight: 600; margin: 0; }
 h2, h3 { font-size: var(--t-sous-titre); font-weight: 600; margin: 0 0 var(--e3); }
 
+/* Barre de défilement : celle de `Styles.xaml`, au pixel — 8 de large, pouce
+   arrondi à 3 dans la couleur du texte secondaire, qui fonce au survol, et
+   aucune piste. Les propriétés `::-webkit-` et non `scrollbar-color` : la
+   seconde gagnerait sur la première et ne sait pas arrondir. */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--texte-faible);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--texte); }
+
 button, input, select { font: inherit; color: inherit; }
 
 /* ─────────────────────────── coquille ─────────────────────────── */
@@ -236,11 +249,11 @@ button:disabled { opacity: .6; cursor: default; }
 
 /* ───────────────────── onglet 1 : les cartes ───────────────────── */
 
-/* Bascule d'aperçu, dans l'en-tête. Le segment actif prend le fond de
+/* Bascules d'affichage, dans l'en-tête. Le segment actif prend le fond de
    FENÊTRE : c'est la seule teinte qui tranche sur la surface de page dans
    les deux thèmes — même geste que l'onglet actif du rail. */
+.bascules { margin-left: auto; display: flex; gap: var(--e2); }
 .segments {
-  margin-left: auto;
   display: flex;
   gap: 2px;
   padding: 2px;
@@ -279,6 +292,7 @@ button:disabled { opacity: .6; cursor: default; }
    de sélection remplace la bordure, il ne s'ajoute pas — sinon la carte
    bouge d'un pixel au clic. */
 .carte {
+  position: relative;
   padding: var(--e4);
   border: 1px solid var(--trait);
   border-radius: var(--r-carte);
@@ -286,6 +300,33 @@ button:disabled { opacity: .6; cursor: default; }
   box-shadow: var(--ombre-carte);
   cursor: pointer;
   transition: border-color var(--vif), box-shadow var(--vif);
+}
+
+/* Le raccourci vers l'éditeur : il n'apparaît qu'au survol de SA carte, pour
+   ne pas semer vingt crayons dans la grille. Invisible ET inerte — une cible
+   qu'on ne voit pas mais qui se clique est un piège. */
+.editer-carte {
+  position: absolute;
+  top: var(--e2); right: var(--e2);
+  width: 28px; height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--trait);
+  border-radius: var(--r-case);
+  background: var(--champ);
+  color: var(--texte-faible);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--vif), color var(--vif), border-color var(--vif);
+}
+.carte:hover .editer-carte,
+.editer-carte:focus-visible { opacity: 1; pointer-events: auto; }
+.editer-carte:hover { color: var(--accent); border-color: var(--accent); }
+.editer-carte svg {
+  width: 15px; height: 15px;
+  fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
 }
 .carte:hover { border-color: var(--trait-survol); }
 .carte.choisie {
@@ -350,6 +391,32 @@ button:disabled { opacity: .6; cursor: default; }
 .motif-carte figcaption {
   font-size: 10px; color: var(--texte-faible); margin-top: 3px;
 }
+
+/* --- disposition en LISTE : la même carte, couchée --- */
+
+/* Rien n'est reconstruit ici non plus : la carte garde son DOM, elle se
+   relit en trois colonnes. L'aperçu rétrécit, et les vignettes de motif
+   retombent sur leur taille native (64×28) — donc toujours aucun
+   étirement. */
+.cartes.liste { grid-template-columns: 1fr; gap: var(--e1); }
+/* La colonne d'aperçu se dimensionne sur son contenu : toutes les lignes ont
+   le même aperçu au même moment, donc les noms s'alignent de toute façon, et
+   une largeur fixe ne ferait que du vide en mode Rendu. */
+.cartes.liste .carte {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e2) var(--e3);
+  box-shadow: none;
+}
+.cartes.liste .apercu { height: 44px; margin: 0; }
+.cartes.liste .sphere { width: 36px; height: 36px; background-size: 7px 7px; }
+.cartes.liste .vignette.grande { width: 64px; height: 28px; }
+.cartes.liste .motif-carte figcaption { display: none; }
+/* La place du crayon, qui flotte au-dessus de la fin de ligne. */
+.cartes.liste .usages { text-align: right; padding-right: 32px; }
+.cartes.liste .editer-carte { top: 50%; margin-top: -14px; }
 
 /* ──────────────────────── tableaux (2 et 3) ────────────────────── */
 
