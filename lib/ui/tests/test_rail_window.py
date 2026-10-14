@@ -17,6 +17,10 @@ from ui.base.RailWindow import RailWindow
 
 # Les outils à rail du dépôt. Aucun ne porte plus sa propre coquille : ils
 # doivent tous retomber sur celle du socle.
+#
+# Matériaux n'en fait plus partie : son interface est passée en WebView2, la
+# fenêtre ne porte qu'un navigateur et n'a donc ni rail, ni onglets XAML, ni
+# page à résoudre.
 BOUTONS = [
     os.path.join('418.tab', 'Tools.panel', 'col1.stack',
                  'duplicate_sheets.pushbutton'),
@@ -26,7 +30,6 @@ BOUTONS = [
                  'FindReplace_Sheets.pushbutton'),
     os.path.join('418.tab', 'Tools.panel', 'col1.stack', 'Rename.pulldown',
                  'FindReplace - Views.pushbutton'),
-    os.path.join('418.tab', 'Manage.panel', 'Materiaux.pushbutton'),
 ]
 
 

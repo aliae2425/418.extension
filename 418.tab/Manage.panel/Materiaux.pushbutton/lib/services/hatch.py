@@ -75,6 +75,37 @@ class Grille(object):
         self.tirets = list(tirets or [])
 
 
+class Couche(object):
+    """UN motif de remplissage Revit, à la couleur d'un emplacement.
+
+    `grilles` : liste de `Grille`. Vide pour un remplissage « Uni » (Revit
+    n'en stocke aucune) ET pour l'absence de motif — `est_uni` tranche entre
+    les deux.
+
+    La couleur n'appartient pas au motif mais à l'emplacement qui le pose :
+    le même remplissage sert en noir en coupe et en gris en surface. Elle
+    voyage donc ici, pas dans le catalogue.
+
+    Vivait dans `viewmodels/MaterialCardVM.py` tant qu'il y avait des
+    ViewModels WPF. Remontée ici avec le reste de la donnée pure : c'est ce
+    que lisent `hatch_svg` et `presentation`, et ça se teste hors Revit.
+    """
+
+    def __init__(self, nom=u'', grilles=None, est_modele=False, est_uni=False,
+                 rgb=None):
+        self.nom = nom or u''
+        self.grilles = grilles or []
+        self.est_modele = est_modele
+        self.est_uni = est_uni
+        self.rgb = rgb
+
+    def pour(self, couleur):
+        """La même couche, à une autre couleur."""
+        return Couche(nom=self.nom, grilles=self.grilles,
+                      est_modele=self.est_modele, est_uni=self.est_uni,
+                      rgb=couleur)
+
+
 def depuis_fill_grid(fill_grid):
     """Convertit une `FillGrid` de l'API Revit en `Grille`."""
     origine = fill_grid.Origin

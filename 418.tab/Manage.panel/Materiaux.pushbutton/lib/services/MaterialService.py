@@ -157,8 +157,9 @@ def _categorie(element):
 def _valeur_revit(valeur):
     """Triplet (r, v, b) -> `Color`. Tout le reste passe tel quel.
 
-    Le ViewModel de l'éditeur reste ainsi du Python pur : il manipule des
-    tuples de couleur, jamais un objet de l'API.
+    L'éditeur reste ainsi du Python pur de bout en bout : la page envoie des
+    « #RRGGBB », `presentation` en fait des tuples, et l'objet de l'API
+    n'apparaît qu'ici, juste avant la transaction.
     """
     if Color is not None and isinstance(valeur, (tuple, list)) and len(valeur) == 3:
         return Color(*[int(c) for c in valeur])

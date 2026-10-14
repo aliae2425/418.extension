@@ -1,198 +1,194 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+import json
 import os
 
-try:
-    from ui.base.RailWindow import RailWindow, Onglet
-except Exception:
-    from lib.ui.base.RailWindow import RailWindow, Onglet
+# La fenêtre « Matériaux » : un hôte WebView2, et rien de plus.
+#
+# Toute l'interface vit dans `lib/web/materiaux/`. Ce module monte le
+# navigateur, sert `lib/web/` sur une origine locale, et fait passer les
+# ordres de la page à `services.ordres`. Il ne sait pas ce qu'est un onglet,
+# une carte ou un motif.
+#
+# Pièges déjà payés ailleurs dans le dépôt, à ne pas redécouvrir :
+#
+# - la fenêtre N'EST PAS transparente (`WindowStyle="SingleBorderWindow"`,
+#   pas d'`AllowsTransparency`). WebView2 est un contrôle à HWND : dans une
+#   fenêtre WPF en couches il ne s'affiche pas du tout. C'est la barre de
+#   titre maison qui saute, pas le navigateur (cf. RampeParking) ;
+# - le WebView2 n'est pas déclaré dans le XAML — `XamlReader` résoudrait le
+#   namespace clr au parse, ce qui échoue tant que l'assembly n'est pas
+#   référencée. Il est injecté par `.Child` ;
+# - la `Task` d'`EnsureCoreWebView2Async` est jetée, jamais attendue : `.Result`
+#   sur le fil d'interface interbloque, la Task ne se complétant que par la
+#   pompe de messages. Ici c'est celle de `ShowDialog` qui la sert.
+#
+# Le fil : la fenêtre est MODALE, donc tout ce code tourne dans le contexte
+# d'API de la commande pyRevit. Les ordres sont traités sur place, sans fil de
+# fond : une transaction partie d'ici est légale, et un `Thread` en rendrait
+# justement l'inverse.
 
 try:
-    from lib.views.EditeurWindowView import EditeurWindowView
+    from ui.base.BaseWindow import BaseWindow
 except Exception:
-    from views.EditeurWindowView import EditeurWindowView
+    from lib.ui.base.BaseWindow import BaseWindow
 
-_BOUTON = os.path.abspath(os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+try:
+    from core.AppPaths import AppPaths
+except Exception:
+    from lib.core.AppPaths import AppPaths
+
+try:
+    from lib.services.journal import log
+except Exception:
+    from services.journal import log
+
+_XAML = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    'GUI', 'Views', 'MainWindow.xaml')
+
+HOTE = '418.local'
+
+# Même profil que le volet OpenArchi : deux WebView2 du MÊME processus
+# partagent un dossier de données sans se gêner, et un second profil coûterait
+# une centaine de mégaoctets pour rien.
+PROFIL = 'webview2'
+
+PAGE = 'https://{0}/materiaux/index.html'.format(HOTE)
 
 
-class MainWindowView(RailWindow):
-    """Fenêtre « Matériaux » : rail à quatre onglets.
+class MainWindowView(BaseWindow):
+    """Hôte WebView2 de l'outil Matériaux."""
 
-    L'onglet Audit est le premier du rail ET le mode initial du VM : c'est un
-    état des lieux en lecture seule, ouvert d'entrée de jeu. Aucun câblage —
-    pas de bouton, pas de liste cochable.
+    def __init__(self, ordres):
+        # Pas de DataContext : il n'y a plus de ViewModel, et le seul contrôle
+        # de la fenêtre n'a rien à lier.
+        super(MainWindowView, self).__init__(_XAML, None)
+        self._ordres = ordres
+        self._vue = None
+        self._coeur = None
 
-    `RUN` du socle n'est pas utilisé : il ne câble qu'UN bouton et ferme la
-    fenêtre derrière. Ici il en faut trois, et aucun ne doit fermer — on
-    veut lire le rapport de remplacement ou l'aperçu de renommage juste
-    après l'action. Les trois sont donc câblés dans `_load`.
-
-    La coquille vient du socle (lib/ui/GUI/MainWindow.xaml) : cet outil n'a
-    pas de MainWindow.xaml à lui.
-    """
-
-    ONGLETS = (
-        Onglet(u'audit', 'AuditPage.xaml', 'AuditVM',
-               icone=u'IconAudit', tooltip=u'Audit des matériaux'),
-        Onglet(u'selection', 'CardsPage.xaml', 'SelectionVM',
-               icone=u'IconMateriaux', tooltip=u'Matériaux'),
-        Onglet(u'renommer', 'RenommerPage.xaml', 'RenommerVM',
-               icone=u'IconRenommer', tooltip=u'Renommer'),
-        Onglet(u'remplacer', 'RemplacerPage.xaml', 'RemplacerVM',
-               icone=u'IconRemplacer', tooltip=u'Remplacer dans la maquette'),
-    )
-    # Plus d'enchaînement « Suivant » : l'onglet Matériaux ne mène plus à
-    # Renommer mais à l'éditeur, via son propre bouton (cf. `_wire_editeur`).
-    SUIVANTS = ()
-    RUN = None
-    # Largeur dictée par le tableau de l'onglet Renommer, le seul contenu à
-    # largeur incompressible : 350 px de colonnes fixes (case, flèche, rendu,
-    # surface, coupe, usages) + deux colonnes de nom qui doivent rester
-    # lisibles + 40 de marge + 64 de rail + la barre de défilement. À 1040
-    # chaque nom a ~230 px.
-    # Les grilles des onglets Audit et Matériaux ne la dictent plus : leurs
-    # UniformGrid (3 et 4 colonnes) se partagent la largeur disponible, donc
-    # elles suivent la fenêtre au lieu de la contraindre.
-    # La largeur MINI, elle, vient des cards : à 860 les 4 colonnes laissent
-    # ~185 px par card, soit la pastille de 64 px et un nom encore lisible.
-    TAILLE = (1040, 660)
-    TAILLE_MINI = (860, 480)
-
-    def __init__(self, view_model):
-        super(MainWindowView, self).__init__(_BOUTON, view_model)
+    # -- montage -----------------------------------------------------------
 
     def _load(self):
         super(MainWindowView, self)._load()
         if self._window is None:
             return
-        self._wire_liste_renommer()
-        self._wire_liste_remplacer()
-        self._wire_editeur()
-        self._action(u'remplacer', 'CocherPorteeButton',
-                     lambda: self._vm.RemplacerVM.cocher_toute_la_portee())
-        self._action(u'remplacer', 'DecocherPorteeButton',
-                     lambda: self._vm.RemplacerVM.decocher_toute_la_portee())
-        self._action(u'remplacer', 'AnalyserButton',
-                     lambda: self._vm.RemplacerVM.analyser())
-        self._action(u'remplacer', 'RemplacerButton',
-                     lambda: self._vm.RemplacerVM.remplacer())
-        self._action(u'renommer', 'RenommerButton',
-                     lambda: self._vm.RenommerVM.renommer())
+        try:
+            self._monter()
+        except Exception as erreur:
+            # Sans ce repli la fenêtre s'ouvre vide et sans un mot : le runtime
+            # WebView2 absent est le cas le plus probable sur un poste pas à
+            # jour.
+            log(u'montage du navigateur impossible : {}', erreur)
+            self._message(u'Interface non affichable : {}'.format(erreur))
 
-    def _action(self, mode, nom_bouton, callback):
-        """Câble un bouton de page sur une action du VM, sans fermer."""
-        page = self._page(mode)
-        if page is None:
+    def _monter(self):
+        hote = self._window.FindName('WebHost')
+        if hote is None:
+            raise ValueError(u'WebHost absent du XAML')
+        vue = _controle(os.path.join(AppPaths().data_dir(), PROFIL))
+        hote.Child = vue
+        self._vue = vue
+        vue.CoreWebView2InitializationCompleted += self._sur_init
+        vue.EnsureCoreWebView2Async()      # Task jetée : pas d'await en IPY 2.7
+
+    def _message(self, texte):
+        """Écrit dans le cartouche de repli resté sous le navigateur."""
+        try:
+            bloc = self._window.FindName('WebHostMessage')
+            if bloc is not None:
+                bloc.Text = texte
+        except Exception:
+            pass
+
+    def _sur_init(self, sender, args):
+        try:
+            if not args.IsSuccess:
+                log(u'init WebView2 : {}', args.InitializationException)
+                return self._message(
+                    u'Navigateur non initialisé : {}'.format(
+                        args.InitializationException))
+            coeur = self._vue.CoreWebView2
+            if coeur is None:
+                return self._message(u'Navigateur non initialisé.')
+            self._coeur = coeur
+            from Microsoft.Web.WebView2.Core import (
+                CoreWebView2HostResourceAccessKind)
+            # UNE seule origine pour toute `lib/web/` : la page de matériaux
+            # importe le pont et les jetons de thème du volet, et deux
+            # mappings virtuels feraient deux origines, donc des imports ES
+            # bloqués entre les deux.
+            coeur.SetVirtualHostNameToFolderMapping(
+                HOTE, AppPaths().web_dir(),
+                CoreWebView2HostResourceAccessKind.Allow)
+            coeur.WebMessageReceived += self._sur_message
+            coeur.Navigate(PAGE)
+            log(u'navigateur monté')
+        except Exception as erreur:
+            log(u'initialisation du navigateur : {}', erreur)
+            self._message(u'Navigateur non initialisé : {}'.format(erreur))
+
+    # -- ce que la page demande --------------------------------------------
+
+    def _sur_message(self, sender, args):
+        """Sur le fil d'interface. Ne lève JAMAIS : Revit tomberait."""
+        try:
+            message = json.loads(args.TryGetWebMessageAsString() or '{}')
+        except Exception as erreur:
+            return log(u'message illisible : {}', erreur)
+        ref = message.get('ref')
+        ordre = message.get('ordre')
+        if ordre == 'erreur':
+            # Une fenêtre WebView2 n'a pas de console sous les yeux de
+            # l'utilisateur : sans ce relais, une interface cassée reste muette.
+            return log(u'interface : {}', message.get('message'))
+        try:
+            self._poster('reponse', {'ref': ref,
+                                     'sortie': self._ordres.traiter(message)})
+        except Exception as erreur:
+            # Jamais de silence : une promesse sans réponse laisse la page
+            # bloquée jusqu'au délai du pont.
+            log(u'ordre {} : {}', ordre, erreur)
+            self._poster('reponse', {'ref': ref,
+                                     'erreur': u'{0}'.format(erreur)})
+
+    def _poster(self, evenement, charge):
+        if self._coeur is None:
             return
-        bouton = page.FindName(nom_bouton)
-        if bouton is None:
-            return
-        bouton.Click += lambda sender, args: callback()
+        try:
+            # ensure_ascii=False : sous IronPython 2.7, laisser json échapper
+            # les accents lève.
+            self._coeur.PostWebMessageAsJson(json.dumps(
+                {'evenement': evenement, 'charge': charge},
+                ensure_ascii=False))
+        except Exception as erreur:
+            log(u'envoi de {} : {}', evenement, erreur)
 
-    # ------------------------------------------------------------------
-    # Éditeur d'un matériau (onglet Matériaux)
-    # ------------------------------------------------------------------
 
-    def _wire_editeur(self):
-        """Les deux chemins vers l'éditeur : le bouton, et le double-clic.
+def _controle(dossier_profil):
+    """Un WebView2 prêt à initialiser.
 
-        Le clic simple, lui, ne fait que sélectionner — la sélection est
-        exclusive sur cet onglet, il tient donc lieu de bouton radio. Le
-        premier clic du double sélectionne au passage, ce qui est exactement
-        ce qu'on veut avant d'ouvrir.
-        """
-        self._action(u'selection', 'EditerButton',
-                     lambda: self._ouvrir_editeur(self._vm.carte_selectionnee()))
-        page = self._page(u'selection')
-        if page is None:
-            return
-        liste = page.FindName('ItemsList')
-        if liste is None:
-            return
-
-        def _au_double_clic(sender, args):
-            carte = getattr(args.OriginalSource, 'DataContext', None)
-            self._ouvrir_editeur(carte)
-
-        liste.MouseDoubleClick += _au_double_clic
-
-    def _ouvrir_editeur(self, carte):
-        vm = self._vm.editeur_pour(carte)
-        if vm is None:
-            return
-        EditeurWindowView(vm, proprietaire=self._window).show()
-
-    # ------------------------------------------------------------------
-    # Listes cochables des onglets Renommer et Remplacer
-    # ------------------------------------------------------------------
-
-    def _wire_selection(self, page, nom_liste, selection):
-        """Câble Tout/Aucun + le clic de ligne sur la page de sélection.
-
-        `RailWindow._wire_selection_interactions` ne s'occupe que de la page
-        `selection` (les cards) et de `vm.SelectionVM`. Les onglets Renommer
-        et Remplacer ont leur PROPRE `SelectionPageVM` — d'où le passage
-        explicite de `selection` ici plutôt qu'un `getattr` sur le VM racine.
-
-        Les cases sont display-only (IsHitTestVisible=False, binding OneWay) :
-        un seul handler de clic sur la liste suffit, ce qui évite un double
-        déclenchement entre la case et la ligne.
-        """
-        if page is None or selection is None:
-            return
-
-        bouton = page.FindName('SelectAllButton')
-        if bouton is not None:
-            bouton.Click += lambda s, a: selection.select_all()
-        bouton = page.FindName('DeselectAllButton')
-        if bouton is not None:
-            bouton.Click += lambda s, a: selection.deselect_all()
-
-        def _bascule(carte):
-            affichees = list(selection.FilteredItems)
-            if carte not in affichees:
-                return
-            from System.Windows.Input import Keyboard, ModifierKeys
-            mods = Keyboard.Modifiers
-            selection.handle_row_click(
-                affichees.index(carte),
-                bool(int(mods) & int(ModifierKeys.Shift)),
-                bool(int(mods) & int(ModifierKeys.Control)))
-
-        self._clic_de_ligne(page, nom_liste, _bascule)
-
-    def _wire_liste_renommer(self):
-        vm = getattr(self._vm, 'RenommerVM', None)
-        if vm is None:
-            return
-        self._wire_selection(self._page(u'renommer'), 'ItemsList',
-                             vm.SelectionVM)
-
-    def _wire_liste_remplacer(self):
-        """Les deux colonnes de la page Remplacer : sources cochables à
-        gauche, désignation de la cible à droite."""
-        page = self._page(u'remplacer')
-        vm = getattr(self._vm, 'RemplacerVM', None)
-        if page is None or vm is None:
-            return
-        self._wire_selection(page, 'SourcesList', vm.SelectionVM)
-
-        def _designe_cible(carte):
-            vm.Cible = carte
-
-        self._clic_de_ligne(page, 'CiblesList', _designe_cible)
-
-    @staticmethod
-    def _clic_de_ligne(page, nom_liste, callback):
-        """Un handler unique sur la liste, appelé avec la ligne cliquée."""
-        liste = page.FindName(nom_liste)
-        if liste is None:
-            return
-
-        def _au_clic(sender, args):
-            carte = getattr(args.OriginalSource, 'DataContext', None)
-            if carte is not None:
-                callback(carte)
-
-        liste.PreviewMouseLeftButtonDown += _au_clic
+    Les assemblies `Microsoft.Web.WebView2.*` sont livrées AVEC Revit 2026 et
+    déjà chargées dans le process : rien à embarquer, et vendoriser une autre
+    version serait un conflit.
+    """
+    import clr
+    try:
+        clr.AddReference('Microsoft.Web.WebView2.Wpf')
+        clr.AddReference('Microsoft.Web.WebView2.Core')
+    except Exception:
+        from System import AppDomain
+        for nom in ('Microsoft.Web.WebView2.Wpf.dll',
+                    'Microsoft.Web.WebView2.Core.dll'):
+            clr.AddReferenceToFileAndPath(os.path.join(
+                AppDomain.CurrentDomain.BaseDirectory, nom))
+    from Microsoft.Web.WebView2.Wpf import (WebView2,
+                                            CoreWebView2CreationProperties)
+    proprietes = CoreWebView2CreationProperties()
+    # Sans dossier explicite, WebView2 écrit à côté de Revit.exe — non
+    # inscriptible pour un utilisateur standard, et l'init échoue sans message.
+    proprietes.UserDataFolder = dossier_profil
+    vue = WebView2()
+    vue.CreationProperties = proprietes
+    return vue

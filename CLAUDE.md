@@ -313,7 +313,12 @@ lib/
 │                BatchExport, Matériaux, Align. Intouchable.
 ├── harnais/   le Python du harnais — outils (pont vers lib/rvt), secrets, oauth
 ├── rvt/       les 57 outils Revit + les 3 routes `/418/`
-├── web/       tout le JS, servi au WebView2 (voir « Le harnais »)
+├── web/       tout le JS, servi au WebView2 — UNE origine pour tout le
+│              dossier (`https://418.local/`), sinon les imports ES d'un
+│              sous-dossier à l'autre sont bloqués
+│              ├── vue/        le volet OpenArchi (voir « Le harnais »)
+│              │               `pont.js` et `tokens.css` servent aussi ailleurs
+│              └── materiaux/  l'interface de l'outil Matériaux
 └── ui/        WPF seulement
     ├── base/     BaseViewModel, BaseWindow, RailWindow,
     │             SelectionPageVM, SelectionItemVM, SheetPreviewGroupVM
@@ -394,12 +399,30 @@ couche. Un outil appelle
 `SelectionPageVM.depuis_descripteurs(descripteurs, ids, titre, est_identifiant=…)`
 avec des triplets `(id, colonne_gauche, nom)`.
 
-**Outils à rail** : les 4 outils de `Tools.panel` et Matériaux héritent de
-`RailWindow` (socle) et ne déclarent que de la donnée — `ONGLETS`, `SUIVANTS`,
-`RUN`, `RADIOS`. Contrat côté VM : `Mode` (chaîne) + `set_mode()` + un attribut
+**Outils à rail** : les 4 outils de `Tools.panel` héritent de `RailWindow`
+(socle) et ne déclarent que de la donnée — `ONGLETS`, `SUIVANTS`, `RUN`,
+`RADIOS`. Contrat côté VM : `Mode` (chaîne) + `set_mode()` + un attribut
 par onglet. La page Sélection est partagée
 (`lib/ui/GUI/pages/SelectionPage.xaml`) ; un outil peut la surcharger en
 déposant un `SelectionPage.xaml` dans son propre `GUI/Views/pages/`.
+
+**Interfaces WebView2** : deux outils n'ont plus de XAML de page — le volet
+OpenArchi (`lib/ui/OpenArchiPanel.py`) et **Matériaux**
+(`Materiaux.pushbutton/lib/views/MainWindowView.py`). Le XAML ne porte qu'un
+hôte, l'interface vit dans `lib/web/<outil>/`, et les deux se parlent par le
+pont de `lib/web/vue/pont.js` (un ordre, une référence, une réponse). Trois
+pièges, payés deux fois chacun :
+
+- **jamais de fenêtre transparente.** WebView2 est un contrôle à HWND : sous
+  `AllowsTransparency="True"` il ne s'affiche pas du tout. C'est la barre de
+  titre maison qui saute, pas le navigateur ;
+- **le contrôle n'est pas déclaré dans le XAML** — `XamlReader` résoudrait le
+  namespace clr au parse, ce qui échoue tant que l'assembly n'est pas
+  référencée. Il est injecté en Python par `.Child` ;
+- **le fil décide de tout.** Une fenêtre MODALE (`ShowDialog`) reste dans le
+  contexte d'API de la commande : les transactions partent du gestionnaire de
+  messages, directement. Un volet ANCRÉ n'y est pas : il lui faut un fil de
+  fond et le serveur de routes.
 
 **Chargement WPF** : `UIResourceLoader` fusionne les dictionnaires de
 ressources dans la fenêtre avant de charger le XAML. Toujours charger les

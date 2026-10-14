@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>418 · Matériaux</title>
+
+<!--
+  L'interface de l'outil Matériaux, servie au WebView2 de
+  `418.tab/Manage.panel/Materiaux.pushbutton` sur https://418.local/.
+
+  Elle vit ici et non dans le bouton parce que l'origine servie est
+  `lib/web/` entier (UN seul mapping virtuel, donc UNE origine, sinon les
+  imports ES entre dossiers sont bloqués) : c'est ce qui lui permet de
+  reprendre le pont et les jetons de thème du volet OpenArchi plutôt que
+  d'en avoir une seconde copie.
+
+  Le thème est POUSSÉ par l'hôte (`body.sombre`), jamais deviné :
+  `prefers-color-scheme` lit Windows, qui n'est pas Revit.
+-->
+
+<link rel="stylesheet" href="../vue/tokens.css">
+<link rel="stylesheet" href="./materiaux.css">
+</head>
+<body>
+
+<div id="appli">
+
+  <!-- Rail : même geste que RailWindow, mêmes dessins. Les tracés viennent
+       un à un de `lib/ui/GUI/resources/Icons.xaml` (IconMateriaux,
+       IconRenommer, IconRemplacer), qui reste la source du jeu — Lucide, et
+       Lucide seul. -->
+  <nav id="rail" role="tablist" aria-label="Onglets">
+    <button class="onglet actif" role="tab" data-page="materiaux" title="Matériaux">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3 H9 A1 1 0 0 1 10 4 V9 A1 1 0 0 1 9 10 H4 A1 1 0 0 1 3 9 V4 A1 1 0 0 1 4 3 Z M15 3 H20 A1 1 0 0 1 21 4 V9 A1 1 0 0 1 20 10 H15 A1 1 0 0 1 14 9 V4 A1 1 0 0 1 15 3 Z M15 14 H20 A1 1 0 0 1 21 15 V20 A1 1 0 0 1 20 21 H15 A1 1 0 0 1 14 20 V15 A1 1 0 0 1 15 14 Z M4 14 H9 A1 1 0 0 1 10 15 V20 A1 1 0 0 1 9 21 H4 A1 1 0 0 1 3 20 V15 A1 1 0 0 1 4 14 Z"/></svg>
+      <span>Matériaux</span>
+    </button>
+    <button class="onglet" role="tab" data-page="renommer" title="Renommer">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 22 h-1 a4 4 0 0 1 -4 -4 V6 a4 4 0 0 1 4 -4 h1 M7 22 h1 a4 4 0 0 0 4 -4 M7 2 h1 a4 4 0 0 1 4 4"/></svg>
+      <span>Renommer</span>
+    </button>
+    <button class="onglet" role="tab" data-page="remplacer" title="Remplacer dans la maquette">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4 A1 1 0 0 1 15 3 M15 10 A1 1 0 0 1 14 9 M21 4 A1 1 0 0 0 20 3 M21 9 A1 1 0 0 1 20 10 M3 7 L6 10 L9 7 M6 10 V5 A2 2 0 0 1 8 3 H10 M4 14 H9 A1 1 0 0 1 10 15 V20 A1 1 0 0 1 9 21 H4 A1 1 0 0 1 3 20 V15 A1 1 0 0 1 4 14 Z"/></svg>
+      <span>Remplacer</span>
+    </button>
+  </nav>
+
+  <main>
+
+    <!-- ╔══════════════════ Onglet 1 — les matériaux ══════════════════╗ -->
+    <section class="page actif" data-page="materiaux">
+      <header class="entete">
+        <h1>Matériaux</h1>
+        <p id="avertissement" class="alerte" hidden></p>
+      </header>
+
+      <div class="barre">
+        <input type="search" id="recherche-cartes" placeholder="Rechercher un matériau…" autocomplete="off">
+      </div>
+
+      <!-- Sélection EXCLUSIVE : cet onglet ne mène qu'à l'éditeur, donc pas
+           de case à cocher — c'est la carte qui s'entoure d'accent. -->
+      <div id="cartes" class="cartes"></div>
+
+      <footer class="pied">
+        <p id="recap-cartes" class="recap"></p>
+        <button id="editer" class="principal" disabled>Éditer le matériau</button>
+      </footer>
+    </section>
+
+    <!-- ╔══════════════════ Onglet 2 — renommer ═══════════════════════╗ -->
+    <section class="page" data-page="renommer">
+      <header class="entete"><h1>Renommer les matériaux</h1></header>
+
+      <!-- Les quatre champs dans l'ORDRE D'APPLICATION : préfixe, recherche,
+           remplacement, suffixe. L'aperçu se recalcule à la frappe. -->
+      <div class="champs">
+        <label>Préfixe
+          <input type="text" id="prefixe" autocomplete="off">
+        </label>
+        <label>Rechercher
+          <span class="aide" title="Expression régulière — ce champ est TOUJOURS lu comme une regex.&#10;&#10;.      n'importe quel caractère&#10;\d     un chiffre · \s un espace&#10;+ *    une ou plusieurs fois · zéro ou plus&#10;^ $    début · fin du nom&#10;( )    groupe capturé, repris par \1 \2… dans Remplacer par&#10;&#10;Les caractères ( ) [ ] . * + ? | \ sont des opérateurs : pour les chercher tels quels, préfixez-les d'un \ — « \(ext\) » trouve « (ext) ».">&#9432;</span>
+          <input type="text" id="rechercher" autocomplete="off">
+        </label>
+        <label>Remplacer par
+          <span class="aide" title="Jetons disponibles&#10;&#10;{date}   date du jour (AAAA-MM-JJ)&#10;{annee}  année sur 4 chiffres&#10;{mois}   mois sur 2 chiffres&#10;{jour}   jour sur 2 chiffres&#10;{n}      numéro de la ligne cochée (1, 2, 3…)&#10;&#10;Utilisables dans Préfixe, Remplacer par et Suffixe.&#10;\1 \2… reprennent les groupes ( ) capturés par Rechercher.">&#9432;</span>
+          <input type="text" id="remplacer-par" autocomplete="off">
+        </label>
+        <label>Suffixe
+          <input type="text" id="suffixe" autocomplete="off">
+        </label>
+      </div>
+      <p id="erreur-regex" class="alerte" hidden></p>
+
+      <div class="barre">
+        <input type="search" id="recherche-renommer" placeholder="Rechercher un matériau…" autocomplete="off">
+        <select id="preset-renommer" title="Sélections préfabriquées">
+          <option value="">Sélectionner…</option>
+          <option value="tout">Tout</option>
+          <option value="aucun">Aucun</option>
+          <option value="utilises">Utilisés</option>
+          <option value="non-utilises">Non utilisés</option>
+          <option value="sans-instance">Sans instance</option>
+        </select>
+        <label class="bascule" title="Masquer les matériaux non cochés. Le menu et la recherche continuent de porter sur toute la liste.">
+          <input type="checkbox" id="masquer-renommer"> Cochés seulement
+        </label>
+      </div>
+
+      <div class="tableau" id="table-renommer">
+        <div class="entetes renommer">
+          <span></span><span>Nom actuel</span><span></span><span>Nouveau nom</span>
+          <span>Rendu</span><span>Surface</span><span>Coupe</span><span>Utilisations</span>
+        </div>
+        <div class="lignes" id="lignes-renommer"></div>
+      </div>
+
+      <footer class="pied">
+        <div class="recaps">
+          <p id="recap-renommer" class="recap"></p>
+          <p id="etat-renommer" class="etat"></p>
+        </div>
+        <button id="renommer" class="principal" disabled>Renommer</button>
+      </footer>
+    </section>
+
+    <!-- ╔══════════════════ Onglet 3 — remplacer ══════════════════════╗ -->
+    <section class="page" data-page="remplacer">
+      <header class="entete"><h1>Remplacer dans la maquette</h1></header>
+
+      <!-- Portée : toutes les catégories cochées au départ, on retire ce
+           qu'on ne veut pas plutôt que de tout désigner. -->
+      <details class="portee">
+        <summary id="resume-portee">Appliquer à toutes les catégories</summary>
+        <div id="categories" class="categories"></div>
+        <div class="boutons">
+          <button id="cocher-portee" class="secondaire">Tout cocher</button>
+          <button id="decocher-portee" class="secondaire">Tout décocher</button>
+        </div>
+      </details>
+
+      <div class="colonnes">
+        <div class="colonne">
+          <h2>Rechercher</h2>
+          <div class="barre">
+            <input type="search" id="recherche-sources" placeholder="Rechercher un matériau…" autocomplete="off">
+            <button id="tout-sources" class="secondaire">Tout</button>
+            <button id="aucun-sources" class="secondaire">Aucun</button>
+          </div>
+          <div class="tableau">
+            <div class="entetes sources">
+              <span></span><span>Titre</span><span>Rendu</span><span>Surface</span><span>Coupe</span>
+            </div>
+            <div class="lignes" id="lignes-sources"></div>
+          </div>
+        </div>
+
+        <div class="separateur"></div>
+
+        <div class="colonne">
+          <h2>Remplacer avec</h2>
+          <div class="barre">
+            <input type="search" id="recherche-cibles" placeholder="Rechercher un matériau…" autocomplete="off">
+          </div>
+          <div class="tableau">
+            <div class="entetes sources">
+              <span></span><span>Titre</span><span>Rendu</span><span>Surface</span><span>Coupe</span>
+            </div>
+            <div class="lignes" id="lignes-cibles"></div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="pied colonne-pied">
+        <div class="ligne-pied">
+          <div class="recaps">
+            <p id="recap-remplacer" class="recap"></p>
+            <p id="etat-remplacer" class="etat"></p>
+          </div>
+          <div class="boutons">
+            <button id="analyser" class="secondaire" disabled>Analyser</button>
+            <button id="appliquer" class="principal" disabled>Remplacer</button>
+          </div>
+        </div>
+        <div id="rapport" class="rapport"></div>
+        <p id="peints" class="alerte" hidden></p>
+      </footer>
+    </section>
+
+  </main>
+</div>
+
+<!-- ╔════════════════════════ Éditeur d'un matériau ════════════════════╗ -->
+<div id="modale-editeur" class="voile" hidden>
+  <div class="modale grande" role="dialog" aria-modal="true" aria-labelledby="titre-editeur">
+    <header class="entete-modale">
+      <h2 id="titre-editeur">Éditer le matériau</h2>
+      <button class="fermer" data-ferme="editeur" title="Fermer">✕</button>
+    </header>
+
+    <div class="corps-modale">
+      <section class="carte-section">
+        <h3>Identité</h3>
+        <div class="duo">
+          <label class="large">Nom<input type="text" id="e-nom" autocomplete="off"></label>
+          <label>Classe<input type="text" id="e-classe" autocomplete="off"></label>
+        </div>
+      </section>
+
+      <section class="carte-section">
+        <h3>Apparence en rendu</h3>
+        <label>Asset d'apparence<select id="e-apparence"></select></label>
+        <div class="duo apparence">
+          <label>Couleur graphique
+            <span class="couleur">
+              <input type="color" id="e-couleur-pastille" title="Choisir une couleur">
+              <input type="text" id="e-couleur" class="hex" autocomplete="off" spellcheck="false">
+            </span>
+          </label>
+          <div class="curseurs">
+            <label>Transparence
+              <input type="range" id="e-transparence" min="0" max="100" step="1">
+              <output for="e-transparence">0</output>
+            </label>
+            <label>Brillance
+              <input type="range" id="e-brillance" min="0" max="128" step="1">
+              <output for="e-brillance">0</output>
+            </label>
+            <label>Lissage
+              <input type="range" id="e-lissage" min="0" max="100" step="1">
+              <output for="e-lissage">0</output>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Les deux faces, bâties par editeur.js sur le même gabarit. -->
+      <div id="faces"></div>
+    </div>
+
+    <footer class="pied-modale">
+      <p id="statut-editeur" class="alerte"></p>
+      <button class="secondaire" data-ferme="editeur">Annuler</button>
+      <button id="enregistrer" class="principal">Enregistrer</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ╔═══════════════════ Choisir un motif de remplissage ═══════════════╗ -->
+<!-- Une liste déroulante ne montre qu'une ligne à la fois et se referme à
+     chaque frappe. Une maquette compte des dizaines de motifs qui se
+     ressemblent par le nom : il faut les voir côte à côte. -->
+<div id="modale-motif" class="voile" hidden>
+  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="titre-motif">
+    <header class="entete-modale">
+      <h2 id="titre-motif">Choisir un motif</h2>
+      <button class="fermer" data-ferme="motif" title="Fermer">✕</button>
+    </header>
+    <div class="corps-modale">
+      <p id="contrainte-motif" class="note" hidden></p>
+      <input type="search" id="recherche-motif" placeholder="Rechercher un motif…" autocomplete="off">
+      <div id="motifs" class="motifs"></div>
+    </div>
+    <footer class="pied-modale">
+      <button class="secondaire" data-ferme="motif">Annuler</button>
+      <button id="choisir-motif" class="principal">Choisir</button>
+    </footer>
+  </div>
+</div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>

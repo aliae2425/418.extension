@@ -1,0 +1,459 @@
+/* La mise en forme de l'outil Matériaux.
+ *
+ * Toute valeur vient de `../vue/tokens.css` — une couleur écrite en dur ici
+ * est un bug : elle ne suivrait pas le thème de Revit. Deux exceptions
+ * assumées, et elles sont signalées : le papier blanc des vignettes (c'est du
+ * papier, pas du thème — une hachure noire doit rester lisible en sombre) et
+ * le voile des modales.
+ *
+ * Les largeurs de colonnes reprennent celles des anciens DataTemplate WPF :
+ * elles étaient réglées sur du contenu réel (noms de catégories Revit,
+ * « 3 types · 50 instances »), il n'y a rien à y regagner.
+ */
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: var(--police);
+  font-size: var(--t-base);
+  line-height: var(--interligne);
+  color: var(--texte);
+  background: var(--fond);
+}
+
+h1 { font-size: var(--t-grand); font-weight: 600; margin: 0; }
+h2 { font-size: var(--t-base); font-weight: 600; margin: 0 0 var(--e2); }
+h3 { font-size: var(--t-base); font-weight: 600; margin: 0 0 var(--e3); }
+
+button, input, select { font: inherit; color: inherit; }
+
+/* ─────────────────────────── coquille ─────────────────────────── */
+
+#appli { display: flex; height: 100%; }
+
+#rail {
+  flex: 0 0 76px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e1);
+  padding: var(--e3) var(--e2);
+  background: var(--carte);
+  border-right: 1px solid var(--trait);
+}
+
+.onglet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--e1);
+  padding: var(--e2) var(--e1);
+  border: 0;
+  border-radius: var(--r-moyen);
+  background: transparent;
+  color: var(--texte-faible);
+  font-size: 10px;
+  cursor: pointer;
+  transition: background var(--vif), color var(--vif);
+}
+.onglet:hover { background: var(--voile); color: var(--texte); }
+.onglet.actif { background: var(--voile-fort); color: var(--accent); }
+.onglet svg {
+  width: 22px; height: 22px;
+  fill: none; stroke: currentColor;
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+}
+
+main { flex: 1; min-width: 0; position: relative; }
+
+.page {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--e5);
+  gap: var(--e3);
+}
+.page.actif { display: flex; }
+
+.entete { display: flex; align-items: baseline; gap: var(--e3); }
+
+/* ─────────────────────────── contrôles ─────────────────────────── */
+
+input[type="text"], input[type="search"], select {
+  padding: 6px var(--e2);
+  border: 1px solid var(--trait);
+  border-radius: var(--r-petit);
+  background: var(--champ);
+  outline: none;
+  min-width: 0;
+}
+input[type="text"]:hover, input[type="search"]:hover, select:hover {
+  border-color: var(--trait-survol);
+}
+input[type="text"]:focus, input[type="search"]:focus, select:focus {
+  border-color: var(--accent);
+}
+
+button.principal, button.secondaire {
+  padding: 6px var(--e4);
+  border-radius: var(--r-petit);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background var(--vif), border-color var(--vif);
+}
+button.principal { background: var(--accent); color: var(--texte-accent); }
+button.principal:hover:not(:disabled) { background: var(--accent-survol); }
+button.secondaire {
+  background: var(--champ);
+  border-color: var(--trait);
+  color: var(--texte);
+}
+button.secondaire:hover:not(:disabled) { border-color: var(--trait-survol); }
+button:disabled { opacity: .45; cursor: default; }
+
+/* Les quatre champs de renommage sur UNE ligne, dans l'ordre d'application :
+   préfixe | rechercher | remplacer par | suffixe. */
+.champs { display: flex; gap: var(--e3); }
+.champs label { flex: 1; min-width: 0; }
+
+.barre { display: flex; gap: var(--e2); align-items: center; }
+.barre input[type="search"] { flex: 1; }
+.boutons { display: flex; gap: var(--e2); }
+
+.bascule { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+
+.aide {
+  color: var(--accent);
+  font-weight: 700;
+  cursor: help;
+  margin-left: var(--e1);
+}
+
+.alerte { color: var(--alerte); font-size: var(--t-petit); margin: 0; }
+.note   { color: var(--texte-faible); font-size: var(--t-petit); margin: 0 0 var(--e2); }
+.etat   { color: var(--texte-faible); font-size: var(--t-petit); margin: 2px 0 0; }
+.recap  { font-weight: 600; margin: 0; }
+.recaps { min-width: 0; }
+
+.pied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e3);
+  border-top: 1px solid var(--trait);
+  padding-top: var(--e3);
+}
+.pied.colonne-pied { display: block; }
+.ligne-pied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e3);
+}
+
+/* ───────────────────── onglet 1 : les cartes ───────────────────── */
+
+.cartes {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: var(--e3);
+  align-content: start;
+}
+
+.carte {
+  padding: var(--e3);
+  border: 2px solid transparent;
+  border-radius: var(--r-moyen);
+  background: var(--carte);
+  box-shadow: var(--ombre);
+  cursor: pointer;
+}
+.carte:hover { border-color: var(--trait-survol); }
+.carte.choisie { border-color: var(--accent); }
+
+.carte .nom { font-weight: 600; }
+.carte .classe,
+.carte .usages { font-size: var(--t-petit); color: var(--texte-faible); }
+/* « Non utilisé » : purgeable, donc en retrait. */
+.carte .usages.vide { color: var(--texte-eteint); font-style: italic; }
+
+.carte .trait {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  margin-top: var(--e2);
+}
+.carte .trait .libelles { min-width: 0; }
+.carte .trait .petit { font-size: 10px; color: var(--texte-faible); }
+.carte .trait .valeur { font-size: var(--t-petit); }
+
+/* ──────────────────────── tableaux (2 et 3) ────────────────────── */
+
+.tableau {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.lignes { overflow-y: auto; }
+
+.entetes, .ligne {
+  display: grid;
+  align-items: center;
+  gap: var(--e2);
+  padding: var(--e1) 2px;
+}
+.entetes {
+  font-size: var(--t-petit);
+  font-weight: 600;
+  color: var(--texte-faible);
+  border-bottom: 1px solid var(--trait);
+}
+.ligne { border-bottom: 1px solid var(--trait); cursor: pointer; }
+.ligne:hover { background: var(--voile); }
+/* Case et rond d'affichage SEUL : tous les clics passent par la ligne, sinon
+   la case et la ligne se déclencheraient l'une après l'autre. */
+.ligne input { pointer-events: none; accent-color: var(--accent); }
+
+/* Mêmes gabarits de colonnes pour l'entête et les lignes, sinon rien ne
+   s'aligne : une seule déclaration par tableau. */
+.renommer { grid-template-columns: 28px 1fr 22px 1fr 46px 72px 72px 110px; }
+.sources  { grid-template-columns: 28px 1fr 46px 72px 72px; }
+
+.ligne .titre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Non coché : la ligne reste en retrait, elle ne sera pas renommée. */
+.ligne:not(.cochee) .titre { color: var(--texte-faible); }
+.ligne .fleche { color: var(--accent); visibility: hidden; }
+.ligne.change .fleche { visibility: visible; }
+.ligne .nouveau { color: var(--texte-faible); overflow: hidden;
+                  text-overflow: ellipsis; white-space: nowrap; }
+.ligne.change .nouveau { color: var(--texte); font-weight: 600; }
+.ligne .usages { font-size: var(--t-petit); color: var(--texte-faible);
+                 overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ligne .usages.vide { color: var(--texte-eteint); font-style: italic; }
+.ligne.cible { background: var(--voile-fort); }
+
+/* ──────────────────────── onglet 3 : portée ────────────────────── */
+
+.portee {
+  padding: var(--e2) var(--e3);
+  border: 1px solid var(--trait);
+  border-radius: var(--r-moyen);
+  background: var(--carte);
+}
+.portee summary { cursor: pointer; font-weight: 600; }
+.categories {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--e1);
+  max-height: 150px;
+  overflow-y: auto;
+  margin: var(--e2) 0;
+}
+.categories label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.colonnes { flex: 1; min-height: 0; display: flex; gap: var(--e5); }
+.colonne { flex: 1; min-width: 0; display: flex; flex-direction: column;
+           gap: var(--e2); }
+.separateur { width: 1px; background: var(--trait); }
+
+.rapport { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--e2); }
+.rapport .pastille {
+  padding: 3px var(--e2);
+  border: 1px solid var(--trait);
+  border-radius: var(--r-petit);
+  background: var(--champ);
+  font-size: var(--t-petit);
+}
+.rapport .pastille em { color: var(--texte-faible); font-style: normal;
+                        margin-left: 6px; }
+
+/* ───────────────────────── vignettes ───────────────────────────── */
+
+/* Le fond BLANC est en dur : c'est la couleur du papier, pas celle du
+   thème. Une hachure noire doit rester lisible en mode sombre. */
+.vignette {
+  background: #FFFFFF;
+  border: 1px solid var(--trait);
+  border-radius: 3px;
+  overflow: hidden;
+  display: block;
+  line-height: 0;
+}
+.vignette svg { display: block; width: 100%; height: 100%; }
+.vignette.rendu { width: 40px; height: 24px; }
+.vignette.motif { width: 64px; height: 26px; }
+.vignette.carte-rendu { width: 64px; height: 28px; }
+
+/* ───────────────────────── modales ─────────────────────────────── */
+
+.voile {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Un noir translucide, pas une couleur de thème : il doit assombrir aussi
+     bien un fond clair qu'un fond sombre. */
+  background: rgba(0, 0, 0, .45);
+  z-index: 10;
+}
+.voile[hidden] { display: none; }
+
+.modale {
+  display: flex;
+  flex-direction: column;
+  width: min(680px, 92vw);
+  max-height: 90vh;
+  border: 1px solid var(--trait);
+  border-radius: var(--r-grand);
+  background: var(--fond);
+  box-shadow: var(--ombre);
+}
+.modale.grande { width: min(980px, 94vw); }
+
+.entete-modale {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--e3) var(--e4);
+  border-bottom: 1px solid var(--trait);
+}
+.fermer {
+  width: 32px; height: 32px;
+  border: 0; border-radius: var(--r-petit);
+  background: transparent; color: var(--texte-faible);
+  cursor: pointer;
+}
+.fermer:hover { background: var(--voile-fort); color: var(--texte); }
+
+.corps-modale {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--e4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e3);
+}
+
+.pied-modale {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  padding: var(--e3) var(--e4);
+  border-top: 1px solid var(--trait);
+}
+.pied-modale .alerte { flex: 1; }
+
+.carte-section {
+  padding: var(--e4);
+  border: 1px solid var(--trait);
+  border-radius: var(--r-moyen);
+  background: var(--carte);
+}
+
+label { display: block; font-size: var(--t-petit); color: var(--texte-faible); }
+label input[type="text"], label select { display: block; width: 100%;
+                                         margin-top: 3px; color: var(--texte); }
+
+.duo { display: flex; gap: var(--e4); align-items: flex-start; }
+.duo .large { flex: 2; }
+.duo label { flex: 1; }
+.duo.apparence { margin-top: var(--e3); }
+.duo.apparence .curseurs { flex: 2; }
+
+.couleur { display: flex; gap: var(--e2); align-items: center; margin-top: 3px; }
+.couleur input[type="color"] {
+  width: 34px; height: 26px;
+  padding: 0;
+  border: 1px solid var(--trait);
+  border-radius: var(--r-petit);
+  background: var(--champ);
+  cursor: pointer;
+}
+.couleur .hex { width: 100px; }
+
+.curseurs label {
+  display: grid;
+  grid-template-columns: 110px 1fr 44px;
+  align-items: center;
+  gap: var(--e2);
+  margin-bottom: var(--e1);
+}
+.curseurs output { text-align: right; color: var(--texte); }
+.curseurs input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+/* ─────────────────── éditeur : les deux faces ──────────────────── */
+
+.emplacements { display: flex; gap: var(--e3); margin-bottom: var(--e3); }
+.emplacement { flex: 1; min-width: 0; }
+
+.bouton-motif {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--e2);
+  width: 100%;
+  margin: 3px 0 6px;
+  padding: 6px var(--e2);
+  border: 1px solid var(--trait);
+  border-radius: var(--r-petit);
+  background: var(--champ);
+  cursor: pointer;
+  text-align: left;
+}
+.bouton-motif:hover { border-color: var(--trait-survol);
+                      background: var(--champ-survol); }
+.bouton-motif .nom { overflow: hidden; text-overflow: ellipsis;
+                     white-space: nowrap; color: var(--texte); }
+.bouton-motif .vignette.motif { width: 120px; height: 26px; }
+/* Un motif de MODÈLE est à l'échelle du bâtiment : ce n'est pas le même
+   objet qu'un motif de dessin, le badge doit se voir. */
+.bouton-motif .genre { font-size: 10px; color: var(--texte-eteint); }
+.bouton-motif .genre.modele { color: var(--accent); font-weight: 600; }
+
+.tuiles { display: flex; gap: var(--e2); }
+/* `figure` arrive avec une marge de 40 px de chaque côté : sans ce zéro, les
+   quatre échelles se répandent sur toute la largeur de la modale. */
+.tuile { margin: 0; text-align: center; }
+.tuile .vignette { width: 150px; height: 96px; }
+.tuile figcaption { font-size: 10px; color: var(--texte-faible);
+                    margin-top: var(--e1); }
+
+/* ─────────────── sélecteur de motif : la grille ────────────────── */
+
+.motifs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--e2);
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.motif {
+  padding: var(--e2);
+  border: 2px solid transparent;
+  border-radius: var(--r-petit);
+  background: var(--carte);
+  cursor: pointer;
+  text-align: left;
+}
+.motif:hover { border-color: var(--trait-survol); }
+.motif.choisi { border-color: var(--accent); }
+.motif .vignette.motif { width: 120px; height: 26px; }
+/* En bloc, sinon le nom et le genre se collent : « Diagonale 45dessin ». */
+.motif .nom { display: block; margin-top: var(--e1);
+              font-size: var(--t-petit); overflow: hidden;
+              text-overflow: ellipsis; white-space: nowrap; }
+.motif .genre { display: block; font-size: 10px; color: var(--texte-eteint); }
+.motif .genre.modele { color: var(--accent); font-weight: 600; }
