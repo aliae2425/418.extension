@@ -1,15 +1,59 @@
 /* La mise en forme de l'outil Matériaux.
  *
- * Toute valeur vient de `../vue/tokens.css` — une couleur écrite en dur ici
- * est un bug : elle ne suivrait pas le thème de Revit. Deux exceptions
- * assumées, et elles sont signalées : le papier blanc des vignettes (c'est du
+ * Les COULEURS viennent de `../vue/tokens.css` — une couleur écrite en dur
+ * ici est un bug : elle ne suivrait pas le thème de Revit. Deux exceptions
+ * assumées, signalées sur place : le papier blanc des vignettes (c'est du
  * papier, pas du thème — une hachure noire doit rester lisible en sombre) et
  * le voile des modales.
  *
- * Les largeurs de colonnes reprennent celles des anciens DataTemplate WPF :
- * elles étaient réglées sur du contenu réel (noms de catégories Revit,
- * « 3 types · 50 instances »), il n'y a rien à y regagner.
+ * Les FORMES, elles, viennent de `lib/ui/GUI/resources/Styles.xaml`, reprises
+ * valeur par valeur dans le bloc ci-dessous : l'outil doit se poser dans
+ * Revit à côté de BatchExport et d'Audit sans qu'on voie la couture. Même
+ * rail à 64 px, même pastille d'accent, même surface blanche à 12 px
+ * d'arrondi, mêmes boutons de 38 px.
+ *
+ * ponytail: deuxième copie de la grammaire, comme tokens.css l'est des
+ * couleurs — isolée dans un seul bloc pour être générable le jour où un
+ * troisième écran web la demandera. Tant qu'il n'y en a qu'un, elle vit ici.
  */
+
+:root {
+  /* --- arrondis (Styles.xaml) --- */
+  --r-champ:   8px;    /* TextBox · ComboBox · bouton générique */
+  --r-bouton:  9px;    /* Primary/SecondaryActionButtonStyle */
+  --r-carte:   8px;    /* CardStyle */
+  --r-surface: 12px;   /* ShellSurfaceStyle · la coquille */
+  --r-rail:    14px;   /* NavRailButtonStyle */
+  --r-case:    4px;    /* CheckBoxStyle */
+
+  /* --- hauteurs --- */
+  --h-champ:  35px;    /* TextBox */
+  --h-bouton: 38px;    /* boutons d'action */
+  --h-case:   18px;    /* case et rond */
+  --h-rail:   46px;    /* item de rail, carré */
+
+  /* --- typographie (HeaderTextBlockStyle & co) --- */
+  --t-titre:       20px;
+  --t-sous-titre:  16px;
+  --t-corps:       14px;
+  --t-bouton:      13px;
+  --t-champ:       12px;
+
+  /* --- le dégradé de marque, AccentBrush -> AccentSecondaryBrush --- */
+  --accent-degrade: linear-gradient(135deg, #0078D4 0%, #00B7C3 100%);
+
+  /* --- profondeur : DropShadowEffect, blur/2 en décalage vertical --- */
+  --ombre-carte:   0 2px 8px rgba(0, 0, 0, .05);
+  --ombre-surface: 0 2px 10px rgba(0, 0, 0, .06);
+  --ombre-bouton:  0 2px 12px rgba(0, 0, 0, .25);
+}
+
+body.sombre {
+  /* CardShadowOpacity/SurfaceShadowOpacity sont des ressources de thème :
+     la même ombre, plus dense sur un fond sombre. */
+  --ombre-carte:   0 2px 8px rgba(0, 0, 0, .35);
+  --ombre-surface: 0 2px 10px rgba(0, 0, 0, .28);
+}
 
 * { box-sizing: border-box; }
 
@@ -17,62 +61,79 @@ html, body {
   height: 100%;
   margin: 0;
   font-family: var(--police);
-  font-size: var(--t-base);
+  font-size: var(--t-corps);
   line-height: var(--interligne);
   color: var(--texte);
   background: var(--fond);
 }
 
-h1 { font-size: var(--t-grand); font-weight: 600; margin: 0; }
-h2 { font-size: var(--t-base); font-weight: 600; margin: 0 0 var(--e2); }
-h3 { font-size: var(--t-base); font-weight: 600; margin: 0 0 var(--e3); }
+/* HeaderTextBlockStyle / SubHeaderTextBlockStyle, à l'identique. */
+h1 { font-size: var(--t-titre); font-weight: 600; margin: 0; }
+h2, h3 { font-size: var(--t-sous-titre); font-weight: 600; margin: 0 0 var(--e3); }
 
 button, input, select { font: inherit; color: inherit; }
 
 /* ─────────────────────────── coquille ─────────────────────────── */
 
+/* Le fond de fenêtre reste visible autour de la surface : c'est ce qui
+   détache la page du rail, exactement comme dans la coquille WPF. */
 #appli { display: flex; height: 100%; }
 
 #rail {
-  flex: 0 0 76px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--e1);
-  padding: var(--e3) var(--e2);
-  background: var(--carte);
-  border-right: 1px solid var(--trait);
-}
-
-.onglet {
+  flex: 0 0 64px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--e1);
-  padding: var(--e2) var(--e1);
+  padding-top: 6px;
+}
+
+/* NavRailButtonStyle : 46×46, coins 14, barre d'accent à gauche quand actif.
+   Pas de libellé — l'icône et l'infobulle, comme dans tous les outils. */
+.onglet {
+  position: relative;
+  width: var(--h-rail);
+  height: var(--h-rail);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
-  border-radius: var(--r-moyen);
+  border-radius: var(--r-rail);
   background: transparent;
   color: var(--texte-faible);
-  font-size: 10px;
   cursor: pointer;
   transition: background var(--vif), color var(--vif);
 }
-.onglet:hover { background: var(--voile); color: var(--texte); }
-.onglet.actif { background: var(--voile-fort); color: var(--accent); }
+.onglet:hover { background: var(--champ-survol); color: var(--texte); }
+.onglet.actif { background: var(--carte); color: var(--accent); }
+.onglet.actif::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  width: 4px;
+  height: 20px;
+  border-radius: 3px;
+  background: var(--accent-degrade);
+}
 .onglet svg {
   width: 22px; height: 22px;
   fill: none; stroke: currentColor;
   stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
 }
 
-main { flex: 1; min-width: 0; position: relative; }
+main { flex: 1; min-width: 0; display: flex; padding: 0 12px 12px 6px; }
 
+/* ShellSurfaceStyle : la page EST la surface. */
 .page {
   display: none;
+  flex: 1;
+  min-width: 0;
   flex-direction: column;
-  height: 100%;
-  padding: var(--e5);
   gap: var(--e3);
+  padding: var(--e5);
+  border-radius: var(--r-surface);
+  background: var(--carte);
+  box-shadow: var(--ombre-surface);
 }
 .page.actif { display: flex; }
 
@@ -81,10 +142,12 @@ main { flex: 1; min-width: 0; position: relative; }
 /* ─────────────────────────── contrôles ─────────────────────────── */
 
 input[type="text"], input[type="search"], select {
-  padding: 6px var(--e2);
+  height: var(--h-champ);
+  padding: 0 var(--e2);
   border: 1px solid var(--trait);
-  border-radius: var(--r-petit);
+  border-radius: var(--r-champ);
   background: var(--champ);
+  font-size: var(--t-champ);
   outline: none;
   min-width: 0;
 }
@@ -95,33 +158,52 @@ input[type="text"]:focus, input[type="search"]:focus, select:focus {
   border-color: var(--accent);
 }
 
-button.principal, button.secondaire {
-  padding: 6px var(--e4);
-  border-radius: var(--r-petit);
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: background var(--vif), border-color var(--vif);
+input[type="checkbox"], input[type="radio"] {
+  width: var(--h-case);
+  height: var(--h-case);
+  margin: 0;
+  accent-color: var(--accent);
 }
-button.principal { background: var(--accent); color: var(--texte-accent); }
-button.principal:hover:not(:disabled) { background: var(--accent-survol); }
+
+/* Primary/SecondaryActionButtonStyle : 38 px, coins 9, 13 px semi-gras. */
+button.principal, button.secondaire {
+  height: var(--h-bouton);
+  padding: 0 20px;
+  border-radius: var(--r-bouton);
+  border: 1px solid transparent;
+  font-size: var(--t-bouton);
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--vif), background var(--vif), border-color var(--vif);
+}
+/* Un dégradé ne se « survole » pas comme un aplat : on joue sur l'opacité,
+   comme le fait le ControlTemplate. */
+button.principal {
+  background: var(--accent-degrade);
+  color: var(--texte-accent);
+  box-shadow: var(--ombre-bouton);
+}
+button.principal:hover:not(:disabled) { opacity: .92; }
+button.principal:active:not(:disabled) { opacity: .85; }
 button.secondaire {
   background: var(--champ);
   border-color: var(--trait);
   color: var(--texte);
 }
-button.secondaire:hover:not(:disabled) { border-color: var(--trait-survol); }
-button:disabled { opacity: .45; cursor: default; }
+button.secondaire:hover:not(:disabled) { background: var(--champ-survol); }
+button:disabled { opacity: .6; cursor: default; }
+
+.barre { display: flex; gap: var(--e2); align-items: center; }
+.barre input[type="search"] { flex: 1; }
+.boutons { display: flex; gap: var(--e2); }
 
 /* Les quatre champs de renommage sur UNE ligne, dans l'ordre d'application :
    préfixe | rechercher | remplacer par | suffixe. */
 .champs { display: flex; gap: var(--e3); }
 .champs label { flex: 1; min-width: 0; }
 
-.barre { display: flex; gap: var(--e2); align-items: center; }
-.barre input[type="search"] { flex: 1; }
-.boutons { display: flex; gap: var(--e2); }
-
-.bascule { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.bascule { display: flex; align-items: center; gap: var(--e2);
+           white-space: nowrap; font-size: var(--t-bouton); }
 
 .aide {
   color: var(--accent);
@@ -161,18 +243,26 @@ button:disabled { opacity: .45; cursor: default; }
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: var(--e3);
   align-content: start;
+  padding: 2px;       /* laisse respirer l'ombre des cartes du bord */
 }
 
+/* CardStyle : fond carte, filet, coins 8, 16 de marge intérieure. L'anneau
+   de sélection remplace la bordure, il ne s'ajoute pas — sinon la carte
+   bouge d'un pixel au clic. */
 .carte {
-  padding: var(--e3);
-  border: 2px solid transparent;
-  border-radius: var(--r-moyen);
+  padding: var(--e4);
+  border: 1px solid var(--trait);
+  border-radius: var(--r-carte);
   background: var(--carte);
-  box-shadow: var(--ombre);
+  box-shadow: var(--ombre-carte);
   cursor: pointer;
+  transition: border-color var(--vif), box-shadow var(--vif);
 }
 .carte:hover { border-color: var(--trait-survol); }
-.carte.choisie { border-color: var(--accent); }
+.carte.choisie {
+  border-color: var(--accent);
+  box-shadow: var(--ombre-carte), 0 0 0 1px var(--accent);
+}
 
 .carte .nom { font-weight: 600; }
 .carte .classe,
@@ -213,10 +303,10 @@ button:disabled { opacity: .45; cursor: default; }
   border-bottom: 1px solid var(--trait);
 }
 .ligne { border-bottom: 1px solid var(--trait); cursor: pointer; }
-.ligne:hover { background: var(--voile); }
+.ligne:hover { background: var(--champ-survol); }
 /* Case et rond d'affichage SEUL : tous les clics passent par la ligne, sinon
    la case et la ligne se déclencheraient l'une après l'autre. */
-.ligne input { pointer-events: none; accent-color: var(--accent); }
+.ligne input { pointer-events: none; }
 
 /* Mêmes gabarits de colonnes pour l'entête et les lignes, sinon rien ne
    s'aligne : une seule déclaration par tableau. */
@@ -234,17 +324,19 @@ button:disabled { opacity: .45; cursor: default; }
 .ligne .usages { font-size: var(--t-petit); color: var(--texte-faible);
                  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ligne .usages.vide { color: var(--texte-eteint); font-style: italic; }
-.ligne.cible { background: var(--voile-fort); }
+.ligne.cible { background: var(--champ-survol); }
 
 /* ──────────────────────── onglet 3 : portée ────────────────────── */
 
+/* NavigationExpanderStyle : une carte qui se déplie, pas un cadre à part. */
 .portee {
   padding: var(--e2) var(--e3);
   border: 1px solid var(--trait);
-  border-radius: var(--r-moyen);
+  border-radius: var(--r-carte);
   background: var(--carte);
+  box-shadow: var(--ombre-carte);
 }
-.portee summary { cursor: pointer; font-weight: 600; }
+.portee summary { cursor: pointer; font-weight: 600; font-size: var(--t-corps); }
 .categories {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -256,7 +348,9 @@ button:disabled { opacity: .45; cursor: default; }
 .categories label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--e2);
+  font-size: var(--t-bouton);
+  color: var(--texte);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -271,7 +365,7 @@ button:disabled { opacity: .45; cursor: default; }
 .rapport .pastille {
   padding: 3px var(--e2);
   border: 1px solid var(--trait);
-  border-radius: var(--r-petit);
+  border-radius: var(--r-case);
   background: var(--champ);
   font-size: var(--t-petit);
 }
@@ -304,8 +398,8 @@ button:disabled { opacity: .45; cursor: default; }
   align-items: center;
   justify-content: center;
   /* Un noir translucide, pas une couleur de thème : il doit assombrir aussi
-     bien un fond clair qu'un fond sombre. */
-  background: rgba(0, 0, 0, .45);
+     bien un fond clair qu'un fond sombre (ModalOverlayBrush, #80000000). */
+  background: rgba(0, 0, 0, .5);
   z-index: 10;
 }
 .voile[hidden] { display: none; }
@@ -316,9 +410,9 @@ button:disabled { opacity: .45; cursor: default; }
   width: min(680px, 92vw);
   max-height: 90vh;
   border: 1px solid var(--trait);
-  border-radius: var(--r-grand);
+  border-radius: var(--r-surface);
   background: var(--fond);
-  box-shadow: var(--ombre);
+  box-shadow: var(--ombre-surface);
 }
 .modale.grande { width: min(980px, 94vw); }
 
@@ -326,22 +420,23 @@ button:disabled { opacity: .45; cursor: default; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--e3) var(--e4);
+  padding: var(--e3) var(--e5);
   border-bottom: 1px solid var(--trait);
 }
 .fermer {
-  width: 32px; height: 32px;
-  border: 0; border-radius: var(--r-petit);
+  width: 40px; height: 40px;
+  border: 0; border-radius: var(--r-champ);
   background: transparent; color: var(--texte-faible);
   cursor: pointer;
 }
-.fermer:hover { background: var(--voile-fort); color: var(--texte); }
+/* CaptionCloseButtonStyle : le rouge de Windows, pas un gris de plus. */
+.fermer:hover { background: #E81123; color: #FFFFFF; }
 
 .corps-modale {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--e4);
+  padding: var(--e4) var(--e5);
   display: flex;
   flex-direction: column;
   gap: var(--e3);
@@ -351,7 +446,7 @@ button:disabled { opacity: .45; cursor: default; }
   display: flex;
   align-items: center;
   gap: var(--e2);
-  padding: var(--e3) var(--e4);
+  padding: var(--e3) var(--e5);
   border-top: 1px solid var(--trait);
 }
 .pied-modale .alerte { flex: 1; }
@@ -359,8 +454,9 @@ button:disabled { opacity: .45; cursor: default; }
 .carte-section {
   padding: var(--e4);
   border: 1px solid var(--trait);
-  border-radius: var(--r-moyen);
+  border-radius: var(--r-carte);
   background: var(--carte);
+  box-shadow: var(--ombre-carte);
 }
 
 label { display: block; font-size: var(--t-petit); color: var(--texte-faible); }
@@ -378,11 +474,11 @@ label input[type="text"], label select { display: block; width: 100%;
   width: 34px; height: 26px;
   padding: 0;
   border: 1px solid var(--trait);
-  border-radius: var(--r-petit);
+  border-radius: var(--r-case);
   background: var(--champ);
   cursor: pointer;
 }
-.couleur .hex { width: 100px; }
+.couleur .hex { width: 100px; height: 26px; }
 
 .curseurs label {
   display: grid;
@@ -391,7 +487,8 @@ label input[type="text"], label select { display: block; width: 100%;
   gap: var(--e2);
   margin-bottom: var(--e1);
 }
-.curseurs output { text-align: right; color: var(--texte); }
+.curseurs output { text-align: right; color: var(--texte);
+                   font-size: var(--t-petit); }
 .curseurs input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 /* ─────────────────── éditeur : les deux faces ──────────────────── */
@@ -408,15 +505,16 @@ label input[type="text"], label select { display: block; width: 100%;
   margin: 3px 0 6px;
   padding: 6px var(--e2);
   border: 1px solid var(--trait);
-  border-radius: var(--r-petit);
+  border-radius: var(--r-champ);
   background: var(--champ);
   cursor: pointer;
   text-align: left;
 }
 .bouton-motif:hover { border-color: var(--trait-survol);
                       background: var(--champ-survol); }
-.bouton-motif .nom { overflow: hidden; text-overflow: ellipsis;
-                     white-space: nowrap; color: var(--texte); }
+.bouton-motif .nom { font-size: var(--t-bouton); overflow: hidden;
+                     text-overflow: ellipsis; white-space: nowrap;
+                     color: var(--texte); }
 .bouton-motif .vignette.motif { width: 120px; height: 26px; }
 /* Un motif de MODÈLE est à l'échelle du bâtiment : ce n'est pas le même
    objet qu'un motif de dessin, le badge doit se voir. */
@@ -439,21 +537,26 @@ label input[type="text"], label select { display: block; width: 100%;
   gap: var(--e2);
   max-height: 46vh;
   overflow-y: auto;
+  padding: 2px;
 }
 .motif {
   padding: var(--e2);
-  border: 2px solid transparent;
-  border-radius: var(--r-petit);
+  border: 1px solid var(--trait);
+  border-radius: var(--r-carte);
   background: var(--carte);
+  box-shadow: var(--ombre-carte);
   cursor: pointer;
   text-align: left;
 }
 .motif:hover { border-color: var(--trait-survol); }
-.motif.choisi { border-color: var(--accent); }
+.motif.choisi {
+  border-color: var(--accent);
+  box-shadow: var(--ombre-carte), 0 0 0 1px var(--accent);
+}
 .motif .vignette.motif { width: 120px; height: 26px; }
 /* En bloc, sinon le nom et le genre se collent : « Diagonale 45dessin ». */
 .motif .nom { display: block; margin-top: var(--e1);
-              font-size: var(--t-petit); overflow: hidden;
+              font-size: var(--t-bouton); overflow: hidden;
               text-overflow: ellipsis; white-space: nowrap; }
 .motif .genre { display: block; font-size: 10px; color: var(--texte-eteint); }
 .motif .genre.modele { color: var(--accent); font-weight: 600; }

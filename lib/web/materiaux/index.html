@@ -25,22 +25,28 @@
 
 <div id="appli">
 
-  <!-- Rail : même geste que RailWindow, mêmes dessins. Les tracés viennent
-       un à un de `lib/ui/GUI/resources/Icons.xaml` (IconMateriaux,
-       IconRenommer, IconRemplacer), qui reste la source du jeu — Lucide, et
-       Lucide seul. -->
+  <!-- Rail : même geste que RailWindow, mêmes dessins, même géométrie —
+       46×46, coins 14, pastille d'accent à gauche sur l'onglet actif. Les
+       tracés viennent un à un de `lib/ui/GUI/resources/Icons.xaml`
+       (IconMateriaux, IconRenommer, IconRemplacer), qui reste la source du
+       jeu — Lucide, et Lucide seul.
+
+       Pas de libellé sous l'icône : l'infobulle suffit, comme partout
+       ailleurs dans l'extension. `aria-label` porte le nom pour qui n'a que
+       le titre accessible. -->
   <nav id="rail" role="tablist" aria-label="Onglets">
-    <button class="onglet actif" role="tab" data-page="materiaux" title="Matériaux">
+    <button class="onglet actif" role="tab" data-page="materiaux"
+            title="Matériaux" aria-label="Matériaux">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3 H9 A1 1 0 0 1 10 4 V9 A1 1 0 0 1 9 10 H4 A1 1 0 0 1 3 9 V4 A1 1 0 0 1 4 3 Z M15 3 H20 A1 1 0 0 1 21 4 V9 A1 1 0 0 1 20 10 H15 A1 1 0 0 1 14 9 V4 A1 1 0 0 1 15 3 Z M15 14 H20 A1 1 0 0 1 21 15 V20 A1 1 0 0 1 20 21 H15 A1 1 0 0 1 14 20 V15 A1 1 0 0 1 15 14 Z M4 14 H9 A1 1 0 0 1 10 15 V20 A1 1 0 0 1 9 21 H4 A1 1 0 0 1 3 20 V15 A1 1 0 0 1 4 14 Z"/></svg>
-      <span>Matériaux</span>
     </button>
-    <button class="onglet" role="tab" data-page="renommer" title="Renommer">
+    <button class="onglet" role="tab" data-page="renommer"
+            title="Renommer" aria-label="Renommer">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 22 h-1 a4 4 0 0 1 -4 -4 V6 a4 4 0 0 1 4 -4 h1 M7 22 h1 a4 4 0 0 0 4 -4 M7 2 h1 a4 4 0 0 1 4 4"/></svg>
-      <span>Renommer</span>
     </button>
-    <button class="onglet" role="tab" data-page="remplacer" title="Remplacer dans la maquette">
+    <button class="onglet" role="tab" data-page="remplacer"
+            title="Remplacer dans la maquette"
+            aria-label="Remplacer dans la maquette">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4 A1 1 0 0 1 15 3 M15 10 A1 1 0 0 1 14 9 M21 4 A1 1 0 0 0 20 3 M21 9 A1 1 0 0 1 20 10 M3 7 L6 10 L9 7 M6 10 V5 A2 2 0 0 1 8 3 H10 M4 14 H9 A1 1 0 0 1 10 15 V20 A1 1 0 0 1 9 21 H4 A1 1 0 0 1 3 20 V15 A1 1 0 0 1 4 14 Z"/></svg>
-      <span>Remplacer</span>
     </button>
   </nav>
 
