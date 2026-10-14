@@ -467,7 +467,12 @@ def usages_json(ligne):
 
 
 def carte(doc, materiau, catalogue, usages=None):
-    """`Material` Revit -> le dictionnaire d'une carte."""
+    """`Material` Revit -> le dictionnaire d'une carte.
+
+    `transparence`, `brillance` et `lissage` ne servent pas à l'éditeur ici :
+    ce sont les trois paramètres dont la carte tire sa sphère d'aperçu. Ils
+    ne coûtent que trois entiers, là où une image en coûterait mille.
+    """
     couleur = rgb(premier(materiau, 'Color'))
     return {
         'id': ident(materiau.Id),
@@ -475,6 +480,9 @@ def carte(doc, materiau, catalogue, usages=None):
         'classe': premier(materiau, 'MaterialClass') or u'Sans classe',
         'apparence': _apparence(doc, materiau) or u'Aucune',
         'couleur': hex_de_rgb(couleur),
+        'transparence': entier(premier(materiau, 'Transparency') or 0),
+        'brillance': entier(premier(materiau, 'Shininess') or 0),
+        'lissage': entier(premier(materiau, 'Smoothness') or 0),
         'usages': usages_json(usages),
         'coupe': _face(materiau, u'Cut', couleur, catalogue),
         'surface': _face(materiau, u'Surface', couleur, catalogue),

@@ -236,11 +236,40 @@ button:disabled { opacity: .6; cursor: default; }
 
 /* ───────────────────── onglet 1 : les cartes ───────────────────── */
 
+/* Bascule d'aperçu, dans l'en-tête. Le segment actif prend le fond de
+   FENÊTRE : c'est la seule teinte qui tranche sur la surface de page dans
+   les deux thèmes — même geste que l'onglet actif du rail. */
+.segments {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--trait);
+  border-radius: var(--r-bouton);
+}
+.segment {
+  padding: 4px 14px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--texte-faible);
+  font-size: var(--t-bouton);
+  cursor: pointer;
+}
+.segment:hover { color: var(--texte); }
+.segment.actif {
+  background: var(--fond);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .cartes {
   flex: 1;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  /* 240 : deux vignettes de motif de 96 côte à côte tiennent sans que la
+     carte ne se brise en mode Dessin. */
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: var(--e3);
   align-content: start;
   padding: 2px;       /* laisse respirer l'ombre des cartes du bord */
@@ -264,21 +293,63 @@ button:disabled { opacity: .6; cursor: default; }
   box-shadow: var(--ombre-carte), 0 0 0 1px var(--accent);
 }
 
-.carte .nom { font-weight: 600; }
-.carte .classe,
+.carte .nom {
+  font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .carte .usages { font-size: var(--t-petit); color: var(--texte-faible); }
 /* « Non utilisé » : purgeable, donc en retrait. */
 .carte .usages.vide { color: var(--texte-eteint); font-style: italic; }
 
-.carte .trait {
+/* --- l'aperçu, en haut de la carte --- */
+
+.apercu {
+  height: 104px;
   display: flex;
   align-items: center;
-  gap: var(--e2);
-  margin-top: var(--e2);
+  justify-content: center;
+  margin-bottom: var(--e3);
 }
-.carte .trait .libelles { min-width: 0; }
-.carte .trait .petit { font-size: 10px; color: var(--texte-faible); }
-.carte .trait .valeur { font-size: var(--t-petit); }
+/* Un seul des deux à la fois, et c'est la GRILLE qui tranche : basculer ne
+   touche pas au DOM des cartes, donc ni les sphères ni les SVG de hachure ne
+   sont refaits. */
+.cartes .motifs-carte { display: none; }
+.cartes.dessin .sphere { display: none; }
+.cartes.dessin .motifs-carte { display: flex; }
+
+.sphere {
+  width: 88px; height: 88px;
+  border-radius: 50%;
+  /* Le damier ne se voit QUE sous un matériau transparent — sans lui, un
+     verre ne se distinguerait pas d'une couleur pâle. */
+  background-image:
+    conic-gradient(var(--voile) 90deg, transparent 0 180deg,
+                   var(--voile) 0 270deg, transparent 0);
+  background-size: 12px 12px;
+  box-shadow: 0 8px 14px -8px rgba(0, 0, 0, .5);
+}
+.sphere .matiere {
+  display: block;
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  /* Éclat en haut à gauche, terminateur en bas à droite : la lumière vient
+     d'où elle vient dans tous les navigateurs de matériaux. */
+  background:
+    radial-gradient(circle at 34% 28%,
+                    rgba(255, 255, 255, var(--eclat)) 0 2%,
+                    rgba(255, 255, 255, 0) var(--tache)),
+    radial-gradient(circle at 72% 78%,
+                    rgba(0, 0, 0, .42), rgba(0, 0, 0, 0) 62%),
+    var(--teinte);
+  /* Un filet sombre : sans lui, un matériau blanc n'a plus de bord. */
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .14);
+}
+
+.motifs-carte { gap: var(--e2); align-items: center; }
+.motif-carte { margin: 0; text-align: center; }
+.motif-carte figcaption {
+  font-size: 10px; color: var(--texte-faible); margin-top: 3px;
+}
 
 /* ──────────────────────── tableaux (2 et 3) ────────────────────── */
 
@@ -387,7 +458,10 @@ button:disabled { opacity: .6; cursor: default; }
 .vignette svg { display: block; width: 100%; height: 100%; }
 .vignette.rendu { width: 40px; height: 24px; }
 .vignette.motif { width: 64px; height: 26px; }
-.vignette.carte-rendu { width: 64px; height: 28px; }
+/* Exactement 1,5× la tuile rendue (64×28) : un multiple entier de l'une et
+   l'autre dimension, donc un agrandissement et jamais une déformation —
+   `preserveAspectRatio="none"` ne pardonne pas un rapport bancal. */
+.vignette.grande { width: 96px; height: 42px; }
 
 /* ──────────── fenêtres filles : éditeur et choix de motif ──────── */
 

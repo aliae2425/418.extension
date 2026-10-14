@@ -57,6 +57,14 @@
       <header class="entete">
         <h1>Matériaux</h1>
         <p id="avertissement" class="alerte" hidden></p>
+        <!-- Les deux lectures d'un matériau, celles de Revit : ce qu'il REND
+             (la sphère) et ce qu'il DESSINE (ses deux motifs). Le choix porte
+             sur toutes les cartes à la fois. -->
+        <div id="apercu-cartes" class="segments" role="group"
+             aria-label="Aperçu des cartes">
+          <button class="segment actif" data-apercu="rendu">Rendu</button>
+          <button class="segment" data-apercu="dessin">Dessin</button>
+        </div>
       </header>
 
       <div class="barre">
