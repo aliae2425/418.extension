@@ -81,6 +81,35 @@
                            M10 3 L8 21
                            M16 3 L14 21"/>
 
+    <!-- ===================================================================
+         Les sections d'un matériau, celles de l'éditeur de Revit, et les
+         deux formes sur lesquelles il se prévisualise.
+         =================================================================== -->
+
+    <!-- lucide: tag — l'identité, ce qui étiquette le matériau -->
+    <PathGeometry x:Key="IconIdentite"
+                  Figures="M12.586 2.586 A 2 2 0 0 0 11.172 2 H4 A2 2 0 0 0 2 4 V11.172 A2 2 0 0 0 2.586 12.586 L11.29 21.29 A2.426 2.426 0 0 0 14.71 21.29 L21.29 14.71 A2.426 2.426 0 0 0 21.29 11.29 Z
+                           M7 7 A0.5 0.5 0 0 1 8 7 A0.5 0.5 0 0 1 7 7 Z"/>
+
+    <!-- lucide: weight — les propriétés physiques -->
+    <PathGeometry x:Key="IconPhysique"
+                  Figures="M9 5 A3 3 0 0 1 15 5 A3 3 0 0 1 9 5 Z
+                           M6.5 8 A2 2 0 0 0 4.595 9.46 L2.1 18.5 A2 2 0 0 0 4 21 H20 A2 2 0 0 0 21.925 18.46 L19.4 9.5 A2 2 0 0 0 17.48 8 Z"/>
+
+    <!-- lucide: thermometer — les propriétés thermiques -->
+    <PathGeometry x:Key="IconThermique"
+                  Figures="M14 4 V14.54 A4 4 0 1 1 10 14.54 V4 A2 2 0 0 1 14 4 Z"/>
+
+    <!-- lucide: circle — l'aperçu sur une sphère -->
+    <PathGeometry x:Key="IconSphere"
+                  Figures="M2 12 A10 10 0 1 1 22 12 A10 10 0 1 1 2 12 Z"/>
+
+    <!-- lucide: box — l'aperçu sur un cube -->
+    <PathGeometry x:Key="IconCube"
+                  Figures="M21 8 A2 2 0 0 0 20 6.27 L13 2.27 A2 2 0 0 0 11 2.27 L4 6.27 A2 2 0 0 0 3 8 V16 A2 2 0 0 0 4 17.73 L11 21.73 A2 2 0 0 0 13 21.73 L20 17.73 A2 2 0 0 0 21 16 Z
+                           M3.3 7 L12 12 L20.7 7
+                           M12 22 V12"/>
+
     <!-- lucide: list — une liste de lignes, par opposition à une grille -->
     <PathGeometry x:Key="IconListe"
                   Figures="M8 6 H21

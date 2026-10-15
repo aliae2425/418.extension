@@ -6,17 +6,15 @@
 
 <!--
   L'éditeur d'UN matériau. Sa propre FENÊTRE (EditeurWindowView), donc sa
-  propre page : pas de barre de titre ici, c'est le XAML qui la porte, comme
-  pour toutes les fenêtres de l'extension.
+  propre page : pas de barre de titre ici, c'est le XAML qui la porte.
 
-  Les cinq onglets sont ceux de l'éditeur de matériaux de Revit, dans le même
-  ordre et sous les mêmes noms — c'est le seul repère que l'utilisateur a déjà.
+  Même navigation que la fenêtre principale — un rail à gauche, icônes
+  seules, pastille d'accent sur la section ouverte. Les cinq sections sont
+  celles de l'éditeur de matériaux de Revit, dans son ordre.
 
-  Trois d'entre eux sont branchés (Identité, Graphismes, Apparence). Physique
-  et Thermique sont des OSSATURES : ils affichent le jeu de propriétés
-  rattaché et ne savent pas encore en poser un autre, ce qui demande un
-  navigateur de bibliothèque — un outil à lui seul. Ils le disent sur place
-  plutôt que de faire semblant.
+  Les tracés d'icônes viennent un à un d'`Icons.xaml` (IconIdentite,
+  IconDessin, IconMateriauxRuban, IconPhysique, IconThermique), qui reste la
+  source du jeu — Lucide, et Lucide seul.
 -->
 
 <link rel="stylesheet" href="../vue/tokens.css">
@@ -24,121 +22,166 @@
 </head>
 <body class="fenetre">
 
-<nav class="onglets-editeur" role="tablist" aria-label="Sections du matériau">
-  <button class="onglet-editeur actif" role="tab" data-section="identite">Identité</button>
-  <button class="onglet-editeur" role="tab" data-section="graphismes">Graphismes</button>
-  <button class="onglet-editeur" role="tab" data-section="apparence">Apparence</button>
-  <button class="onglet-editeur" role="tab" data-section="physique">Physique</button>
-  <button class="onglet-editeur" role="tab" data-section="thermique">Thermique</button>
+<nav class="rail" role="tablist" aria-label="Sections du matériau">
+  <button class="onglet actif" role="tab" data-section="identite"
+          title="Identité" aria-label="Identité">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".6" fill="currentColor"/></svg>
+  </button>
+  <button class="onglet" role="tab" data-section="graphismes"
+          title="Graphismes" aria-label="Graphismes">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>
+  </button>
+  <button class="onglet" role="tab" data-section="rendu"
+          title="Rendu" aria-label="Rendu">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12a10 10 0 1 1 20 0 10 10 0 1 1-20 0M12 2a7 7 0 1 0 10 10"/></svg>
+  </button>
+  <button class="onglet" role="tab" data-section="physique"
+          title="Physique" aria-label="Physique">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.905 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.925-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z"/></svg>
+  </button>
+  <button class="onglet" role="tab" data-section="thermique"
+          title="Thermique" aria-label="Thermique">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>
+  </button>
 </nav>
 
-<div class="corps">
+<div class="colonne-editeur">
+  <div class="corps">
 
-  <!-- ╔══════════════════════════ Identité ══════════════════════════╗ -->
-  <section class="pan-editeur actif" data-section="identite">
-    <div class="carte-section">
-      <h3>Nom et classement</h3>
-      <div class="duo">
-        <label class="large">Nom<input type="text" id="e-nom" autocomplete="off"></label>
-        <label>Classe<input type="text" id="e-classe" autocomplete="off"></label>
-        <label>Catégorie<input type="text" id="e-categorie" autocomplete="off"></label>
-      </div>
-    </div>
+    <!-- ╔══════════════════════════ Identité ══════════════════════════╗
+         Un bento : une colonne de fiches à gauche, l'aperçu en grand à
+         droite, et sous lui les deux motifs du matériau. -->
+    <section class="pan-editeur actif" data-section="identite">
+      <div class="bento">
 
-    <div class="carte-section">
-      <h3>Paramètres d'identité</h3>
-      <!-- La liste vient de Revit (`Material.GetIdentityParameterIds`), pas
-           d'une énumération écrite ici : description, fabricant, coût, note-clé
-           et le reste suivent la version et la langue. -->
-      <p class="note" id="note-identite"></p>
-      <div id="identite" class="parametres"></div>
-    </div>
-  </section>
-
-  <!-- ╔═════════════════════════ Graphismes ═════════════════════════╗ -->
-  <section class="pan-editeur" data-section="graphismes">
-    <div class="carte-section">
-      <h3>Ombrage</h3>
-      <label class="bascule large">
-        <input type="checkbox" id="e-rendu-ombrage">
-        Utiliser l'apparence en rendu pour l'ombrage
-      </label>
-      <!-- Quand la case est cochée, Revit ignore la couleur ci-dessous : la
-           page le dit au lieu de laisser modifier un réglage sans effet. -->
-      <div class="duo apparence">
-        <label>Couleur graphique
-          <span class="couleur">
-            <input type="color" id="e-couleur-pastille" title="Choisir une couleur">
-            <input type="text" id="e-couleur" class="hex" autocomplete="off" spellcheck="false">
-          </span>
-        </label>
-        <div class="curseurs">
-          <label>Transparence
-            <input type="range" id="e-transparence" min="0" max="100" step="1">
-            <output for="e-transparence">0</output>
-          </label>
-          <label>Brillance
-            <input type="range" id="e-brillance" min="0" max="128" step="1">
-            <output for="e-brillance">0</output>
-          </label>
-          <label>Lissage
-            <input type="range" id="e-lissage" min="0" max="100" step="1">
-            <output for="e-lissage">0</output>
-          </label>
+        <div class="carte-section">
+          <h3 id="e-titre">Matériau</h3>
+          <p id="e-usages" class="note"></p>
+          <label>Nom<input type="text" id="e-nom" autocomplete="off"></label>
         </div>
-      </div>
-    </div>
 
-    <!-- Les deux faces, bâties par editeur.js sur le même gabarit. -->
-    <div id="faces"></div>
-  </section>
+        <div class="carte-section">
+          <h3>Classement</h3>
+          <label>Classe<input type="text" id="e-classe" autocomplete="off"></label>
+          <label>Catégorie<input type="text" id="e-categorie" autocomplete="off"></label>
+        </div>
 
-  <!-- ╔═════════════════════════ Apparence ══════════════════════════╗ -->
-  <section class="pan-editeur" data-section="apparence">
-    <div class="carte-section">
-      <h3>Apparence en rendu</h3>
-      <!-- La sphère rejoue ce que l'asset donne à voir : sa couleur diffuse,
-           son brillant, et sa texture quand il en porte une. Revit n'expose
-           aucune image de prévisualisation — ni sur le matériau, ni sur
-           l'asset — et sa propre sphère est rendue par un moteur qui ne sort
-           pas de l'application. -->
-      <div class="rendu">
-        <span class="sphere grande" id="rendu-sphere"></span>
-        <div class="rendu-infos">
-          <label>Asset d'apparence<select id="e-apparence"></select></label>
+        <div class="carte-section">
+          <h3>Paramètres d'identité</h3>
+          <p class="note" id="note-identite"></p>
+          <div id="identite" class="parametres"></div>
+        </div>
+
+        <!-- L'aperçu : deux colonnes, deux rangées. -->
+        <div class="carte-section apercu-materiau">
+          <header class="entete-carte">
+            <h3>Aperçu</h3>
+            <div class="segments" id="forme-apercu" role="group"
+                 aria-label="Forme de l'aperçu">
+              <button class="segment actif" data-forme="sphere"
+                      title="Sphère" aria-label="Sphère">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12a10 10 0 1 1 20 0 10 10 0 1 1-20 0"/></svg>
+              </button>
+              <button class="segment" data-forme="cube"
+                      title="Cube" aria-label="Cube">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+              </button>
+            </div>
+          </header>
+          <div id="apercu-materiau" class="scene"></div>
           <p id="rendu-detail" class="note"></p>
-          <p class="note">Le contenu d'un asset — relief, réflexion, mise à
-          l'échelle de la texture — se modifie dans l'éditeur d'apparence de
-          Revit. 418 choisit lequel est rattaché au matériau, il ne le
-          réécrit pas.</p>
+        </div>
+
+        <figure class="carte-section motif-materiau">
+          <h3>Motif de coupe</h3>
+          <span class="vignette large" id="motif-coupe"></span>
+          <figcaption id="nom-coupe" class="note"></figcaption>
+        </figure>
+
+        <figure class="carte-section motif-materiau">
+          <h3>Motif de surface</h3>
+          <span class="vignette large" id="motif-surface"></span>
+          <figcaption id="nom-surface" class="note"></figcaption>
+        </figure>
+
+      </div>
+    </section>
+
+    <!-- ╔═════════════════════════ Graphismes ═════════════════════════╗ -->
+    <section class="pan-editeur" data-section="graphismes">
+      <div class="carte-section">
+        <h3>Ombrage</h3>
+        <label class="bascule large">
+          <input type="checkbox" id="e-rendu-ombrage">
+          Utiliser l'apparence en rendu pour l'ombrage
+        </label>
+        <!-- Cochée, Revit ignore la couleur ci-dessous : la page le dit au
+             lieu de laisser modifier un réglage sans effet. -->
+        <div class="duo apparence">
+          <label>Couleur graphique
+            <span class="couleur">
+              <input type="color" id="e-couleur-pastille" title="Choisir une couleur">
+              <input type="text" id="e-couleur" class="hex" autocomplete="off" spellcheck="false">
+            </span>
+          </label>
+          <div class="curseurs">
+            <label>Transparence
+              <input type="range" id="e-transparence" min="0" max="100" step="1">
+              <output for="e-transparence">0</output>
+            </label>
+            <label>Brillance
+              <input type="range" id="e-brillance" min="0" max="128" step="1">
+              <output for="e-brillance">0</output>
+            </label>
+            <label>Lissage
+              <input type="range" id="e-lissage" min="0" max="100" step="1">
+              <output for="e-lissage">0</output>
+            </label>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
 
-  <!-- ╔══════════════════════════ Physique ══════════════════════════╗ -->
-  <section class="pan-editeur" data-section="physique">
-    <div class="carte-section">
-      <h3>Jeu de propriétés physiques</h3>
-      <div id="physique" class="assets"></div>
-    </div>
-  </section>
+      <!-- Les deux faces, bâties par editeur.js sur le même gabarit. -->
+      <div id="faces"></div>
+    </section>
 
-  <!-- ╔═════════════════════════ Thermique ══════════════════════════╗ -->
-  <section class="pan-editeur" data-section="thermique">
-    <div class="carte-section">
-      <h3>Jeu de propriétés thermiques</h3>
-      <div id="thermique" class="assets"></div>
-    </div>
-  </section>
+    <!-- ╔═══════════════════════════ Rendu ════════════════════════════╗ -->
+    <section class="pan-editeur" data-section="rendu">
+      <div class="carte-section">
+        <h3>Apparence en rendu</h3>
+        <label>Asset d'apparence<select id="e-apparence"></select></label>
+        <p id="rendu-proprietes" class="note"></p>
+        <p class="note">L'aperçu de cet asset est dans l'onglet Identité. Son
+        contenu — relief, réflexion, mise à l'échelle de la texture — se
+        modifie dans l'éditeur d'apparence de Revit : 418 choisit lequel est
+        rattaché au matériau, il ne le réécrit pas.</p>
+      </div>
+    </section>
 
+    <!-- ╔══════════════════════════ Physique ══════════════════════════╗ -->
+    <section class="pan-editeur" data-section="physique">
+      <div class="carte-section">
+        <h3>Jeu de propriétés physiques</h3>
+        <div id="physique" class="assets"></div>
+      </div>
+    </section>
+
+    <!-- ╔═════════════════════════ Thermique ══════════════════════════╗ -->
+    <section class="pan-editeur" data-section="thermique">
+      <div class="carte-section">
+        <h3>Jeu de propriétés thermiques</h3>
+        <div id="thermique" class="assets"></div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer class="pied-fenetre">
+    <p id="statut-editeur" class="alerte"></p>
+    <button id="annuler" class="secondaire">Annuler</button>
+    <button id="enregistrer" class="principal">Enregistrer</button>
+  </footer>
 </div>
-
-<footer class="pied-fenetre">
-  <p id="statut-editeur" class="alerte"></p>
-  <button id="annuler" class="secondaire">Annuler</button>
-  <button id="enregistrer" class="principal">Enregistrer</button>
-</footer>
 
 <script type="module" src="./editeur.js"></script>
 </body>

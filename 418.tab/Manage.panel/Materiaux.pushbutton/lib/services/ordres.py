@@ -246,6 +246,12 @@ class Ordres(object):
         etat['apparences'] = (self._catalogue.apparences
                               if self._catalogue else [])
         etat['modifiable'] = self._modifiable()
+        # Les usages et les deux vignettes de motif viennent de la CARTE : ils
+        # sont déjà calculés, l'éditeur les montre sans rien relire.
+        carte = self._carte(presentation.ident(materiau.Id)) or {}
+        for cle in ('usages', 'coupe', 'surface'):
+            if cle in carte:
+                etat[cle] = carte[cle]
         return etat
 
     def selecteur(self, message):

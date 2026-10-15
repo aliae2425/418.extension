@@ -92,7 +92,9 @@ button, input, select { font: inherit; color: inherit; }
    détache la page du rail, exactement comme dans la coquille WPF. */
 #appli { display: flex; height: 100%; }
 
-#rail {
+/* Un seul rail pour les deux fenêtres : la principale le pose sur ses trois
+   onglets, l'éditeur sur ses cinq sections. Même largeur, même pastille. */
+#rail, .rail {
   flex: 0 0 64px;
   display: flex;
   flex-direction: column;
@@ -635,31 +637,16 @@ body.fenetre .corps {
 }
 .pied-fenetre .alerte, .pied-fenetre .espace { flex: 1; }
 
-/* --- les cinq onglets de l'éditeur, ceux de Revit --- */
+/* --- l'éditeur : rail à gauche, contenu à droite --- */
 
-.onglets-editeur {
+/* La fenêtre de l'éditeur se lit comme la principale : le rail prend toute
+   la hauteur, le reste s'empile à droite. */
+body.fenetre { flex-direction: row; }
+.colonne-editeur {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  gap: var(--e1);
-  padding: 0 var(--e5);
-  border-bottom: 1px solid var(--trait);
-}
-.onglet-editeur {
-  padding: var(--e2) var(--e3);
-  /* Le soulignement est posé dès maintenant, transparent : sans lui, le
-     texte sauterait de deux pixels en devenant actif. */
-  border: 0;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  background: transparent;
-  color: var(--texte-faible);
-  font-size: var(--t-bouton);
-  cursor: pointer;
-}
-.onglet-editeur:hover { color: var(--texte); }
-.onglet-editeur.actif {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-  font-weight: 600;
+  flex-direction: column;
 }
 
 .pan-editeur { display: none; flex-direction: column; gap: var(--e3); }
@@ -679,10 +666,86 @@ body.fenetre .corps {
   cursor: default;
 }
 
-/* La sphère de l'onglet Apparence, et ce qu'elle a à dire. */
-.rendu { display: flex; gap: var(--e5); align-items: flex-start; }
-.rendu-infos { flex: 1; min-width: 0; }
+/* --- le bento de l'onglet Identité --- */
+
+/* Trois colonnes : les fiches à gauche, l'aperçu en grand à droite sur deux
+   rangées, les deux motifs dessous. `auto` sur les rangées, pas `1fr` : une
+   fiche ne doit pas s'étirer pour remplir la hauteur de l'aperçu. */
+.bento {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 1fr 1fr;
+  gap: var(--e3);
+  align-content: start;
+  /* Chaque fiche à sa hauteur : sans ça, les deux motifs s'étirent sur toute
+     la hauteur de la liste de paramètres, qui est de loin la plus longue. */
+  align-items: start;
+}
+/* L'aperçu occupe les deux colonnes de droite et les deux premières
+   rangées — c'est la pièce qu'on regarde en premier. */
+.apercu-materiau {
+  grid-column: 2 / span 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+}
+/* La fiche des paramètres est la troisième de la colonne de gauche, donc en
+   rangée 3 : elle s'aligne avec les deux motifs. */
+.bento > .carte-section:nth-child(3) { grid-row: 3; }
+.motif-materiau { margin: 0; grid-row: 3; }
+.motif-materiau .vignette.large {
+  display: block;
+  width: 100%;
+  height: 92px;
+}
+.motif-materiau figcaption { margin-top: var(--e2); }
+
+.entete-carte {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--e3);
+}
+.entete-carte h3 { margin: 0; }
+
+/* La scène de l'aperçu : la forme y est centrée, et elle respire. */
+.scene {
+  flex: 1;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--e4) 0;
+}
+
 .sphere.grande { width: 160px; height: 160px; flex: 0 0 160px; }
+
+/* --- le cube : trois faces, et pas une de plus --- */
+
+/* `display` explicite des deux côtés : ce sont des `span`, et une boîte
+   inline ignore largeur et hauteur — le cube se réduisait à rien. La sphère
+   y échappait par hasard, étant enfant direct d'un flex. */
+.cube { display: inline-block; perspective: 700px; }
+.cube .boite {
+  display: block;
+  position: relative;
+  width: 130px; height: 130px;
+  transform-style: preserve-3d;
+  /* Vu d'un coin, légèrement de dessus : la pose des bibliothèques de
+     matériaux, et celle qui montre trois faces d'un coup. */
+  transform: rotateX(-22deg) rotateY(-34deg);
+}
+.cube .face {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .18);
+}
+/* L'éclairage est un filtre, pas un calcul : le dessus prend la lumière, le
+   côté s'en éloigne. */
+.cube .devant { transform: translateZ(65px); }
+.cube .droite { transform: rotateY(90deg) translateZ(65px); filter: brightness(.74); }
+.cube .dessus { transform: rotateX(90deg) translateZ(65px); filter: brightness(1.16); }
 /* La texture passe SOUS les dégradés de la sphère : ils lui donnent son
    galbe, elle leur donne la matière. */
 .sphere .texture {
