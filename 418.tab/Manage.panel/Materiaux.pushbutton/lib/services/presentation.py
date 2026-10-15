@@ -859,11 +859,14 @@ def editeur(doc, materiau, catalogue):
             'accepte_modele': accepte_modele(face, couche),
             'contrainte': contrainte(face, couche),
         }
+    # Le rendu n'est PAS ici : lire un asset et décoder sa texture peut
+    # prendre plusieurs secondes sur un fichier de bibliothèque posé sur un
+    # serveur, et la fenêtre resterait vide tout ce temps. La page demande sa
+    # sphère après s'être affichée — c'est le seul morceau qui peut attendre.
     return {'id': ident(materiau.Id), 'valeurs': valeurs,
             'emplacements': emplacements,
             'identite': identite(materiau),
-            'assets': assets(doc, materiau),
-            'rendu': rendu(doc, materiau)}
+            'assets': assets(doc, materiau)}
 
 
 def identite_modifiee(identite_page, materiau):

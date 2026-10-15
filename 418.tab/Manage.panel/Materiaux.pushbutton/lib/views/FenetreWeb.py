@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 import json
 import os
+import time
 
 # Une fenêtre = un WebView2 = une page. Ce module est l'hôte, et rien d'autre.
 #
@@ -294,15 +295,21 @@ class FenetreWeb(BaseWindow):
                 return self._poster(ordre, {'resultat': self._ordre_vue(message)})
             except Exception as erreur:
                 return log(u'ordre {} : {}', ordre, erreur)
+        debut = time.time()
         try:
-            self._poster('reponse', {'ref': message.get('ref'),
-                                     'sortie': self._traiter(message)})
+            sortie = self._traiter(message)
         except Exception as erreur:
             # Jamais de silence : une promesse sans réponse laisse la page
             # bloquée jusqu'au délai du pont.
             log(u'ordre {} : {}', ordre, erreur)
-            self._poster('reponse', {'ref': message.get('ref'),
-                                     'erreur': u'{0}'.format(erreur)})
+            return self._poster('reponse', {'ref': message.get('ref'),
+                                            'erreur': u'{0}'.format(erreur)})
+        # Tracé même quand tout va bien : une page vide sans la moindre ligne
+        # de journal ne dit pas si l'ordre n'est jamais arrivé ou s'il a mis
+        # huit secondes. Le temps est là pour la même raison.
+        log(u'ordre {} servi en {} ms', ordre,
+            int((time.time() - debut) * 1000))
+        self._poster('reponse', {'ref': message.get('ref'), 'sortie': sortie})
 
     def _traiter(self, message):
         if message.get('ordre') == 'pret':
