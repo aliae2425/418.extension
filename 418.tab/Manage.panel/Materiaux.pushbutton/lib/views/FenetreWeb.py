@@ -297,15 +297,23 @@ class FenetreWeb(BaseWindow):
             except Exception as erreur:
                 return log(u'fermeture : {}', erreur)
         if (ordre or '').startswith('ouvrir_'):
-            # Une fenêtre fille BLOQUE ce gestionnaire tant qu'elle est
-            # ouverte, et un matériau s'édite en plusieurs minutes. Répondre à
-            # la demande serait répondre longtemps après que le pont a rendu
-            # la main : on pousse donc un évènement à la fermeture, et la page
-            # n'attend aucune promesse.
-            try:
-                return self._poster(ordre, {'resultat': self._ordre_vue(message)})
-            except Exception as erreur:
-                return log(u'ordre {} : {}', ordre, erreur)
+            # On REND LA MAIN avant d'ouvrir quoi que ce soit.
+            #
+            # Tant que ce gestionnaire est sur la pile, le navigateur qui l'a
+            # déclenché ne pompe plus ses propres messages. Or le WebView2 de
+            # la fenêtre fille s'initialise PAR cette pompe : l'ouvrir ici,
+            # c'est l'attendre depuis l'endroit même qui l'empêche d'aboutir.
+            # Ça tenait par chance — quatorze secondes une fois, jamais la
+            # suivante. `BeginInvoke` remet l'ouverture dans la file : le
+            # gestionnaire rend la main, la pompe repart, la fenêtre naît.
+            #
+            # Une fenêtre fille BLOQUE ensuite tout, et un matériau s'édite en
+            # plusieurs minutes : son résultat ne peut pas être la réponse à
+            # cette demande, il part en ÉVÈNEMENT à la fermeture.
+            from System import Action
+            self._window.Dispatcher.BeginInvoke(
+                Action(lambda: self._ouvrir_fille(message)))
+            return
         debut = time.time()
         try:
             sortie = self._traiter(message)
@@ -321,6 +329,19 @@ class FenetreWeb(BaseWindow):
         log(u'ordre {} servi en {} ms', ordre,
             int((time.time() - debut) * 1000))
         self._poster('reponse', {'ref': message.get('ref'), 'sortie': sortie})
+
+    def _ouvrir_fille(self, message):
+        """Ouvre la fenêtre demandée, hors du gestionnaire de messages.
+
+        Appelée par le Dispatcher, donc avec une pompe libre. Rend le
+        résultat à la page en évènement, du même nom que l'ordre.
+        """
+        ordre = message.get('ordre')
+        try:
+            self._poster(ordre, {'resultat': self._ordre_vue(message)})
+        except Exception as erreur:
+            log(u'ordre {} : {}', ordre, erreur)
+            self._poster(ordre, {'resultat': None})
 
     def _traiter(self, message):
         if message.get('ordre') == 'pret':
