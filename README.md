@@ -22,14 +22,122 @@ deux fois le même résultat ; un renommage se relit avant de s'appliquer.
 
 ## Installation
 
+418 n'est pas un plugin autonome : c'est une **extension** de
+[pyRevit][pyrevit], qui est le programme chargé de construire le ruban. Il en
+faut donc deux, dans cet ordre — pyRevit, puis 418.
+
+**Prérequis** : Revit **2026** minimum, et Windows (pyRevit n'existe pas
+ailleurs).
+
+<details>
+<summary><strong>Installation manuelle</strong> — pas à pas, rien d'autre à installer</summary>
+
+<br>
+
+Pour qui n'a jamais posé d'extension pyRevit. Comptez cinq minutes, et aucune
+ligne de commande.
+
+**1. Fermer Revit.** L'installateur de pyRevit ne peut pas travailler pendant
+que Revit tourne.
+
+**2. Installer pyRevit.** Sur la [page des versions de pyRevit][pyrevit-rel],
+télécharger le fichier `pyRevit_<version>_signed.exe` (le premier de la liste
+*Assets*), puis l'exécuter et laisser les choix par défaut.
+
+> Pour vérifier : ouvrir Revit — un onglet **pyRevit** est apparu dans le
+> ruban. S'il n'est pas là, c'est que l'installation a échoué ; inutile de
+> continuer, rien de la suite ne s'affichera.
+
+**3. Télécharger 418.** Sur [la page du dépôt][depot], bouton vert **Code**,
+puis **Download ZIP**. Le fichier `418.extension-main.zip` arrive dans vos
+téléchargements.
+
+**4. Décompresser.** Clic droit sur le fichier → **Extraire tout…** → **Extraire**.
+Vous obtenez un dossier nommé `418.extension-main`.
+
+**5. Renommer le dossier en `418.extension`** — exactement, sans le `-main`.
+Ce n'est pas cosmétique : pyRevit reconnaît une extension à ce suffixe
+`.extension`, et ignore tout dossier qui ne le porte pas.
+
+**6. Ouvrir le dossier des extensions.** Taper `Windows + R`, coller la ligne
+ci-dessous, puis `Entrée` :
+
+```
+%APPDATA%\pyRevit\Extensions
+```
+
+> Si le dossier `Extensions` n'existe pas, le créer à la main (clic droit →
+> **Nouveau** → **Dossier**), en respectant la majuscule.
+
+**7. Déplacer `418.extension` dans ce dossier.** Au bout du chemin, vous devez
+avoir exactement ceci :
+
+```
+%APPDATA%\pyRevit\Extensions\
+└── 418.extension\
+    ├── 418.tab\
+    ├── lib\
+    └── README.md
+```
+
+> Le piège classique : un dossier de trop, parce que la décompression a créé
+> une enveloppe (`418.extension\418.extension-main\418.tab\`). Si `418.tab`
+> n'est pas directement sous `418.extension`, remontez son contenu d'un cran
+> et supprimez l'enveloppe.
+
+**8. Recharger.** Ouvrir Revit, onglet **pyRevit**, bouton **Reload**
+(ou `Ctrl+F5`). L'onglet **418** apparaît dans le ruban. C'est fini.
+
+**Et plus tard, pour mettre à jour ?** Refaire les étapes 3 à 7 en supprimant
+d'abord l'ancien dossier `418.extension` — ou passer à la méthode automatique
+ci-dessous, qui tient en une commande.
+
+Rien n'apparaît ? La section [Problème ?](#problème-) liste les trois causes
+habituelles.
+
+</details>
+
+<details>
+<summary><strong>Installation automatique</strong> — une commande, et les mises à jour avec</summary>
+
+<br>
+
+pyRevit est livré avec un utilitaire en ligne de commande, `pyrevit`, qui sait
+installer une extension tierce et la tenir à jour. Dans un terminal
+(PowerShell ou `cmd`) :
+
+```powershell
+pyrevit extend ui 418 https://github.com/aliae2425/418.extension.git
+```
+
+Le dossier `418.extension` est créé dans `%APPDATA%\pyRevit\Extensions`, et la
+commande en fait un clone git — c'est ce qui rend la mise à jour instantanée.
+Puis, dans Revit : **pyRevit → Reload** (`Ctrl+F5`).
+
+**Mettre à jour**, plus tard :
+
+```powershell
+pyrevit extensions update 418      # ou --all pour toutes les extensions
+```
+
+Quelques variantes utiles :
+
+| Besoin | Commande |
+|---|---|
+| Installer ailleurs que dans le dossier par défaut | `pyrevit extend ui 418 <url> --dest="D:\pyRevit"` |
+| Déclarer ce dossier à pyRevit | `pyrevit extensions paths add "D:\pyRevit"` |
+| Suivre une autre branche que `main` | `pyrevit extend ui 418 <url> --branch=Developpement` |
+| Désinstaller | `pyrevit extensions delete 418` |
+
+**Variante git**, si vous préférez tenir le dépôt vous-même :
+
 ```bash
 git clone https://github.com/aliae2425/418.extension.git "%APPDATA%\pyRevit\Extensions\418.extension"
 ```
 
-[pyRevit][pyrevit] d'abord, puis **pyRevit → Reload** dans Revit (`Ctrl+F5`).
-L'onglet **418** apparaît dans le ruban. Mise à jour : `git pull`, puis Reload.
+Mise à jour : `git pull`, puis Reload.
 
-Revit **2026** minimum.
+</details>
 
 ## Les outils
 
@@ -153,4 +261,6 @@ développement. [CONTEXT.md](CONTEXT.md) pour le vocabulaire métier.
 MIT. Voir [LICENSE](LICENSE). © Aliae
 
 [pyrevit]: https://github.com/eirannejad/pyRevit
+[pyrevit-rel]: https://github.com/eirannejad/pyRevit/releases/latest
+[depot]: https://github.com/aliae2425/418.extension
 [issues]: https://github.com/aliae2425/418.extension/issues
