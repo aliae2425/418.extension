@@ -86,6 +86,8 @@ class FenetreWeb(BaseWindow):
         self._proprietaire = proprietaire
         self._vue = None
         self._coeur = None
+        self._hote = None
+        self._cartouche = None
         #: Ce que la page a renvoyé en se fermant. `None` = annulé — c'est la
         #: seule chose qui distingue « Annuler » d'un choix.
         self.resultat = None
@@ -115,6 +117,19 @@ class FenetreWeb(BaseWindow):
         if self._window is None:
             return
         self._habiller()
+        # Le navigateur se monte sur `Loaded`, PAS ici : `_load` tourne avant
+        # `ShowDialog`, donc sur une fenêtre qui n'est pas encore affichée, et
+        # `EnsureCoreWebView2Async` n'aboutit JAMAIS tant que le contrôle est
+        # invisible. Le contrôle existe, il n'a pas de cœur, et il peint un
+        # rectangle noir — sans une ligne de journal, puisque rien n'a échoué.
+        # Même piège, même parade que le volet OpenArchi, qui monte le sien à
+        # la première visibilité.
+        self._window.Loaded += self._sur_affichage
+
+    def _sur_affichage(self, sender, args):
+        """La fenêtre est à l'écran : le navigateur peut s'initialiser."""
+        if self._vue is not None:
+            return                     # `Loaded` peut repasser, pas le montage
         try:
             self._monter()
         except Exception as erreur:
@@ -182,20 +197,32 @@ class FenetreWeb(BaseWindow):
         hote = self._window.FindName('WebHost')
         if hote is None:
             raise ValueError(u'WebHost absent du XAML')
+        # Le cartouche de repli est mis de côté AVANT d'être remplacé : il est
+        # le seul endroit où une panne du navigateur peut se dire, et une fois
+        # `Child` écrasé il n'est plus dans l'arbre visuel — y écrire ne se
+        # voit nulle part.
+        self._hote = hote
+        self._cartouche = hote.Child
         vue = _controle(os.path.join(AppPaths().data_dir(), PROFIL))
         hote.Child = vue
         self._vue = vue
         vue.CoreWebView2InitializationCompleted += self._sur_init
         vue.EnsureCoreWebView2Async()      # Task jetée : pas d'await en IPY 2.7
+        log(u'navigateur demandé ({})', self.PAGE)
 
     def _message(self, texte):
-        """Écrit dans le cartouche de repli resté sous le navigateur."""
+        """Montre une panne à l'écran, à la place du navigateur.
+
+        Le cartouche reprend sa place : un WebView2 sans cœur peint un
+        rectangle noir par-dessus tout ce qu'on pourrait écrire dessous.
+        """
         try:
-            bloc = self._window.FindName('WebHostMessage')
-            if bloc is not None:
-                bloc.Text = texte
-        except Exception:
-            pass
+            if self._hote is not None and self._cartouche is not None:
+                self._hote.Child = self._cartouche
+            if self._cartouche is not None:
+                self._cartouche.Text = texte
+        except Exception as erreur:
+            log(u'affichage du message « {} » : {}', texte, erreur)
 
     def _sur_init(self, sender, args):
         try:
@@ -218,10 +245,24 @@ class FenetreWeb(BaseWindow):
                 HOTE, AppPaths().web_dir(),
                 CoreWebView2HostResourceAccessKind.Allow)
             coeur.WebMessageReceived += self._sur_message
+            # La navigation est le dernier endroit où ça peut casser en
+            # silence : un fichier absent ou une origine mal mappée rendent
+            # une page blanche, et sans cette trace on cherche côté Python.
+            coeur.NavigationCompleted += self._sur_navigation
             coeur.Navigate('https://{0}/{1}'.format(HOTE, self.PAGE))
+            log(u'navigateur monté, origine {} -> {}',
+                HOTE, AppPaths().web_dir())
         except Exception as erreur:
             log(u'initialisation du navigateur : {}', erreur)
             self._message(u'Navigateur non initialisé : {}'.format(erreur))
+
+    def _sur_navigation(self, sender, args):
+        try:
+            if args.IsSuccess:
+                return log(u'page chargée : {}', self.PAGE)
+            log(u'page NON chargée ({}) : {}', self.PAGE, args.WebErrorStatus)
+        except Exception:
+            pass
 
     # -- ce que la page demande --------------------------------------------
 
