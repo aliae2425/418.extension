@@ -142,6 +142,11 @@ class FenetreWeb(BaseWindow):
 
     def _habiller(self):
         fenetre = self._window
+        # Le cartouche est résolu ICI, et depuis la FENÊTRE : c'est elle qui
+        # porte la portée de noms, et surtout `_habiller` tourne toujours.
+        # Le chercher dans `_monter` le rendait muet exactement quand on en a
+        # besoin — quand le montage échoue.
+        self._cartouche = fenetre.FindName('WebHostMessage')
         # Les coins se posent quand le HWND existe — donc pas maintenant, et
         # surtout pas par `EnsureHandle()` : créer la poignée avant l'affichage
         # fait rater son placement à la fenêtre (centrée écran ou propriétaire).
@@ -199,7 +204,6 @@ class FenetreWeb(BaseWindow):
         if hote is None:
             raise ValueError(u'WebHost absent du XAML')
         self._hote = hote
-        self._cartouche = hote.FindName('WebHostMessage')
         vue = _controle(os.path.join(AppPaths().data_dir(), PROFIL))
         # SOUS le cartouche, qui reste au-dessus jusqu'à la page chargée : le
         # contrôle met plusieurs secondes à naître et peint un rectangle vide
