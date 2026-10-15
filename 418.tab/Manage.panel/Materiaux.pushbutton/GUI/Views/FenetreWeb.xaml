@@ -79,11 +79,16 @@
       </StackPanel>
     </Grid>
 
-    <Border Grid.Row="1" x:Name="WebHost"
-            Background="{DynamicResource WindowBackgroundBrush}">
-      <!-- Reste visible tant que le navigateur n'a pas pris sa place, et
-           sert de cartouche d'erreur si l'initialisation échoue (runtime
-           WebView2 absent) : sans lui, la fenêtre s'ouvre vide et muette. -->
+    <!-- Une Grid et non un Border : le navigateur est glissé SOUS le
+         cartouche, qui reste au-dessus jusqu'à ce que la page soit chargée.
+         Un WebView2 met plusieurs secondes à s'initialiser — la deuxième
+         fenêtre d'un même processus bien plus que la première — et un
+         contrôle sans cœur peint un rectangle vide : sans ce recouvrement,
+         la fenêtre a l'air cassée pendant tout ce temps. -->
+    <Grid Grid.Row="1" x:Name="WebHost"
+          Background="{DynamicResource WindowBackgroundBrush}">
+      <!-- Sert aussi de cartouche d'erreur si l'initialisation échoue
+           (runtime WebView2 absent) : sans lui, la fenêtre reste muette. -->
       <TextBlock x:Name="WebHostMessage"
                  Text="Chargement de l'interface…"
                  HorizontalAlignment="Center"
@@ -92,6 +97,6 @@
                  MaxWidth="520"
                  Margin="24"
                  Foreground="{DynamicResource TextSecondaryBrush}"/>
-    </Border>
+    </Grid>
   </Grid>
 </Window>

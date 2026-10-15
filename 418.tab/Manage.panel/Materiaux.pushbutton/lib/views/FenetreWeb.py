@@ -198,32 +198,36 @@ class FenetreWeb(BaseWindow):
         hote = self._window.FindName('WebHost')
         if hote is None:
             raise ValueError(u'WebHost absent du XAML')
-        # Le cartouche de repli est mis de côté AVANT d'être remplacé : il est
-        # le seul endroit où une panne du navigateur peut se dire, et une fois
-        # `Child` écrasé il n'est plus dans l'arbre visuel — y écrire ne se
-        # voit nulle part.
         self._hote = hote
-        self._cartouche = hote.Child
+        self._cartouche = hote.FindName('WebHostMessage')
         vue = _controle(os.path.join(AppPaths().data_dir(), PROFIL))
-        hote.Child = vue
+        # SOUS le cartouche, qui reste au-dessus jusqu'à la page chargée : le
+        # contrôle met plusieurs secondes à naître et peint un rectangle vide
+        # en attendant.
+        hote.Children.Insert(0, vue)
         self._vue = vue
         vue.CoreWebView2InitializationCompleted += self._sur_init
         vue.EnsureCoreWebView2Async()      # Task jetée : pas d'await en IPY 2.7
         log(u'navigateur demandé ({})', self.PAGE)
 
     def _message(self, texte):
-        """Montre une panne à l'écran, à la place du navigateur.
-
-        Le cartouche reprend sa place : un WebView2 sans cœur peint un
-        rectangle noir par-dessus tout ce qu'on pourrait écrire dessous.
-        """
+        """Ce que dit le cartouche posé par-dessus le navigateur."""
         try:
-            if self._hote is not None and self._cartouche is not None:
-                self._hote.Child = self._cartouche
             if self._cartouche is not None:
+                from System.Windows import Visibility
                 self._cartouche.Text = texte
+                self._cartouche.Visibility = Visibility.Visible
         except Exception as erreur:
             log(u'affichage du message « {} » : {}', texte, erreur)
+
+    def _effacer_message(self):
+        """La page est là : le cartouche s'efface et découvre le navigateur."""
+        try:
+            if self._cartouche is not None:
+                from System.Windows import Visibility
+                self._cartouche.Visibility = Visibility.Collapsed
+        except Exception:
+            pass
 
     def _sur_init(self, sender, args):
         try:
@@ -260,8 +264,11 @@ class FenetreWeb(BaseWindow):
     def _sur_navigation(self, sender, args):
         try:
             if args.IsSuccess:
+                self._effacer_message()
                 return log(u'page chargée : {}', self.PAGE)
             log(u'page NON chargée ({}) : {}', self.PAGE, args.WebErrorStatus)
+            self._message(u'Page non chargée : {0}'.format(
+                args.WebErrorStatus))
         except Exception:
             pass
 

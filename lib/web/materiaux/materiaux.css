@@ -474,11 +474,15 @@ button:disabled { opacity: .6; cursor: default; }
 .cartes.liste .sphere { width: 36px; height: 36px; background-size: 7px 7px; }
 /* En ligne, pas de biais : une diagonale sur 28 px de haut ne se lit pas.
    Les deux motifs reprennent leur place côte à côte, à leur taille des
-   tableaux. */
+   tableaux.
+
+   Surtout PAS de `display` ici : cette règle est plus spécifique que celle
+   du mode Dessin, elle montrait donc les motifs en mode Rendu aussi — la
+   ligne affichait la sphère ET les deux hachures. C'est le mode d'aperçu
+   qui décide de ce qu'on voit, la disposition ne décide que de la forme. */
 .cartes.liste .motifs-carte {
   width: auto;
   background: transparent;
-  display: flex;
   gap: var(--e2);
 }
 .cartes.liste .pan {
