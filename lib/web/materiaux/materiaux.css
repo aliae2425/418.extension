@@ -437,12 +437,16 @@ button:disabled { opacity: .6; cursor: default; }
 }
 
 /* Par-dessus la hachure : le papier est blanc dans les deux thèmes, la
-   pastille l'est donc aussi, et son texte sombre. */
+   pastille l'est donc aussi, et son texte sombre — ces trois valeurs ne
+   suivent PAS le thème, c'est voulu.
+   Le filet fait le reste : sans lui, la pastille disparaît sur un papier
+   vierge, là où c'est justement le seul endroit où elle doit se lire. */
 .legende {
   position: absolute;
   padding: 1px 6px;
+  border: 1px solid rgba(0, 0, 0, .16);
   border-radius: 3px;
-  background: rgba(255, 255, 255, .78);
+  background: rgba(255, 255, 255, .9);
   color: #1A1A1A;
   font-size: 10px;
 }
@@ -640,8 +644,12 @@ body.fenetre .corps {
 /* --- l'éditeur : rail à gauche, contenu à droite --- */
 
 /* La fenêtre de l'éditeur se lit comme la principale : le rail prend toute
-   la hauteur, le reste s'empile à droite. */
-body.fenetre { flex-direction: row; }
+   la hauteur, le reste s'empile à droite.
+
+   Sur `.rail-gauche` et pas sur `.fenetre` : le sélecteur de motif partage
+   la seconde, n'a pas de rail, et se retrouvait avec son pied À CÔTÉ de son
+   corps. */
+body.rail-gauche { flex-direction: row; }
 .colonne-editeur {
   flex: 1;
   min-width: 0;
@@ -660,8 +668,11 @@ body.fenetre { flex-direction: row; }
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: var(--e3);
 }
+/* Un voile translucide, et NON le fond de fenêtre : en thème sombre ce
+   dernier vaut exactement la couleur des champs, et un paramètre en lecture
+   ne se distinguait plus d'un champ modifiable. */
 .parametre input[readonly] {
-  background: var(--fond);
+  background: var(--voile);
   color: var(--texte-faible);
   cursor: default;
 }
@@ -859,7 +870,12 @@ label input[type="text"], label select { display: block; width: 100%;
   overflow-y: auto;
   padding: 2px;
 }
-.motif {
+/* `fiche-motif` et non `motif` : `.motif` est la classe de TAILLE d'une
+   vignette (`.vignette.motif`), et la fiche en contient une. Les deux
+   règles se superposaient, et le fond de fiche repeignait le papier de la
+   vignette — invisible en thème clair, où les deux sont blancs, flagrant en
+   sombre. */
+.fiche-motif {
   padding: var(--e2);
   border: 1px solid var(--trait);
   border-radius: var(--r-carte);
@@ -868,15 +884,16 @@ label input[type="text"], label select { display: block; width: 100%;
   cursor: pointer;
   text-align: left;
 }
-.motif:hover { border-color: var(--trait-survol); }
-.motif.choisi {
+.fiche-motif:hover { border-color: var(--trait-survol); }
+.fiche-motif.choisi {
   border-color: var(--accent);
   box-shadow: var(--ombre-carte), 0 0 0 1px var(--accent);
 }
-.motif .vignette.motif { width: 120px; height: 26px; }
+.fiche-motif .vignette.motif { width: 120px; height: 26px; }
 /* En bloc, sinon le nom et le genre se collent : « Diagonale 45dessin ». */
-.motif .nom { display: block; margin-top: var(--e1);
-              font-size: var(--t-bouton); overflow: hidden;
-              text-overflow: ellipsis; white-space: nowrap; }
-.motif .genre { display: block; font-size: 10px; color: var(--texte-eteint); }
-.motif .genre.modele { color: var(--accent); font-weight: 600; }
+.fiche-motif .nom { display: block; margin-top: var(--e1);
+                    font-size: var(--t-bouton); overflow: hidden;
+                    text-overflow: ellipsis; white-space: nowrap; }
+.fiche-motif .genre { display: block; font-size: 10px;
+                      color: var(--texte-eteint); }
+.fiche-motif .genre.modele { color: var(--accent); font-weight: 600; }

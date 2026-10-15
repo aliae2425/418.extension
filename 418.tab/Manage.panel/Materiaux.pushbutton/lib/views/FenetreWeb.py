@@ -40,6 +40,15 @@ except Exception:
     from lib.core.AppPaths import AppPaths
 
 try:
+    from ui.helpers.DarkMode import is_dark
+except Exception:
+    try:
+        from lib.ui.helpers.DarkMode import is_dark
+    except Exception:
+        def is_dark():
+            return False
+
+try:
     from lib.services.journal import log
 except Exception:
     from services.journal import log
@@ -345,7 +354,14 @@ class FenetreWeb(BaseWindow):
 
     def _traiter(self, message):
         if message.get('ordre') == 'pret':
-            return self.contexte()
+            # Le thème est posé ICI, pour TOUTES les fenêtres : c'est une
+            # affaire d'hôte, pas de service, et l'oublier dans un `contexte`
+            # laissait l'éditeur et le sélecteur en clair sur un Revit sombre.
+            # Il est lu à chaque ouverture : on peut basculer Revit entre deux
+            # fenêtres, et la suivante doit suivre.
+            contexte = self.contexte() or {}
+            contexte['sombre'] = is_dark()
+            return contexte
         sortie = self._ordre_vue(message)
         if sortie is not AUTRE:
             return sortie

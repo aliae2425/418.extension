@@ -39,7 +39,7 @@ class Ordres(object):
     """L'état de l'outil et les réponses aux demandes de la page."""
 
     def __init__(self, doc=None, service=None, catalogue=None, materiaux=None,
-                 cartes=None, sombre=False):
+                 cartes=None):
         self._doc = doc
         self._service = service
         self._catalogue = catalogue
@@ -47,7 +47,6 @@ class Ordres(object):
         self._materiaux = dict(materiaux or {})
         #: les cartes, DANS L'ORDRE d'affichage — c'est lui qui numérote {n}.
         self._cartes = list(cartes or [])
-        self._sombre = bool(sombre)
 
     # -- aiguillage --------------------------------------------------------
 
@@ -98,7 +97,6 @@ class Ordres(object):
         paquets au défilement.
         """
         return {
-            'sombre': self._sombre,
             'cartes': self._cartes,
             'categories': self._catalogue.categories if self._catalogue else [],
             'modifiable': self._modifiable(),

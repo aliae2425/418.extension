@@ -20,11 +20,6 @@ from lib.services.ordres import Ordres
 from lib.views.MainWindowView import MainWindowView
 from core.selection import all_materials
 
-try:
-    from ui.helpers.DarkMode import is_dark
-except Exception:
-    from lib.ui.helpers.DarkMode import is_dark
-
 
 def _log_contexte(materiaux, catalogue):
     """Contexte du document : écarte d'emblée « maquette non modifiable » et
@@ -64,6 +59,8 @@ if __name__ == '__main__':
               for m in materiaux]
     _log_contexte(materiaux, catalogue)
 
+    # Le thème n'est pas passé ici : chaque fenêtre le lit à son ouverture
+    # (cf. `FenetreWeb`), ce qui le rend juste même si Revit bascule en cours
+    # de route.
     MainWindowView(Ordres(doc=doc, service=service, catalogue=catalogue,
-                          materiaux=par_id, cartes=cartes,
-                          sombre=is_dark())).show()
+                          materiaux=par_id, cartes=cartes)).show()
