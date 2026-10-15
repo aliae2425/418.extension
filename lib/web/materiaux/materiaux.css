@@ -675,6 +675,21 @@ body.fenetre .corps {
   cursor: default;
 }
 
+/* La sphère de l'onglet Apparence, et ce qu'elle a à dire. */
+.rendu { display: flex; gap: var(--e5); align-items: flex-start; }
+.rendu-infos { flex: 1; min-width: 0; }
+.sphere.grande { width: 160px; height: 160px; flex: 0 0 160px; }
+/* La texture passe SOUS les dégradés de la sphère : ils lui donnent son
+   galbe, elle leur donne la matière. */
+.sphere .texture {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
+}
+.sphere { position: relative; }
+
 .asset {
   display: grid;
   grid-template-columns: 170px minmax(0, 1fr) auto;

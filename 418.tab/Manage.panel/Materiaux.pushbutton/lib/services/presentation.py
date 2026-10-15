@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+import os
 
 # Lecture d'un `Material` Revit -> dictionnaires JSON, prêts pour la page.
 #
@@ -600,6 +601,219 @@ def identite(materiau):
     return sorted(sortie, key=lambda p: rang.get(p['id'], 999))
 
 
+# ---------------------------------------------------------------------------
+# L'apparence en rendu : ce que l'asset donne à voir
+# ---------------------------------------------------------------------------
+#
+# Revit n'expose AUCUNE image de prévisualisation de matériau : ni sur
+# `Material`, ni sur `AppearanceAssetElement`. La sphère du navigateur de
+# matériaux est rendue par un moteur qui ne sort pas de l'application.
+#
+# On lit donc l'asset et on en rejoue les trois traits qui se voient à
+# l'œil : la couleur diffuse, le brillant, et la texture s'il y en a une. Le
+# reste — relief, réflexion, anisotropie — demanderait le moteur.
+
+#: Les noms de propriétés changent avec le schéma de l'asset (`generic`,
+#: `ceramic`, `metal`, `concrete`…) : on les reconnaît par fragment plutôt
+#: que d'écrire les vingt tables de Revit.
+FRAGMENTS_COULEUR = ('diffuse', 'color', 'tint')
+FRAGMENTS_BRILLANT = ('glossiness', 'gloss', 'shininess', 'reflectivity')
+FRAGMENTS_VOILE = ('transparency', 'transparent', 'opacity')
+#: La propriété d'un asset `UnifiedBitmap` qui porte le chemin du fichier.
+NOM_BITMAP = 'unifiedbitmap_bitmap'
+
+#: Côté de la vignette de texture envoyée à la page. La sphère fait 160 px :
+#: au-delà, on transporte des pixels que personne ne verra.
+COTE_TEXTURE = 256
+
+#: Racines de la bibliothèque de textures d'Autodesk. Un asset range souvent
+#: un chemin RELATIF (« Wood/Finishes/… ») qui n'a de sens que là.
+RACINES_TEXTURES = (
+    r'C:\Program Files (x86)\Common Files\Autodesk Shared\Materials\Textures',
+    r'C:\Program Files\Common Files\Autodesk Shared\Materials\Textures',
+)
+
+
+def _proprietes(asset, profondeur=2):
+    """Les propriétés d'un asset, et celles de ses assets connectés.
+
+    Deux niveaux suffisent : le chemin d'une texture vit dans l'asset
+    `UnifiedBitmap` accroché à la propriété de couleur, soit juste en
+    dessous.
+    """
+    if asset is None or profondeur <= 0:
+        return
+    try:
+        taille = asset.Size
+    except Exception:
+        return
+    for index in range(taille):
+        propriete = None
+        for acces in (lambda: asset[index], lambda: asset.Get(index)):
+            # L'indexeur .NET et `Get` font la même chose ; lequel des deux
+            # IronPython expose dépend de la version, et ça ne se découvre
+            # qu'à l'exécution.
+            try:
+                propriete = acces()
+                break
+            except Exception:
+                continue
+        if propriete is None:
+            continue
+        yield propriete
+        try:
+            connecte = propriete.GetSingleConnectedAsset()
+        except Exception:
+            connecte = None
+        for autre in _proprietes(connecte, profondeur - 1):
+            yield autre
+
+
+def _correspond(nom, fragments):
+    return any(fragment in nom for fragment in fragments)
+
+
+def _nombre(propriete):
+    """La valeur d'une propriété numérique, 0.0 si ce n'en est pas une."""
+    for nom in ('Value',):
+        try:
+            return float(getattr(propriete, nom))
+        except Exception:
+            continue
+    return 0.0
+
+
+def _chemin_texture(brut):
+    """Le chemin d'un bitmap, rendu absolu quand c'est possible.
+
+    Revit en range parfois plusieurs, séparés par une barre verticale, et
+    souvent en relatif de la bibliothèque Autodesk.
+    """
+    chemin = (brut or u'').split(u'|')[0].strip()
+    if not chemin:
+        return u''
+    if os.path.isabs(chemin) and os.path.exists(chemin):
+        return chemin
+    for racine in RACINES_TEXTURES:
+        candidat = os.path.join(racine, chemin.replace(u'/', os.sep))
+        if os.path.exists(candidat):
+            return candidat
+    return u''
+
+
+def _texture_encodee(chemin):
+    """Une vignette JPEG de la texture, en data-URI. Vide si ça ne va pas.
+
+    Décodée directement à `COTE_TEXTURE` par `DecodePixelWidth` : le fichier
+    d'origine fait souvent plusieurs mégaoctets, et il n'est jamais chargé en
+    entier. Passe par l'imagerie de WPF, déjà présente — pas de
+    `System.Drawing`, qui n'est plus garanti sous .NET 8.
+    """
+    if not chemin:
+        return u''
+    try:
+        from System import Convert, Uri, UriKind
+        from System.IO import MemoryStream
+        from System.Windows.Media.Imaging import (BitmapCacheOption,
+                                                  BitmapFrame, BitmapImage,
+                                                  JpegBitmapEncoder)
+        image = BitmapImage()
+        image.BeginInit()
+        image.UriSource = Uri(chemin, UriKind.Absolute)
+        image.DecodePixelWidth = COTE_TEXTURE
+        image.CacheOption = BitmapCacheOption.OnLoad
+        image.EndInit()
+        encodeur = JpegBitmapEncoder()
+        encodeur.QualityLevel = 80
+        encodeur.Frames.Add(BitmapFrame.Create(image))
+        flux = MemoryStream()
+        encodeur.Save(flux)
+        return u'data:image/jpeg;base64,%s' % Convert.ToBase64String(
+            flux.ToArray())
+    except Exception as erreur:
+        log(u'texture « {} » illisible : {}', chemin, erreur)
+        return u''
+
+
+def lire_asset(asset):
+    """Asset de rendu -> {couleur, brillant, voile, texture}, en Python pur.
+
+    Séparé de la lecture du document pour se tester avec de faux assets :
+    c'est ici que vivent les heuristiques de nom, et ce sont elles qui
+    cassent quand Autodesk ajoute un schéma.
+    """
+    trouve = {'couleur': None, 'brillant': 0.0, 'voile': 0.0, 'texture': u''}
+    for propriete in _proprietes(asset):
+        try:
+            nom = (propriete.Name or u'').lower()
+        except Exception:
+            continue
+        if nom == NOM_BITMAP and not trouve['texture']:
+            trouve['texture'] = getattr(propriete, 'Value', u'') or u''
+        elif trouve['couleur'] is None and _correspond(nom, FRAGMENTS_COULEUR):
+            couleur = _couleur_asset(propriete)
+            if couleur is not None:
+                trouve['couleur'] = couleur
+        elif not trouve['brillant'] and _correspond(nom, FRAGMENTS_BRILLANT):
+            trouve['brillant'] = _nombre(propriete)
+        elif not trouve['voile'] and _correspond(nom, FRAGMENTS_VOILE):
+            trouve['voile'] = _nombre(propriete)
+    return trouve
+
+
+def _couleur_asset(propriete):
+    """Triplet RGB d'une propriété de couleur, None si ce n'en est pas une."""
+    try:
+        return rgb(propriete.GetValueAsColor(), defaut=None)
+    except Exception:
+        return None
+
+
+def rendu(doc, materiau):
+    """Ce que l'apparence en rendu donne à voir, pour la sphère de l'éditeur.
+
+    ponytail: lu à la demande, pour UN matériau. Le faire pour les cartes
+    demanderait d'ouvrir les 700 assets d'un modèle à l'ouverture de l'outil,
+    et les textures avec — leurs sphères gardent donc la couleur d'ombrage,
+    qui est ce que Revit affiche hors vue réaliste.
+    """
+    if doc is None:
+        return rendu_asset(None)
+    try:
+        return rendu_asset(doc.GetElement(materiau.AppearanceAssetId))
+    except Exception as erreur:
+        log(u'asset d\'apparence illisible : {}', erreur)
+        return rendu_asset(None)
+
+
+def rendu_asset(element):
+    """Idem depuis l'`AppearanceAssetElement` lui-même : c'est ce que demande
+    la page quand on change d'asset dans la liste, sans rien enregistrer."""
+    infos = {'nom': u'', 'bibliotheque': u'', 'couleur': u'',
+             'brillant': 0, 'voile': 0, 'texture': u''}
+    if element is None:
+        return infos
+    try:
+        infos['nom'] = element.Name
+        asset = element.GetRenderingAsset()
+    except Exception as erreur:
+        log(u'asset de rendu illisible : {}', erreur)
+        return infos
+    try:
+        infos['bibliotheque'] = asset.LibraryName or u''
+    except Exception:
+        pass
+    lu = lire_asset(asset)
+    if lu['couleur'] is not None:
+        infos['couleur'] = hex_de_rgb(lu['couleur'])
+    # Le brillant et le voile sortent en 0..1 de l'asset ; la page les
+    # manipule comme les curseurs de Revit, en pourcentage.
+    infos['brillant'] = entier(max(0.0, min(1.0, lu['brillant'])) * 100)
+    infos['voile'] = entier(max(0.0, min(1.0, lu['voile'])) * 100)
+    infos['texture'] = _texture_encodee(_chemin_texture(lu['texture']))
+    return infos
+
+
 #: Les trois jeux de propriétés qu'un matériau porte en plus de son aspect.
 #: `aspect` est le nom de l'attribut Revit, `libelle` celui de l'onglet.
 ASSETS = (
@@ -648,7 +862,8 @@ def editeur(doc, materiau, catalogue):
     return {'id': ident(materiau.Id), 'valeurs': valeurs,
             'emplacements': emplacements,
             'identite': identite(materiau),
-            'assets': assets(doc, materiau)}
+            'assets': assets(doc, materiau),
+            'rendu': rendu(doc, materiau)}
 
 
 def identite_modifiee(identite_page, materiau):

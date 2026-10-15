@@ -385,6 +385,88 @@ class TestIdentite(unittest.TestCase):
                          [])
 
 
+class FakeCouleurRevit(object):
+    def __init__(self, r, v, b):
+        self.Red, self.Green, self.Blue = r, v, b
+        self.IsValid = True
+
+
+class FakePropriete(object):
+    """Une propriété d'asset : un nom, et selon les cas une valeur, une
+    couleur ou un asset connecté."""
+
+    def __init__(self, nom, valeur=None, couleur=None, connecte=None):
+        self.Name = nom
+        if valeur is not None:
+            self.Value = valeur
+        self._couleur = couleur
+        self._connecte = connecte
+
+    def GetValueAsColor(self):
+        if self._couleur is None:
+            raise ValueError(u'pas une couleur')
+        return FakeCouleurRevit(*self._couleur)
+
+    def GetSingleConnectedAsset(self):
+        return self._connecte
+
+
+class FakeAsset(object):
+    def __init__(self, proprietes):
+        self._proprietes = list(proprietes)
+
+    @property
+    def Size(self):
+        return len(self._proprietes)
+
+    def __getitem__(self, index):
+        return self._proprietes[index]
+
+
+class TestRendu(unittest.TestCase):
+    """La lecture d'un asset d'apparence : des heuristiques de NOM, donc ce
+    qui cassera le jour où Autodesk ajoutera un schéma."""
+
+    def test_la_couleur_se_reconnait_par_fragment_de_nom(self):
+        # `generic_diffuse`, `ceramic_color`, `metal_f0`… : vingt schémas,
+        # vingt noms. On les prend par morceau commun.
+        for nom in ('generic_diffuse', 'ceramic_color', 'common_Tint_color'):
+            lu = presentation.lire_asset(FakeAsset([
+                FakePropriete(nom, couleur=(176, 65, 62))]))
+            self.assertEqual(lu['couleur'], (176, 65, 62), nom)
+
+    def test_une_propriete_qui_n_est_pas_une_couleur_ne_leve_pas(self):
+        lu = presentation.lire_asset(FakeAsset([
+            FakePropriete('generic_diffuse_image_fade', valeur=0.5)]))
+        self.assertIsNone(lu['couleur'])
+
+    def test_brillant_et_voile_sortent_de_l_asset(self):
+        lu = presentation.lire_asset(FakeAsset([
+            FakePropriete('generic_glossiness', valeur=0.42),
+            FakePropriete('generic_transparency', valeur=0.25)]))
+        self.assertAlmostEqual(lu['brillant'], 0.42)
+        self.assertAlmostEqual(lu['voile'], 0.25)
+
+    def test_la_texture_se_trouve_dans_l_asset_connecte(self):
+        # Le chemin du bitmap n'est pas sur la propriété de couleur : il est
+        # dans l'asset `UnifiedBitmap` qu'elle porte, un cran plus bas.
+        bitmap = FakeAsset([
+            FakePropriete('unifiedbitmap_Bitmap', valeur=u'Wood\\chene.jpg')])
+        lu = presentation.lire_asset(FakeAsset([
+            FakePropriete('generic_diffuse', couleur=(200, 150, 90),
+                          connecte=bitmap)]))
+        self.assertEqual(lu['texture'], u'Wood\\chene.jpg')
+        self.assertEqual(lu['couleur'], (200, 150, 90))
+
+    def test_un_asset_vide_ne_fait_rien_lever(self):
+        lu = presentation.lire_asset(FakeAsset([]))
+        self.assertEqual(lu, {'couleur': None, 'brillant': 0.0, 'voile': 0.0,
+                              'texture': u''})
+
+    def test_sans_asset_du_tout(self):
+        self.assertEqual(presentation.rendu_asset(None)['nom'], u'')
+
+
 class TestEtat(unittest.TestCase):
     def test_une_maquette_en_lecture_seule_se_dit_avant_le_premier_clic(self):
         ordres, _ = _ordres(doc=FakeDocument(lecture_seule=True))

@@ -97,10 +97,22 @@
   <section class="pan-editeur" data-section="apparence">
     <div class="carte-section">
       <h3>Apparence en rendu</h3>
-      <label>Asset d'apparence<select id="e-apparence"></select></label>
-      <p class="note">Le contenu d'un asset — textures, relief, réflexion — se
-      modifie dans l'éditeur d'apparence de Revit. 418 choisit lequel est
-      rattaché au matériau, il ne le réécrit pas.</p>
+      <!-- La sphère rejoue ce que l'asset donne à voir : sa couleur diffuse,
+           son brillant, et sa texture quand il en porte une. Revit n'expose
+           aucune image de prévisualisation — ni sur le matériau, ni sur
+           l'asset — et sa propre sphère est rendue par un moteur qui ne sort
+           pas de l'application. -->
+      <div class="rendu">
+        <span class="sphere grande" id="rendu-sphere"></span>
+        <div class="rendu-infos">
+          <label>Asset d'apparence<select id="e-apparence"></select></label>
+          <p id="rendu-detail" class="note"></p>
+          <p class="note">Le contenu d'un asset — relief, réflexion, mise à
+          l'échelle de la texture — se modifie dans l'éditeur d'apparence de
+          Revit. 418 choisit lequel est rattaché au matériau, il ne le
+          réécrit pas.</p>
+        </div>
+      </div>
     </div>
   </section>
 

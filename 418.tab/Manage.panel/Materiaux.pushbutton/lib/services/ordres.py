@@ -71,6 +71,8 @@ class Ordres(object):
             return self.selecteur(message)
         if ordre == 'apercu_face':
             return self.apercu_face(message)
+        if ordre == 'rendu':
+            return self.rendu(message)
         if ordre == 'enregistrer':
             return self.enregistrer(message)
         raise ValueError(u'ordre inconnu : %s' % ordre)
@@ -280,6 +282,19 @@ class Ordres(object):
                 'tuiles': presentation.tuiles(self._catalogue,
                                               message.get('fond'),
                                               message.get('premier'))}
+
+    def rendu(self, message):
+        """La sphère d'un asset d'apparence, choisi mais pas encore écrit.
+
+        Sans ça, changer d'apparence dans la liste laisserait l'aperçu sur
+        l'ancienne jusqu'à l'enregistrement — un aperçu qui ment.
+        """
+        if self._doc is None or self._catalogue is None:
+            return presentation.rendu_asset(None)
+        element_id = self._catalogue.element_id(message.get('asset'))
+        if element_id is None:
+            return presentation.rendu_asset(None)
+        return presentation.rendu_asset(self._doc.GetElement(element_id))
 
     def enregistrer(self, message):
         """Écrit ce qui a bougé, puis RELIT le matériau.
