@@ -36,9 +36,11 @@ ElementId = None
 FilteredElementCollector = None
 FillPatternElement = None
 FillPatternTarget = None
+Material = None
+StorageType = None
 for _nom_type in ('AppearanceAssetElement', 'CategoryType', 'ElementId',
                   'FilteredElementCollector', 'FillPatternElement',
-                  'FillPatternTarget'):
+                  'FillPatternTarget', 'Material', 'StorageType'):
     try:
         globals()[_nom_type] = getattr(
             __import__('Autodesk.Revit.DB', fromlist=[str(_nom_type)]),
@@ -89,10 +91,12 @@ LIBELLES_COUCHE = {u'Background': u'Arrière-plan', u'Foreground': u'Premier pla
 LIBELLES_ATTRIBUTS = {
     'Name': u'Nom',
     'MaterialClass': u'Classe',
+    'MaterialCategory': u'Catégorie',
     'Color': u'Couleur graphique',
     'Transparency': u'Transparence',
     'Shininess': u'Brillance',
     'Smoothness': u'Lissage',
+    'UseRenderAppearanceForShading': u'Utiliser l\'apparence en rendu',
     'AppearanceAssetId': u'Apparence en rendu',
 }
 
@@ -515,10 +519,16 @@ def valeurs_lues(materiau):
     valeurs = {
         'Name': materiau.Name,
         'MaterialClass': premier(materiau, 'MaterialClass') or u'',
+        'MaterialCategory': premier(materiau, 'MaterialCategory') or u'',
         'Color': hex_de_rgb(couleur),
         'Transparency': entier(premier(materiau, 'Transparency') or 0),
         'Shininess': entier(premier(materiau, 'Shininess') or 0),
         'Smoothness': entier(premier(materiau, 'Smoothness') or 0),
+        # Revit coche « Utiliser l'apparence de rendu » et la couleur
+        # d'ombrage cesse d'être lue : la page doit pouvoir le dire, sinon on
+        # modifie une couleur qui n'a plus d'effet sans comprendre pourquoi.
+        'UseRenderAppearanceForShading': bool(
+            premier(materiau, 'UseRenderAppearanceForShading')),
         'AppearanceAssetId': ident(premier(materiau, 'AppearanceAssetId')),
     }
     for face, couche in EMPLACEMENTS:
@@ -528,6 +538,96 @@ def valeurs_lues(materiau):
             rgb(premier(materiau, attribut(face, couche, u'Color')),
                 defaut=couleur))
     return valeurs
+
+
+def _texte_parametre(parametre):
+    """Ce qu'un paramètre a à montrer : sa chaîne, ou sa valeur formatée.
+
+    `AsValueString` rend le coût avec sa devise et son séparateur, soit ce
+    que Revit affiche — on ne reformate rien ici.
+    """
+    try:
+        if StorageType is not None \
+                and parametre.StorageType == StorageType.String:
+            return parametre.AsString() or u''
+        return parametre.AsValueString() or u''
+    except Exception:
+        return u''
+
+
+def identite(materiau):
+    """Les paramètres de l'onglet « Identité » de Revit, dans son ordre à lui.
+
+    La liste vient de `Material.GetIdentityParameterIds()` : c'est Revit qui
+    dit lesquels sont des paramètres d'identité, pas nous. L'écrire à la main
+    aurait vieilli à la première version — et elle aurait été fausse dans une
+    langue sur deux.
+
+    Seuls les paramètres de type TEXTE sont annoncés modifiables : un coût
+    porte une devise et une unité, et se poser sans elles ferait écrire un
+    nombre dans la monnaie du voisin.
+
+    ponytail: le reste (nombres, cases, listes) est rendu en lecture. Les
+    brancher demande une conversion par type de stockage et la gestion des
+    unités de projet — c'est le vrai morceau, et il ne se devine pas depuis
+    une maquette vide.
+    """
+    sortie = []
+    if Material is None:
+        return sortie
+    try:
+        attendus = [ident(i) for i in Material.GetIdentityParameterIds()]
+    except Exception as erreur:
+        log(u'paramètres d\'identité illisibles : {}', erreur)
+        return sortie
+    rang = dict((identifiant, index)
+                for index, identifiant in enumerate(attendus))
+    for parametre in materiau.Parameters:
+        try:
+            identifiant = ident(parametre.Definition.Id)
+            if identifiant not in rang:
+                continue
+            texte = (StorageType is not None
+                     and parametre.StorageType == StorageType.String)
+            sortie.append({
+                'id': identifiant,
+                'nom': parametre.Definition.Name,
+                'valeur': _texte_parametre(parametre),
+                'modifiable': bool(texte and not parametre.IsReadOnly),
+            })
+        except Exception:
+            continue          # paramètre illisible : il ne bloque pas les autres
+    return sorted(sortie, key=lambda p: rang.get(p['id'], 999))
+
+
+#: Les trois jeux de propriétés qu'un matériau porte en plus de son aspect.
+#: `aspect` est le nom de l'attribut Revit, `libelle` celui de l'onglet.
+ASSETS = (
+    ('StructuralAssetId', u'Physique'),
+    ('ThermalAssetId', u'Thermique'),
+    ('EmbodiedCarbonAssetId', u'Carbone incorporé'),
+)
+
+
+def assets(doc, materiau):
+    """Les jeux de propriétés rattachés, et leur nom s'ils existent.
+
+    Lecture seule pour l'instant : en poser un demande un navigateur d'assets
+    (la bibliothèque physique de Revit), qui est un outil à lui seul.
+    """
+    sortie = []
+    for attribut_revit, libelle in ASSETS:
+        identifiant = ident(premier(materiau, attribut_revit))
+        nom = u''
+        if doc is not None and identifiant != AUCUN:
+            try:
+                element = doc.GetElement(premier(materiau, attribut_revit))
+                nom = element.Name if element is not None else u''
+            except Exception:
+                nom = u''
+        sortie.append({'attribut': attribut_revit, 'libelle': libelle,
+                       'id': identifiant, 'nom': nom})
+    return sortie
 
 
 def editeur(doc, materiau, catalogue):
@@ -546,7 +646,27 @@ def editeur(doc, materiau, catalogue):
             'contrainte': contrainte(face, couche),
         }
     return {'id': ident(materiau.Id), 'valeurs': valeurs,
-            'emplacements': emplacements}
+            'emplacements': emplacements,
+            'identite': identite(materiau),
+            'assets': assets(doc, materiau)}
+
+
+def identite_modifiee(identite_page, materiau):
+    """Les paramètres d'identité que la page a changés. Clés en ENTIERS.
+
+    Même geste que `modifiees` pour les attributs : on relit le matériau
+    plutôt que de se fier à l'état d'ouverture.
+    """
+    actuels = dict((p['id'], p['valeur']) for p in identite(materiau)
+                   if p['modifiable'])
+    changes = {}
+    for identifiant, valeur in (identite_page or {}).items():
+        identifiant = entier(identifiant)
+        if identifiant not in actuels:
+            continue          # inconnu ou non modifiable : jamais écrit
+        if (valeur or u'') != actuels[identifiant]:
+            changes[identifiant] = valeur or u''
+    return changes
 
 
 def modifiees(valeurs_page, materiau):

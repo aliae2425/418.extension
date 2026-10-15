@@ -631,6 +631,62 @@ body.fenetre .corps {
 }
 .pied-fenetre .alerte, .pied-fenetre .espace { flex: 1; }
 
+/* --- les cinq onglets de l'éditeur, ceux de Revit --- */
+
+.onglets-editeur {
+  display: flex;
+  gap: var(--e1);
+  padding: 0 var(--e5);
+  border-bottom: 1px solid var(--trait);
+}
+.onglet-editeur {
+  padding: var(--e2) var(--e3);
+  /* Le soulignement est posé dès maintenant, transparent : sans lui, le
+     texte sauterait de deux pixels en devenant actif. */
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  color: var(--texte-faible);
+  font-size: var(--t-bouton);
+  cursor: pointer;
+}
+.onglet-editeur:hover { color: var(--texte); }
+.onglet-editeur.actif {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+.pan-editeur { display: none; flex-direction: column; gap: var(--e3); }
+.pan-editeur.actif { display: flex; }
+
+/* Les paramètres d'identité, en colonnes qui se rangent d'elles-mêmes :
+   au-delà de deux, les noms de Revit (« Note d'entretien », « Description de
+   l'URL ») se coupent. */
+.parametres {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--e3);
+}
+.parametre input[readonly] {
+  background: var(--fond);
+  color: var(--texte-faible);
+  cursor: default;
+}
+
+.asset {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e2) 0;
+  border-bottom: 1px solid var(--trait);
+}
+.asset:last-child { border-bottom: 0; }
+.libelle-asset { font-size: var(--t-petit); color: var(--texte-faible); }
+.nom-asset { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .carte-section {
   padding: var(--e4);
   border: 1px solid var(--trait);

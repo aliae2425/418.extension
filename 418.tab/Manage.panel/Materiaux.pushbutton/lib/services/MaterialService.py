@@ -44,6 +44,18 @@ try:
 except Exception:
     _NetList = None
 
+# `ElementId` -> entier : la même lecture que celle qui part à la page, et
+# qui en revient. Deux copies de cette poignée de lignes, c'était deux
+# occasions de diverger sur la version de l'API.
+try:
+    from lib.services.presentation import ident as _identifiant
+except Exception:
+    try:
+        from services.presentation import ident as _identifiant
+    except Exception:
+        def _identifiant(element_id):
+            return -1
+
 
 class LigneRapport(object):
     """Un compteur d'affectations : tant de types, tant d'instances.
@@ -420,14 +432,20 @@ class MaterialService(object):
 
     # -- Édition d'un matériau ---------------------------------------------
 
-    def enregistrer(self, materiau, valeurs):
-        """Écrit `valeurs` sur `materiau`. Retourne les attributs REFUSÉS.
+    def enregistrer(self, materiau, valeurs, parametres=None):
+        """Écrit `valeurs` sur `materiau`. Retourne ce qui a été REFUSÉ.
 
         `valeurs` : `{nom d'attribut Revit: valeur}` — `Name`,
         `MaterialClass`, `Color`, `Transparency`, `Shininess`, `Smoothness`,
         `AppearanceAssetId`, et les huit `<face><couche>Pattern{Id,Color}`.
         Un triplet (r, v, b) est converti en `Color`, le reste passe tel quel :
         les `ElementId` viennent des catalogues, ils sont déjà du bon type.
+
+        `parametres` : `{id de définition: texte}`, les paramètres d'identité
+        de l'onglet du même nom. Ils voyagent à part des attributs parce
+        qu'ils s'écrivent autrement — par `Parameter.Set`, et non par
+        `setattr` — mais dans la MÊME transaction : un enregistrement est un
+        seul geste, et un Annuler doit tout reprendre d'un coup.
 
         `Name` est traité à part — sanitize puis boucle anti-collision, comme
         le renommage en lot. Tout le reste est indépendant : un attribut
@@ -436,11 +454,12 @@ class MaterialService(object):
         vide = tout est passé.
         """
         echecs = []
-        if materiau is None or not valeurs:
+        if materiau is None or (not valeurs and not parametres):
             return echecs
-        log(u'éditer {} : {} attribut(s)', _nom(materiau), len(valeurs))
+        log(u'éditer {} : {} attribut(s), {} paramètre(s)', _nom(materiau),
+            len(valeurs or {}), len(parametres or {}))
         with revit_transaction(self._doc, u'Éditer le matériau'):
-            for attribut in sorted(valeurs):
+            for attribut in sorted(valeurs or {}):
                 valeur = valeurs[attribut]
                 if attribut == 'Name':
                     if not self._affecter_nom(materiau,
@@ -453,7 +472,36 @@ class MaterialService(object):
                     log(u'attribut « {} » refusé sur {} : {}',
                         attribut, _nom(materiau), erreur)
                     echecs.append(attribut)
+            echecs.extend(self._ecrire_parametres(materiau, parametres))
         return echecs
+
+    @staticmethod
+    def _ecrire_parametres(materiau, parametres):
+        """Écrit les paramètres d'identité. Rend les noms de ceux qui ont
+        refusé — c'est leur NOM qui remonte, pas leur identifiant : c'est ce
+        que l'utilisateur lit dans le message."""
+        refuses = []
+        if not parametres:
+            return refuses
+        attendus = dict((int(cle), valeur)
+                        for cle, valeur in parametres.items())
+        for parametre in materiau.Parameters:
+            try:
+                identifiant = _identifiant(parametre.Definition.Id)
+                if identifiant not in attendus:
+                    continue
+                parametre.Set(attendus.pop(identifiant) or u'')
+            except Exception as erreur:
+                nom = getattr(parametre.Definition, 'Name', u'?')
+                log(u'paramètre « {} » refusé sur {} : {}',
+                    nom, _nom(materiau), erreur)
+                refuses.append(nom)
+        if attendus:
+            # Un paramètre demandé que le matériau ne porte pas : la page
+            # travaillait sur un état périmé.
+            log(u'{} paramètre(s) introuvable(s) sur {}',
+                len(attendus), _nom(materiau))
+        return refuses
 
     # -- Renommage ---------------------------------------------------------
 

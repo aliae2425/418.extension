@@ -292,17 +292,24 @@ class Ordres(object):
         if materiau is None or self._service is None:
             raise ValueError(u'matériau introuvable')
         changees = presentation.modifiees(message.get('valeurs'), materiau)
-        if not changees:
-            return {'ok': True, 'statut': u'Rien à enregistrer.',
-                    'carte': self._rafraichir(materiau),
-                    'valeurs': presentation.valeurs_lues(materiau)}
+        parametres = presentation.identite_modifiee(message.get('identite'),
+                                                    materiau)
+        if not changees and not parametres:
+            return dict(self._relecture(materiau), ok=True,
+                        statut=u'Rien à enregistrer.')
         echecs = self._service.enregistrer(
-            materiau, presentation.valeurs_revit(changees, self._catalogue))
+            materiau, presentation.valeurs_revit(changees, self._catalogue),
+            parametres)
         statut = u'' if not echecs else u'Refusé par Revit : %s.' % u', '.join(
             presentation.libelles(echecs))
-        return {'ok': not echecs, 'statut': statut,
-                'carte': self._rafraichir(materiau),
-                'valeurs': presentation.valeurs_lues(materiau)}
+        return dict(self._relecture(materiau), ok=not echecs, statut=statut)
+
+    def _relecture(self, materiau):
+        """Ce que la page reprend après une écriture : la carte et l'état
+        d'édition, relus dans la maquette et non recopiés des champs."""
+        return {'carte': self._rafraichir(materiau),
+                'valeurs': presentation.valeurs_lues(materiau),
+                'identite': presentation.identite(materiau)}
 
     def _rafraichir(self, materiau):
         """Relit la carte d'un matériau et la remet en place dans la liste.
