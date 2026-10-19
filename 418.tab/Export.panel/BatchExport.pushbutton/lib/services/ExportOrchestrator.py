@@ -12,6 +12,17 @@ try:
 except Exception:
     DB = None  # type: ignore
 
+# Ordre d'impression : source unique, partagée avec le ViewModel.
+try:
+    from services.ordre import ordonner
+except Exception:
+    try:
+        from lib.services.ordre import ordonner
+    except Exception:
+        def ordonner(items, reference, cle):
+            return sorted(items, key=lambda it: cle(it) or u'')
+
+
 class ExportAnnule(Exception):
     """L'utilisateur a choisi d'arrêter l'export sur un fichier existant.
 
@@ -258,18 +269,25 @@ class ExportOrchestrator(object):
         return 'renommer_tous'
 
     # ------------------- Exécution ------------------- #
-    def run(self, doc, flags, progress_cb=None, log_cb=None, destination=None):
+    def run(self, doc, flags, progress_cb=None, log_cb=None, destination=None,
+            ordres=None):
         """Export « par jeu ».
 
         `flags` : badges cochés dans l'onglet « Par jeu », liste de tuples
         `(nom_du_jeu, export, carnet, dwg)`. Seule source de qualification :
         aucun paramètre Revit n'est lu ni écrit (cas du travail collaboratif,
         où les paramètres Oui/Non ne sont pas éditables).
+
+        `ordres` : `{nom_du_jeu: [numero, ...]}`, l'ordre d'impression
+        réorganisé à la main pour ce jeu (modale « Ordre d'impression »). Un
+        jeu absent du dict — le cas courant — s'exporte en ordre naturel de
+        numéro. Passé à part de `flags` pour ne pas changer l'arité des
+        tuples que l'appelant construit déjà.
         """
         self._destination_override = destination or None
         self._politique_collision = None
         try:
-            return self._run_impl(doc, flags,
+            return self._run_impl(doc, flags, ordres=ordres,
                                   progress_cb=progress_cb, log_cb=log_cb)
         except ExportAnnule:
             return self._annuler(progress_cb, log_cb)
@@ -292,7 +310,7 @@ class ExportOrchestrator(object):
                 pass
         return False
 
-    def _run_impl(self, doc, flags, progress_cb=None, log_cb=None):
+    def _run_impl(self, doc, flags, ordres=None, progress_cb=None, log_cb=None):
         self._log_cb = log_cb
         # Initialiser le NamingService (jetons) avec le document.
         if self._NamingService_cls is not None and self._naming is None:
@@ -354,9 +372,14 @@ class ExportOrchestrator(object):
 
             collection = self._find_collection_by_name(doc, plan.collection_name)
             sheets = self._get_collection_sheets(doc, collection) if collection is not None else []
-            # Tri des feuilles par numéro croissant
+            # Ordre d'impression : celui réorganisé à la main pour ce jeu s'il
+            # existe, sinon le numéro de feuille en ordre NATUREL (`A9` avant
+            # `A10`). C'est l'ordre des pages du carnet PDF : le `sorted()` de
+            # chaînes qui était ici mettait `A10` devant `A9`.
             try:
-                sheets = sorted(sheets, key=lambda sh: u'{}'.format(getattr(sh, 'SheetNumber', '') or ''))
+                sheets = ordonner(
+                    sheets, (ordres or {}).get(plan.collection_name),
+                    cle=lambda sh: getattr(sh, 'SheetNumber', u'') or u'')
             except Exception:
                 pass
             base_pdf = self._get_destination_base('PDF', plan.collection_name) if plan.do_pdf else None
@@ -445,6 +468,10 @@ class ExportOrchestrator(object):
                 # PDF combiné : un seul fichier, donc pas de sous-dossier par jeu
                 # (les feuilles fusionnées peuvent venir de plusieurs jeux).
                 base_pdf = self._get_destination_base('PDF', None)
+                # L'ordre des pages est celui de `sheet_vms`, c'est-à-dire
+                # celui de la liste affichée : le ViewModel l'a déjà ordonné
+                # (numéro naturel, ou ordre réorganisé à la main). Ne RIEN
+                # retrier ici — ce qui est à l'écran est ce qui s'imprime.
                 elems = [s.Elem for s in pdf_vms if s.Elem is not None]
                 if progress_cb:
                     progress_cb(done, max(total, 1), u'PDF combiné...')
@@ -823,6 +850,12 @@ class ExportOrchestrator(object):
         try:
             if DB is not None and hasattr(DB, 'PDFExportOptions') and options is not None and sheets:
                 from System.Collections.Generic import List as Clist  # type: ignore
+                # HYPOTHÈSE (non vérifiée dans Revit) : `Document.Export`
+                # pagine le PDF combiné dans l'ordre de CETTE liste. C'est le
+                # seul levier que l'API expose sur l'ordre des pages ; si
+                # Revit réordonnait lui-même par numéro, la modale « Ordre
+                # d'impression » n'aurait aucun effet sur le carnet — à
+                # confirmer sur une vraie maquette.
                 views = Clist[DB.ElementId]()
                 for sh in sheets:
                     try:

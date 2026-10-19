@@ -93,6 +93,11 @@ except Exception:
         DwgExporterService = None  # type: ignore
 
 try:
+    from services.ordre import ordonner, reposer
+except Exception:
+    from lib.services.ordre import ordonner, reposer
+
+try:
     from core import bulk_edit
 except Exception:
     try:
@@ -129,6 +134,13 @@ _SURFACE_TITRES = {
 # JSON : {titre: [export, carnet, dwg]}. Une seule clé -- cf.
 # `_charger_choix`/`_enregistrer_choix`.
 _CFG_KEY_BADGES_JEUX = 'jeux_badges'
+
+# Ordre d'impression réorganisé à la main (modale « Ordre d'impression »),
+# en JSON. Par jeu : {titre: [numero, ...]}. En mode manuel : [numero, ...]
+# pour tout le document. Un numéro absent de la liste mémorisée passe en fin
+# de liste en ordre naturel -- cf. `services/ordre.ordonner`.
+_CFG_KEY_ORDRE_JEUX = 'jeux_ordre'
+_CFG_KEY_ORDRE_MANUEL = 'manuel_ordre'
 
 # Mode « feuille par feuille » : export combiné en un seul PDF + titre de ce
 # PDF. Persistés via UserConfig (namespace 'batch_export'). Transmis à
@@ -262,6 +274,12 @@ class MainViewModel(BaseViewModel):
         # la maquette. Limite assumée de l'indexation par titre : un jeu
         # renommé dans Revit n'est plus reconnu et repart éteint.
         self._badges_jeux = self._charger_choix()
+
+        # Ordre d'impression réorganisé à la main, persisté (clés
+        # `jeux_ordre` / `manuel_ordre`). Même limite assumée que les badges :
+        # indexé par TITRE de jeu, donc un jeu renommé repart en ordre naturel.
+        self._ordre_jeux = self._charger_ordre_jeux()
+        self._ordre_manuel = self._charger_ordre_manuel()
 
         # Export (Task 3) : retour visuel (progress_cb/log_cb de l'orchestrateur)
         self._status_text = u''
@@ -420,6 +438,104 @@ class MainViewModel(BaseViewModel):
                               ensure_ascii=False))
         except Exception as exc:
             self._log(u'AVERT', u'Badges non persistés : {}'.format(exc))
+
+    # ------------------------------------------------------------------
+    # Ordre d'impression (modale « Ordre d'impression »)
+    # ------------------------------------------------------------------
+    #
+    # Même doctrine que les badges : JSON dans UserConfig, `ensure_ascii=False`
+    # obligatoire (IronPython 2.7 lève sur le moindre accent, cf.
+    # `_enregistrer_choix`), et une relecture best-effort qui ne lève jamais à
+    # l'ouverture -- un ordre illisible vaut « pas d'ordre », donc tri naturel.
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _numeros(brut):
+        """Une liste de numéros de feuille à partir d'un JSON quelconque.
+        Tout ce qui n'est pas une liste rend `[]` ; les entrées sont
+        normalisées en texte (JSON peut rendre des nombres)."""
+        if not isinstance(brut, list):
+            return []
+        return [u'{}'.format(n) for n in brut]
+
+    def _charger_ordre_jeux(self):
+        """Relit `{titre: [numero, ...]}`. Entrée malformée -> ignorée."""
+        try:
+            brut = self._cfg_get(_CFG_KEY_ORDRE_JEUX, u'')
+            charge = json.loads(brut) if brut else None
+        except Exception:
+            charge = None
+        if not isinstance(charge, dict):
+            return {}
+        out = {}
+        for titre, numeros in charge.items():
+            numeros = self._numeros(numeros)
+            if numeros:
+                out[titre] = numeros
+        return out
+
+    def _charger_ordre_manuel(self):
+        """Relit `[numero, ...]` pour le mode manuel."""
+        try:
+            brut = self._cfg_get(_CFG_KEY_ORDRE_MANUEL, u'')
+            return self._numeros(json.loads(brut) if brut else None)
+        except Exception:
+            return []
+
+    def _enregistrer_ordre(self, cle, valeur):
+        try:
+            self._cfg_set(cle, json.dumps(valeur, ensure_ascii=False))
+        except Exception as exc:
+            self._log(u'AVERT', u'Ordre non persisté : {}'.format(exc))
+
+    @staticmethod
+    def _si_pas_naturel(numeros):
+        """`numeros`, ou `[]` s'ils sont DÉJÀ dans l'ordre naturel.
+
+        « Trier par numéro » dans la modale doit rendre son ordre par défaut
+        au jeu, pas figer le tri du jour : sans ça, une feuille créée ensuite
+        atterrirait en fin de carnet au lieu de se glisser à son numéro.
+        """
+        if numeros == ordonner(numeros, [], cle=lambda n: n):
+            return []
+        return numeros
+
+    def appliquer_ordre_jeu(self, titre, numeros):
+        """Enregistre l'ordre d'impression de `titre` et le répercute.
+
+        Ordre vide ou déjà naturel = retour au défaut : l'entrée est alors
+        SUPPRIMÉE plutôt que stockée, sinon la config accumulerait des listes
+        mortes pour chaque jeu simplement ouvert dans la modale.
+        """
+        numeros = self._si_pas_naturel(self._numeros(list(numeros or ())))
+        if numeros:
+            self._ordre_jeux[titre] = numeros
+        else:
+            self._ordre_jeux.pop(titre, None)
+        self._enregistrer_ordre(_CFG_KEY_ORDRE_JEUX, self._ordre_jeux)
+        self._log(u'CONFIG', u'Ordre du jeu "{}" : {} feuilles'.format(
+            titre, len(numeros)))
+        self.refresh_par_jeu()
+
+    def appliquer_ordre_manuel(self, feuilles_ordonnees):
+        """Repose `feuilles_ordonnees` (sous-ensemble VISIBLE, réordonné) sur
+        ses places dans la liste complète, persiste l'ordre du document, et
+        notifie la liste.
+
+        Surtout PAS de `refresh_manuel()` ici : il reconstruit les
+        `ManualSheetVM` avec `ExportPdf=False` (sélection éphémère) et
+        effacerait les cases cochées par l'utilisateur.
+        """
+        cle = lambda s: getattr(s, 'Numero', u'') or u''
+        self._sheets_manuel = reposer(self._sheets_manuel,
+                                      list(feuilles_ordonnees or ()), cle)
+        self._ordre_manuel = self._si_pas_naturel(
+            [cle(s) for s in self._sheets_manuel])
+        self._enregistrer_ordre(_CFG_KEY_ORDRE_MANUEL, self._ordre_manuel)
+        self._log(u'MANUEL', u'Ordre d\'impression : {} feuilles'.format(
+            len(self._ordre_manuel)))
+        for name in (u'SheetsManuel', u'SheetsManuelFiltrees'):
+            self.notify_property(name)
 
     def get_naming_params(self):
         """Liste des noms de paramètres utilisables pour le nommage des
@@ -588,6 +704,13 @@ class MainViewModel(BaseViewModel):
                     nom_projete = u"{}{}".format(numero, nom)
 
                 sheets_out.append(SheetItemVM(numero, nom, nom_projete))
+
+            # Ordre d'impression du carnet : celui réorganisé à la main pour
+            # ce jeu, sinon le numéro en ordre naturel. MÊME appel que
+            # `ExportOrchestrator._run_impl` -> la carte montre l'ordre des
+            # pages du PDF, et non un ordre d'affichage parallèle.
+            sheets_out = ordonner(sheets_out, self._ordre_jeux.get(titre),
+                                  cle=lambda s: s.Numero or u'')
 
             # Aperçu du titre de carnet : motif `set` résolu contre l'élément
             # de collection + `.pdf` (extension du fichier produit à l'export).
@@ -768,7 +891,10 @@ class MainViewModel(BaseViewModel):
                 on_change=self._on_manual_sheet_change,
                 on_format_change=self._on_format_propagate,
             ))
-        self._sheets_manuel = sheets_out
+        # Ordre d'impression du PDF combiné : l'orchestrateur exporte dans
+        # l'ordre de CETTE liste, sans rien retrier.
+        self._sheets_manuel = ordonner(sheets_out, self._ordre_manuel,
+                                       cle=lambda s: s.Numero or u'')
 
         filtres_out = []
         for coll in raw_collections:
@@ -1600,6 +1726,7 @@ class MainViewModel(BaseViewModel):
                 progress_cb=progress_cb,
                 log_cb=log_cb,
                 destination=self.DestinationPath,
+                ordres=self._ordre_jeux,
             ) is not False
         except Exception as exc:
             try:
