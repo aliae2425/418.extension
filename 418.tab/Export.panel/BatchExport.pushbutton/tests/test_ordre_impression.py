@@ -172,6 +172,19 @@ class TestOrdreImpressionViewModel(unittest.TestCase):
         self.assertEqual(self.vm.Numeros, [u'A1', u'A10', u'A9'])
         self.assertEqual(self.vm.SelectedIndex, 0)
 
+    def test_tout_mouvement_rend_une_NOUVELLE_liste(self):
+        """`ItemsSource` est une propriété de dépendance : `SetValue`
+        court-circuite quand la référence ne change pas. Muter la liste en
+        place laissait la ListBox figée, PropertyChanged ou pas."""
+        for geste in (lambda: self.vm.deplacer_vers(0, 2),
+                      lambda: self.vm.monter(),
+                      lambda: self.vm.descendre(),
+                      lambda: self.vm.trier_numero()):
+            self.vm.SelectedIndex = 1
+            avant = self.vm.Feuilles
+            geste()
+            self.assertIsNot(self.vm.Feuilles, avant)
+
     def test_glisser_sur_soi_meme_sans_effet(self):
         self.vm.deplacer_vers(1, 1)
         self.assertEqual(self.vm.Numeros, [u'A10', u'A9', u'A1'])

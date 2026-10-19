@@ -110,7 +110,14 @@ class OrdreImpressionViewModel(BaseViewModel):
             return
         if depart == arrivee:
             return
-        self._feuilles.insert(arrivee, self._feuilles.pop(depart))
+        # COPIE, puis réaffectation : `ItemsSource` est une propriété de
+        # dépendance, et `SetValue` court-circuite quand la nouvelle valeur
+        # est la MÊME référence que l'ancienne. Muter la liste en place ne
+        # repeignait donc rien, PropertyChanged ou pas — la ListBox restait
+        # figée pendant que le VM, lui, avait bel et bien bougé.
+        feuilles = list(self._feuilles)
+        feuilles.insert(arrivee, feuilles.pop(depart))
+        self._feuilles = feuilles
         self._index = arrivee
         self._notifier()
 
