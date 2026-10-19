@@ -160,6 +160,34 @@ class TestOrdreImpressionViewModel(unittest.TestCase):
         self.assertEqual(self.vm.Numeros, [u'A9', u'A10', u'A1'])
         self.assertEqual(self.vm.SelectedIndex, 1)
 
+    def test_glisser_vers_le_bas(self):
+        """Le glissé prend la place de la ligne visée : A10 lâché sur A1
+        devient la 3e ligne, les autres remontent d'un rang."""
+        self.vm.deplacer_vers(0, 2)
+        self.assertEqual(self.vm.Numeros, [u'A9', u'A1', u'A10'])
+        self.assertEqual(self.vm.SelectedIndex, 2)
+
+    def test_glisser_vers_le_haut(self):
+        self.vm.deplacer_vers(2, 0)
+        self.assertEqual(self.vm.Numeros, [u'A1', u'A10', u'A9'])
+        self.assertEqual(self.vm.SelectedIndex, 0)
+
+    def test_glisser_sur_soi_meme_sans_effet(self):
+        self.vm.deplacer_vers(1, 1)
+        self.assertEqual(self.vm.Numeros, [u'A10', u'A9', u'A1'])
+
+    def test_glisser_hors_bornes_sans_effet(self):
+        """Le dépôt peut viser n'importe où — y compris le vide sous la
+        dernière ligne, qui résout un rang calculé, pas cliqué."""
+        for depart, arrivee in ((0, 3), (0, -1), (5, 0), (-1, 0)):
+            self.vm.deplacer_vers(depart, arrivee)
+        self.assertEqual(self.vm.Numeros, [u'A10', u'A9', u'A1'])
+
+    def test_glisser_rang_non_entier_sans_effet(self):
+        self.vm.deplacer_vers(None, 1)
+        self.vm.deplacer_vers(0, u'pas un rang')
+        self.assertEqual(self.vm.Numeros, [u'A10', u'A9', u'A1'])
+
     def test_hors_bornes_sans_effet(self):
         self.vm.SelectedIndex = 0
         self.vm.monter()

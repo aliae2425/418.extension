@@ -86,22 +86,31 @@ class OrdreImpressionViewModel(BaseViewModel):
     # ------------------------------------------------------------------
 
     def monter(self):
-        self._deplacer(-1)
+        self.deplacer_vers(self._index, self._index - 1)
 
     def descendre(self):
-        self._deplacer(1)
+        self.deplacer_vers(self._index, self._index + 1)
 
-    def _deplacer(self, pas):
-        """Déplace la ligne sélectionnée de `pas` rangs et la garde
-        sélectionnée. Hors bornes : ne fait rien (les boutons sont déjà
-        désactivés par PeutMonter/PeutDescendre, mais la touche clavier ou
-        un double-clic rapide peuvent arriver après coup)."""
-        depart = self._index
-        arrivee = depart + pas
-        if depart < 0 or arrivee < 0 or arrivee >= len(self._feuilles):
+    def deplacer_vers(self, depart, arrivee):
+        """Déplace la ligne `depart` au rang `arrivee` et l'y garde
+        sélectionnée. C'est le seul mouvement du VM : les flèches comme le
+        glisser-déposer y aboutissent.
+
+        Hors bornes : ne fait rien. Les flèches sont déjà grisées par
+        PeutMonter/PeutDescendre, mais un glisser peut viser n'importe où,
+        et le clavier arrive parfois après coup.
+        """
+        try:
+            depart = int(depart)
+            arrivee = int(arrivee)
+        except Exception:
             return
-        item = self._feuilles.pop(depart)
-        self._feuilles.insert(arrivee, item)
+        dernier = len(self._feuilles) - 1
+        if not (0 <= depart <= dernier) or not (0 <= arrivee <= dernier):
+            return
+        if depart == arrivee:
+            return
+        self._feuilles.insert(arrivee, self._feuilles.pop(depart))
         self._index = arrivee
         self._notifier()
 

@@ -3,9 +3,13 @@
   Ordre d'impression des feuilles. Même coquille que ProfilName.xaml :
   Border arrondi + TitleBar draggable (câblée par BaseWindow) + contenu.
 
-  Réordonnancement par ↑ / ↓ sur la ligne sélectionnée, pas par
-  glisser-déposer : WPF ne fournit rien de natif pour ça, et ces fenêtres
-  n'ont pas de code-behind (XamlReader, aucun x:Class).
+  Réordonnancement par glisser-déposer, ou par ↑ / ↓ sur la ligne
+  sélectionnée. WPF ne fournit rien de natif pour réordonner une ListBox :
+  le glisser est câblé à la main dans OrdreImpressionView (ces fenêtres
+  n'ont pas de code-behind — XamlReader, aucun x:Class).
+
+  `AllowDrop` est posé ICI et pas en Python : c'est une propriété de dépôt,
+  elle appartient au balisage comme le reste de l'apparence de la liste.
 
   Hauteur FIXE et ListBox dans la ligne étirable : la liste peut compter
   des centaines de feuilles, il lui faut sa propre barre de défilement
@@ -79,7 +83,7 @@
         <TextBlock Foreground="{DynamicResource TextSecondaryBrush}"
                    FontSize="12"
                    VerticalAlignment="Center">
-          <Run Text="{Binding NbFeuilles, Mode=OneWay}"/><Run Text=" feuilles — de haut en bas, l'ordre des pages du PDF."/>
+          <Run Text="{Binding NbFeuilles, Mode=OneWay}"/><Run Text=" feuilles — glissez une ligne pour la déplacer."/>
         </TextBlock>
 
         <StackPanel Orientation="Horizontal"
@@ -116,6 +120,7 @@
         <ListBox x:Name="FeuillesListBox"
                  ItemsSource="{Binding Feuilles}"
                  SelectedIndex="{Binding SelectedIndex, Mode=TwoWay}"
+                 AllowDrop="True"
                  Background="Transparent"
                  BorderThickness="0"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
