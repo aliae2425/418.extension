@@ -88,19 +88,28 @@
 
         <StackPanel Orientation="Horizontal"
                     HorizontalAlignment="Right">
+          <!--
+            `Padding="0"` n'est pas cosmétique : SecondaryActionButtonStyle
+            pose `Padding="20,0"`, et son template le passe en Margin au
+            ContentPresenter. Dans un bouton de 32 px, ça fait 40 px de
+            marge — la flèche est rognée hors du cadre et le bouton paraît
+            vide. Tous les boutons compacts du dépôt posent ce zéro.
+          -->
           <Button x:Name="MonterButton"
                   Content="↑"
                   ToolTip="Monter la feuille sélectionnée"
                   IsEnabled="{Binding PeutMonter}"
                   Width="32" Height="30" Margin="0,0,4,0"
-                  FontSize="13"
+                  Padding="0"
+                  FontSize="15"
                   Style="{DynamicResource SecondaryActionButtonStyle}"/>
           <Button x:Name="DescendreButton"
                   Content="↓"
                   ToolTip="Descendre la feuille sélectionnée"
                   IsEnabled="{Binding PeutDescendre}"
                   Width="32" Height="30" Margin="0,0,10,0"
-                  FontSize="13"
+                  Padding="0"
+                  FontSize="15"
                   Style="{DynamicResource SecondaryActionButtonStyle}"/>
           <Button x:Name="TrierButton"
                   Content="Trier par numéro"
