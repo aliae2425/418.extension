@@ -302,6 +302,33 @@ class TestRunParJeu(unittest.TestCase):
         self.assertTrue(self._run([(u'Jeu A', False, True, True)]))
         self.assertEqual(self.appels, [])
 
+    # --- Badge PDF : 5e valeur, et compatibilite avec les tuples a 4 ---
+    #
+    # Les tests ci-dessus passent tous des tuples a QUATRE valeurs : c'est le
+    # contrat d'avant le badge PDF, ou `do_pdf` suivait `export`. Qu'ils
+    # passent encore sans modification EST le test de compatibilite.
+
+    def test_pdf_decoche_laisse_le_dwg_seul(self):
+        """Ce que le badge rend possible : un jeu exporte uniquement en DWG.
+        Avant, `do_pdf = export` -- impossible a eteindre."""
+        self.assertTrue(self._run([(u'Jeu A', True, False, True, False)]))
+        self.assertEqual(self.appels, [u'dwg_feuille'])
+
+    def test_pdf_decoche_et_carnet_coche_ne_produit_aucun_pdf(self):
+        """Carnet coche sans PDF ne doit pas forcer un combine : le carnet
+        QUALIFIE le PDF, il ne le commande pas."""
+        self.assertTrue(self._run([(u'Jeu A', True, True, False, False)]))
+        self.assertEqual(self.appels, [])
+
+    def test_pdf_coche_explicitement_se_comporte_comme_avant(self):
+        self.assertTrue(self._run([(u'Jeu A', True, False, False, True)]))
+        self.assertEqual(self.appels, [u'pdf_feuille'])
+
+    def test_tuple_de_longueur_invalide_est_ignore_sans_lever(self):
+        self.assertTrue(self._run([(u'Jeu A', True),
+                                   (u'Jeu A', True, False, False)]))
+        self.assertEqual(self.appels, [u'pdf_feuille'])
+
     def test_flags_vide_ne_leve_pas_et_sort_proprement(self):
         messages = []
         res = self.orch.run(None, [], log_cb=messages.append,

@@ -1,8 +1,12 @@
 <!--
   Page du mode « Par jeu » : liste des jeux (Collections), un par carte.
 
-  Les 3 badges EXPORT / CARNET / DWG sont des ToggleButton CLIQUABLES,
-  bindés TwoWay sur FlagExport / FlagCarnet / FlagDwg.
+  Les 4 badges EXPORT / PDF / CARNET / DWG sont des ToggleButton CLIQUABLES,
+  bindés TwoWay sur FlagExport / FlagPdf / FlagCarnet / FlagDwg.
+
+  EXPORT dit que le jeu part, PDF et DWG en quel format, CARNET si le PDF
+  est un seul fichier assemblé. Le PDF n'a pas toujours été un choix : il
+  suivait EXPORT, ce qui rendait l'export DWG seul impossible.
 
   L'état de ces 3 flags vit UNIQUEMENT en mémoire : il n'est jamais écrit
   dans les paramètres Revit. C'est la raison d'être du mode — quand la
@@ -126,6 +130,21 @@
                                 Template="{StaticResource BadgeToggleTemplate}"
                                 Background="{DynamicResource SuccessBrush}"
                                 IsChecked="{Binding FlagExport, Mode=TwoWay}"
+                                Cursor="Hand"
+                                Focusable="False"
+                                Margin="4,0,0,0"/>
+
+                  <!--
+                    PDF et DWG disent le FORMAT, EXPORT dit seulement que le
+                    jeu part. CARNET suit PDF parce qu'il le qualifie : il
+                    dit si ce PDF est un seul fichier assemblé.
+                  -->
+                  <ToggleButton x:Name="BadgePdf"
+                                Content="PDF"
+                                ToolTip="Exporter ce jeu en PDF (mémorisé, jamais écrit dans la maquette)"
+                                Template="{StaticResource BadgeToggleTemplate}"
+                                Background="{DynamicResource ErrorBrush}"
+                                IsChecked="{Binding FlagPdf, Mode=TwoWay}"
                                 Cursor="Hand"
                                 Focusable="False"
                                 Margin="4,0,0,0"/>
