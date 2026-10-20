@@ -1,0 +1,176 @@
+<!-- -*- coding: utf-8 -*- -->
+<!--
+  Ordre d'impression des feuilles. Même coquille que ProfilName.xaml :
+  Border arrondi + TitleBar draggable (câblée par BaseWindow) + contenu.
+
+  Réordonnancement par glisser-déposer, ou par ↑ / ↓ sur la ligne
+  sélectionnée. WPF ne fournit rien de natif pour réordonner une ListBox :
+  le glisser est câblé à la main dans OrdreImpressionView (ces fenêtres
+  n'ont pas de code-behind — XamlReader, aucun x:Class).
+
+  `AllowDrop` est posé ICI et pas en Python : c'est une propriété de dépôt,
+  elle appartient au balisage comme le reste de l'apparence de la liste.
+
+  Hauteur FIXE et ListBox dans la ligne étirable : la liste peut compter
+  des centaines de feuilles, il lui faut sa propre barre de défilement
+  plutôt qu'une fenêtre qui déborde de l'écran.
+-->
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Width="520"
+        Height="580"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner">
+
+  <Border Background="{DynamicResource WindowBackgroundBrush}"
+          BorderBrush="{DynamicResource ControlBorderBrush}"
+          BorderThickness="1"
+          CornerRadius="8">
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <!-- Barre de titre -->
+      <Grid x:Name="TitleBar"
+            Grid.Row="0"
+            Height="44"
+            Background="Transparent"
+            Cursor="SizeAll">
+        <StackPanel Orientation="Horizontal"
+                    VerticalAlignment="Center"
+                    Margin="16,0,0,0">
+          <TextBlock Text="Ordre d'impression"
+                     FontSize="13"
+                     FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextPrimaryBrush}"
+                     VerticalAlignment="Center"/>
+          <TextBlock Text="{Binding SousTitre}"
+                     FontSize="13"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
+                     TextTrimming="CharacterEllipsis"
+                     VerticalAlignment="Center"
+                     Margin="8,0,0,0"/>
+        </StackPanel>
+        <Button x:Name="CloseButton"
+                Content="✕"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Margin="0,0,8,0"
+                Width="28"
+                Height="28"
+                FontSize="11"
+                Background="Transparent"
+                BorderThickness="0"
+                Foreground="{DynamicResource TextSecondaryBrush}"
+                Cursor="Hand"
+                Padding="0"/>
+      </Grid>
+
+      <Rectangle Grid.Row="1"
+                 Height="1"
+                 Fill="{DynamicResource ControlBorderBrush}"/>
+
+      <!-- Barre d'outils de la liste -->
+      <Grid Grid.Row="2" Margin="20,14,20,8">
+        <TextBlock Foreground="{DynamicResource TextSecondaryBrush}"
+                   FontSize="12"
+                   VerticalAlignment="Center">
+          <Run Text="{Binding NbFeuilles, Mode=OneWay}"/><Run Text=" feuilles — glissez une ligne pour la déplacer."/>
+        </TextBlock>
+
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Right">
+          <!--
+            `Padding="0"` n'est pas cosmétique : SecondaryActionButtonStyle
+            pose `Padding="20,0"`, et son template le passe en Margin au
+            ContentPresenter. Dans un bouton de 32 px, ça fait 40 px de
+            marge — la flèche est rognée hors du cadre et le bouton paraît
+            vide. Tous les boutons compacts du dépôt posent ce zéro.
+          -->
+          <Button x:Name="MonterButton"
+                  Content="↑"
+                  ToolTip="Monter la feuille sélectionnée"
+                  IsEnabled="{Binding PeutMonter}"
+                  Width="32" Height="30" Margin="0,0,4,0"
+                  Padding="0"
+                  FontSize="15"
+                  Style="{DynamicResource SecondaryActionButtonStyle}"/>
+          <Button x:Name="DescendreButton"
+                  Content="↓"
+                  ToolTip="Descendre la feuille sélectionnée"
+                  IsEnabled="{Binding PeutDescendre}"
+                  Width="32" Height="30" Margin="0,0,10,0"
+                  Padding="0"
+                  FontSize="15"
+                  Style="{DynamicResource SecondaryActionButtonStyle}"/>
+          <Button x:Name="TrierButton"
+                  Content="Trier par numéro"
+                  ToolTip="Revenir à l'ordre des numéros de feuille (A9 avant A10)"
+                  Height="30" Padding="10,0"
+                  FontSize="11.5"
+                  Style="{DynamicResource SecondaryActionButtonStyle}"/>
+        </StackPanel>
+      </Grid>
+
+      <!-- Liste réordonnable -->
+      <Border Grid.Row="3"
+              Margin="20,0,20,0"
+              BorderBrush="{DynamicResource ControlBorderBrush}"
+              BorderThickness="1"
+              CornerRadius="6">
+        <ListBox x:Name="FeuillesListBox"
+                 ItemsSource="{Binding Feuilles}"
+                 SelectedIndex="{Binding SelectedIndex, Mode=TwoWay}"
+                 AllowDrop="True"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <Grid Margin="0,2">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="100"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="{Binding Numero}"
+                           FontFamily="Consolas"
+                           FontSize="12.5"
+                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                <TextBlock Grid.Column="1"
+                           Text="{Binding Nom}"
+                           FontSize="12.5"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           TextTrimming="CharacterEllipsis"/>
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Border>
+
+      <!-- Pied -->
+      <StackPanel Grid.Row="4"
+                  Orientation="Horizontal"
+                  HorizontalAlignment="Right"
+                  Margin="20,14,20,18">
+        <Button x:Name="AnnulerButton"
+                Content="Annuler"
+                Style="{DynamicResource SecondaryActionButtonStyle}"
+                Margin="0,0,8,0"/>
+        <Button x:Name="ValiderButton"
+                Content="Appliquer"
+                IsDefault="True"
+                Style="{DynamicResource PrimaryActionButtonStyle}"/>
+      </StackPanel>
+
+    </Grid>
+  </Border>
+</Window>

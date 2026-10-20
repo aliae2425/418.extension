@@ -43,6 +43,22 @@ except Exception:
         ProfilNameView = None  # type: ignore
 
 try:
+    from viewmodels.OrdreImpressionViewModel import OrdreImpressionViewModel
+except Exception:
+    try:
+        from lib.viewmodels.OrdreImpressionViewModel import OrdreImpressionViewModel
+    except Exception:
+        OrdreImpressionViewModel = None  # type: ignore
+
+try:
+    from views.OrdreImpressionView import OrdreImpressionView
+except Exception:
+    try:
+        from lib.views.OrdreImpressionView import OrdreImpressionView
+    except Exception:
+        OrdreImpressionView = None  # type: ignore
+
+try:
     from services.ProfileService import NOM_DEFAUT
 except Exception:
     try:
@@ -127,6 +143,7 @@ class MainWindowView(BaseWindow):
         self.wire_naming_editors()
         self.wire_profils()
         self.wire_bulk_selection()
+        self.wire_ordre_manuel()
         self._vm._on_export_done_cb = self._show_export_done
         try:
             self._vm.refresh_par_jeu()
@@ -136,7 +153,8 @@ class MainWindowView(BaseWindow):
             self._vm.refresh_manuel()
         except Exception:
             pass
-        self._mount_page('JeuxPage.xaml', 'JeuxPageHost')
+        page_jeux = self._mount_page('JeuxPage.xaml', 'JeuxPageHost')
+        self.wire_ordre_jeux(page_jeux)
 
     # ------------------------------------------------------------------
     # Charge une page de GUI/Views/pages/ comme arbre séparé et l'insère dans
@@ -161,18 +179,23 @@ class MainWindowView(BaseWindow):
     def _mount_page(self, filename, host_name):
         """La page partage le DataContext du shell (le MainViewModel) : son
         `{Binding Collections}` suit donc directement notify_property, sans
-        VM intermédiaire ni pont de re-synchronisation."""
+        VM intermédiaire ni pont de re-synchronisation.
+
+        Rend la racine de la page, ou `None` : une page est un arbre XAML
+        SÉPARÉ, donc `self._window.FindName` n'y atteint rien — tout câblage
+        sur son contenu doit partir de cette racine."""
         if self._window is None:
-            return
+            return None
         host = self._window.FindName(host_name)
         if host is None:
-            return
+            return None
         try:
             page = self._load_page(filename)
             page.DataContext = self._vm
             host.Content = page
+            return page
         except Exception:
-            pass
+            return None
 
     def _show_export_done(self, destination):
         if ExportDoneView is None:
@@ -411,6 +434,120 @@ class MainWindowView(BaseWindow):
             btn.Click += _handler
         except Exception:
             pass
+
+    # ------------------------------------------------------------------
+    # Ordre d'impression (modale OrdreImpressionView)
+    # ------------------------------------------------------------------
+
+    def wire_ordre_jeux(self, page):
+        """Câble le bouton ⇅ de chaque carte de jeu (JeuxPage.xaml).
+
+        UN SEUL `AddHandler(Button.ClickEvent)` posé sur la racine de la
+        page : par bubbling, il capte le clic de n'importe quel bouton généré
+        par le DataTemplate — ces boutons-là n'ont pas de x:Name résoluble.
+        Même câblage que les jetons de NamingEditorView.
+
+        C'est le SEUL `Button` de cette page (les 3 badges sont des
+        `ToggleButton`, dont le clic ne passe pas par `Button.ClickEvent`),
+        mais le nom est vérifié quand même : la page peut en gagner un autre.
+        """
+        if page is None:
+            return
+        try:
+            from System.Windows.Controls import Button
+            from System.Windows import RoutedEventHandler
+        except Exception:
+            return
+
+        def _on_click(sender, args):
+            try:
+                btn = args.OriginalSource
+            except Exception:
+                return
+            if btn is None or not isinstance(btn, Button):
+                return
+            try:
+                if btn.Name and btn.Name != u'OrdreButton':
+                    return
+                collection = btn.DataContext
+            except Exception:
+                return
+            if collection is None:
+                return
+            try:
+                self._open_ordre_jeu(collection)
+            except Exception:
+                pass
+
+        try:
+            page.AddHandler(Button.ClickEvent, RoutedEventHandler(_on_click))
+        except Exception:
+            pass
+
+    def _open_ordre_jeu(self, collection):
+        """Modale d'ordre pour UN jeu. `collection` est le CollectionItemVM
+        de la carte : ses `Sheets` sont déjà dans l'ordre courant (naturel,
+        ou réorganisé) — la modale part donc de ce que l'utilisateur voit."""
+        titre = getattr(collection, 'Titre', u'') or u''
+        feuilles = list(getattr(collection, 'Sheets', ()) or ())
+        if not feuilles:
+            return
+        vm = self._ouvrir_modale_ordre(feuilles, titre)
+        if vm is None:
+            return
+        try:
+            self._vm.appliquer_ordre_jeu(titre, vm.Numeros)
+        except Exception:
+            pass
+        # `appliquer_ordre_jeu` appelle `refresh_par_jeu()`, qui remplace les
+        # CollectionItemVM : l'ItemsControl régénère ses cartes, donc les
+        # boutons ⇅. Le handler étant posé sur la RACINE de la page (et non
+        # sur les boutons), il survit à cette régénération — rien à recâbler.
+
+    def wire_ordre_manuel(self):
+        if self._window is None:
+            return
+        btn = self._window.FindName(u'OrdreManuelButton')
+        if btn is None:
+            return
+        self._bind_bulk_button(btn, self._open_ordre_manuel)
+
+    def _open_ordre_manuel(self):
+        """Modale d'ordre pour le PDF combiné du mode manuel.
+
+        Porte sur les feuilles VISIBLES (`SheetsManuelFiltrees`) : c'est ce
+        que l'utilisateur a sous les yeux, et `appliquer_ordre_manuel` repose
+        ensuite ce sous-ensemble sur ses places dans la liste complète, sans
+        déplacer les feuilles masquées par un filtre.
+        """
+        feuilles = list(getattr(self._vm, 'SheetsManuelFiltrees', ()) or ())
+        if not feuilles:
+            return
+        vm = self._ouvrir_modale_ordre(feuilles, u'feuilles affichées')
+        if vm is None:
+            return
+        try:
+            self._vm.appliquer_ordre_manuel(vm.Feuilles)
+        except Exception:
+            pass
+
+    def _ouvrir_modale_ordre(self, feuilles, sous_titre):
+        """Ouvre la modale et rend son ViewModel si l'utilisateur a validé,
+        `None` sinon (Annuler, croix, ou modale indisponible hors WPF)."""
+        if OrdreImpressionViewModel is None or OrdreImpressionView is None:
+            return None
+        vm = OrdreImpressionViewModel(feuilles, sous_titre=sous_titre)
+        view = OrdreImpressionView(vm)
+        # Chargement immédiat pour pouvoir fixer Owner avant l'affichage ;
+        # `show()` ne recharge pas si `_window` est déjà défini.
+        try:
+            view._load()
+            if view._window is not None and self._window is not None:
+                view._window.Owner = self._window
+        except Exception:
+            pass
+        view.show()
+        return vm if vm.Valide else None
 
     def wire_navigation(self):
         if self._window is None:

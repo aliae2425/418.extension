@@ -11,6 +11,18 @@ try:
 except Exception:
     DB = None  # type: ignore
 
+# Tri NATUREL des numéros de feuille (`A9` avant `A10`). Un `sorted()` nu sur
+# la chaîne mettait `A10` devant `A9` et `100` devant `20` : c'était l'ordre
+# d'impression des carnets. Cf. `services/ordre.py`.
+try:
+    from core.selection import cle_naturelle
+except Exception:
+    try:
+        from lib.core.selection import cle_naturelle
+    except Exception:
+        def cle_naturelle(texte):
+            return [texte or u'']
+
 
 class SheetCollectionService(object):
     """Accès en LECTURE SEULE aux collections de feuilles (carnets), aux
@@ -78,6 +90,8 @@ class SheetCollectionService(object):
         """Retourne `[{'Numero': unicode, 'Nom': unicode, 'CollectionId': ElementId, 'Elem': DB.ViewSheet}, ...]`.
 
         Si `collection_id` est `None`, retourne toutes les feuilles du document.
+        Triées par numéro, en ordre naturel : c'est l'ordre d'impression par
+        défaut, et la carte d'un jeu doit montrer ce qui sortira du carnet.
 
         La clé `'Elem'` (élément Revit brut) est exposée pour permettre à
         l'appelant de résoudre un nom projeté via `NamingService.resolve_for_element`
@@ -110,7 +124,7 @@ class SheetCollectionService(object):
             except Exception:
                 nom = ''
             result.append({'Numero': numero, 'Nom': nom, 'CollectionId': vs_coll_id, 'Elem': vs})
-        return result
+        return self._tri_naturel(result)
 
     # ------------------------------------------------------------------
     # Mode « feuille par feuille » (manuel) : toutes les feuilles + sets d'impression
@@ -151,11 +165,17 @@ class SheetCollectionService(object):
             except Exception:
                 nom = ''
             result.append({'Numero': numero, 'Nom': nom, 'CollectionId': vs_coll_id, 'Elem': vs})
+        return self._tri_naturel(result)
+
+    @staticmethod
+    def _tri_naturel(descripteurs):
+        """Trie des descripteurs de feuille par `'Numero'`, en ordre naturel.
+        Ne lève jamais : un tri qui échoue rend la liste telle quelle."""
         try:
-            result.sort(key=lambda s: s.get('Numero') or u'')
+            return sorted(descripteurs,
+                          key=lambda s: cle_naturelle(s.get('Numero') or u''))
         except Exception:
-            pass
-        return result
+            return descripteurs
 
     def list_view_sheet_sets(self):
         """Retourne `[{'Nom': unicode, 'SheetIds': set(unicode)}, ...]` pour

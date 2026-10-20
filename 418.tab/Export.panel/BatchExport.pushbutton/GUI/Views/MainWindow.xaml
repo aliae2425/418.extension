@@ -469,6 +469,17 @@
                           Padding="8,3"
                           Margin="0,0,4,0"
                           FontSize="11"/>
+                  <!-- Ordre d'impression du PDF combiné. Porte sur les
+                       feuilles VISIBLES : réorganiser une liste filtrée ne
+                       déplace pas les feuilles masquées (cf.
+                       services/ordre.reposer). -->
+                  <Button x:Name="OrdreManuelButton"
+                          Content="Ordre…"
+                          ToolTip="Réorganiser l'ordre d'impression des feuilles affichées"
+                          Style="{DynamicResource SecondaryActionButtonStyle}"
+                          Padding="8,3"
+                          Margin="0,0,4,0"
+                          FontSize="11"/>
                   <Button x:Name="ToggleAllDwgButton"
                           Content="Tout DWG"
                           Style="{DynamicResource SecondaryActionButtonStyle}"

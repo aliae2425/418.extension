@@ -149,6 +149,27 @@
                                 Cursor="Hand"
                                 Focusable="False"
                                 Margin="4,0,0,0"/>
+
+                  <!--
+                    Ordre d'impression du carnet. Seul Button de cette page
+                    (les badges sont des ToggleButton) : c'est ce qui permet
+                    à MainWindowView de capter son clic par un unique
+                    AddHandler(Button.ClickEvent) sur l'ItemsControl, le
+                    DataTemplate ne laissant aucun x:Name résoluble.
+
+                    Un Button imbriqué marque le clic comme traité, donc il
+                    ne replie pas la carte — même raison que les badges.
+                  -->
+                  <Button x:Name="OrdreButton"
+                          Content="&#x21C5;"
+                          ToolTip="Réorganiser l'ordre d'impression de ce jeu"
+                          Width="26" Height="24"
+                          FontSize="13"
+                          Padding="0"
+                          Cursor="Hand"
+                          Focusable="False"
+                          Style="{DynamicResource SecondaryActionButtonStyle}"
+                          Margin="8,0,0,0"/>
                 </StackPanel>
               </Grid>
             </Expander.Header>
