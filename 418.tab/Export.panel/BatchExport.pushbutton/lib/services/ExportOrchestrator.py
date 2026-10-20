@@ -127,6 +127,33 @@ class ExportOrchestrator(object):
         return u"Export indisponible (dépendances internes manquantes)."
 
     # ------------------- Planification ------------------- #
+    @staticmethod
+    def _plan(flag):
+        """Un tuple de badges -> un `ExportPlan`, ou None s'il est illisible.
+
+        Deux arités acceptées, et ce n'est pas de la complaisance : le PDF
+        n'a été un badge qu'après coup. Avant, il SUIVAIT `export`, et les
+        appelants ne passaient que 4 valeurs.
+
+        - `(nom, export, carnet, dwg)`      -> `do_pdf = export` (l'ancien sens)
+        - `(nom, export, carnet, dwg, pdf)` -> `do_pdf = pdf`
+
+        `per_sheet` est l'inverse de `carnet` : carnet coché = PDF combiné.
+        """
+        try:
+            flag = list(flag)
+        except Exception:
+            return None
+        if len(flag) == 4:
+            nom, export, carnet, dwg = flag
+            pdf = export
+        elif len(flag) == 5:
+            nom, export, carnet, dwg, pdf = flag
+        else:
+            return None
+        return ExportPlan(nom, bool(export), not bool(carnet),
+                          bool(dwg), bool(pdf))
+
     def _collect_collections(self, doc):
         out = []
         if DB is None or doc is None:
@@ -274,9 +301,10 @@ class ExportOrchestrator(object):
         """Export « par jeu ».
 
         `flags` : badges cochés dans l'onglet « Par jeu », liste de tuples
-        `(nom_du_jeu, export, carnet, dwg)`. Seule source de qualification :
-        aucun paramètre Revit n'est lu ni écrit (cas du travail collaboratif,
-        où les paramètres Oui/Non ne sont pas éditables).
+        `(nom_du_jeu, export, carnet, dwg, pdf)` — ou sans `pdf`, qui vaut
+        alors `export` (cf. `_plan`). Seule source de qualification : aucun
+        paramètre Revit n'est lu ni écrit (cas du travail collaboratif, où
+        les paramètres Oui/Non ne sont pas éditables).
 
         `ordres` : `{nom_du_jeu: [numero, ...]}`, l'ordre d'impression
         réorganisé à la main pour ce jeu (modale « Ordre d'impression »). Un
@@ -321,9 +349,8 @@ class ExportOrchestrator(object):
 
         # Plans bâtis sur les badges cochés dans l'UI. Inversion carnet ->
         # per_sheet : carnet coché = PDF combiné = per_sheet False.
-        plans = [ExportPlan(nom, bool(export), not bool(carnet),
-                            bool(dwg), bool(export))
-                 for nom, export, carnet, dwg in (flags or [])]
+        plans = [self._plan(f) for f in (flags or [])]
+        plans = [p for p in plans if p is not None]
 
         # Diagnostic immédiat si aucun plan ne qualifie
         qualifying = [p for p in plans if p.do_export]

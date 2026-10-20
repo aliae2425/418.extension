@@ -397,8 +397,10 @@ class TestMainViewModelBadgesJeuxPersistance(unittest.TestCase):
         vm = self._vm(cfg)
         vm.refresh_par_jeu()
         vm.Collections[0].FlagExport = True
+        # Quatre valeurs : (export, pdf, carnet, dwg). Le PDF part allumé
+        # par défaut, cf. `_BADGES_DEFAUT`.
         self.assertEqual(json.loads(cfg.get('jeux_badges')),
-                         {u'Jeu A': [True, False, False]})
+                         {u'Jeu A': [True, True, False, False]})
 
     def test_une_nouvelle_session_retrouve_les_badges_coches(self):
         cfg = FakeConfig()
@@ -451,7 +453,7 @@ class TestMainViewModelBadgesJeuxPersistance(unittest.TestCase):
         self.assertIn(u'1.06_D\xe9tails', brut)
         self.assertNotIn(u'\\u', brut)
         self.assertEqual(json.loads(brut),
-                         {u'1.06_D\xe9tails': [True, False, False]})
+                         {u'1.06_D\xe9tails': [True, True, False, False]})
 
     def test_echec_decriture_est_signale_pas_avale(self):
         """Une config qui refuse d'écrire (set -> False) ou qui lève DOIT
@@ -506,9 +508,19 @@ class TestMainViewModelChargerChoixRobustesse(unittest.TestCase):
         self.assertEqual(self._badges(u'[1, 2, 3]'), {})
 
     def test_entree_malformee_ignoree_sans_perdre_les_autres(self):
-        brut = json.dumps({u'Jeu A': [True, False],          # longueur != 3
-                           u'Jeu B': [True, True, False]})
-        self.assertEqual(self._badges(brut), {u'Jeu B': (True, True, False)})
+        brut = json.dumps({u'Jeu A': [True, False],          # longueur hors 3/4
+                           u'Jeu B': [True, True, False, False]})
+        self.assertEqual(self._badges(brut),
+                         {u'Jeu B': (True, True, False, False)})
+
+    def test_entree_a_trois_valeurs_migre_avec_le_pdf_allume(self):
+        """Les badges écrits avant le badge PDF n'ont que trois valeurs
+        `(export, carnet, dwg)` : le PDF n'était pas un choix, il suivait
+        `export`. Les relire avec `pdf=False` eteindrait du jour au
+        lendemain l'export de tous les jeux deja coches."""
+        brut = json.dumps({u'Jeu A': [True, True, False]})
+        self.assertEqual(self._badges(brut),
+                         {u'Jeu A': (True, True, True, False)})
 
 
 class TestMainViewModelModeManuel(unittest.TestCase):
@@ -1839,8 +1851,12 @@ class OrchestrateurEspion(object):
 
 class TestMainViewModelLancerExportParJeu(unittest.TestCase):
     """`lancer_export()` (mode « par jeu ») : les badges cochés partent en
-    `flags=[(titre, export, carnet, dwg), ...]`, 2e argument POSITIONNEL de
-    `run()`. Seule source de qualification de l'export."""
+    `flags=[(titre, export, carnet, dwg, pdf), ...]`, 2e argument POSITIONNEL
+    de `run()`. Seule source de qualification de l'export.
+
+    `pdf` est en dernier et non à sa place logique : les quatre premières
+    valeurs sont le contrat historique de `run()`, que l'orchestrateur
+    accepte encore tel quel (cf. `ExportOrchestrator._plan`)."""
 
     def setUp(self):
         OrchestrateurEspion.appels = []
@@ -1868,22 +1884,34 @@ class TestMainViewModelLancerExportParJeu(unittest.TestCase):
         appel = self._lancer()
         self.assertEqual(len(appel['args']), 1)
         self.assertNotIn('flags', appel['kw'])
-        self.assertEqual(appel['args'][0], [(u'Jeu A', True, True, False),
-                                            (u'Jeu B', False, False, False)])
+        self.assertEqual(appel['args'][0],
+                         [(u'Jeu A', True, True, False, True),
+                          (u'Jeu B', False, False, False, True)])
 
     def test_flags_refletent_les_badges_cliques(self):
         self.vm.Collections[0].FlagCarnet = False
         self.vm.Collections[1].FlagExport = True
         self.vm.Collections[1].FlagDwg = True
         appel = self._lancer()
-        self.assertEqual(appel['args'][0], [(u'Jeu A', True, False, False),
-                                            (u'Jeu B', True, False, True)])
+        self.assertEqual(appel['args'][0],
+                         [(u'Jeu A', True, False, False, True),
+                          (u'Jeu B', True, False, True, True)])
+
+    def test_decocher_pdf_laisse_le_dwg_seul(self):
+        """Ce que le badge PDF rend possible, et qui ne l'était pas : un jeu
+        exporté UNIQUEMENT en DWG. Avant, `do_pdf` suivait `export`."""
+        jeu_a = self.vm.Collections[0]
+        jeu_a.FlagPdf = False
+        jeu_a.FlagDwg = True
+        appel = self._lancer()
+        self.assertEqual(appel['args'][0][0],
+                         (u'Jeu A', True, True, True, False))
 
     def test_flags_portent_des_booleens_pas_des_noms_de_parametres(self):
         appel = self._lancer()
-        for titre, export, carnet, dwg in appel['args'][0]:
+        for titre, export, carnet, dwg, pdf in appel['args'][0]:
             self.assertIsInstance(titre, type(u''))
-            for valeur in (export, carnet, dwg):
+            for valeur in (export, carnet, dwg, pdf):
                 self.assertIsInstance(valeur, bool)
 
     def test_destination_transmise_a_l_orchestrateur(self):

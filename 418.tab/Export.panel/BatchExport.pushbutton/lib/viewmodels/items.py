@@ -44,7 +44,12 @@ class SheetItemVM(BaseViewModel):
 class CollectionItemVM(BaseViewModel):
     """Item bindable pour une collection (jeu) au sein du mode « par jeu ».
 
-    Les trois flags (`FlagExport`/`FlagCarnet`/`FlagDwg`) sont SETTABLES pour
+    `FlagExport` dit si le jeu part à l'export ; `FlagPdf` et `FlagDwg` en
+    quel FORMAT ; `FlagCarnet` si le PDF est un seul fichier assemblé plutôt
+    qu'un fichier par feuille. Le PDF n'a pas toujours été un choix — il
+    suivait `FlagExport`, ce qui rendait l'export DWG seul impossible.
+
+    Les quatre flags (`FlagExport`/`FlagPdf`/`FlagCarnet`/`FlagDwg`) sont SETTABLES pour
     le mode « par jeu — choix manuel », où les badges deviennent cliquables et
     pilotent l'export DEPUIS LA MÉMOIRE (aucune écriture de paramètre Revit :
     en travail collaboratif, la SheetCollection appartient souvent à un autre
@@ -58,11 +63,12 @@ class CollectionItemVM(BaseViewModel):
     """
 
     def __init__(self, titre, cid, flag_export, flag_carnet, flag_dwg, sheets,
-                 carnet_apercu=u'', on_change=None):
+                 carnet_apercu=u'', on_change=None, flag_pdf=True):
         super(CollectionItemVM, self).__init__()
         self._titre = titre
         self._id = cid
         self._flag_export = bool(flag_export)
+        self._flag_pdf = bool(flag_pdf)
         self._flag_carnet = bool(flag_carnet)
         self._flag_dwg = bool(flag_dwg)
         self._sheets = sheets  # list[SheetItemVM]
@@ -93,6 +99,20 @@ class CollectionItemVM(BaseViewModel):
         # le compteur de jeux qualifiés ne suit pas le clic.
         self.notify_property(u'FlagExport')
         self.notify_property(u'Qualified')
+        if callable(self._on_change):
+            self._on_change(self)
+
+    @property
+    def FlagPdf(self):
+        return self._flag_pdf
+
+    @FlagPdf.setter
+    def FlagPdf(self, value):
+        value = bool(value)
+        if value == self._flag_pdf:
+            return
+        self._flag_pdf = value
+        self.notify_property(u'FlagPdf')
         if callable(self._on_change):
             self._on_change(self)
 

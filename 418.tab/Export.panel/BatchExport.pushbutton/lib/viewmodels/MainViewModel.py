@@ -130,10 +130,16 @@ _SURFACE_TITRES = {
     u'settings': u'Paramètres',
 }
 
-# Badges « Par jeu » (export / carnet / dwg) persistés par titre de jeu, en
-# JSON : {titre: [export, carnet, dwg]}. Une seule clé -- cf.
-# `_charger_choix`/`_enregistrer_choix`.
+# Badges « Par jeu » (export / pdf / carnet / dwg) persistés par titre de jeu,
+# en JSON : {titre: [export, pdf, carnet, dwg]}. Une seule clé -- cf.
+# `_charger_choix`/`_enregistrer_choix`. Les entrées à TROIS valeurs, écrites
+# avant le badge PDF, se relisent encore (cf. `_charger_choix`).
 _CFG_KEY_BADGES_JEUX = 'jeux_badges'
+
+# Badges d'un jeu que la config ne connaît pas. Le PDF part ALLUMÉ : avant
+# qu'il soit un badge, cocher EXPORT suffisait à produire du PDF, et un
+# défaut éteint ferait d'un jeu coché un export qui ne sort rien.
+_BADGES_DEFAUT = (False, True, False, False)
 
 # Ordre d'impression réorganisé à la main (modale « Ordre d'impression »),
 # en JSON. Par jeu : {titre: [numero, ...]}. En mode manuel : [numero, ...]
@@ -395,12 +401,18 @@ class MainViewModel(BaseViewModel):
                 u'Config "{}" non persistée : {}'.format(key, exc))
 
     def _charger_choix(self):
-        """Relit les badges « Par jeu » persistés -> `{titre: (e, c, d)}`.
+        """Relit les badges « Par jeu » persistés -> `{titre: (e, p, c, d)}`.
 
         `UserConfig.set` stringifie ce qu'on lui donne : la valeur est donc
         stockée en JSON explicite. Best-effort absolu -- clé absente, JSON
         corrompu, config absente ou entrée malformée (non itérable, longueur
-        != 3) sont ignorés silencieusement, jamais d'exception à l'ouverture.
+        hors 3/4) sont ignorés silencieusement, jamais d'exception à
+        l'ouverture.
+
+        MIGRATION. Les entrées écrites avant le badge PDF n'ont que trois
+        valeurs `(export, carnet, dwg)` : le PDF n'était pas un choix, il
+        suivait `export`. Elles se relisent donc avec `pdf=True`, et un jeu
+        déjà coché continue de sortir exactement ce qu'il sortait.
         """
         try:
             brut = self._cfg_get(_CFG_KEY_BADGES_JEUX, u'')
@@ -413,10 +425,17 @@ class MainViewModel(BaseViewModel):
         out = {}
         for titre, flags in charge.items():
             try:
-                export, carnet, dwg = flags
+                flags = list(flags)
             except Exception:
                 continue
-            out[titre] = (bool(export), bool(carnet), bool(dwg))
+            if len(flags) == 3:
+                export, carnet, dwg = flags
+                pdf = True
+            elif len(flags) == 4:
+                export, pdf, carnet, dwg = flags
+            else:
+                continue
+            out[titre] = (bool(export), bool(pdf), bool(carnet), bool(dwg))
         return out
 
     def _enregistrer_choix(self):
@@ -721,13 +740,14 @@ class MainViewModel(BaseViewModel):
             # titre de jeu, cf. `_badges_jeux`). `refresh_par_jeu()` est
             # ré-appelé en cours de session (retour de la modale de nommage) et
             # doit donc reporter ces choix. Jeu inconnu -> tout éteint.
-            flag_export, flag_carnet, flag_dwg = self._badges_jeux.get(
-                titre, (False, False, False))
+            flag_export, flag_pdf, flag_carnet, flag_dwg = self._badges_jeux.get(
+                titre, _BADGES_DEFAUT)
 
             collections_out.append(CollectionItemVM(
                 titre, coll_id, flag_export, flag_carnet, flag_dwg, sheets_out,
                 carnet_apercu=carnet_apercu,
                 on_change=self._on_collection_change,
+                flag_pdf=flag_pdf,
             ))
 
         # Tri (stable) : collections QUALIFIÉES (FlagExport=True) d'abord,
@@ -791,9 +811,10 @@ class MainViewModel(BaseViewModel):
         reviennent à la réouverture de l'outil."""
         try:
             self._badges_jeux[item.Titre] = (
-                item.FlagExport, item.FlagCarnet, item.FlagDwg)
-            self._log(u'CONFIG', u'Badge "{}" -> Export={} Carnet={} DWG={}'.format(
-                item.Titre, item.FlagExport, item.FlagCarnet, item.FlagDwg))
+                item.FlagExport, item.FlagPdf, item.FlagCarnet, item.FlagDwg)
+            self._log(u'CONFIG', u'Badge "{}" -> Export={} PDF={} Carnet={} DWG={}'.format(
+                item.Titre, item.FlagExport, item.FlagPdf, item.FlagCarnet,
+                item.FlagDwg))
         except Exception as exc:
             self._log(u'AVERT', u'Badge non mémorisé : {}'.format(exc))
         self._enregistrer_choix()
@@ -1683,8 +1704,11 @@ class MainViewModel(BaseViewModel):
         self.ProgressValue = 0
 
         # Badges cochés dans l'onglet « Par jeu » : (titre, export, carnet,
-        # dwg) par jeu. Seule source de qualification de l'export.
-        flags = [(c.Titre, c.FlagExport, c.FlagCarnet, c.FlagDwg)
+        # dwg, pdf) par jeu. Seule source de qualification de l'export.
+        # `pdf` est en CINQUIÈME position, pas à sa place logique : les quatre
+        # premières sont le contrat historique de `run()`, que des appelants
+        # et des tests construisent déjà.
+        flags = [(c.Titre, c.FlagExport, c.FlagCarnet, c.FlagDwg, c.FlagPdf)
                  for c in self._collections]
 
         # --- Log config complète avant lancement ---
@@ -1700,12 +1724,16 @@ class MainViewModel(BaseViewModel):
         # --- Plan prévisionnel : ce que le programme va faire ---
         try:
             self._log(u'PLAN', u'{} jeux analysés :'.format(len(flags)))
-            for titre, f_export, f_carnet, f_dwg in flags:
+            for titre, f_export, f_carnet, f_dwg, f_pdf in flags:
                 etat = u'EXPORT' if f_export else u'IGNORE'
                 self._log(u'PLAN',
                     u'  [{}] "{}" → PDF={} DWG={} par_feuille={}'.format(
-                        etat, titre, bool(f_export), bool(f_dwg),
+                        etat, titre, bool(f_pdf), bool(f_dwg),
                         not bool(f_carnet)))
+                if f_export and not f_pdf and not f_dwg:
+                    self._log(u'AVERT',
+                        u'    "{}" est coché EXPORT mais n\'a aucun format : '
+                        u'rien ne sortira pour ce jeu.'.format(titre))
             if not any(f[1] for f in flags):
                 self._log(u'AVERT', u'  → Aucun jeu coché dans l\'onglet Par jeu'
                           if flags else u'  → Aucun jeu dans le document')
