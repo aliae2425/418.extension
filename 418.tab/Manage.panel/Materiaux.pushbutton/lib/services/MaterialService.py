@@ -61,7 +61,7 @@ class LigneRapport(object):
     """Un compteur d'affectations : tant de types, tant d'instances.
 
     Sert deux fois. Dans un `Rapport`, `Categorie` porte le nom de la
-    catégorie balayée. Dans `compter_utilisations`, la ligne compte les
+    catégorie balayée. Dans `inventaire`, la ligne compte les
     porteurs d'UN matériau et l'étiquette ne sert à rien — d'où le défaut.
     """
 
@@ -166,6 +166,15 @@ def _categorie(element):
     return u'Sans catégorie'
 
 
+def _categorie_id(element):
+    """L'`ElementId` de catégorie d'un élément, None s'il n'en a pas."""
+    try:
+        categorie = element.Category
+        return None if categorie is None else categorie.Id
+    except Exception:
+        return None
+
+
 def _valeur_revit(valeur):
     """Triplet (r, v, b) -> `Color`. Tout le reste passe tel quel.
 
@@ -226,7 +235,10 @@ class MaterialService(object):
                 collecteur = collecteur.WhereElementIsElementType()
             else:
                 collecteur = collecteur.WhereElementIsNotElementType()
-            for element in collecteur.ToElements():
+            # Pas de `ToElements()` : il matérialise une liste .NET de TOUS
+            # les éléments du document avant que la boucle n'en voie un seul.
+            # Un collecteur s'énumère tel quel, et c'est tout ce qu'on en fait.
+            for element in collecteur:
                 yield element, est_type
 
     def _balayer(self, ids_sources, categorie_ids=None):
@@ -272,31 +284,42 @@ class MaterialService(object):
                 u'soit la portée exclut ses catégories.')
         return porteurs, peints
 
-    def compter_utilisations(self, ids):
-        """Combien de types et d'instances portent chacun de ces matériaux.
+    def inventaire(self, ids):
+        """Les deux lectures qui coûtent un parcours, en UN parcours.
 
-        Retourne `{id: LigneRapport}` — TOUS les ids demandés, y compris ceux
-        qui ne sortent nulle part (ligne à zéro, affichée « Non utilisé »).
-        Un seul parcours du modèle pour tous les matériaux à la fois, avec la
-        détection de `_ids_materiaux`, la même qu'Analyser.
+        Retourne `(usages, ids_categories)` :
 
-        Portée volontairement absente : ces chiffres s'affichent dans les
-        onglets Matériaux et Renommer, qui ne montrent aucune section de
-        portée. Les restreindre aux catégories cochées de l'onglet Remplacer
-        donnerait un compteur qui bouge sans qu'on voie pourquoi.
+          - `usages` : `{id: LigneRapport}` pour TOUS les ids demandés, y
+            compris ceux qui ne sortent nulle part (ligne à zéro, affichée
+            « Non utilisé »). Détection d'`_ids_materiaux`, la même
+            qu'Analyser — sinon un matériau porté par un `WallType`
+            s'afficherait « non utilisé » alors que le remplacement le
+            trouve ;
+          - `ids_categories` : les catégories réellement présentes, qui
+            alimentent la portée de l'onglet Remplacer. Le catalogue les
+            cherchait avec une requête PAR catégorie de Revit — deux cents,
+            dont la plupart vides, et prouver qu'une catégorie est vide coûte
+            un parcours entier. Ce parcours-ci répond en passant.
 
-        ponytail: parcours complet O(éléments) au chargement de l'outil — le
-        prix d'un clic « Analyser », payé une fois à l'ouverture. Les chiffres
-        sont ensuite figés : un remplacement ne les recalcule pas. Si
-        l'ouverture devient trop lente ou la fraîcheur nécessaire, le repli
-        est un bouton « Compter les usages » dans les deux onglets.
+        Portée volontairement absente des usages : ces chiffres s'affichent
+        dans les onglets Matériaux et Renommer, qui ne montrent aucune
+        section de portée. Les restreindre aux catégories cochées de l'onglet
+        Remplacer donnerait un compteur qui bouge sans qu'on voie pourquoi.
+
+        ponytail: parcours complet O(éléments), DEMANDÉ par la page une fois
+        qu'elle est peinte (ordre `inventaire`) et non plus payé avant
+        l'ouverture de la fenêtre. Les chiffres restent ensuite figés : un
+        remplacement ne les recalcule pas.
         """
-        lignes = dict((identifiant, LigneRapport()) for identifiant in (ids or []))
-        if not lignes:
-            return lignes
+        lignes = dict((identifiant, LigneRapport())
+                      for identifiant in (ids or []))
+        categories = set()
         vus = 0
         for element, est_type in self._elements():
             vus += 1
+            categorie = _categorie_id(element)
+            if categorie is not None:
+                categories.add(categorie)
             for id_materiau in _ids_materiaux(element):
                 ligne = lignes.get(id_materiau)
                 if ligne is None:
@@ -305,10 +328,11 @@ class MaterialService(object):
                     ligne.Types += 1
                 else:
                     ligne.Instances += 1
-        log(u'usages comptés sur {} élément(s) : {} matériau(x) utilisé(s) '
-            u'sur {}', vus,
-            sum(1 for ligne in lignes.values() if ligne.Total), len(lignes))
-        return lignes
+        log(u'inventaire sur {} élément(s) : {} matériau(x) utilisé(s) sur '
+            u'{}, {} catégorie(s) présentes', vus,
+            sum(1 for ligne in lignes.values() if ligne.Total), len(lignes),
+            len(categories))
+        return lignes, categories
 
     def analyser(self, ids_sources, categorie_ids=None):
         """Rapport de ce qui utilise ces matériaux. Ne modifie rien."""

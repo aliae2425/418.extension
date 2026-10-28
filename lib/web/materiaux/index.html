@@ -28,8 +28,8 @@
   <!-- Rail : même geste que RailWindow, mêmes dessins, même géométrie —
        46×46, coins 14, pastille d'accent à gauche sur l'onglet actif. Les
        tracés viennent un à un de `lib/ui/GUI/resources/Icons.xaml`
-       (IconMateriaux, IconRenommer, IconRemplacer), qui reste la source du
-       jeu — Lucide, et Lucide seul.
+       (IconMateriaux, IconRenommer, IconRemplacer, IconAudit), qui reste la
+       source du jeu — Lucide, et Lucide seul.
 
        Pas de libellé sous l'icône : l'infobulle suffit, comme partout
        ailleurs dans l'extension. `aria-label` porte le nom pour qui n'a que
@@ -47,6 +47,10 @@
             title="Remplacer dans la maquette"
             aria-label="Remplacer dans la maquette">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4 A1 1 0 0 1 15 3 M15 10 A1 1 0 0 1 14 9 M21 4 A1 1 0 0 0 20 3 M21 9 A1 1 0 0 1 20 10 M3 7 L6 10 L9 7 M6 10 V5 A2 2 0 0 1 8 3 H10 M4 14 H9 A1 1 0 0 1 10 15 V20 A1 1 0 0 1 9 21 H4 A1 1 0 0 1 3 20 V15 A1 1 0 0 1 4 14 Z"/></svg>
+    </button>
+    <button class="onglet" role="tab" data-page="audit"
+            title="Audit" aria-label="Audit">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16 V21 M16 14.639 V21 M20 10.656 V21 M22 3 L13.354 11.646 A0.5 0.5 0 0 1 12.646 11.646 L9.354 8.354 A0.5 0.5 0 0 0 8.647 8.354 L2 15 M4 18.463 V21 M8 14.656 V21"/></svg>
     </button>
   </nav>
 
@@ -132,7 +136,9 @@
 
       <div class="barre">
         <input type="search" id="recherche-renommer" placeholder="Rechercher un matériau…" autocomplete="off">
-        <select id="preset-renommer" title="Sélections préfabriquées">
+        <!-- Désactivé jusqu'au retour de l'inventaire : « utilisés » et
+             « non utilisés » ne veulent rien dire avant qu'on ait compté. -->
+        <select id="preset-renommer" title="Sélections préfabriquées" disabled>
           <option value="">Sélectionner…</option>
           <option value="tout">Tout</option>
           <option value="aucun">Aucun</option>
@@ -223,6 +229,45 @@
         <div id="rapport" class="rapport"></div>
         <p id="peints" class="alerte" hidden></p>
       </footer>
+    </section>
+
+    <!-- ╔══════════════════ Onglet 4 — audit ══════════════════════════╗ -->
+    <section class="page" data-page="audit">
+      <header class="entete"><h1>Audit</h1></header>
+
+      <!-- Les deux compteurs de droite se lisent dans les cartes déjà
+           reçues ; celui de gauche demande d'ouvrir l'asset d'apparence de
+           CHAQUE matériau, d'où le bouton. -->
+      <div class="bilans">
+        <div class="bilan">
+          <strong id="part-enscape">—</strong>
+          <span>textures compatibles Enscape</span>
+          <em id="detail-enscape">Audit non lancé.</em>
+        </div>
+        <div class="bilan">
+          <strong id="compte-inutilises">—</strong>
+          <span>matériaux non utilisés</span>
+          <em>Aucun type, aucune instance.</em>
+        </div>
+        <div class="bilan">
+          <strong id="compte-sans-apparence">—</strong>
+          <span>matériaux sans apparence</span>
+          <em>Rendus à plat, sans asset.</em>
+        </div>
+      </div>
+
+      <div class="barre">
+        <button id="lancer-audit" class="principal">Lancer l'audit</button>
+        <p id="etat-audit" class="etat"></p>
+      </div>
+
+      <div class="tableau">
+        <div class="entetes audit">
+          <span>Matériau</span><span>Texture</span>
+          <span>Ce qu'Enscape en fera</span>
+        </div>
+        <div class="lignes" id="lignes-audit"></div>
+      </div>
     </section>
 
   </main>

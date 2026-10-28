@@ -33,10 +33,13 @@ def _log_contexte(materiaux, catalogue):
         getattr(doc, 'IsModifiable', u'?'),
         getattr(doc, 'IsReadOnly', u'?'),
         getattr(doc, 'IsFamilyDocument', u'?'))
-    log(u'{} matériau(x), {} catégorie(s) présentes, {} motif(s), '
-        u'{} asset(s) d\'apparence', len(materiaux),
-        len(catalogue.categories), len(catalogue.motifs) - 1,
-        len(catalogue.apparences) - 1)
+    # Ni les motifs ni les catégories ici : les premiers se rendent au
+    # premier accès (`Catalogue.motifs`), les secondes au retour de
+    # l'inventaire. Les compter dans ce journal déclencherait justement le
+    # travail qu'on a sorti de l'ouverture — `_lire_motifs` dit déjà combien
+    # il en a lu.
+    log(u'{} matériau(x), {} asset(s) d\'apparence',
+        len(materiaux), len(catalogue.apparences) - 1)
 
 
 if __name__ == '__main__':
@@ -45,18 +48,14 @@ if __name__ == '__main__':
     par_id = dict((presentation.ident(m.Id), m) for m in materiaux)
 
     service = MaterialService(doc)
-    # Usages comptés AVANT l'affichage : les trois onglets montrent le chiffre
-    # d'entrée de jeu, sans clic. C'est un parcours complet de la maquette
-    # (cf. MaterialService.compter_utilisations) — l'ouverture de l'outil en
-    # paie le prix une fois.
-    usages = service.compter_utilisations([m.Id for m in materiaux])
 
-    # Les catalogues (motifs, apparences, catégories présentes) sont lus une
-    # fois pour toutes : ils alimentent l'éditeur ET la portée du
-    # remplacement, et c'est aussi là que les vignettes de motif sont rendues.
+    # RIEN qui parcoure le modèle avant l'affichage. Les usages et les
+    # catégories présentes demandaient chacun leur balayage — quelques
+    # secondes sur une grosse maquette, Revit figé et pas un pixel à
+    # l'écran. La page les réclame par l'ordre `inventaire` une fois peinte ;
+    # la colonne des usages se remplit sous les yeux.
     catalogue = presentation.Catalogue(doc)
-    cartes = [presentation.carte(doc, m, catalogue, usages.get(m.Id))
-              for m in materiaux]
+    cartes = [presentation.carte(doc, m, catalogue) for m in materiaux]
     _log_contexte(materiaux, catalogue)
 
     # Le thème n'est pas passé ici : chaque fenêtre le lit à son ouverture

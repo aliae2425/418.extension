@@ -208,14 +208,86 @@ class Catalogue(object):
 
     Garde aussi les `hatch.Couche` prototypes : l'aperçu de l'éditeur
     redessine un motif à une autre couleur sans retoucher au document.
+
+    Rien de ce qui se DESSINE n'est rendu à la construction : les vignettes
+    de motif attendent le premier accès à `motifs` (l'éditeur, qui s'ouvre
+    rarement) et les tuiles de matériau sont mémorisées à mesure. C'est
+    l'ouverture de l'outil qui est en jeu — elle se faisait précéder d'une
+    centaine de rendus dont personne ne se servait.
     """
 
     def __init__(self, doc):
+        self._doc = doc
         self._ids = {}
         self._prototypes = {}
-        self.motifs = self._lire_motifs(doc)
+        self._vignettes = {}
+        self._motifs_rendus = False
+        self._motifs = self._lire_motifs(doc)
         self.apparences = self._lire_apparences(doc)
-        self.categories = self._lire_categories(doc)
+        #: Posées par `poser_categories`, au retour du parcours d'inventaire.
+        self.categories = []
+
+    # -- ce que la page lit ------------------------------------------------
+
+    @property
+    def motifs(self):
+        """Les motifs du document, vignette comprise — rendues au PREMIER
+        accès, et une seule fois.
+
+        Seul l'éditeur les affiche, et la fenêtre principale ne les reçoit
+        même pas. Les dessiner à l'ouverture faisait payer à tout le monde
+        (un gabarit en porte une centaine, certaines très denses) ce dont
+        presque personne ne se sert dans la session.
+        """
+        if not self._motifs_rendus:
+            self._motifs_rendus = True
+            for entree in self._motifs:
+                prototype = self._prototypes.get(entree['id'])
+                if prototype is not None:
+                    entree['svg'] = hatch_svg.vignette(
+                        [prototype.pour(NOIR)], *APERCU_MOTIF)
+        return self._motifs
+
+    def tuile(self, cle, dessiner):
+        """La tuile mémorisée pour cette combinaison, dessinée au besoin.
+
+        Les matériaux d'un modèle se partagent une poignée de combinaisons
+        (motif, couleur) par face — « Aucun » à lui seul en couvre la moitié.
+        Sans ce cache, la même tuile est redessinée une fois par matériau.
+
+        La valeur rendue est PARTAGÉE : elle part telle quelle dans plusieurs
+        cartes, et personne ne la modifie.
+        """
+        if cle not in self._vignettes:
+            self._vignettes[cle] = dessiner()
+        return self._vignettes[cle]
+
+    def poser_categories(self, ids):
+        """Les catégories de MODÈLE vues par le parcours d'inventaire.
+
+        On liste ce qui est RÉELLEMENT dans la maquette plutôt que les ~200
+        catégories de Revit, sinon la liste est inutilisable. C'est le
+        parcours qui le dit maintenant : le faire ici demandait une requête
+        par catégorie, et prouver qu'une catégorie est vide coûte un
+        parcours complet.
+        """
+        vues = set(ident(i) for i in ids or [])
+        presentes = []
+        if self._doc is not None:
+            for categorie in self._doc.Settings.Categories:
+                try:
+                    if not _est_categorie_de_modele(categorie):
+                        continue
+                    identifiant = ident(categorie.Id)
+                    if identifiant not in vues:
+                        continue
+                    self._ids[identifiant] = categorie.Id
+                    presentes.append({'id': identifiant,
+                                      'nom': categorie.Name})
+                except Exception:
+                    continue      # catégorie illisible (annotation, interne)
+        self.categories = sorted(presentes, key=lambda c: c['nom'])
+        return self.categories
 
     # -- vers Revit --------------------------------------------------------
 
@@ -255,10 +327,8 @@ class Catalogue(object):
     def _lire_motifs(self, doc):
         """Tous les `FillPatternElement`, « Aucun » en tête, triés par nom.
 
-        ponytail: la géométrie de CHAQUE motif est lue à l'ouverture de
-        l'outil, et sa vignette rendue dans la foulée. Un document en compte
-        quelques dizaines ; si un gabarit en trimballe des centaines, c'est
-        ici qu'on passe en rendu paresseux (ordre `apercu_motif`).
+        La géométrie est lue ici — elle sert aux tuiles de matériau — mais
+        PAS la vignette du menu, qui attend le premier accès à `motifs`.
         """
         self._prototypes[AUCUN] = None
         entrees = [{'id': AUCUN, 'nom': u'Aucun', 'type': u'',
@@ -280,8 +350,7 @@ class Catalogue(object):
                 'nom': prototype.nom,
                 'modele': prototype.est_modele,
                 'type': u'modèle' if prototype.est_modele else u'dessin',
-                'svg': hatch_svg.vignette([prototype.pour(NOIR)],
-                                          *APERCU_MOTIF),
+                'svg': u'',           # rendue par la propriété `motifs`
             })
         # Les motifs de dessin d'abord : ce sont les seuls que trois des
         # quatre emplacements acceptent.
@@ -291,37 +360,6 @@ class Catalogue(object):
         log(u'motifs du document : {} de dessin, {} de modèle',
             len(trouves) - modeles, modeles)
         return entrees
-
-    def _lire_categories(self, doc):
-        """Catégories de MODÈLE qui contiennent au moins un élément.
-
-        Alimente la portée de l'onglet Remplacer. On liste ce qui est
-        RÉELLEMENT dans la maquette plutôt que les ~200 catégories de Revit,
-        sinon la liste est inutilisable.
-
-        ponytail: une requête par catégorie, mais `FirstElementId()` s'arrête
-        au premier élément trouvé — bien moins cher qu'un balayage complet
-        avec regroupement. Si l'ouverture de l'outil devient lente sur une
-        grosse maquette, c'est le premier endroit à regarder.
-        """
-        if doc is None or FilteredElementCollector is None \
-                or ElementId is None:
-            return []
-        presentes = []
-        for categorie in doc.Settings.Categories:
-            try:
-                if not _est_categorie_de_modele(categorie):
-                    continue
-                collecteur = FilteredElementCollector(doc) \
-                    .OfCategoryId(categorie.Id)
-                if collecteur.FirstElementId() == ElementId.InvalidElementId:
-                    continue
-                identifiant = ident(categorie.Id)
-                self._ids[identifiant] = categorie.Id
-                presentes.append({'id': identifiant, 'nom': categorie.Name})
-            except Exception:
-                continue      # catégorie non filtrable (annotation, interne)
-        return sorted(presentes, key=lambda c: c['nom'])
 
     def _lire_apparences(self, doc):
         """Tous les `AppearanceAssetElement`, « Aucune » en tête."""
@@ -423,24 +461,34 @@ def _couche_depuis_element(element):
 # ---------------------------------------------------------------------------
 
 
-def _couches_de_face(materiau, face, couleur, catalogue):
-    """Les deux couches d'une face, arrière-plan d'abord.
+def _cles_de_face(materiau, face, couleur):
+    """Tout ce dont le dessin d'une face dépend : motif et couleur de chaque
+    couche, arrière-plan d'abord.
 
-    Chaque couche a son propre motif ET sa propre couleur. Les graphies sans
-    Foreground/Background sont celles d'avant 2019, gardées en repli.
+    Sorti de `_couches_de_face` pour servir de CLÉ de cache : deux matériaux
+    qui s'accordent sur ces quatre valeurs donnent la même tuile au pixel.
+    Les graphies sans Foreground/Background sont celles d'avant 2019,
+    gardées en repli.
     """
-    fond = catalogue.couche(
+    return (
         ident(premier(materiau, attribut(face, u'Background', u'Id'))),
         hex_de_rgb(rgb(premier(materiau, attribut(face, u'Background',
                                                   u'Color')),
-                       defaut=couleur)))
-    avant = catalogue.couche(
+                       defaut=couleur)),
         ident(premier(materiau, attribut(face, u'Foreground', u'Id'),
                       face + u'PatternId')),
         hex_de_rgb(rgb(premier(materiau, attribut(face, u'Foreground',
                                                   u'Color'),
-                               face + u'PatternColor'), defaut=couleur)))
-    return [fond, avant]
+                               face + u'PatternColor'), defaut=couleur)),
+    )
+
+
+def _couches_de_face(cles, catalogue):
+    """Les deux couches d'une face, arrière-plan d'abord. Chaque couche a son
+    propre motif ET sa propre couleur."""
+    id_fond, couleur_fond, id_avant, couleur_avant = cles
+    return [catalogue.couche(id_fond, couleur_fond),
+            catalogue.couche(id_avant, couleur_avant)]
 
 
 def _nom_de_motif(couches):
@@ -451,11 +499,16 @@ def _nom_de_motif(couches):
 
 
 def _face(materiau, face, couleur, catalogue):
-    couches = _couches_de_face(materiau, face, couleur, catalogue)
-    largeur, hauteur = TUILE_MATERIAU
-    return {'nom': _nom_de_motif(couches),
-            'svg': hatch_svg.vignette(couches, largeur, hauteur,
-                                      zoom=ZOOM_MATERIAU)}
+    cles = _cles_de_face(materiau, face, couleur)
+
+    def dessiner():
+        couches = _couches_de_face(cles, catalogue)
+        largeur, hauteur = TUILE_MATERIAU
+        return {'nom': _nom_de_motif(couches),
+                'svg': hatch_svg.vignette(couches, largeur, hauteur,
+                                          zoom=ZOOM_MATERIAU)}
+
+    return catalogue.tuile(cles, dessiner)
 
 
 def _apparence(doc, materiau):
@@ -634,14 +687,9 @@ RACINES_TEXTURES = (
 )
 
 
-def _proprietes(asset, profondeur=2):
-    """Les propriétés d'un asset, et celles de ses assets connectés.
-
-    Deux niveaux suffisent : le chemin d'une texture vit dans l'asset
-    `UnifiedBitmap` accroché à la propriété de couleur, soit juste en
-    dessous.
-    """
-    if asset is None or profondeur <= 0:
+def _proprietes_directes(asset):
+    """Les propriétés d'UN asset, sans descendre dans ce qui lui est accroché."""
+    if asset is None:
         return
     try:
         taille = asset.Size
@@ -658,14 +706,30 @@ def _proprietes(asset, profondeur=2):
                 break
             except Exception:
                 continue
-        if propriete is None:
-            continue
+        if propriete is not None:
+            yield propriete
+
+
+def _connecte(propriete):
+    """L'asset accroché à une propriété, None s'il n'y en a pas."""
+    try:
+        return propriete.GetSingleConnectedAsset()
+    except Exception:
+        return None
+
+
+def _proprietes(asset, profondeur=2):
+    """Les propriétés d'un asset, et celles de ses assets connectés.
+
+    Deux niveaux suffisent : le chemin d'une texture vit dans l'asset
+    `UnifiedBitmap` accroché à la propriété de couleur, soit juste en
+    dessous.
+    """
+    if profondeur <= 0:
+        return
+    for propriete in _proprietes_directes(asset):
         yield propriete
-        try:
-            connecte = propriete.GetSingleConnectedAsset()
-        except Exception:
-            connecte = None
-        for autre in _proprietes(connecte, profondeur - 1):
+        for autre in _proprietes(_connecte(propriete), profondeur - 1):
             yield autre
 
 
@@ -812,6 +876,135 @@ def rendu_asset(element):
     infos['voile'] = entier(max(0.0, min(1.0, lu['voile'])) * 100)
     infos['texture'] = _texture_encodee(_chemin_texture(lu['texture']))
     return infos
+
+
+# ---------------------------------------------------------------------------
+# L'audit : ce qu'Enscape saura rendre, et ce qu'il laissera tomber
+# ---------------------------------------------------------------------------
+#
+# Enscape n'embarque pas le moteur de textures d'Autodesk. Il lit l'asset
+# d'apparence de Revit et ne sait en rendre que les textures BITMAP : tout ce
+# qui est PROCÉDURAL (damier, bruit, bois, marbre, carrelage…) est calculé par
+# Revit à la volée, et Enscape le remplace par la couleur diffuse. Un bitmap
+# dont le fichier est introuvable tombe exactement pareil, pour une autre
+# raison — d'où les deux motifs de refus ci-dessous, et un seul compteur.
+
+#: Fragment du nom de schéma -> nom français, pour les textures procédurales
+#: de Revit. Reconnues par FRAGMENT : les schémas s'appellent « WoodSchema »,
+#: « 3D Checker », selon la version et la bibliothèque.
+PROCEDURALES = (
+    (u'checker', u'Damier'),
+    (u'gradient', u'Dégradé'),
+    (u'marble', u'Marbre'),
+    (u'noise', u'Bruit'),
+    (u'speckle', u'Moucheté'),
+    (u'tile', u'Carrelage'),
+    (u'wave', u'Vagues'),
+    (u'wood', u'Bois'),
+)
+
+
+def _nom_asset(asset):
+    for nom in ('Name', 'Title'):
+        try:
+            valeur = getattr(asset, nom)
+        except Exception:
+            continue
+        if valeur:
+            return valeur
+    return u''
+
+
+def _classer_texture(asset):
+    """Un asset connecté -> ce qu'il est. None quand ce n'est pas une texture.
+
+    Un bitmap se reconnaît à SA PROPRIÉTÉ de chemin, pas à son nom de schéma :
+    la propriété `unifiedbitmap_bitmap` est la même partout, le nom non.
+    """
+    nom = _nom_asset(asset)
+    for propriete in _proprietes_directes(asset):
+        try:
+            if (propriete.Name or u'').lower() == NOM_BITMAP:
+                return {'schema': nom or u'Bitmap', 'bitmap': True,
+                        'libelle': u'Fichier image',
+                        'chemin': getattr(propriete, 'Value', u'') or u''}
+        except Exception:
+            continue
+    minuscule = nom.lower()
+    for fragment, libelle in PROCEDURALES:
+        if fragment in minuscule:
+            return {'schema': nom, 'bitmap': False, 'libelle': libelle,
+                    'chemin': u''}
+    # Ni l'un ni l'autre : un asset de structure (teinte, masque, relief). Il
+    # ne compte pas, mais l'appelant continue de descendre dedans — c'est
+    # souvent là que le bitmap est rangé.
+    return None
+
+
+def textures_asset(asset, profondeur=3):
+    """Les textures d'un asset de rendu, une entrée par emplacement rempli."""
+    if asset is None or profondeur <= 0:
+        return
+    for propriete in _proprietes_directes(asset):
+        connecte = _connecte(propriete)
+        if connecte is None:
+            continue
+        texture = _classer_texture(connecte)
+        if texture is not None:
+            yield texture
+        for autre in textures_asset(connecte, profondeur - 1):
+            yield autre
+
+
+def _refus_enscape(texture):
+    """Pourquoi Enscape ne rendra pas cette texture. Vide = il la rendra."""
+    if not texture['bitmap']:
+        return (u'Texture procédurale : Enscape ne rend que des fichiers '
+                u'image.')
+    if not _chemin_texture(texture['chemin']):
+        return u'Fichier introuvable : %s' % (texture['chemin']
+                                              or u'aucun chemin')
+    return u''
+
+
+def audit_enscape(entrees):
+    """Le bilan « textures lisibles par Enscape » sur une liste de matériaux.
+
+    `entrees` : des couples (nom de matériau, asset de rendu) — du Python nu,
+    pour que la règle s'éprouve avec de faux assets. Le pourcentage est
+    TRONQUÉ : 100 % doit vouloir dire « toutes », pas « 999 sur 1000 ».
+    """
+    total = 0
+    compatibles = 0
+    soucis = []
+    for nom, asset in entrees:
+        for texture in textures_asset(asset):
+            total += 1
+            raison = _refus_enscape(texture)
+            if not raison:
+                compatibles += 1
+                continue
+            soucis.append({'materiau': nom,
+                           'texture': texture['libelle'] or texture['schema'],
+                           'raison': raison})
+    return {
+        'total': total,
+        'compatibles': compatibles,
+        'pourcentage': 100 if not total else int(100.0 * compatibles / total),
+        'soucis': soucis,
+    }
+
+
+def asset_rendu(doc, materiau):
+    """L'asset de rendu d'un matériau, None s'il n'en a pas."""
+    if doc is None:
+        return None
+    try:
+        element = doc.GetElement(materiau.AppearanceAssetId)
+        return element.GetRenderingAsset() if element is not None else None
+    except Exception as erreur:
+        log(u'asset de « {} » illisible : {}', materiau.Name, erreur)
+        return None
 
 
 #: Les trois jeux de propriétés qu'un matériau porte en plus de son aspect.

@@ -56,6 +56,8 @@ class Ordres(object):
         ordre = (message or {}).get('ordre')
         if ordre == 'pret':
             return self.etat()
+        if ordre == 'inventaire':
+            return self.inventaire(message)
         if ordre == 'apercu_renommage':
             return self.apercu_renommage(message)
         if ordre == 'renommer':
@@ -64,6 +66,8 @@ class Ordres(object):
             return self.analyser(message)
         if ordre == 'remplacer':
             return self.remplacer(message)
+        if ordre == 'audit':
+            return self.audit(message)
         if ordre == 'editeur':
             return self.editeur(message)
         if ordre == 'selecteur':
@@ -89,6 +93,10 @@ class Ordres(object):
         page. Les y mettre ferait voyager cinquante vignettes de motif que la
         fenêtre principale n'affiche jamais.
 
+        Les usages et les catégories n'y sont pas non plus : ils demandent un
+        parcours du modèle, et c'est la seule chose ici qui se compte en
+        secondes. La page les demande par `inventaire` une fois peinte.
+
         ponytail: deux SVG par matériau partent dans UN message — compter
         quelques mégaoctets sur un modèle à plusieurs centaines de matériaux
         très hachurés. C'est un `PostWebMessageAsJson` unique, donc quelques
@@ -111,6 +119,35 @@ class Ordres(object):
             return not self._doc.IsReadOnly
         except Exception:
             return True
+
+    # -- inventaire --------------------------------------------------------
+
+    def inventaire(self, message=None):
+        """Les usages et les catégories présentes, en UN parcours du modèle.
+
+        Demandé par la page APRÈS son premier rendu : c'est le seul morceau
+        de l'ouverture qui se compte en secondes, et la fenêtre n'a aucune
+        raison de l'attendre pour s'afficher. Les cartes partent donc sans
+        chiffre d'usage, et il arrive ici.
+
+        Les cartes gardées par l'outil sont mises à jour au passage : c'est
+        d'elles que l'éditeur reprend les usages, et elles doivent dire la
+        même chose que la page.
+        """
+        if self._service is None:
+            return {'usages': {}, 'categories': []}
+        usages, ids_categories = self._service.inventaire(
+            [materiau.Id for materiau in self._materiaux.values()])
+        sortie = {}
+        for carte in self._cartes:
+            materiau = self._materiaux.get(carte['id'])
+            if materiau is None:
+                continue
+            carte['usages'] = presentation.usages_json(usages.get(materiau.Id))
+            sortie[u'%d' % carte['id']] = carte['usages']
+        categories = (self._catalogue.poser_categories(ids_categories)
+                      if self._catalogue is not None else [])
+        return {'usages': sortie, 'categories': categories}
 
     # -- renommage ---------------------------------------------------------
 
@@ -219,6 +256,23 @@ class Ordres(object):
         etat = u'Aucun élément modifié.' if rapport.EstVide \
             else u'%d élément(s) modifié(s).' % rapport.Total
         return _rapport_json(rapport, etat, applique=True)
+
+    # -- audit -------------------------------------------------------------
+
+    def audit(self, message=None):
+        """Le bilan de l'onglet Audit, dans l'ordre d'affichage des cartes.
+
+        Derrière un bouton, et non dans `etat()` : il faut ouvrir l'asset
+        d'apparence de CHAQUE matériau et retrouver ses fichiers de texture
+        sur le disque. C'est exactement ce que les cartes évitent de faire à
+        l'ouverture — un modèle en porte plusieurs centaines, souvent posés
+        sur un serveur.
+        """
+        entrees = [(carte['nom'],
+                    presentation.asset_rendu(self._doc,
+                                             self._materiaux[carte['id']]))
+                   for carte in self._cartes if carte['id'] in self._materiaux]
+        return {'enscape': presentation.audit_enscape(entrees)}
 
     # -- éditeur -----------------------------------------------------------
 

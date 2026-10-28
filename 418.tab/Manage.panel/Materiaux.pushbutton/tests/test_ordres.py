@@ -78,6 +78,12 @@ class FakeService(object):
         self.appels.append(('analyser', list(sources), categories))
         return self._rapport
 
+    def inventaire(self, ids):
+        self.appels.append(('inventaire', list(ids)))
+        return (dict((identifiant, FakeLigne(u'', types=1))
+                     for identifiant in ids),
+                set([10, 11]))
+
     def remplacer(self, sources, cible, categories=None):
         self.appels.append(('remplacer', list(sources), cible, categories))
         return self._rapport
@@ -108,6 +114,13 @@ class FakeCatalogue(object):
 
     def couche(self, identifiant, couleur_hex):
         return None                    # aucune hachure : la carte se rend quand même
+
+    def tuile(self, cle, dessiner):
+        return dessiner()              # pas de cache : chaque appel redessine
+
+    def poser_categories(self, ids):
+        self.categories_posees = set(ids)
+        return self.categories
 
 
 class FakeDocument(object):
@@ -412,8 +425,12 @@ class FakePropriete(object):
 
 
 class FakeAsset(object):
-    def __init__(self, proprietes):
+    """`nom` est le nom de SCHÉMA (« CheckerSchema »), celui sur lequel
+    l'audit distingue un bitmap d'une texture procédurale."""
+
+    def __init__(self, proprietes, nom=u''):
         self._proprietes = list(proprietes)
+        self.Name = nom
 
     @property
     def Size(self):
@@ -421,6 +438,40 @@ class FakeAsset(object):
 
     def __getitem__(self, index):
         return self._proprietes[index]
+
+
+def _bitmap(chemin):
+    """L'asset `UnifiedBitmap` qui porte un chemin de fichier."""
+    return FakeAsset([FakePropriete(u'unifiedbitmap_Bitmap', valeur=chemin)],
+                     u'UnifiedBitmapSchema')
+
+
+def _asset_texture(*connectes):
+    """Un asset de rendu avec une texture accrochée par emplacement."""
+    return FakeAsset([FakePropriete(u'generic_diffuse', connecte=connecte)
+                      for connecte in connectes])
+
+
+class TestCacheDesTuiles(unittest.TestCase):
+    """Les matériaux d'un modèle se partagent une poignée de combinaisons
+    (motif, couleur) : « Aucun » à lui seul en couvre la moitié. Sans ce
+    cache, la même tuile est redessinée une fois par matériau."""
+
+    def test_une_combinaison_n_est_dessinee_qu_une_fois(self):
+        catalogue = presentation.Catalogue(None)
+        appels = []
+
+        def dessiner():
+            appels.append(1)
+            return {'nom': u'Uni', 'svg': u'<svg/>'}
+
+        cle = (1001, u'#000000', -1, u'#FFFFFF')
+        for _ in range(3):
+            self.assertEqual(catalogue.tuile(cle, dessiner)['nom'], u'Uni')
+        self.assertEqual(len(appels), 1)
+        # Une autre combinaison est bien redessinée.
+        catalogue.tuile((1002, u'#000000', -1, u'#FFFFFF'), dessiner)
+        self.assertEqual(len(appels), 2)
 
 
 class TestRendu(unittest.TestCase):
@@ -472,12 +523,65 @@ class TestEtat(unittest.TestCase):
         ordres, _ = _ordres(doc=FakeDocument(lecture_seule=True))
         self.assertFalse(ordres.traiter({'ordre': 'pret'})['modifiable'])
 
-    def test_l_etat_porte_les_cartes_et_les_categories(self):
-        ordres, _ = _ordres()
+    def test_l_etat_porte_les_cartes_sans_parcourir_le_modele(self):
+        # L'ouverture n'attend AUCUN balayage : les catégories arrivent avec
+        # l'inventaire, que la page demande une fois peinte.
+        ordres, service = _ordres()
         etat = ordres.traiter({'ordre': 'pret'})
         self.assertEqual(len(etat['cartes']), 3)
-        self.assertEqual([c['nom'] for c in etat['categories']],
+        self.assertEqual([a[0] for a in service.appels], [])
+
+    def test_l_inventaire_porte_les_usages_et_les_categories(self):
+        ordres, service = _ordres()
+        sortie = ordres.traiter({'ordre': 'inventaire'})
+        self.assertEqual(sortie['usages'][u'1']['types'], 1)
+        self.assertEqual([c['nom'] for c in sortie['categories']],
                          [u'Murs', u'Sols'])
+        self.assertEqual([a[0] for a in service.appels], ['inventaire'])
+
+    def test_l_inventaire_met_a_jour_les_cartes_gardees(self):
+        # C'est d'elles que l'éditeur reprend les usages : elles doivent dire
+        # la même chose que la page.
+        ordres, _ = _ordres()
+        ordres.traiter({'ordre': 'inventaire'})
+        cartes = ordres.traiter({'ordre': 'pret'})['cartes']
+        self.assertEqual(cartes[0]['usages']['total'], 1)
+
+    def test_le_bilan_enscape_compte_les_textures_pas_les_materiaux(self):
+        # Trois textures sur deux matériaux : un bitmap existant (ce fichier
+        # de test, qui a le mérite d'exister), un bitmap fantôme, un damier.
+        # Enscape n'en rendra qu'une — 33 %, et deux lignes de rapport.
+        entrees = [
+            (u'Bois', _asset_texture(_bitmap(os.path.abspath(__file__)))),
+            (u'Carrelage', _asset_texture(
+                _bitmap(u'D:/parti/avec/le/vent.jpg'),
+                FakeAsset([FakePropriete(u'checker_color1', valeur=0.0)],
+                          u'CheckerSchema'))),
+        ]
+        bilan = presentation.audit_enscape(entrees)
+        self.assertEqual((bilan['total'], bilan['compatibles']), (3, 1))
+        self.assertEqual(bilan['pourcentage'], 33)
+        self.assertEqual([s['materiau'] for s in bilan['soucis']],
+                         [u'Carrelage', u'Carrelage'])
+        self.assertIn(u'introuvable', bilan['soucis'][0]['raison'])
+        self.assertEqual(bilan['soucis'][1]['texture'], u'Damier')
+
+    def test_un_materiau_sans_texture_ne_compte_pour_personne(self):
+        # Ni compatible ni en souci : il n'a pas de texture. Un modèle qui
+        # n'en a aucune affiche 100 %, pas 0 — et la page dit « aucune ».
+        bilan = presentation.audit_enscape([
+            (u'Peinture', FakeAsset([FakePropriete(u'generic_diffuse',
+                                                   couleur=(1, 2, 3))])),
+            (u'Vide', None)])
+        self.assertEqual((bilan['total'], bilan['pourcentage']), (0, 100))
+        self.assertEqual(bilan['soucis'], [])
+
+    def test_l_audit_passe_par_l_ordre_et_suit_l_ordre_des_cartes(self):
+        ordres, _ = _ordres()
+        bilan = ordres.traiter({'ordre': 'audit'})['enscape']
+        # Hors Revit, aucun asset n'est lisible : le bilan sort vide plutôt
+        # que de lever, et la page affiche « aucune texture ».
+        self.assertEqual(bilan['total'], 0)
 
     def test_un_ordre_inconnu_leve(self):
         # L'hôte transforme l'exception en réponse d'erreur : la page ne

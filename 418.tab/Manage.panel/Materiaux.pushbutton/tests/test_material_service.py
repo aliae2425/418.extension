@@ -21,6 +21,11 @@ from lib.services.MaterialService import MaterialService
 # Doublures : le service ne voit de Revit que ce qu'il appelle réellement.
 # ----------------------------------------------------------------------
 
+#: La catégorie que portent les deux doublures. `Id` autant que `Name` :
+#: l'inventaire relève les catégories présentes pendant qu'il compte.
+_CATEGORIE_MURS = type('C', (), {'Name': u'Murs', 'Id': u'cat:murs'})()
+
+
 class FauxHostObjAttributes(object):
     """Tient la place de `Autodesk.Revit.DB.HostObjAttributes` : la classe
     des TYPES porteurs d'une structure composée (WallType, FloorType…)."""
@@ -51,7 +56,7 @@ class FauxType(FauxHostObjAttributes):
     def __init__(self, nom, ids_couches):
         self.Name = nom
         self.Id = nom
-        self.Category = type('C', (), {'Name': u'Murs'})()
+        self.Category = _CATEGORIE_MURS
         self.Parameters = []
         self._structure = FausseStructure(ids_couches)
         self.structure_reaffectee = False
@@ -77,7 +82,7 @@ class FausseInstance(object):
     def __init__(self, nom, ids_materiaux):
         self.Name = nom
         self.Id = nom
-        self.Category = type('C', (), {'Name': u'Murs'})()
+        self.Category = _CATEGORIE_MURS
         self.Parameters = []
         self._ids = list(ids_materiaux)
 
@@ -104,8 +109,10 @@ class FauxCollecteur(object):
     def WherePasses(self, filtre):
         return self
 
-    def ToElements(self):
-        return list(self._elements)
+    def __iter__(self):
+        # Le service énumère le collecteur tel quel : `ToElements()`
+        # matérialiserait tout le document avant la première ligne de boucle.
+        return iter(self._elements)
 
 
 class FauxDoc(object):
@@ -203,13 +210,17 @@ class TestComptageDesUsages(BaseService):
     couches de structure composée comprises, sinon un matériau utilisé par un
     WallType s'affiche « Non utilisé » alors que le remplacement le trouve."""
 
+    @staticmethod
+    def _usages(service, ids):
+        return service.inventaire(ids)[0]
+
     def test_types_et_instances_comptes_separement(self):
         service = MaterialService(FauxDoc(
             types=[FauxType(u'Ext. Brique 22', [u'877', u'873']),
                    FauxType(u'Int. Brique', [u'877'])],
             instances=[FausseInstance(u'Mur 1', [u'877']),
                        FausseInstance(u'Mur 2', [u'877'])]))
-        lignes = service.compter_utilisations([u'877', u'873'])
+        lignes = self._usages(service, [u'877', u'873'])
         self.assertEqual((lignes[u'877'].Types, lignes[u'877'].Instances),
                          (2, 2))
         self.assertEqual(lignes[u'877'].Total, 4)
@@ -220,7 +231,7 @@ class TestComptageDesUsages(BaseService):
 
     def test_materiau_inutilise_a_sa_ligne_a_zero(self):
         service = MaterialService(FauxDoc(types=[FauxType(u'M', [u'877'])]))
-        lignes = service.compter_utilisations([u'877', u'999'])
+        lignes = self._usages(service, [u'877', u'999'])
         self.assertEqual(lignes[u'999'].Total, 0)
         self.assertEqual(lignes[u'999'].Detail, u'')
 
@@ -229,12 +240,24 @@ class TestComptageDesUsages(BaseService):
         matériau reste UN porteur, pas trois."""
         service = MaterialService(
             FauxDoc(types=[FauxType(u'Triple', [u'877', u'877', u'877'])]))
-        self.assertEqual(
-            service.compter_utilisations([u'877'])[u'877'].Total, 1)
+        self.assertEqual(self._usages(service, [u'877'])[u'877'].Total, 1)
 
-    def test_sans_id_aucun_parcours(self):
+    def test_sans_id_aucun_usage_mais_le_parcours_a_lieu(self):
+        # Le parcours sert AUSSI à relever les catégories présentes : il a
+        # lieu même sans un seul matériau à compter.
         service = MaterialService(FauxDoc(types=[FauxType(u'M', [u'877'])]))
-        self.assertEqual(service.compter_utilisations([]), {})
+        usages, categories = service.inventaire([])
+        self.assertEqual(usages, {})
+        self.assertEqual(categories, set([u'cat:murs']))
+
+    def test_les_categories_presentes_sortent_du_meme_parcours(self):
+        """Elles coûtaient une requête par catégorie de Revit, dont deux
+        cents vides — et prouver qu'une catégorie est vide coûte un parcours
+        entier. Ce parcours-ci répond en passant."""
+        service = MaterialService(FauxDoc(
+            types=[FauxType(u'Ext. Brique 22', [u'877'])],
+            instances=[FausseInstance(u'Mur 1', [u'877'])]))
+        self.assertEqual(service.inventaire([u'877'])[1], set([u'cat:murs']))
 
 
 if __name__ == '__main__':
