@@ -23,6 +23,7 @@ from __future__ import unicode_literals, division
 __title__ = "Importer\nSVG"
 __doc__ = "Importe un fichier SVG dans la vue active via un DXF temporaire."
 __author__ = 'Aliae'
+__version__ = '1.1.7'
 __min_revit_ver__ = 2026
 
 import os

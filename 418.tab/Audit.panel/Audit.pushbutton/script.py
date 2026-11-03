@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 __title__ = "Audit"
 __doc__ = "Analyse et rapport sur la santé du modèle Revit."
 __author__ = 'Aliae'
+__version__ = '0.5.1'
 __min_revit_ver__ = 2026
 
 try:

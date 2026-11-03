@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 __title__ = "Renommer\nfeuilles"
 __doc__ = "Renomme les feuilles sélectionnées (numéro et nom) avec préfixe/suffixe/rechercher-remplacer."
 __author__ = 'Aliae'
+__version__ = '1.7.1'
 __min_revit_ver__ = 2026
 
 try:

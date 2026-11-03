@@ -6,6 +6,7 @@ __doc__ = ("SCAFFOLD — ossature d'une future gestion des vues (gabarits, "
            "organisation). La fenêtre s'ouvre, mais aucune logique métier "
            "n'est encore branchée.")
 __author__ = 'Aliae'
+__version__ = '0.2.1'
 __min_revit_ver__ = 2026
 __beta__ = True
 

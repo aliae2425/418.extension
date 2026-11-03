@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 __title__ = "À propos"
 __doc__ = "Informations sur l'extension 418 (version, dépôt, licence)."
 __author__ = 'Aliae'
+__version__ = '2.11.0'
 __min_revit_ver__ = 2026
 __beta__ = False
 
