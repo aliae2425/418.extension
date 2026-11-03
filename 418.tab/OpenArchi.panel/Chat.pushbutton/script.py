@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 __title__ = "Chat"
 __doc__ = "Ouvre le panneau OpenArchi ancré dans l'interface Revit."
 __author__ = 'Aliae'
+__version__ = '0.1.10'
 __min_revit_ver__ = 2026
 
 from pyrevit import forms

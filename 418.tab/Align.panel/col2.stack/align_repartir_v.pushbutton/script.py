@@ -6,6 +6,7 @@ __doc__ = ("Répartit verticalement les éléments sélectionnés : centres "
            "également espacés entre les deux extrêmes, qui ne bougent pas. "
            "Les éléments épinglés sont des points fixes supplémentaires.")
 __author__ = 'Aliae'
+__version__ = '1.1.3'
 __min_revit_ver__ = 2026
 
 from core.align import executer

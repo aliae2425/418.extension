@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 __title__ = "Matériaux"
 __doc__ = "Voir, éditer, remplacer et renommer les matériaux du modèle."
 __author__ = 'Aliae'
+__version__ = '1.2.18'
 __min_revit_ver__ = 2026
 
 try:

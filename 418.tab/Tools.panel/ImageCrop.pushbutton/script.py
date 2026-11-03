@@ -13,6 +13,7 @@ from __future__ import unicode_literals, division
 #pylint: disable=E0401,W0621,W0631,C0413,C0111,C0103
 __doc__ = 'Recadre une image selon une ou plusieurs zones de pochage.'
 __author__ = 'Aliae'
+__version__ = '1.5.2'
 
 import sys
 import os

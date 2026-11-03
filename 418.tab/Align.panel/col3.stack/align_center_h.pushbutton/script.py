@@ -7,6 +7,7 @@ __doc__ = ("Centre horizontalement les éléments sélectionnés sur le milieu "
            "active. Les éléments épinglés servent de référence : ils ne "
            "bougent pas.")
 __author__ = 'Aliae'
+__version__ = '1.1.3'
 __min_revit_ver__ = 2026
 
 from core.align import executer

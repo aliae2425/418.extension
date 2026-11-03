@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 __title__ = "Renommer\nvues"
 __doc__ = "Renomme les vues sélectionnées avec préfixe/suffixe/rechercher-remplacer."
 __author__ = 'Aliae'
+__version__ = '1.7.1'
 __min_revit_ver__ = 2026
 
 try:
