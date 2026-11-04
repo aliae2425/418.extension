@@ -59,6 +59,14 @@ class TestOptionsPageVM(unittest.TestCase):
         self.assertEqual([g.NumeroGenere for g in vm.PreviewGroups],
                          [u'A101_1', u'A101_2'])
 
+    def test_token_i_suit_le_rang_global_dans_l_apercu(self):
+        vm = OptionsPageVM()
+        vm.NumberSuffix = u'_{n}-{i}'
+        vm.Count = u'2'
+        vm.set_source_items([(u'A101', u'Plan RDC'), (u'A102', u'Plan R+1')])
+        self.assertEqual([g.NumeroGenere for g in vm.PreviewGroups],
+                         [u'A101_1-1', u'A101_2-2', u'A102_1-3', u'A102_2-4'])
+
 
 if __name__ == '__main__':
     unittest.main()

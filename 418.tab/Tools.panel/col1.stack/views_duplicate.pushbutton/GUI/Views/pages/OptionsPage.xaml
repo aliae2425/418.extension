@@ -170,6 +170,7 @@
                         <TextBlock Text="{}{mois}  &#8212;  mois sur 2 chiffres" Margin="0,1"/>
                         <TextBlock Text="{}{jour}  &#8212;  jour sur 2 chiffres" Margin="0,1"/>
                         <TextBlock Text="{}{n}     &#8212;  num&#233;ro de la copie (1, 2, 3&#8230;)" Margin="0,1"/>
+                        <TextBlock Text="{}{i}     &#8212;  rang dans l'ensemble des copies (1, 2, 3&#8230;)" Margin="0,1"/>
                         <TextBlock Text="{}{type}  &#8212;  type de la vue" Margin="0,1"/>
                         <TextBlock Text="Utilisables dans Pr&#233;fixe, Remplacer et Suffixe."
                                    FontStyle="Italic" Margin="0,6,0,0"/>

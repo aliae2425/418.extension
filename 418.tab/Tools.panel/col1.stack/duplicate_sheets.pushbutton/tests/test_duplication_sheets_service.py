@@ -243,7 +243,8 @@ class TestNombreDeCopies(unittest.TestCase):
         svc = DuplicationSheetsService(doc)
         appels = []
         svc._duplicate_one = (
-            lambda sheet, options, index: appels.append((sheet.Id, index)))
+            lambda sheet, options, index, rang=None:
+            appels.append((sheet.Id, index, rang)))
         ancien = _mod.revit_transaction
         _mod.revit_transaction = _null_tx
         try:
@@ -252,7 +253,8 @@ class TestNombreDeCopies(unittest.TestCase):
             _mod.revit_transaction = ancien
         self.assertEqual(cree, 6)
         self.assertEqual(appels,
-                         [(1, 1), (1, 2), (1, 3), (2, 1), (2, 2), (2, 3)])
+                         [(1, 1, 1), (1, 2, 2), (1, 3, 3),
+                          (2, 1, 4), (2, 2, 5), (2, 3, 6)])
 
     def test_token_n_suit_l_index_de_copie(self):
         """Le suffixe '_{n}' vaut '_2' sur la 2e copie."""
@@ -263,6 +265,16 @@ class TestNombreDeCopies(unittest.TestCase):
         svc = DuplicationSheetsService(doc)
         svc.update_sheet_number(source, new_sheet, opts, 2)
         self.assertEqual(new_sheet.SheetNumber, u'A101_2')
+
+    def test_token_i_suit_le_rang_global(self):
+        """'{n}-{i}' vaut '2-5' : 2e copie, 5e de l'ensemble."""
+        doc = FakeDoc()
+        source = FakeSheet(doc, 1, u'Nom source', u'A101')
+        new_sheet = FakeSheet(doc, 2, u'Nouveau', u'ZZZ999')
+        opts = DuplicationOptions(number_suffix=u'_{n}-{i}')
+        svc = DuplicationSheetsService(doc)
+        svc.update_sheet_number(source, new_sheet, opts, 2, 5)
+        self.assertEqual(new_sheet.SheetNumber, u'A101_2-5')
 
 
 if __name__ == '__main__':

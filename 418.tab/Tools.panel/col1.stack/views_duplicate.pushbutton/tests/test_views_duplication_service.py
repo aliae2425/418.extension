@@ -145,6 +145,18 @@ class TestViewsDuplicationServiceRenommage(unittest.TestCase):
             [u'C_Plan1_1', u'C_Plan1_2', u'C_Plan2_1', u'C_Plan2_2'],
         )
 
+    def test_token_i_compte_toutes_vues_confondues(self):
+        doc = FakeDoc()
+        v1 = FakeView(doc, u'Plan1')
+        v2 = FakeView(doc, u'Plan2')
+        opts = ViewsDuplicationOptions(count=2, suffixe=u'_{n}_{i}')
+        new_ids = ViewsDuplicationService(doc).duplicate([v1, v2], opts)
+        noms = [doc.GetElement(i).Name for i in new_ids]
+        self.assertEqual(
+            noms,
+            [u'Plan1_1_1', u'Plan1_2_2', u'Plan2_1_3', u'Plan2_2_4'],
+        )
+
 
 class FakeSchedule(FakeView):
     """Faux ViewSchedule : sous-classe pour permettre isinstance()."""

@@ -178,10 +178,12 @@ class OptionsPageVM(BaseViewModel):
             self.notify_property('HasRegexError')
 
         groups = []
-        for nom, type_label in self._source_items:
+        # {i} : même rang global que ViewsDuplicationService.duplicate()
+        for g, (nom, type_label) in enumerate(self._source_items):
             ctx = {u'type': type_label} if type_label else {}
             copies = [
-                PreviewCopyVM(i + 1, svc.apply(nom, index=i + 1, context=ctx))
+                PreviewCopyVM(i + 1, svc.apply(nom, index=i + 1, context=ctx,
+                                               rang=g * count + i + 1))
                 for i in range(count)
             ]
             groups.append(PreviewGroupVM(nom, copies))
