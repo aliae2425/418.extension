@@ -92,9 +92,9 @@ class ViewsDuplicationService(object):
                 continue
         return view.Name
 
-    def _process_copy(self, view, opt, rename, index, new_view_ids):
+    def _process_copy(self, view, opt, rename, index, new_view_ids, rang=None):
         """Duplique `view` une fois avec `opt`, renomme si nécessaire,
-        capture l'id. `index` alimente le token {n}."""
+        capture l'id. `index` alimente le token {n}, `rang` le token {i}."""
         nom_source = view.Name
         new_id = view.Duplicate(opt)
         new_view_ids.append(new_id)
@@ -102,7 +102,7 @@ class ViewsDuplicationService(object):
         if copie is None or rename is None:
             return
         ctx = {u'type': _type_label(view)}
-        target = rename.apply(nom_source, index=index, context=ctx)
+        target = rename.apply(nom_source, index=index, context=ctx, rang=rang)
         # Renommer uniquement si le nom cible diffère du nom source :
         # évite de renommer quand l'utilisateur n'a rien saisi et reste
         # cohérent avec PreviewGroupVM.IsRenamed.
@@ -125,6 +125,7 @@ class ViewsDuplicationService(object):
         else:
             cm = _null_transaction
 
+        rang = 0  # {i} : rang global, toutes vues confondues
         with cm(self._doc, u'Dupliquer les vues'):
             for view in views:
                 if ViewSchedule is not None and isinstance(view, ViewSchedule):
@@ -134,5 +135,6 @@ class ViewsDuplicationService(object):
                 else:
                     opt = opt_default
                 for i in range(1, options.count + 1):
-                    self._process_copy(view, opt, rename, i, new_view_ids)
+                    rang += 1
+                    self._process_copy(view, opt, rename, i, new_view_ids, rang)
         return new_view_ids

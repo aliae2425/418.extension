@@ -422,11 +422,14 @@ class OptionsPageVM(BaseViewModel):
             count = max(1, int(self._Count))
         except (ValueError, TypeError):
             count = 1
+        # {i} : même rang global que duplicate(), feuille par feuille
         self._PreviewGroups = [
             SheetPreviewGroupVM(num, nom,
-                                svc_n.apply(num, index=i + 1),
-                                svc_nm.apply(nom, index=i + 1))
-            for (num, nom) in self._source_items
+                                svc_n.apply(num, index=i + 1,
+                                            rang=s * count + i + 1),
+                                svc_nm.apply(nom, index=i + 1,
+                                             rang=s * count + i + 1))
+            for s, (num, nom) in enumerate(self._source_items)
             for i in range(count)
         ]
         self.notify_property('PreviewGroups')

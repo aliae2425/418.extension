@@ -21,7 +21,7 @@ class RenameService(object):
     ──────
         Les tokens ({date}, {n}, {type}…) sont résolus dans prefixe,
         remplacer et suffixe via TokenExpander avant chaque apply().
-        Passer ``index`` et ``context`` à apply() pour les valoriser.
+        Passer ``index``, ``rang`` et ``context`` à apply() pour les valoriser.
     """
 
     def __init__(self, prefixe=u'', rechercher=u'', remplacer=u'',
@@ -60,15 +60,17 @@ class RenameService(object):
             return self._pattern is not None
         return True
 
-    def apply(self, name, index=1, context=None):
+    def apply(self, name, index=1, context=None, rang=None):
         """Retourne prefixe + substitution(name) + suffixe, tokens résolus.
 
         Args:
             name    : chaîne source
             index   : numéro de la copie courante — alimente {n}
             context : dict de tokens supplémentaires, ex. {'type': 'FloorPlan'}
+            rang    : rang dans l'ensemble des éléments renommés — alimente {i}
+                      (défaut : ``index``)
         """
-        remplacer = self._expander.expand(self.remplacer, index=index, context=context)
+        remplacer = self._expander.expand(self.remplacer, index=index, context=context, rang=rang)
         result = name
         if self.rechercher:
             if self.use_regex:
@@ -79,6 +81,6 @@ class RenameService(object):
                         pass
             else:
                 result = result.replace(self.rechercher, remplacer)
-        prefixe = self._expander.expand(self.prefixe, index=index, context=context)
-        suffixe = self._expander.expand(self.suffixe, index=index, context=context)
+        prefixe = self._expander.expand(self.prefixe, index=index, context=context, rang=rang)
+        suffixe = self._expander.expand(self.suffixe, index=index, context=context, rang=rang)
         return prefixe + result + suffixe

@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 __title__ = "Dupliquer\nvues"
 __doc__ = "Duplique les vues sélectionnées (nombre de copies + mode de duplication)."
 __author__ = 'Aliae'
-__version__ = '1.6.2'
+__version__ = '1.7.1'
 __min_revit_ver__ = 2026
 
 try:

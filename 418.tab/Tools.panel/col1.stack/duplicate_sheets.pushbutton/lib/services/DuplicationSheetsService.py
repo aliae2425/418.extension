@@ -67,7 +67,7 @@ class DuplicationSheetsService(object):
         return getattr(ViewDuplicateOption, name)
 
     def _resolve_name(self, source, prefixe, rechercher, remplacer, suffixe,
-                      index=1):
+                      index=1, rang=None):
         """Calcule le nom cible à partir de la valeur SOURCE.
 
         Utilise RenameService (regex + tokens, use_regex=True) comme le fait
@@ -78,7 +78,7 @@ class DuplicationSheetsService(object):
             rename = RenameService(prefixe=prefixe, rechercher=rechercher,
                                    remplacer=remplacer, suffixe=suffixe,
                                    use_regex=True)
-            new_name = rename.apply(source, index=index)
+            new_name = rename.apply(source, index=index, rang=rang)
         else:
             new_name = prefixe + source.replace(rechercher, remplacer) + suffixe
         return sanitize_revit_name(new_name)
@@ -114,27 +114,29 @@ class DuplicationSheetsService(object):
         with revit_transaction(self._doc, u'Dupliquer les feuilles'):
             for sheet in sheets:
                 for index in range(1, count + 1):
-                    self._duplicate_one(sheet, options, index)
                     created += 1
+                    # {n} repart à 1 par feuille, {i} = rang global
+                    self._duplicate_one(sheet, options, index, created)
         return created
 
     # ====================================================================
     # MISE A JOUR DU NOMMAGE
     # ====================================================================
 
-    def update_view_name(self, view, new_view, options, index=1):
+    def update_view_name(self, view, new_view, options, index=1, rang=None):
         # type:(ViewSheet, ViewSheet, object, int) -> None
         """
         :param view:       Vue en cours de duplication
         :param new_view:   Nouvelle vue créée.
         :param options:    DuplicationOptions
         :param index:      Numéro de la copie courante (token {n})
+        :param rang:       Rang dans l'ensemble des copies (token {i})
         :return:
         """
         # NOM CIBLE DERIVE DE LA VUE SOURCE (regex + tokens via RenameService)
         new_name = self._resolve_name(view.Name, options.view_prefix,
                                       options.view_find, options.view_replace,
-                                      options.view_suffix, index)
+                                      options.view_suffix, index, rang)
 
         def _get():
             return new_view.Name
@@ -144,19 +146,20 @@ class DuplicationSheetsService(object):
 
         self._apply_unique(_get, _set, new_name)
 
-    def update_sheet_name(self, sheet, new_sheet, options, index=1):
+    def update_sheet_name(self, sheet, new_sheet, options, index=1, rang=None):
         # type:(ViewSheet, ViewSheet, object, int) -> None
         """
         :param sheet:       Feuille en cours de duplication
         :param new_sheet:   Nouvelle feuille créée.
         :param options:     DuplicationOptions
         :param index:       Numéro de la copie courante (token {n})
+        :param rang:        Rang dans l'ensemble des copies (token {i})
         :return:
         """
         # NOM CIBLE DERIVE DU NOM DE FEUILLE SOURCE (regex + tokens)
         new_name = self._resolve_name(sheet.Name, options.name_prefix,
                                       options.name_find, options.name_replace,
-                                      options.name_suffix, index)
+                                      options.name_suffix, index, rang)
 
         def _get():
             return new_sheet.Name
@@ -166,19 +169,20 @@ class DuplicationSheetsService(object):
 
         self._apply_unique(_get, _set, new_name)
 
-    def update_sheet_number(self, sheet, new_sheet, options, index=1):
+    def update_sheet_number(self, sheet, new_sheet, options, index=1, rang=None):
         # type:(ViewSheet, ViewSheet, object, int) -> None
         """
         :param sheet:       Feuille en cours de duplication
         :param new_sheet:   Nouvelle feuille créée.
         :param options:     DuplicationOptions
         :param index:       Numéro de la copie courante (token {n})
+        :param rang:        Rang dans l'ensemble des copies (token {i})
         :return:
         """
         # NUMERO CIBLE DERIVE DU NUMERO DE FEUILLE SOURCE (regex + tokens)
         new_name = self._resolve_name(sheet.SheetNumber, options.number_prefix,
                                       options.number_find, options.number_replace,
-                                      options.number_suffix, index)
+                                      options.number_suffix, index, rang)
 
         def _get():
             return new_sheet.SheetNumber
@@ -253,7 +257,7 @@ class DuplicationSheetsService(object):
                     if viewport_type_id != new_viewport_type_id:
                         new_viewport.ChangeTypeId(viewport_type_id)
 
-    def duplicate_views(self, sheet, new_sheet, options, index=1):
+    def duplicate_views(self, sheet, new_sheet, options, index=1, rang=None):
         # type:(ViewSheet, ViewSheet, object, int) -> None
         """Duplique les <Vues (ViewPlan, ViewSection, View3D...)> de la feuille d'origine vers la nouvelle."""
         viewports_ids = sheet.GetAllViewports()
@@ -281,7 +285,7 @@ class DuplicationSheetsService(object):
 
             if new_view:
                 # RENAME
-                self.update_view_name(view, new_view, options, index)
+                self.update_view_name(view, new_view, options, index, rang)
                 try:
                     # PLACE NEW VIEWS ON A NEW SHEET
                     new_viewport = Viewport.Create(self._doc, new_sheet.Id, new_view.Id, viewport_origin)
@@ -360,10 +364,11 @@ class DuplicationSheetsService(object):
         dwgs = FilteredElementCollector(self._doc, sheet.Id).OfClass(ImportInstance).ToElementIds()
         self.duplicate_elements(sheet, dwgs, new_sheet)
 
-    def _duplicate_one(self, sheet, options, index=1):
+    def _duplicate_one(self, sheet, options, index=1, rang=None):
         """Corps par feuille de l'ancienne `duplicate_selected_sheets` (sans
         transaction, gérée par `duplicate()`). `index` est le numéro de la
-        copie courante, il alimente le token {n} du nommage."""
+        copie courante, il alimente le token {n} du nommage ; `rang` est
+        son rang dans l'ensemble des copies, il alimente {i}."""
 
         # TITLE BLOCK
         title_block = self.get_sheet_title_block(sheet)
@@ -376,14 +381,14 @@ class DuplicationSheetsService(object):
             new_sheet = ViewSheet.Create(self._doc, ElementId.InvalidElementId)
 
         # SHEET NUMBER
-        self.update_sheet_number(sheet, new_sheet, options, index)
+        self.update_sheet_number(sheet, new_sheet, options, index, rang)
 
         # SHEET NAME
-        self.update_sheet_name(sheet, new_sheet, options, index)
+        self.update_sheet_name(sheet, new_sheet, options, index, rang)
 
         # DUPLICATE VIEWPORTS  [Legends / ViewPlan,ViewSection,View3D]
         if options.include_views:
-            self.duplicate_views(sheet, new_sheet, options, index)
+            self.duplicate_views(sheet, new_sheet, options, index, rang)
 
         # DUPLICATE LEGENDS
         if options.include_legends:
