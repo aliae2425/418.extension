@@ -1160,6 +1160,86 @@ class TestMainViewModelSetupsPdfDwg(unittest.TestCase):
         self.assertEqual(vm.SetupDwg, u'')
 
 
+class TestMainViewModelReglagesExport(unittest.TestCase):
+    """Carte « Paramètres d'export » : une surcharge par ligne, '' par
+    défaut (« Selon le setup »), persistée aussitôt dans la config."""
+
+    def _vm(self, cfg):
+        return MainViewModel(doc=None, sheet_service=FakeSheetService(),
+                             naming_service=FakeNamingService(), config=cfg)
+
+    def _reglage(self, vm, cle):
+        for r in vm.ReglagesPdf + vm.ReglagesDwg:
+            if r.cle == cle:
+                return r
+        self.fail(cle)
+
+    def test_cles_du_contrat(self):
+        vm = self._vm(FakeConfig())
+        self.assertEqual([r.cle for r in vm.ReglagesPdf],
+                         [u'pdf_couleur', u'pdf_qualite', u'pdf_raster',
+                          u'pdf_masquer_cadrage', u'pdf_masquer_zones',
+                          u'pdf_masquer_plans_ref', u'pdf_masquer_etiquettes',
+                          u'pdf_liens_bleu'])
+        self.assertEqual([r.cle for r in vm.ReglagesDwg],
+                         [u'dwg_version', u'dwg_coords_partagees'])
+
+    def test_defaut_selon_le_setup(self):
+        vm = self._vm(FakeConfig())
+        for r in vm.ReglagesPdf + vm.ReglagesDwg:
+            self.assertEqual(r.Valeur, u'')
+            self.assertEqual(r.Index, 0)
+            self.assertEqual(r.Choix[0], u'Selon le setup')
+
+    def test_choisir_persiste(self):
+        cfg = FakeConfig()
+        vm = self._vm(cfg)
+        r = self._reglage(vm, u'pdf_couleur')
+        r.Index = r.Choix.index(u'Niveaux de gris')
+        self.assertEqual(cfg._store[u'pdf_couleur'], u'GrayScale')
+        self.assertEqual(r.Valeur, u'GrayScale')
+        r.Index = 0
+        self.assertEqual(cfg._store[u'pdf_couleur'], u'')
+
+    def test_setter_idempotent_et_borne(self):
+        cfg = FakeConfig()
+        vm = self._vm(cfg)
+        r = self._reglage(vm, u'dwg_version')
+        r.Valeur = u'R2013'
+        ecrits = []
+        cfg.set = lambda cle, valeur: ecrits.append((cle, valeur))
+        r.Valeur = u'R2013'     # même valeur : aucune écriture
+        r.Index = -1            # désélection WPF : ignorée
+        r.Valeur = u'R1999'     # hors choix : ignorée
+        self.assertEqual(ecrits, [])
+        self.assertEqual(r.Valeur, u'R2013')
+
+    def test_valeur_relue_au_rechargement(self):
+        cfg = FakeConfig()
+        self._reglage(self._vm(cfg), u'pdf_masquer_cadrage').Valeur = u'1'
+        r = self._reglage(self._vm(cfg), u'pdf_masquer_cadrage')
+        self.assertEqual(r.Valeur, u'1')
+        self.assertEqual(r.Choix[r.Index], u'Oui')
+
+    def test_valeur_inconnue_vaut_selon_le_setup(self):
+        cfg = FakeConfig()
+        cfg.set(u'pdf_qualite', u'Ultra')
+        r = self._reglage(self._vm(cfg), u'pdf_qualite')
+        self.assertEqual(r.Valeur, u'')
+        self.assertEqual(r.Index, 0)
+
+    def test_profil_applique_renotifie_les_reglages(self):
+        cfg = FakeConfig()
+        vm = self._vm(cfg)
+        r = self._reglage(vm, u'pdf_raster')
+        notifs = []
+        r.notify_property = lambda nom: notifs.append(nom)
+        cfg.set(u'pdf_raster', u'1')   # ce qu'écrit un profil appliqué
+        vm._notifier_reglages()
+        self.assertIn(u'Index', notifs)
+        self.assertEqual(r.Choix[r.Index], u'Raster')
+
+
 class TestMainViewModelServicesPdfDwgParDefaut(unittest.TestCase):
     """Construction sans aucun service PDF/DWG injecté : le VM doit pouvoir
     instancier les vrais services hors Revit sans jamais lever."""

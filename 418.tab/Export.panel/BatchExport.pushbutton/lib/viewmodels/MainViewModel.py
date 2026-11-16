@@ -117,10 +117,12 @@ except Exception:
 # ce module : les tests les importent depuis MainViewModel de longue date.
 try:
     from viewmodels.items import (SheetItemVM, CollectionItemVM,
-                                  ManualSheetVM, FiltreItemVM)
+                                  ManualSheetVM, FiltreItemVM,
+                                  ReglageExportVM)
 except Exception:
     from lib.viewmodels.items import (SheetItemVM, CollectionItemVM,
-                                      ManualSheetVM, FiltreItemVM)
+                                      ManualSheetVM, FiltreItemVM,
+                                      ReglageExportVM)
 
 
 _MODES = (u'auto', u'manual', u'settings')
@@ -153,6 +155,35 @@ _CFG_KEY_ORDRE_MANUEL = 'manuel_ordre'
 # ExportOrchestrator.run_manual() par lancer_export_manuel().
 _CFG_KEY_COMBINE_PDF = 'manual_combine_pdf'
 _CFG_KEY_PDF_COMBINE_TITLE = 'manual_pdf_combine_title'
+
+# Carte « Paramètres d'export » : surcharges appliquées par-dessus le setup
+# Revit choisi. `(clé, libellé, choix)` ; chaque liste de choix commence par
+# '' = « Selon le setup » (aucune surcharge). Les valeurs stockées sont le
+# contrat lu à l'export par les services : ne pas les renommer.
+_SELON_SETUP = (u'', u'Selon le setup')
+_OUI_NON = (_SELON_SETUP, (u'1', u'Oui'), (u'0', u'Non'))
+_REGLAGES_PDF = (
+    (u'pdf_couleur', u'Couleur',
+     (_SELON_SETUP, (u'Color', u'Couleur'), (u'GrayScale', u'Niveaux de gris'),
+      (u'BlackLine', u'Noir et blanc'))),
+    (u'pdf_qualite', u'Qualité raster',
+     (_SELON_SETUP, (u'Low', u'Basse'), (u'Medium', u'Moyenne'),
+      (u'High', u'Haute'), (u'Presentation', u'Présentation'))),
+    (u'pdf_raster', u'Mode de rendu',
+     (_SELON_SETUP, (u'0', u'Vectoriel'), (u'1', u'Raster'))),
+    (u'pdf_masquer_cadrage', u'Masquer les cadrages', _OUI_NON),
+    (u'pdf_masquer_zones', u'Masquer les zones de définition', _OUI_NON),
+    (u'pdf_masquer_plans_ref', u'Masquer les plans de référence', _OUI_NON),
+    (u'pdf_masquer_etiquettes',
+     u'Masquer les étiquettes de vues non référencées', _OUI_NON),
+    (u'pdf_liens_bleu', u'Liens de vues en bleu', _OUI_NON),
+)
+_REGLAGES_DWG = (
+    (u'dwg_version', u'Version DWG',
+     (_SELON_SETUP, (u'R2018', u'AutoCAD 2018'), (u'R2013', u'AutoCAD 2013'),
+      (u'R2010', u'AutoCAD 2010'), (u'R2007', u'AutoCAD 2007'))),
+    (u'dwg_coords_partagees', u'Coordonnées partagées', _OUI_NON),
+)
 
 
 def _champ(source, cle, defaut=None):
@@ -195,6 +226,13 @@ class MainViewModel(BaseViewModel):
                 self._cfg = UserConfig('batch_export') if UserConfig is not None else None
             except Exception:
                 self._cfg = None
+
+        # Carte « Paramètres d'export » : une ligne par surcharge, lue et
+        # écrite directement dans `self._cfg` (aucun état en double).
+        self._reglages_pdf = [ReglageExportVM(c, l, ch, self._cfg_get, self._cfg_set)
+                              for c, l, ch in _REGLAGES_PDF]
+        self._reglages_dwg = [ReglageExportVM(c, l, ch, self._cfg_get, self._cfg_set)
+                              for c, l, ch in _REGLAGES_DWG]
 
         # Services injectables : si absents, instancier les vrais sous
         # try/except -> None (permet l'usage hors Revit / dans les tests).
@@ -1401,6 +1439,14 @@ class MainViewModel(BaseViewModel):
             pass
         self.notify_property(u'SetupDwg')
 
+    @property
+    def ReglagesPdf(self):
+        return self._reglages_pdf
+
+    @property
+    def ReglagesDwg(self):
+        return self._reglages_dwg
+
     # ------------------------------------------------------------------
     # Page Paramètres : profils d'export (nommage + setups + organisation)
     # ------------------------------------------------------------------
@@ -1441,6 +1487,9 @@ class MainViewModel(BaseViewModel):
         for name in (u'SetupPdf', u'SetupDwg', u'CreerSousDossiers',
                      u'SeparerFormats', u'CombinerPdf', u'TitrePdfCombine'):
             self.notify_property(name)
+        for reglage in self._reglages_pdf + self._reglages_dwg:
+            reglage.notify_property(u'Valeur')
+            reglage.notify_property(u'Index')
         for refresh in (u'refresh_par_jeu', u'refresh_manuel'):
             try:
                 getattr(self, refresh)()

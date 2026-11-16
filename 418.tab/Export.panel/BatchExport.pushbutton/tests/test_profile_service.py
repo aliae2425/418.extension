@@ -63,6 +63,16 @@ class TestProfileService(unittest.TestCase):
         self.assertEqual(u'{numero}-{nom}', self.cfg.get('pattern_sheet'))
         self.assertEqual(u'PDA_Export', self.cfg.get('pdf_setup_name'))
 
+    def test_surcharges_aller_retour(self):
+        self.cfg.set('pdf_couleur', u'BlackLine')
+        self.cfg.set('dwg_coords_partagees', u'1')
+        self.svc.save(u'Agence')
+        self.cfg.set('pdf_couleur', u'')
+        self.cfg.set('dwg_coords_partagees', u'0')
+        self.svc.apply(u'Agence')
+        self.assertEqual(u'BlackLine', self.cfg.get('pdf_couleur'))
+        self.assertEqual(u'1', self.cfg.get('dwg_coords_partagees'))
+
     def test_cles_hors_profil_exclues(self):
         snap = self.svc.snapshot()
         for cle in ('pathdossier', 'jeux_badges', 'manual_pdf_combine_title'):
@@ -133,6 +143,12 @@ class TestProfilDefaut(unittest.TestCase):
         # Setups vides -> Revit utilise ses réglages par défaut.
         self.assertEqual(u'', self.cfg.get('pdf_setup_name'))
         self.assertEqual(u'', self.cfg.get('dwg_setup_name'))
+
+    def test_surcharges_vides_par_defaut(self):
+        self.cfg.set('pdf_couleur', u'GrayScale')
+        self.svc.apply(NOM_DEFAUT)
+        self.assertEqual(u'', self.cfg.get('pdf_couleur'))
+        self.assertEqual(u'', self.cfg.get('dwg_version'))
 
     def test_indelebile_et_nom_reserve(self):
         self.assertRaises(ValueError, self.svc.delete, NOM_DEFAUT)

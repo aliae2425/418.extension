@@ -9,9 +9,11 @@ except Exception:
     DB = None  # type: ignore
 
 try:
-    from services.formats.base import FormatExporterService
+    from services.formats.base import (
+        FormatExporterService, SURCHARGES_PDF, appliquer_surcharges)
 except Exception:
-    from lib.services.formats.base import FormatExporterService
+    from lib.services.formats.base import (
+        FormatExporterService, SURCHARGES_PDF, appliquer_surcharges)
 
 
 class PdfExporterService(FormatExporterService):
@@ -85,6 +87,11 @@ class PdfExporterService(FormatExporterService):
 
     # Options API PDF
     def build_options(self, doc, setup_name=None):
+        # Surcharges utilisateur posées sur ce que rend le setup.
+        return appliquer_surcharges(
+            self._options_setup(doc, setup_name), self._cfg, SURCHARGES_PDF)
+
+    def _options_setup(self, doc, setup_name=None):
         if DB is None or doc is None:
             return None
 

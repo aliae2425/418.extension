@@ -53,6 +53,17 @@ DEFAUT = {
     'create_subfolders': u'0',
     'separate_format_folders': u'0',
     'manual_combine_pdf': u'0',
+    # Surcharges d'export : vide = « selon le setup ».
+    'pdf_couleur': u'',
+    'pdf_qualite': u'',
+    'pdf_raster': u'',
+    'pdf_masquer_cadrage': u'',
+    'pdf_masquer_zones': u'',
+    'pdf_masquer_plans_ref': u'',
+    'pdf_masquer_etiquettes': u'',
+    'pdf_liens_bleu': u'',
+    'dwg_version': u'',
+    'dwg_coords_partagees': u'',
 }
 
 
@@ -81,6 +92,10 @@ class ProfileService(object):
         'pdf_setup_name', 'dwg_setup_name',
         'create_subfolders', 'separate_format_folders',
         'manual_combine_pdf',
+        'pdf_couleur', 'pdf_qualite', 'pdf_raster',
+        'pdf_masquer_cadrage', 'pdf_masquer_zones', 'pdf_masquer_plans_ref',
+        'pdf_masquer_etiquettes', 'pdf_liens_bleu',
+        'dwg_version', 'dwg_coords_partagees',
     )
 
     def __init__(self, config=None, dossier=None):

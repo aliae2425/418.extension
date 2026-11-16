@@ -312,3 +312,66 @@ class FiltreItemVM(BaseViewModel):
         self.notify_property(u'IsActif')
         if callable(self._on_change):
             self._on_change()
+
+
+class ReglageExportVM(BaseViewModel):
+    """Une ligne de la carte « Paramètres d'export » : une surcharge
+    appliquée par-dessus le setup Revit choisi.
+
+    `choix` = couples `(valeur stockée, libellé)`, le premier étant toujours
+    `('', 'Selon le setup')`. La ComboBox bind `Choix` (libellés seuls) et
+    `Index` (TwoWay) : un index entier évite d'exposer des objets option
+    porteurs de propriétés CLR. La valeur n'est PAS gardée en mémoire : elle
+    est relue dans la config à chaque lecture, si bien qu'un profil appliqué
+    se voit après un simple `notify_property('Index')` (cf.
+    `MainViewModel._notifier_reglages`). `lire(cle)` / `ecrire(cle, valeur)`
+    sont les `_cfg_get` / `_cfg_set` du VM parent.
+    """
+
+    def __init__(self, cle, libelle, choix, lire, ecrire):
+        super(ReglageExportVM, self).__init__()
+        self.cle = cle
+        self._libelle = libelle
+        self._valeurs = [v for v, _ in choix]
+        self._libelles = [l for _, l in choix]
+        self._lire = lire
+        self._ecrire = ecrire
+
+    @property
+    def Libelle(self):
+        return self._libelle
+
+    @property
+    def Choix(self):
+        return self._libelles
+
+    @property
+    def Valeur(self):
+        """Valeur stockée ; '' (« Selon le setup ») si absente ou inconnue
+        -- une valeur éditée à la main dans le JSON ne doit pas laisser la
+        ComboBox sans sélection."""
+        valeur = self._lire(self.cle, u'') or u''
+        return valeur if valeur in self._valeurs else u''
+
+    @Valeur.setter
+    def Valeur(self, value):
+        value = value or u''
+        if value not in self._valeurs or value == self.Valeur:
+            return
+        self._ecrire(self.cle, value)
+        self.notify_property(u'Valeur')
+        self.notify_property(u'Index')
+
+    @property
+    def Index(self):
+        return self._valeurs.index(self.Valeur)
+
+    @Index.setter
+    def Index(self, value):
+        # -1 = désélection transitoire de WPF (ItemsSource rebindé) : ignorée.
+        try:
+            value = int(value)
+        except Exception:
+            return
+        if 0 <= value < len(self._valeurs):
+            self.Valeur = self._valeurs[value]

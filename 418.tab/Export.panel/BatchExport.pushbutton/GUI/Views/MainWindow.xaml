@@ -598,7 +598,7 @@
               - « Profils » : placeholder, pas encore de VM dédié.
             -->
             <!--
-              Les 3 cartes de réglages peuvent, une fois plusieurs Expanders
+              Les 4 cartes de réglages peuvent, une fois plusieurs Expanders
               dépliés, dépasser la hauteur de la surface : on les loge dans un
               ScrollViewer (barre au ras du bord de la surface, marge conservée
               sur le StackPanel interne) — même patron que JeuxPage / liste
@@ -679,6 +679,68 @@
                       </Grid>
 
                     </StackPanel>
+                  </StackPanel>
+                </Expander>
+              </Border>
+
+              <!--
+                Groupe 1 bis : Paramètres d'export. Surcharges appliquées
+                par-dessus le setup Revit choisi au-dessus ; « Selon le setup »
+                (valeur '') n'en applique aucune. Une ligne par
+                ReglageExportVM (MainViewModel.ReglagesPdf / ReglagesDwg) :
+                la ComboBox bind l'index du choix, la persistance est faite
+                par l'item lui-même. Même structure de carte que le Groupe 1.
+              -->
+              <Border Style="{DynamicResource CardStyle}">
+                <Expander Style="{DynamicResource CollectionExpanderStyle}"
+                          IsExpanded="False">
+                  <Expander.Header>
+                    <TextBlock Text="Paramètres d'export"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               FontWeight="SemiBold"
+                               FontSize="14"/>
+                  </Expander.Header>
+
+                  <StackPanel Orientation="Vertical" Margin="0,10,0,0">
+                    <StackPanel.Resources>
+                      <DataTemplate x:Key="LigneReglageTemplate">
+                        <Grid Margin="0,0,0,8">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="200"/>
+                            <ColumnDefinition Width="*"/>
+                          </Grid.ColumnDefinitions>
+                          <TextBlock Grid.Column="0"
+                                     Text="{Binding Libelle}"
+                                     TextWrapping="Wrap"
+                                     Margin="0,0,12,0"
+                                     VerticalAlignment="Center"
+                                     Foreground="{DynamicResource TextPrimaryBrush}"/>
+                          <ComboBox Grid.Column="1"
+                                    ItemsSource="{Binding Choix}"
+                                    SelectedIndex="{Binding Index, Mode=TwoWay}"/>
+                        </Grid>
+                      </DataTemplate>
+                    </StackPanel.Resources>
+
+                    <TextBlock Text="Remplacez une option du setup d'impression sans le modifier dans Revit. « Selon le setup » garde la valeur du setup."
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="12.5"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,12"/>
+
+                    <TextBlock Text="PDF"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,8"/>
+                    <ItemsControl ItemsSource="{Binding ReglagesPdf}"
+                                  ItemTemplate="{StaticResource LigneReglageTemplate}"/>
+
+                    <TextBlock Text="DWG"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               FontWeight="SemiBold"
+                               Margin="0,8,0,8"/>
+                    <ItemsControl ItemsSource="{Binding ReglagesDwg}"
+                                  ItemTemplate="{StaticResource LigneReglageTemplate}"/>
                   </StackPanel>
                 </Expander>
               </Border>
