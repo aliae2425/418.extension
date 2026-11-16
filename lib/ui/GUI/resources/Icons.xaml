@@ -15,7 +15,7 @@
       dessin dans BatchExport, Matériaux et les 4 outils à rail parce qu'ils
       demandent tous IconSelection.
 
-      Les 22 icon.png du ruban sortent toutes de ce fichier, à une exception
+      Les 25 icon.png du ruban sortent toutes de ce fichier, à une exception
       près : la théière d'Infos est le logo du dépôt (HTTP 418, « I'm a
       teapot ») et n'existe pas chez Lucide. Elle est déclarée comme telle
       dans tools/icones.ps1 et ne se régénère pas.
@@ -188,6 +188,20 @@
                            M7 21 H5 a2 2 0 0 1 -2 -2 V17
                            M11 12 A1 1 0 1 1 13 12 A1 1 0 1 1 11 12 Z
                            M18.944 12.33 a1 1 0 0 0 0 -0.66 a7.5 7.5 0 0 0 -13.888 0 a1 1 0 0 0 0 0.66 a7.5 7.5 0 0 0 13.888 0"/>
+
+    <!-- lucide: clipboard-list — ruban Presse-papiers (la liste façon Win+V) -->
+    <PathGeometry x:Key="IconPressePapiers"
+                  Figures="M9 2 H15 A1 1 0 0 1 16 3 V5 A1 1 0 0 1 15 6 H9 A1 1 0 0 1 8 5 V3 A1 1 0 0 1 9 2 Z
+                           M16 4 h2 a2 2 0 0 1 2 2 v14 a2 2 0 0 1 -2 2 H6 a2 2 0 0 1 -2 -2 V6 a2 2 0 0 1 2 -2 h2
+                           M12 11 h4
+                           M12 16 h4
+                           M8 11 h0.01
+                           M8 16 h0.01"/>
+
+    <!-- lucide: clipboard — ruban Presse-papiers, panneau ancrable -->
+    <PathGeometry x:Key="IconPressePapiersPanneau"
+                  Figures="M9 2 H15 A1 1 0 0 1 16 3 V5 A1 1 0 0 1 15 6 H9 A1 1 0 0 1 8 5 V3 A1 1 0 0 1 9 2 Z
+                           M16 4 h2 a2 2 0 0 1 2 2 v14 a2 2 0 0 1 -2 2 H6 a2 2 0 0 1 -2 -2 V6 a2 2 0 0 1 2 -2 h2"/>
 
     <!-- ========== Align : le nom dit le geste, pas l'axe du guide Lucide ========== -->
 

@@ -40,6 +40,31 @@ if user_config.core.load_beta:
             print('OpenArchi: enregistrement du panneau impossible '
                   '(redémarrez Revit): {}'.format(e))
 
+    # --- Presse-papiers : panneau flottant + suivi de Ctrl+C ----------------
+    # Tout passe par le journal : un print au démarrage ne se relit pas.
+    from core.journal import journal as _journal
+    _log_pp = _journal('presse_papiers')
+
+    # Ctrl+C d'abord : un panneau qui ne se construit pas ne doit pas
+    # empêcher l'historique de se remplir. Sans installer, demander() met en
+    # file sans jamais lever l'ExternalEvent.
+    try:
+        from core.presse_papiers import installer as _installer_pp
+        _log_pp.info('démarrage : Ctrl+C suivi = %s', _installer_pp(__revit__))
+    except Exception:
+        _log_pp.exception('démarrage : Ctrl+C non suivi')
+
+    try:
+        from ui.PressePapiersPanel import PressePapiersPanel
+        if not forms.is_registered_dockable_panel(PressePapiersPanel):
+            forms.register_dockable_panel(PressePapiersPanel,
+                                          default_visible=False)
+        _log_pp.info('démarrage : panneau enregistré')
+    except Exception:
+        # Un « Reload » pyRevit rejoue ce script hors OnStartup : Revit
+        # refuse alors l'enregistrement. Un redémarrage de Revit suffit.
+        _log_pp.exception('démarrage : panneau non enregistré')
+
     # --- Serveur MCP (upstream vendorisé, NE JAMAIS éditer vendor/) ---------
     # Le dossier porte un tiret : non importable en package, d'où le sys.path.
     # On exécute leur startup.py tel quel plutôt que de recopier leur liste de
