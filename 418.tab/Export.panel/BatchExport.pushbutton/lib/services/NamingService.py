@@ -33,8 +33,47 @@ except Exception:
     except Exception:
         UserConfig = None  # type: ignore
 
+try:
+    from core.journal import journal  # type: ignore
+except Exception:
+    try:
+        from lib.core.journal import journal  # type: ignore
+    except Exception:
+        journal = None  # type: ignore
 
-_TOKEN_RE = re.compile(r'\{([^{}]*)\}')
+
+# Corps d'un jeton : tout sauf accolades, puis -- seulement après un `|` --
+# un niveau d'accolades imbriquées, pour les quantificateurs du filtre
+# (`{numero|\d{3}}`). Sans `|`, identique à l'ancien `\{([^{}]*)\}` :
+# `{{numero}}` garde ses accolades extérieures littérales.
+_TOKEN_RE = re.compile(r'\{([^{}|]*(?:\|(?:[^{}]|\{[^{}]*\})*)?)\}')
+
+
+def _signaler(motif, erreur):
+    """Trace une regex invalide dans `data/418.log` ; muet si le journal
+    est injoignable."""
+    try:
+        if journal is not None:
+            journal('nommage').warning(
+                'regex de nommage invalide {0!r} : {1}'.format(motif, erreur))
+    except Exception:
+        pass
+
+
+def _extraire(valeur, motif):
+    """Filtre `{jeton|regex}` : 1er groupe s'il y en a un, sinon la
+    correspondance entière ; '' si rien ne correspond ou si la regex est
+    invalide (signalée au journal). Ne lève jamais."""
+    try:
+        m = re.search(motif, valeur or '', re.UNICODE)
+    except Exception as e:
+        _signaler(motif, e)
+        return ''
+    if m is None:
+        return ''
+    if m.re.groups:
+        return m.group(1) or ''
+    return m.group(0)
 
 # Jetons spéciaux simples (sans argument), résolus avant le fallback
 # paramètre. Clés en minuscules (comparaison insensible à la casse).
@@ -70,6 +109,12 @@ class NamingService(object):
            {projet_statut}     ProjectInformation.Status
            {param:NOM}         paramètre NOM sur `elem`
            {param_projet:NOM}  paramètre NOM sur ProjectInformation
+
+       Tout jeton accepte un filtre d'extraction après son PREMIER `|` :
+       `{numero|\\d+}`, `{param:Phase|^\\w+}`. Le reste du corps est la regex
+       (elle peut contenir `|`, `:` et un niveau d'accolades). Résultat : 1er
+       groupe capturant s'il y en a un, sinon la correspondance ; '' si rien
+       ne correspond ou si la regex est invalide.
 
        Un jeton `{X}` non reconnu comme spécial est traité comme un NOM DE
        PARAMÈTRE (compat avec les anciens motifs, ex. `{Numéro de projet}`) :
@@ -133,6 +178,12 @@ class NamingService(object):
 
     def _resolve_token(self, elem, token_body):
         """Résout le contenu d'un `{...}` (sans les accolades) en chaîne."""
+        # Filtre d'abord : la regex peut contenir ':' et ne doit pas être
+        # prise pour un `{param:...}`. Filtre vide = pas de filtre.
+        base, sep, motif = (token_body or '').partition('|')
+        if sep and motif:
+            return _extraire(self._resolve_token(elem, base), motif)
+        token_body = base
         try:
             raw = token_body if token_body is not None else ''
             stripped = raw.strip()
@@ -402,6 +453,9 @@ class NamingService(object):
             {'token': '{nom_tiret}', 'desc': 'Nom avec espaces remplacés par -', 'source': 'feuille', 'label': 'nom (tirets)'},
             {'token': '{nom_underscore}', 'desc': 'Nom avec espaces remplacés par _', 'source': 'feuille', 'label': 'nom (underscores)'},
             {'token': '{param:NOM}', 'desc': "Paramètre NOM sur la feuille", 'source': 'feuille', 'label': 'paramètre…'},
+            # Gabarit à compléter, comme {param:NOM} : inséré tel quel, il
+            # résout en vide tant que `jeton` et `regex` ne sont pas remplacés.
+            {'token': '{jeton|regex}', 'desc': 'Extrait une partie de la valeur (1er groupe ou correspondance)', 'source': 'systeme', 'label': 'extrait (regex)'},
             # Jeu (carnet) : titre de la collection.
             {'token': '{titre}', 'desc': 'Titre du carnet (jeu)', 'source': 'jeu', 'label': 'titre'},
             # NB : la catégorie « Projet » n'est plus statique -- les
@@ -490,17 +544,21 @@ class NamingService(object):
 
         def _repl(m):
             body = m.group(1)
-            stripped = (body or '').strip()
+            base, sep, motif = (body or '').partition('|')
+            stripped = base.strip()
             if ':' in stripped:
                 keyword, _, arg = stripped.partition(':')
                 if keyword.strip().lower() == 'param_projet':
                     arg = arg.strip()
                     if arg in values:
-                        return values[arg]
-                    return self._sanitize_resolved_value(self._get_project_param_value(arg))
+                        val = values[arg]
+                    else:
+                        val = self._sanitize_resolved_value(self._get_project_param_value(arg))
+                    return _extraire(val, motif) if motif else val
                 return '{' + body + '}'  # autre jeton paramétré : littéral
             if stripped.lower() in ('projet_nom', 'projet_numero', 'projet_client', 'projet_statut'):
-                return self._resolve_simple_token(None, stripped.lower())
+                val = self._resolve_simple_token(None, stripped.lower())
+                return _extraire(val, motif) if motif else val
             return '{' + body + '}'  # tout autre jeton : littéral
 
         try:

@@ -224,6 +224,78 @@ class TestNamingServiceJetons(unittest.TestCase):
         self.assertEqual(par_token['{date_annee}'], 'année')
 
 
+class TestNamingServiceFiltreRegex(unittest.TestCase):
+    """`{jeton|regex}` : extraction d'une partie de la valeur résolue."""
+
+    def setUp(self):
+        self.service = NamingService(doc=None, config=FakeConfig())
+        self.elem = FakeElement(
+            {'Phase': 'APD indice B', 'Ref': 'a:12'},
+            sheet_number='A-012', name='Plan RDC haut')
+
+    def r(self, motif):
+        return self.service.resolve_for_element(self.elem, motif)
+
+    def test_sans_groupe_garde_la_correspondance(self):
+        self.assertEqual(self.r(r'{numero|\d+}'), '012')
+
+    def test_groupe_garde_le_premier(self):
+        self.assertEqual(self.r(r'{nom|(\w+)$}'), 'haut')
+        self.assertEqual(self.r(r'{numero|(\w)-(\d+)}'), 'A')
+
+    def test_groupe_optionnel_non_capture_donne_vide(self):
+        self.assertEqual(self.r(r'{numero|(Z)?A}'), '')
+
+    def test_sans_correspondance_donne_vide(self):
+        self.assertEqual(self.r(r'x{numero|Z+}y'), 'xy')
+
+    def test_regex_invalide_vide_et_journalisee(self):
+        import lib.services.NamingService as module
+        traces = []
+        origine = module._signaler
+        module._signaler = lambda motif, erreur: traces.append(motif)
+        try:
+            self.assertEqual(self.r(r'x{numero|(}y'), 'xy')
+        finally:
+            module._signaler = origine
+        self.assertEqual(traces, ['('])
+
+    def test_quantificateur_entre_accolades(self):
+        self.assertEqual(self.r(r'{numero|\d{3}}'), '012')
+        self.assertEqual(self.r(r'{nom|\w{2,4}}'), 'Plan')
+        self.assertEqual(self.r(r'{numero|\d{2}}_{nom|\w{3}$}'), '01_aut')
+
+    def test_alternance_apres_le_premier_pipe(self):
+        self.assertEqual(self.r(r'{nom|RDC|R\+1}'), 'RDC')
+
+    def test_regex_contenant_deux_points(self):
+        self.assertEqual(self.r(r'{param:Ref|:(\d+)}'), '12')
+        self.assertEqual(self.r(r'{numero|(?:A)-(\d+)}'), '012')
+
+    def test_filtre_sur_param(self):
+        self.assertEqual(self.r(r'{param:Phase|^\w+}'), 'APD')
+
+    def test_filtre_vide_equivaut_au_jeton_nu(self):
+        self.assertEqual(self.r('{numero|}'), 'A-012')
+
+    def test_non_regression_jetons_nus(self):
+        self.assertEqual(self.r('{numero}_{nom}'), 'A-012_Plan RDC haut')
+        self.assertEqual(self.r('{param:Phase}'), 'APD indice B')
+        self.assertEqual(self.r('{numero'), '{numero')
+        # Accolades doublées : l'extérieure reste littérale, comme avant.
+        self.assertEqual(self.r('{{numero}}'), '{A-012}')
+
+    def test_aide_porte_le_gabarit_regex(self):
+        par_token = dict((e['token'], e) for e in self.service.available_tokens())
+        self.assertEqual(par_token['{jeton|regex}']['label'], 'extrait (regex)')
+
+    def test_apercu_projet_applique_le_filtre(self):
+        self.service._project_info_elem_cache = FakeElement({'Client': 'ACME 2026'})
+        self.assertEqual(
+            self.service.resolve_project_values(r'{param_projet:Client|\d+}_{numero|\d+}'),
+            r'2026_{numero|\d+}')
+
+
 class TestNamingServiceProjectParams(unittest.TestCase):
     """Énumération des paramètres projet (ProjectInformation) + aperçu
     'projet seulement'. Le cache ProjectInfo est pré-alimenté pour contourner
